@@ -717,8 +717,18 @@ const mergeCompressedPhotos = (currentItems, compressedPhotos) => {
   return { committed, items, skipped };
 };
 
+const getAvailablePhotoCapacity = () => {
+  const items = getItemsData();
+  const photoCount = items.filter((item) => item.type === "photo").length;
+  return Math.max(0, Math.min(
+    InvitationCore.MAX_ITEMS - items.length,
+    InvitationCore.MAX_PHOTOS - photoCount
+  ));
+};
+
 const handlePhotoSelection = async () => {
   const files = [...dom.photoInput.files];
+  const availableCapacity = getAvailablePhotoCapacity();
   const compressedPhotos = [];
   const statuses = Array(files.length).fill("");
 
@@ -726,6 +736,10 @@ const handlePhotoSelection = async () => {
   dom.addPhoto.disabled = true;
   try {
     for (const [index, file] of files.entries()) {
+      if (index >= availableCapacity) {
+        statuses[index] = `${file.name}: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다.`;
+        continue;
+      }
       dom.saveStatus.textContent = `${file.name}: 사진을 처리하고 있습니다.`;
       try {
         const image = await ImageTools.compress(file);

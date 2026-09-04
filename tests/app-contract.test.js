@@ -415,11 +415,9 @@ test("photo selection processes files sequentially and retains partial success",
   const app = read("assets/app.js");
   const handler = app.match(/const handlePhotoSelection = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
   const merge = app.match(/const mergeCompressedPhotos = \(currentItems, compressedPhotos\) => \{[\s\S]*?\n\};/)?.[0] || "";
-  const beforeFirstAwait = handler.slice(0, handler.indexOf("await ImageTools.compress(file)"));
 
   assert.match(handler, /for \(const \[index, file\] of files\.entries\(\)\) \{/);
   assert.match(handler, /await ImageTools\.compress\(file\)/);
-  assert.doesNotMatch(beforeFirstAwait, /getItemsData\(\)/);
   assert.match(handler, /compressedPhotos\.push\(/);
   assert.match(handler, /const currentItems = getItemsData\(\);[\s\S]*?mergeCompressedPhotos\(currentItems, compressedPhotos\)/);
   assert.match(merge, /InvitationCore\.MAX_PHOTOS/);
@@ -445,7 +443,7 @@ test("photo upload commits against fresh edited and reordered items", async () =
   });
   const { api, contentEditor, document, node } = harness;
   api.renderContentEditor([course("course-a", "A"), course("course-b", "B")], "course-a");
-  node("#photo-input").files = [{ name: "one.png" }, { name: "two.png" }];
+  node("#photo-input").files = [{ name: "one.png" }, { name: "two.png" }, { name: "three.png" }];
 
   const upload = api.handlePhotoSelection();
   assert.equal(pending.length, 1);
@@ -462,8 +460,11 @@ test("photo upload commits against fresh edited and reordered items", async () =
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(pending.length, 2);
   pending[1].resolve({ src: "data:image/png;base64,VFdP" });
+  await new Promise((resolve) => setImmediate(resolve));
+  pending[2]?.resolve({ src: "data:image/png;base64,VEhSRUU=" });
   await upload;
 
+  assert.equal(pending.length, 2);
   const items = api.getItemsData();
   assert.deepEqual(Array.from(items, (item) => item.id), ["course-b", "course-a", "course-c", "photo-uuid-1"]);
   assert.equal(items[1].place, "A edited while compressing");
@@ -474,10 +475,11 @@ test("photo upload commits against fresh edited and reordered items", async () =
   assert.equal(document.activeElement.dataset.courseField, "place");
   assert.match(node("#save-status").textContent, /one\.png: 사진을 추가했습니다/);
   assert.match(node("#save-status").textContent, /two\.png: 사진 처리를 완료했지만 초대장 항목 제한으로 추가하지 않았습니다/);
+  assert.match(node("#save-status").textContent, /three\.png: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다/);
   assert.equal(node("#photo-input").value, "");
 });
 
-test("photo upload with only commit-time skips leaves the editor untouched", async () => {
+test("photo upload skips files beyond initial capacity without compression", async () => {
   let compressions = 0;
   const harness = loadEditorHarness({
     maxItems: 4,
@@ -494,11 +496,50 @@ test("photo upload with only commit-time skips leaves the editor untouched", asy
 
   await api.handlePhotoSelection();
 
-  assert.equal(compressions, 1);
+  assert.equal(compressions, 0);
   assert.equal(contentEditor.renderCount, renderStart);
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["photo-a", "photo-b"]);
-  assert.match(node("#save-status").textContent, /full\.png: 사진 처리를 완료했지만 사진 제한으로 추가하지 않았습니다/);
+  assert.match(node("#save-status").textContent, /full\.png: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다/);
   assert.doesNotMatch(node("#save-status").textContent, /사진을 추가했습니다/);
+});
+
+test("all photo compression failures preserve the live editor state", async () => {
+  const pending = [];
+  const harness = loadEditorHarness({
+    maxItems: 4,
+    compress(file) {
+      const result = deferred();
+      pending.push({ file, ...result });
+      return result.promise;
+    }
+  });
+  const { api, contentEditor, document, node } = harness;
+  api.renderContentEditor([course("course-a", "A"), course("course-b", "B")], "course-a");
+  node("#photo-input").files = [{ name: "broken-a.png" }, { name: "broken-b.png" }];
+
+  const upload = api.handlePhotoSelection();
+  api.renderContentEditor([
+    course("course-b", "B"),
+    course("course-a", "A edited while failures resolve")
+  ], "course-b");
+  const focusedField = contentEditor.cards[1].querySelector('[data-course-field="place"]');
+  focusedField.focus();
+  const renderStart = contentEditor.renderCount;
+
+  pending[0].reject(new Error("decode failed"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pending.length, 2);
+  pending[1].reject(new Error("decode failed"));
+  await upload;
+
+  assert.equal(contentEditor.renderCount, renderStart);
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
+  assert.equal(api.getItemsData()[1].place, "A edited while failures resolve");
+  assert.equal(contentEditor.querySelector(".content-item-card.is-open").dataset.itemId, "course-b");
+  assert.equal(document.activeElement, focusedField);
+  assert.equal(node("#photo-input").value, "");
+  assert.match(node("#save-status").textContent, /broken-a\.png: 이미지를 처리할 수 없습니다/);
+  assert.match(node("#save-status").textContent, /broken-b\.png: 이미지를 처리할 수 없습니다/);
 });
 
 test("boundary move controls stay focusable and moved focus survives the new boundary", () => {
