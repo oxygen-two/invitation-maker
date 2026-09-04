@@ -147,6 +147,8 @@ textarea {
 }
 
 .preview-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   position: sticky;
   top: 24px;
   align-self: start;
@@ -154,7 +156,7 @@ textarea {
 }
 
 .library-panel {
-  grid-column: 1 / -1;
+  grid-column: 1;
   padding: 20px;
 }
 
@@ -510,7 +512,7 @@ textarea {
 
 .saved-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -564,7 +566,13 @@ textarea {
   }
 
   .preview-panel {
+    grid-column: auto;
+    grid-row: auto;
     position: static;
+  }
+
+  .library-panel {
+    grid-column: auto;
   }
 }
 
