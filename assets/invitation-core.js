@@ -52,7 +52,10 @@
     "gmarket-sans": "Gmarket Sans"
   });
   const googleFontsUrl = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap";
-  const MAX_STOPS = 50;
+  const MAX_ITEMS = 50;
+  const MAX_PHOTOS = 8;
+  const MAX_STOPS = MAX_ITEMS;
+  const safeImagePattern = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
   const normalizeParticleEffect = (value) =>
     particleEffects.has(value) ? value : "none";
@@ -137,6 +140,75 @@
       .slice(0, MAX_STOPS);
   };
 
+  const generateItemId = (type) => {
+    const cryptoApi = root.crypto || globalThis.crypto;
+    if (cryptoApi && typeof cryptoApi.randomUUID === "function") {
+      return `${type}-${cryptoApi.randomUUID()}`;
+    }
+    return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  };
+
+  const normalizeItemId = (value, type, usedIds) => {
+    let id = String(value || "").trim();
+    while (!id || usedIds.has(id)) {
+      id = generateItemId(type);
+    }
+    usedIds.add(id);
+    return id;
+  };
+
+  const normalizeCourse = (item, id) => {
+    const stop = normalizeStop(item);
+    if (!stop.time && !stop.place && !stop.note && !stop.mapUrl && !stop.mapEnabled) {
+      return null;
+    }
+    return { id, type: "course", ...stop };
+  };
+
+  const normalizePhoto = (item, id) => safeImagePattern.test(String(item.src || ""))
+    ? { id, type: "photo", src: item.src, alt: String(item.alt || ""), caption: String(item.caption || "") }
+    : null;
+
+  const itemToStop = (item) => ({
+    time: item.time,
+    label: item.label,
+    place: item.place,
+    note: item.note,
+    mapUrl: item.mapUrl,
+    mapEnabled: item.mapEnabled,
+    mapLatitude: item.mapLatitude,
+    mapLongitude: item.mapLongitude,
+    mapZoom: item.mapZoom
+  });
+
+  const normalizeItems = (input) => {
+    const sourceItems = Array.isArray(input.items)
+      ? input.items
+      : normalizeStops(input.stops || defaultInvitation.stops).map((stop) => ({ type: "course", ...stop }));
+    const usedIds = new Set();
+    let photoCount = 0;
+    const normalized = [];
+
+    for (const item of sourceItems) {
+      if (!item || normalized.length >= MAX_ITEMS) continue;
+      const type = item.type === "photo" ? "photo" : item.type === "course" ? "course" : "";
+      if (!type || (type === "photo" && photoCount >= MAX_PHOTOS)) continue;
+
+      const id = normalizeItemId(item.id, type, usedIds);
+      const normalizedItem = type === "photo"
+        ? normalizePhoto(item, id)
+        : normalizeCourse(item, id);
+      if (!normalizedItem) {
+        usedIds.delete(id);
+        continue;
+      }
+      if (normalizedItem.type === "photo") photoCount += 1;
+      normalized.push(normalizedItem);
+    }
+
+    return normalized;
+  };
+
   const normalizeInvitation = (input = {}) => {
     const mapLatitude = normalizeCoordinate(input.mapLatitude, -90, 90);
     const mapLongitude = normalizeCoordinate(input.mapLongitude, -180, 180);
@@ -146,6 +218,10 @@
       : defaultInvitation.mapZoom;
     const requestedMap = input.mapEnabled === true || input.mapEnabled === "true" || input.mapEnabled === "on";
     const particleScale = input.particleScale ?? legacyParticleScales[input.particleSize];
+    const items = normalizeItems(input);
+    const stops = items
+      .filter((item) => item.type === "course")
+      .map(itemToStop);
 
     return {
       templateId: input.templateId ?? defaultInvitation.templateId,
@@ -166,7 +242,8 @@
       mapLongitude,
       mapZoom,
       message: input.message ?? defaultInvitation.message,
-      stops: normalizeStops(input.stops || defaultInvitation.stops)
+      items,
+      stops
     };
   };
 
@@ -367,6 +444,8 @@ ${renderStandaloneMapScript(invitation)}
   };
 
   const api = {
+    MAX_ITEMS,
+    MAX_PHOTOS,
     MAX_STOPS,
     defaultInvitation,
     normalizeInvitation,

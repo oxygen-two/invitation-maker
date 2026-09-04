@@ -49,8 +49,10 @@
     "mapLongitude": 127.0559,
     "mapZoom": 16,
     "message": "오늘은 바쁘게 움직이기보다, 좋아하는 것들을 천천히 이어가며 함께 오래 기억할 하루를 만들고 싶어요.",
-    "stops": [
+    "items": [
       {
+        "id": "course-1",
+        "type": "course",
         "time": "14:00",
         "label": "MEET",
         "place": "성수역 3번 출구",
@@ -62,6 +64,8 @@
         "mapZoom": 16
       },
       {
+        "id": "course-2",
+        "type": "course",
         "time": "14:20",
         "label": "CAFE",
         "place": "카페 이름을 입력하세요",
@@ -73,6 +77,8 @@
         "mapZoom": 16
       },
       {
+        "id": "course-3",
+        "type": "course",
         "time": "16:00",
         "label": "WALK",
         "place": "산책 장소를 입력하세요",
@@ -84,6 +90,8 @@
         "mapZoom": 16
       },
       {
+        "id": "course-4",
+        "type": "course",
         "time": "18:00",
         "label": "DINNER",
         "place": "저녁 장소를 입력하세요",

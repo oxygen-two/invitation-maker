@@ -2,9 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
+const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
 
 const root = path.resolve(__dirname, "..");
+const SAFE_WEBP = "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/vuUAAA=";
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const particleCapBreakpoint = (css) => {
   const capIndex = css.indexOf(".particle-layer span:nth-child(n+17)");
@@ -51,6 +52,82 @@ test("normalizeInvitation parses editable stop lines", () => {
     mapLongitude: null,
     mapZoom: 16
   });
+});
+
+test("normalizeInvitation preserves ordered course and photo items", () => {
+  const invitation = normalizeInvitation({
+    items: [
+      { id: "course-1", type: "course", time: "14:00", place: "서울숲" },
+      { id: "photo-1", type: "photo", src: SAFE_WEBP, alt: "산책 사진", caption: "첫 산책" },
+      { id: "course-2", type: "course", time: "16:00", place: "성수 카페" }
+    ]
+  });
+
+  assert.deepEqual(invitation.items.map(({ id, type }) => ({ id, type })), [
+    { id: "course-1", type: "course" },
+    { id: "photo-1", type: "photo" },
+    { id: "course-2", type: "course" }
+  ]);
+  assert.equal(invitation.items[1].src, SAFE_WEBP);
+  assert.equal(invitation.items[1].alt, "산책 사진");
+  assert.equal(invitation.items[1].caption, "첫 산책");
+});
+
+test("normalizeInvitation migrates legacy stops to course items only when items are absent", () => {
+  const legacy = normalizeInvitation({ stops: [{ place: "성수역" }] });
+  const canonical = normalizeInvitation({
+    items: [{ id: "course-1", type: "course", place: "서울숲" }],
+    stops: [{ place: "성수역" }]
+  });
+
+  assert.equal(legacy.items[0].type, "course");
+  assert.equal(legacy.items[0].place, "성수역");
+  assert.deepEqual(canonical.items.map(({ id, place }) => ({ id, place })), [
+    { id: "course-1", place: "서울숲" }
+  ]);
+});
+
+test("normalizeInvitation keeps ordered item IDs unique and drops unknown or unsafe variants", () => {
+  const invitation = normalizeInvitation({
+    items: [
+      { id: "same-id", type: "course", place: "서울숲" },
+      { id: "same-id", type: "photo", src: SAFE_WEBP, alt: "중복 ID 사진" },
+      { type: "course", place: "성수 카페" },
+      { id: "unsafe-photo", type: "photo", src: "https://example.com/photo.webp" },
+      { id: "unknown", type: "video", src: SAFE_WEBP },
+      { id: "empty-course", type: "course", label: "" }
+    ]
+  });
+
+  assert.deepEqual(invitation.items.map(({ type, place, alt }) => ({ type, place, alt })), [
+    { type: "course", place: "서울숲", alt: undefined },
+    { type: "photo", place: undefined, alt: "중복 ID 사진" },
+    { type: "course", place: "성수 카페", alt: undefined }
+  ]);
+  assert.equal(new Set(invitation.items.map((item) => item.id)).size, 3);
+  assert.equal(invitation.items.every((item) => typeof item.id === "string" && item.id.length > 0), true);
+  assert.equal(invitation.items[0].id, "same-id");
+});
+
+test("normalizeInvitation enforces photo limits and total ordered item limit", () => {
+  const items = [
+    ...Array.from({ length: MAX_PHOTOS + 1 }, (_, index) => ({
+      id: `photo-${index}`,
+      type: "photo",
+      src: SAFE_WEBP,
+      alt: `사진 ${index}`
+    })),
+    ...Array.from({ length: MAX_ITEMS }, (_, index) => ({
+      id: `course-${index}`,
+      type: "course",
+      place: `장소 ${index}`
+    }))
+  ];
+  const invitation = normalizeInvitation({ items });
+
+  assert.equal(invitation.items.length, MAX_ITEMS);
+  assert.equal(invitation.items.filter((item) => item.type === "photo").length, MAX_PHOTOS);
+  assert.deepEqual(invitation.items.slice(0, 2).map((item) => item.id), ["photo-0", "photo-1"]);
 });
 
 test("normalizeInvitation preserves independent map settings for each stop", () => {
