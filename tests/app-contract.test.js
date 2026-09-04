@@ -85,7 +85,7 @@ const photo = (id, caption = id) => ({
   caption
 });
 
-const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInvitation = (value) => value } = {}) => {
+const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInvitation = (value) => value, put } = {}) => {
   const documentEvents = makeEventTarget();
   const windowEvents = makeEventTarget();
   const document = {
@@ -303,6 +303,10 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
   source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; };${source.slice(previewEnd)}`;
+  source = source.replace(
+    /const validateForExport = \(\) => \{[\s\S]*?\n\};/,
+    "const validateForExport = () => true;"
+  );
   source = source.replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__editorTest = {
     beginItemDrag,
@@ -311,7 +315,8 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handlePhotoSelection,
     moveItemDrag,
-    renderContentEditor
+    renderContentEditor,
+    saveCurrent
   };`;
 
   let uuid = 0;
@@ -327,8 +332,14 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
       MAX_ITEMS: maxItems,
       MAX_PHOTOS: maxPhotos,
       MAX_STOPS: maxItems,
+      buildStandaloneHtml: (invitation) => JSON.stringify(invitation),
       normalizeInvitation,
       renderInvitationBody: () => ""
+    },
+    InvitationStorage: {
+      async list() { return []; },
+      async put(record) { if (put) await put(record); },
+      async remove() {}
     },
     URL,
     __previewRenders: 0,
@@ -1100,6 +1111,103 @@ test("photo selection processes files sequentially and retains partial success",
   assert.match(handler, /if \(result\.committed\.length\)[\s\S]*?renderContentEditor/);
   assert.doesNotMatch(handler, /Promise\.all/);
   assert.doesNotMatch(handler, /URL\.createObjectURL/);
+});
+
+test("photo selection uses successful compressions to fill the remaining capacity", async () => {
+  const attempts = [];
+  const harness = loadEditorHarness({
+    maxItems: 2,
+    async compress(file) {
+      attempts.push(file.name);
+      if (file.name === "broken.png") throw new Error("decode failed");
+      return { src: "data:image/webp;base64,U1VDQ0VTUw==" };
+    }
+  });
+  const { api, node } = harness;
+  api.renderContentEditor([course("course-a", "A")], "course-a");
+  node("#photo-input").files = [{ name: "broken.png" }, { name: "working.png" }];
+
+  await api.handlePhotoSelection();
+
+  assert.deepEqual(attempts, ["broken.png", "working.png"]);
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.type), ["course", "photo"]);
+  assert.equal(api.getItemsData()[1].src, "data:image/webp;base64,U1VDQ0VTUw==");
+  assert.match(node("#save-status").textContent, /broken\.png: 이미지를 처리할 수 없습니다/);
+  assert.match(node("#save-status").textContent, /working\.png: 사진을 추가했습니다/);
+});
+
+test("photo processing locks export actions and includes the photo after completion", async () => {
+  const compression = deferred();
+  let writes = 0;
+  const harness = loadEditorHarness({
+    compress: () => compression.promise,
+    async put() { writes += 1; }
+  });
+  const { api, node } = harness;
+  api.renderContentEditor([course("course-a", "A")], "course-a");
+  node("#photo-input").files = [{ name: "pending.png" }];
+
+  const selection = api.handlePhotoSelection();
+
+  assert.equal(node("#add-photo-button").disabled, true);
+  assert.equal(node("#download-button").disabled, true);
+  assert.equal(node("#save-button").disabled, true);
+  await api.saveCurrent();
+  assert.equal(writes, 0);
+  assert.equal(node("#save-button").disabled, true);
+
+  compression.resolve({ src: "data:image/webp;base64,RklOQUw=" });
+  await selection;
+
+  assert.equal(node("#add-photo-button").disabled, false);
+  assert.equal(node("#download-button").disabled, false);
+  assert.equal(node("#save-button").disabled, false);
+  assert.equal(api.getItemsData().at(-1).src, "data:image/webp;base64,RklOQUw=");
+});
+
+test("photo processing restores export actions after compression failure", async () => {
+  const compression = deferred();
+  const harness = loadEditorHarness({ compress: () => compression.promise });
+  const { api, node } = harness;
+  api.renderContentEditor([course("course-a", "A")], "course-a");
+  node("#photo-input").files = [{ name: "broken.png" }];
+
+  const selection = api.handlePhotoSelection();
+  assert.equal(node("#download-button").disabled, true);
+  assert.equal(node("#save-button").disabled, true);
+
+  compression.reject(new Error("decode failed"));
+  await selection;
+
+  assert.equal(node("#add-photo-button").disabled, false);
+  assert.equal(node("#download-button").disabled, false);
+  assert.equal(node("#save-button").disabled, false);
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.type), ["course"]);
+});
+
+test("an active save prevents photo processing until the write settles", async () => {
+  const write = deferred();
+  let compressions = 0;
+  const harness = loadEditorHarness({
+    async compress() { compressions += 1; return { src: "data:image/webp;base64,TEFURQ==" }; },
+    put: () => write.promise
+  });
+  const { api, node } = harness;
+  api.renderContentEditor([course("course-a", "A")], "course-a");
+
+  const saving = api.saveCurrent();
+  assert.equal(node("#save-button").disabled, true);
+  assert.equal(node("#add-photo-button").disabled, true);
+
+  node("#photo-input").files = [{ name: "blocked.png" }];
+  await api.handlePhotoSelection();
+  assert.equal(compressions, 0);
+  assert.equal(node("#photo-input").value, "");
+
+  write.resolve();
+  await saving;
+  assert.equal(node("#save-button").disabled, false);
+  assert.equal(node("#add-photo-button").disabled, false);
 });
 
 test("photo upload commits against fresh edited and reordered items", async () => {

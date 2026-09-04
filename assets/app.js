@@ -17,6 +17,7 @@ let previewMapTimer;
 let pendingPreviewMapKey = null;
 let dragState = null;
 let photoSelectionPending = false;
+let saveWritePending = false;
 const previewMapInstances = new WeakMap();
 
 const dom = {
@@ -179,8 +180,11 @@ const syncAddItemAvailability = (items) => {
   const photoCount = items.filter((item) => item.type === "photo").length;
   dom.addCourse.disabled = items.length >= InvitationCore.MAX_ITEMS;
   dom.addPhoto.disabled = photoSelectionPending
+    || saveWritePending
     || items.length >= InvitationCore.MAX_ITEMS
     || photoCount >= InvitationCore.MAX_PHOTOS;
+  dom.download.disabled = photoSelectionPending;
+  dom.save.disabled = photoSelectionPending || saveWritePending;
 };
 
 const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag = false } = {}) => {
@@ -696,8 +700,10 @@ const migrateLegacySaved = async () => {
 };
 
 const saveCurrent = async () => {
+  if (photoSelectionPending || saveWritePending) return;
   if (!validateForExport()) return;
-  dom.save.disabled = true;
+  saveWritePending = true;
+  syncAddItemAvailability(getItemsData());
   try {
     const invitation = getFormData();
     const html = InvitationCore.buildStandaloneHtml(invitation);
@@ -708,7 +714,8 @@ const saveCurrent = async () => {
   } catch {
     dom.saveStatus.textContent = "브라우저 저장 공간에 기록하지 못해 등록에 실패했습니다.";
   } finally {
-    dom.save.disabled = false;
+    saveWritePending = false;
+    syncAddItemAvailability(getItemsData());
   }
 };
 
@@ -854,15 +861,20 @@ const getAvailablePhotoCapacity = () => {
 
 const handlePhotoSelection = async () => {
   const files = [...dom.photoInput.files];
+  if (photoSelectionPending || saveWritePending) {
+    dom.photoInput.value = "";
+    return;
+  }
+
   const availableCapacity = getAvailablePhotoCapacity();
   const compressedPhotos = [];
   const statuses = Array(files.length).fill("");
 
   photoSelectionPending = true;
-  dom.addPhoto.disabled = true;
+  syncAddItemAvailability(getItemsData());
   try {
     for (const [index, file] of files.entries()) {
-      if (index >= availableCapacity) {
+      if (compressedPhotos.length >= availableCapacity) {
         statuses[index] = `${file.name}: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다.`;
         continue;
       }
@@ -884,34 +896,35 @@ const handlePhotoSelection = async () => {
         statuses[index] = `${file.name}: ${message}`;
       }
     }
+
+    const focusedItem = getFocusedItemContext();
+    const openId = getOpenItemId();
+    const currentItems = getItemsData();
+    const result = mergeCompressedPhotos(currentItems, compressedPhotos);
+    for (const committed of result.committed) {
+      statuses[committed.index] = `${committed.fileName}: 사진을 추가했습니다.`;
+    }
+    for (const skipped of result.skipped) {
+      const limit = skipped.reason === "items" ? "초대장 항목" : "사진";
+      statuses[skipped.index] = `${skipped.fileName}: 사진 처리를 완료했지만 ${limit} 제한으로 추가하지 않았습니다.`;
+    }
+
+    if (result.committed.length) {
+      const firstNewId = result.committed[0].item.id;
+      renderContentEditor(result.items, openId || firstNewId);
+      renderPreview();
+      if (!focusedItem || !focusItemControl(focusedItem.itemId, focusedItem.selector)) {
+        focusItemControl(firstNewId, '[data-photo-field="caption"]');
+      }
+    } else {
+      syncAddItemAvailability(currentItems);
+    }
+    dom.saveStatus.textContent = statuses.filter(Boolean).join(" ");
   } finally {
     dom.photoInput.value = "";
     photoSelectionPending = false;
+    syncAddItemAvailability(getItemsData());
   }
-
-  const focusedItem = getFocusedItemContext();
-  const openId = getOpenItemId();
-  const currentItems = getItemsData();
-  const result = mergeCompressedPhotos(currentItems, compressedPhotos);
-  for (const committed of result.committed) {
-    statuses[committed.index] = `${committed.fileName}: 사진을 추가했습니다.`;
-  }
-  for (const skipped of result.skipped) {
-    const limit = skipped.reason === "items" ? "초대장 항목" : "사진";
-    statuses[skipped.index] = `${skipped.fileName}: 사진 처리를 완료했지만 ${limit} 제한으로 추가하지 않았습니다.`;
-  }
-
-  if (result.committed.length) {
-    const firstNewId = result.committed[0].item.id;
-    renderContentEditor(result.items, openId || firstNewId);
-    renderPreview();
-    if (!focusedItem || !focusItemControl(focusedItem.itemId, focusedItem.selector)) {
-      focusItemControl(firstNewId, '[data-photo-field="caption"]');
-    }
-  } else {
-    syncAddItemAvailability(currentItems);
-  }
-  dom.saveStatus.textContent = statuses.filter(Boolean).join(" ");
 };
 
 const clearDropIndicators = () => {
@@ -1181,6 +1194,7 @@ dom.preview.addEventListener("click", (event) => {
 });
 
 dom.download.addEventListener("click", () => {
+  if (photoSelectionPending) return;
   if (!validateForExport()) return;
   const invitation = getFormData();
   downloadHtml(InvitationCore.buildStandaloneHtml(invitation), invitation.title);
