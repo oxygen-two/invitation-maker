@@ -919,9 +919,10 @@ dom.form.addEventListener("input", (event) => {
     pendingPreviewMapKey = event.target.checked ? "representative" : null;
   }
   if (event.target.matches('[data-course-field="mapEnabled"]')) {
-    const cards = [...dom.contentEditor.querySelectorAll('[data-item-type="course"]')];
-    const index = cards.indexOf(event.target.closest("[data-item-card]"));
-    pendingPreviewMapKey = event.target.checked && index >= 0 ? `stop-${index}` : null;
+    const clickedItemId = event.target.closest("[data-item-card]")?.dataset.itemId;
+    const courses = getFormData().items.filter((item) => item.type === "course");
+    const index = courses.findIndex((item) => item.id === clickedItemId);
+    pendingPreviewMapKey = index >= 0 && courses[index].mapEnabled ? `stop-${index}` : null;
   }
   renderPreview();
 });

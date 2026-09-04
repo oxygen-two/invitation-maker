@@ -257,31 +257,6 @@ test("mixed canonical item maps use one shared NAVER loader", () => {
   assert.ok(photoIndex < secondMapIndex);
 });
 
-test("app pending course map keys match mixed renderer map keys", () => {
-  const appSource = read("assets/app.js");
-  const pendingPrefix = appSource.match(
-    /pendingPreviewMapKey\s*=\s*event\.target\.checked\s*&&\s*index\s*>=\s*0\s*\?\s*`([a-z]+)-\$\{index\}`\s*:\s*null/
-  )?.[1];
-  const html = buildStandaloneHtml({
-    naverMapClientId: "public-client-id",
-    items: [
-      { id: "photo-before-map", type: "photo", src: SAFE_WEBP },
-      {
-        id: "course-map",
-        type: "course",
-        place: "PENDING MAP",
-        mapEnabled: true,
-        mapLatitude: 37.5446,
-        mapLongitude: 127.0559
-      }
-    ]
-  });
-  const renderedKeys = [...html.matchAll(/data-map-key="([^"]+)"/g)].map((match) => match[1]);
-
-  assert.equal(pendingPrefix, "stop");
-  assert.deepEqual(renderedKeys, ["stop-0"]);
-});
-
 test("mixed photo styles share a natural aspect ratio and overflow contract", () => {
   const previewCss = read("assets/style.css").replace(/\s+/g, "");
   const standaloneCss = buildStandaloneHtml({

@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const ContentOrder = require("../assets/content-order.js");
+const InvitationCore = require("../assets/invitation-core.js");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -74,7 +75,7 @@ const photo = (id, caption = id) => ({
   caption
 });
 
-const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress } = {}) => {
+const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInvitation = (value) => value } = {}) => {
   const documentEvents = makeEventTarget();
   const windowEvents = makeEventTarget();
   const document = {
@@ -285,6 +286,7 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress } = {}) => {
     return selectors.get(selector);
   };
   selectors.set("#content-editor", contentEditor);
+  selectors.set("#invitation-form", { ...genericNode(), ...makeEventTarget() });
   document.querySelector = node;
 
   let source = read("assets/app.js");
@@ -296,6 +298,7 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress } = {}) => {
     beginItemDrag,
     getDragState: () => dragState,
     getItemsData,
+    getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handlePhotoSelection,
     moveItemDrag,
     renderContentEditor
@@ -314,7 +317,7 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress } = {}) => {
       MAX_ITEMS: maxItems,
       MAX_PHOTOS: maxPhotos,
       MAX_STOPS: maxItems,
-      normalizeInvitation: (value) => value,
+      normalizeInvitation,
       renderInvitationBody: () => ""
     },
     URL,
@@ -409,6 +412,52 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   assert.match(app, /items:\s*getItemsData\(\)/);
   assert.doesNotMatch(app, /stops:\s*getStopsData\(\)/);
   assert.match(app, /if \(action !== "delete"\)[\s\S]*?const items = getItemsData\(\)[\s\S]*?item\.type === "photo"[\s\S]*?items\.splice\(index, 1\)/);
+});
+
+test("course map pending key follows the normalized rendered course index", () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+  const { api, contentEditor, node } = harness;
+  const emptyCourseItem = {
+    ...course("course-empty", ""),
+    time: "",
+    label: "",
+    place: ""
+  };
+  const mappedCourse = {
+    ...course("course-map", "PENDING MAP"),
+    mapEnabled: true,
+    mapLatitude: "37.5446",
+    mapLongitude: "127.0559"
+  };
+  api.renderContentEditor([emptyCourseItem, photo("photo-between"), mappedCourse], "course-map");
+  const checkbox = contentEditor.cards[2].querySelector('[data-course-field="mapEnabled"]');
+
+  node("#invitation-form").dispatch("input", { target: checkbox });
+
+  const renderedHtml = InvitationCore.renderInvitationBody({ items: api.getItemsData() });
+  const renderedMapKey = renderedHtml.match(/data-map-key="([^"]+)"/)?.[1] || null;
+  assert.equal(api.getPendingPreviewMapKey(), "stop-0");
+  assert.equal(api.getPendingPreviewMapKey(), renderedMapKey);
+});
+
+test("dropped empty course map toggle leaves no pending preview key", () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+  const { api, contentEditor, node } = harness;
+  const droppedCourse = {
+    ...course("course-dropped", ""),
+    time: "",
+    label: "",
+    place: "",
+    mapEnabled: true
+  };
+  api.renderContentEditor([droppedCourse], "course-dropped");
+  const checkbox = contentEditor.cards[0].querySelector('[data-course-field="mapEnabled"]');
+
+  node("#invitation-form").dispatch("input", { target: checkbox });
+
+  const renderedHtml = InvitationCore.renderInvitationBody({ items: api.getItemsData() });
+  assert.equal(api.getPendingPreviewMapKey(), null);
+  assert.doesNotMatch(renderedHtml, /data-map-key=/);
 });
 
 test("photo selection processes files sequentially and retains partial success", () => {
