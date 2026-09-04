@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#42101f">
+  <meta name="description" content="템플릿 기반 초대장 제작 및 HTML 다운로드 도구">
+  <title>Invitation Maker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="maker-panel">
+      <header class="maker-header">
+        <p class="eyebrow">Invitation Maker</p>
+        <h1>초대장 제작기</h1>
+        <p>템플릿을 고르고 내용을 입력하면, 독립 실행 가능한 초대장 HTML을 다운로드할 수 있습니다.</p>
+      </header>
+
+      <section class="template-picker" aria-label="초대장 템플릿 선택">
+        <span class="picker-label">Template</span>
+        <div id="template-list" class="template-list"></div>
+      </section>
+
+      <form id="invitation-form" class="editor-form">
+        <label>
+          <span>제목</span>
+          <input name="title" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>부제</span>
+          <input name="subtitle" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>일시</span>
+          <input name="dateLabel" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>보내는 사람</span>
+          <input name="host" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>대표 장소</span>
+          <input name="location" type="text" autocomplete="off">
+        </label>
+        <label>
+          <span>지도 링크</span>
+          <input name="mapUrl" type="url" autocomplete="off">
+        </label>
+        <label class="full">
+          <span>메시지</span>
+          <textarea name="message" rows="4"></textarea>
+        </label>
+        <label class="full">
+          <span>코스</span>
+          <textarea name="stops" rows="7" aria-describedby="stops-help"></textarea>
+          <small id="stops-help">한 줄에 `시간|라벨|장소|메모` 형식으로 입력합니다.</small>
+        </label>
+      </form>
+
+      <div class="action-row">
+        <button id="download-button" class="primary-button" type="button">HTML 다운로드</button>
+        <button id="save-button" class="secondary-button" type="button">목록에 등록</button>
+      </div>
+    </section>
+
+    <section class="preview-panel">
+      <header class="panel-title">
+        <p class="eyebrow">Preview</p>
+        <h2>미리보기</h2>
+      </header>
+      <div id="preview" class="preview-frame"></div>
+    </section>
+
+    <section class="library-panel">
+      <header class="panel-title">
+        <p class="eyebrow">Library</p>
+        <h2>등록된 초대장</h2>
+      </header>
+      <div class="upload-box">
+        <label for="html-upload">다운로드된 HTML 등록</label>
+        <input id="html-upload" type="file" accept=".html,text/html">
+      </div>
+      <div id="saved-list" class="saved-list"></div>
+    </section>
+  </main>
+
+  <script src="assets/invitation-core.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
