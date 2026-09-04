@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Gmarket Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff") format("woff");
+}
+
+@font-face {
+  font-family: "Gmarket Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff") format("woff");
+}
+
 :root {
   --wine-950: #2d0b16;
   --wine-900: #42101f;
@@ -124,6 +140,10 @@ input,
 select,
 textarea {
   -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-view-tabs {
+  display: none;
 }
 
 .app-shell {
@@ -264,7 +284,37 @@ textarea {
   min-width: 0;
 }
 
-.editor-form label.full {
+.range-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.editor-form .range-heading output {
+  color: var(--wine-900);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-form input[type="range"] {
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  accent-color: var(--wine-800);
+  cursor: pointer;
+}
+
+.editor-form input[type="range"]:focus-visible {
+  outline: 3px solid rgba(217, 172, 84, .28);
+  outline-offset: 2px;
+}
+
+.editor-form > .full {
   grid-column: 1 / -1;
 }
 
@@ -300,6 +350,11 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.map-message {
+  grid-column: 1 / -1;
+  color: var(--wine-700);
+}
+
 .stops-editor-section {
   display: grid;
   gap: 10px;
@@ -313,10 +368,9 @@ textarea {
   gap: 12px;
 }
 
-.stops-editor-header > span,
-.stop-editor-card-header strong {
+.stops-editor-header > span {
   color: var(--wine-700);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -339,27 +393,37 @@ textarea {
 
 .stop-editor-card {
   overflow: hidden;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(101, 58, 65, .2);
   border-radius: 8px;
   background: var(--white);
+  box-shadow: 0 4px 14px rgba(45, 11, 22, .05);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.stop-editor-card.is-open {
+  border-color: rgba(155, 61, 84, .42);
+  box-shadow: 0 8px 24px rgba(45, 11, 22, .08);
 }
 
 .stop-editor-card-header {
-  padding: 7px;
+  min-height: 66px;
+  padding: 8px;
 }
 
 .stop-editor-card.is-open .stop-editor-card-header {
   border-bottom: 1px solid var(--line);
+  background: rgba(251, 241, 223, .55);
 }
 
 .stop-editor-toggle {
   display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
   flex: 1;
   min-width: 0;
-  min-height: 44px;
-  align-content: center;
-  gap: 2px;
-  padding: 4px 34px 4px 7px;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 34px 2px 2px;
   position: relative;
   color: var(--ink);
   border: 0;
@@ -385,10 +449,40 @@ textarea {
   transform: translateY(-35%) rotate(225deg);
 }
 
-.editor-form .stop-editor-toggle > span {
+.editor-form .stop-editor-number {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: var(--wine-800);
+  border: 1px solid rgba(217, 172, 84, .78);
+  border-radius: 8px;
+  background: var(--cream-50);
+  font-family: "Cormorant Garamond", serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stop-editor-heading {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.stop-editor-heading strong {
+  display: block;
+  overflow: hidden;
+  color: var(--wine-800);
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-form .stop-editor-heading > span:last-child {
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -402,7 +496,7 @@ textarea {
   padding: 0;
   color: var(--wine-700);
   border: 1px solid var(--line);
-  border-radius: 50%;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
   font-size: 20px;
@@ -413,7 +507,12 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  padding: 14px;
+  padding: 16px 14px 14px;
+  background: rgba(255, 250, 242, .5);
+}
+
+.stop-editor-grid > .full {
+  grid-column: 1 / -1;
 }
 
 .stop-editor-grid[hidden] {
@@ -421,6 +520,7 @@ textarea {
 }
 
 .stop-map-settings {
+  grid-column: 1 / -1;
   padding: 12px 0 0;
   border: 0;
   border-top: 1px solid var(--line);
@@ -474,7 +574,7 @@ textarea {
 
 .editor-form small {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .action-row {
@@ -564,23 +664,15 @@ a:focus-visible {
   overflow-wrap: anywhere;
   background: var(--cream-50);
   box-shadow: 0 24px 72px rgba(45, 11, 22, .2);
+  font-family: var(--font-ko), "Noto Sans KR", sans-serif;
 }
 
 .particle-layer {
-  --particle-scale: 1;
   position: absolute;
   z-index: 2;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-}
-
-.particle-layer[data-size="small"] {
-  --particle-scale: .7;
-}
-
-.particle-layer[data-size="large"] {
-  --particle-scale: 1.45;
 }
 
 .particle-layer span {
@@ -712,7 +804,7 @@ a:focus-visible {
 .invite-kicker {
   margin: 0 0 14px;
   color: var(--gold-300);
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--font-en), serif;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: .22em;
@@ -722,17 +814,23 @@ a:focus-visible {
 .invite-hero h1 {
   margin: 0;
   color: var(--rose-100);
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--font-en), var(--font-ko), serif;
   font-size: 40px;
   font-style: italic;
   font-weight: 500;
   line-height: 1.12;
 }
 
+.invitation-card[data-english-font="dm-serif-display"] .invite-hero h1,
+.invitation-card[data-english-font="great-vibes"] .invite-hero h1 {
+  font-style: normal;
+  font-weight: 400;
+}
+
 .invite-subtitle {
   margin: 18px 0 0;
   color: rgba(255, 250, 242, .84);
-  font-family: "Gowun Batang", serif;
+  font-family: var(--font-ko), serif;
   font-size: 14px;
 }
 
@@ -742,7 +840,7 @@ a:focus-visible {
 }
 
 .invite-message {
-  font-family: "Gowun Batang", serif;
+  font-family: var(--font-ko), serif;
   font-size: 17px;
   text-align: center;
 }
@@ -801,7 +899,7 @@ a:focus-visible {
   border: 1px solid var(--gold-500);
   border-radius: 50%;
   background: var(--white);
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--font-en), serif;
   font-weight: 700;
 }
 
@@ -815,7 +913,7 @@ a:focus-visible {
 
 .invite-stop h3 {
   margin: 0;
-  font-family: "Gowun Batang", serif;
+  font-family: var(--font-ko), serif;
   font-size: 18px;
 }
 
@@ -931,6 +1029,41 @@ a:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .mobile-view-tabs {
+    position: sticky;
+    z-index: 20;
+    top: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    width: min(560px, calc(100% - 24px));
+    margin: 12px auto 0;
+    padding: 4px;
+    border: 1px solid rgba(101, 58, 65, .18);
+    border-radius: 8px;
+    background: rgba(255, 250, 242, .96);
+    box-shadow: 0 8px 24px rgba(45, 11, 22, .12);
+    backdrop-filter: blur(12px);
+  }
+
+  .mobile-view-tabs button {
+    min-width: 0;
+    min-height: 42px;
+    padding: 0 8px;
+    color: var(--ink-soft);
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .mobile-view-tabs button[aria-pressed="true"] {
+    color: var(--cream-50);
+    background: var(--wine-800);
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -944,12 +1077,26 @@ a:focus-visible {
   .library-panel {
     grid-column: auto;
   }
+
+  body[data-mobile-view="editor"] .preview-panel,
+  body[data-mobile-view="editor"] .library-panel,
+  body[data-mobile-view="preview"] .maker-panel,
+  body[data-mobile-view="preview"] .library-panel,
+  body[data-mobile-view="library"] .maker-panel,
+  body[data-mobile-view="library"] .preview-panel {
+    display: none;
+  }
+
+  .preview-frame {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 @media (max-width: 540px) {
   .app-shell {
     width: 100%;
-    padding: 0;
+    padding: 12px 0 0;
   }
 
   .maker-panel,
@@ -982,7 +1129,7 @@ a:focus-visible {
     max-height: none;
   }
 
-  .particle-layer span:nth-child(n+11) {
+  .particle-layer span:nth-child(n+17) {
     display: none;
   }
 

@@ -9,10 +9,15 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
 </head>
-<body>
+<body data-mobile-view="editor">
+  <nav class="mobile-view-tabs" aria-label="화면 전환">
+    <button type="button" data-mobile-view="editor" aria-pressed="true">제작</button>
+    <button type="button" data-mobile-view="preview" aria-pressed="false">미리보기</button>
+    <button type="button" data-mobile-view="library" aria-pressed="false">보관함</button>
+  </nav>
   <main class="app-shell">
     <section class="maker-panel">
       <header class="maker-header">
@@ -27,7 +32,7 @@
       </section>
 
       <form id="invitation-form" class="editor-form">
-        <label class="effect-field">
+        <label class="full effect-field">
           <span>파티클 효과</span>
           <select name="particleEffect" aria-label="파티클 효과">
             <option value="none">효과 없음</option>
@@ -36,12 +41,39 @@
             <option value="confetti">컨페티</option>
           </select>
         </label>
+        <label class="range-field">
+          <span class="range-heading">
+            <span>파티클 크기</span>
+            <output data-particle-scale-output for="particle-scale">100%</output>
+          </span>
+          <input id="particle-scale" name="particleScale" type="range" min="50" max="200" step="5" value="100" aria-label="파티클 크기 스케일">
+        </label>
+        <label class="range-field">
+          <span class="range-heading">
+            <span>파티클 양</span>
+            <output data-particle-amount-output for="particle-amount">100%</output>
+          </span>
+          <input id="particle-amount" name="particleAmount" type="range" min="25" max="200" step="25" value="100" aria-label="파티클 양 스케일">
+        </label>
         <label>
-          <span>파티클 크기</span>
-          <select name="particleSize" aria-label="파티클 크기">
-            <option value="small">작게</option>
-            <option value="medium">보통</option>
-            <option value="large">크게</option>
+          <span>영문 폰트</span>
+          <select name="englishFont" aria-label="영문 폰트">
+            <option value="cormorant-garamond">Cormorant Garamond</option>
+            <option value="playfair-display">Playfair Display</option>
+            <option value="dm-serif-display">DM Serif Display</option>
+            <option value="libre-baskerville">Libre Baskerville</option>
+            <option value="great-vibes">Great Vibes</option>
+          </select>
+        </label>
+        <label>
+          <span>한글 폰트</span>
+          <select name="koreanFont" aria-label="한글 폰트">
+            <option value="gowun-batang">고운바탕</option>
+            <option value="noto-serif-kr">노토 명조</option>
+            <option value="nanum-myeongjo">나눔명조</option>
+            <option value="nanum-gothic">나눔고딕</option>
+            <option value="song-myung">송명</option>
+            <option value="gmarket-sans">Gmarket Sans</option>
           </select>
         </label>
         <label>
@@ -85,6 +117,7 @@
             <span>지도 줌</span>
             <input name="mapZoom" type="number" min="6" max="21" step="1" inputmode="numeric">
           </label>
+          <small class="full map-message" data-map-message role="status" aria-live="polite" hidden></small>
         </div>
         <label class="full">
           <span>메시지</span>

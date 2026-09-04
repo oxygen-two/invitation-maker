@@ -2,7 +2,10 @@
   const defaultInvitation = {
     templateId: "royal",
     particleEffect: "none",
-    particleSize: "medium",
+    particleScale: 100,
+    particleAmount: 100,
+    englishFont: "cormorant-garamond",
+    koreanFont: "gowun-batang",
     naverMapClientId: "",
     mapEnabled: false,
     mapLatitude: null,
@@ -13,7 +16,7 @@
     dateLabel: "2026.09.12 SAT 14:00",
     host: "From. Rin",
     location: "장소를 입력하세요",
-    mapUrl: "https://map.naver.com/",
+    mapUrl: "",
     message: "함께 걷고, 이야기하고, 오래 기억할 하루를 준비했어요.",
     stops: [
       { time: "14:00", label: "MEET", place: "만남 장소", note: "첫 만남 위치를 적어주세요." },
@@ -24,14 +27,37 @@
   };
 
   const particleEffects = new Set(["none", "sparkle", "petals", "confetti"]);
-  const particleSizes = new Set(["small", "medium", "large"]);
+  const legacyParticleScales = Object.freeze({ small: 70, medium: 100, large: 145 });
+  const englishFonts = Object.freeze({
+    "cormorant-garamond": "Cormorant Garamond",
+    "playfair-display": "Playfair Display",
+    "dm-serif-display": "DM Serif Display",
+    "libre-baskerville": "Libre Baskerville",
+    "great-vibes": "Great Vibes"
+  });
+  const koreanFonts = Object.freeze({
+    "gowun-batang": "Gowun Batang",
+    "noto-serif-kr": "Noto Serif KR",
+    "nanum-myeongjo": "Nanum Myeongjo",
+    "nanum-gothic": "Nanum Gothic",
+    "song-myung": "Song Myung",
+    "gmarket-sans": "Gmarket Sans"
+  });
+  const googleFontsUrl = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap";
   const MAX_STOPS = 50;
 
   const normalizeParticleEffect = (value) =>
     particleEffects.has(value) ? value : "none";
 
-  const normalizeParticleSize = (value) =>
-    particleSizes.has(value) ? value : "medium";
+  const normalizeScale = (value, min, max, step, fallback) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    const bounded = Math.min(max, Math.max(min, number));
+    return Math.round(bounded / step) * step;
+  };
+
+  const normalizeFont = (value, fonts, fallback) =>
+    Object.hasOwn(fonts, value) ? value : fallback;
 
   const normalizeCoordinate = (value, min, max) => {
     if (value === "" || value === null || value === undefined) return null;
@@ -87,22 +113,20 @@
   };
 
   const normalizeStops = (value) => {
-    if (Array.isArray(value)) {
-      return value
-        .filter((stop) => stop && (stop.time || stop.place || stop.note || stop.label || stop.mapUrl))
-        .slice(0, MAX_STOPS)
-        .map(normalizeStop);
-    }
-
-    return String(value || "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, MAX_STOPS)
-      .map((line) => {
+    const normalized = Array.isArray(value)
+      ? value.filter(Boolean).map(normalizeStop)
+      : String(value || "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
         const [time = "", label = "PLACE", place = "", note = ""] = line.split("|").map((part) => part.trim());
         return normalizeStop({ time, label, place, note });
       });
+
+    return normalized
+      .filter((stop) => stop.time || stop.place || stop.note || stop.mapUrl || stop.mapEnabled)
+      .slice(0, MAX_STOPS);
   };
 
   const normalizeInvitation = (input = {}) => {
@@ -113,11 +137,15 @@
       ? Math.min(21, Math.max(6, Math.round(requestedZoom)))
       : defaultInvitation.mapZoom;
     const requestedMap = input.mapEnabled === true || input.mapEnabled === "true" || input.mapEnabled === "on";
+    const particleScale = input.particleScale ?? legacyParticleScales[input.particleSize];
 
     return {
       templateId: input.templateId ?? defaultInvitation.templateId,
       particleEffect: normalizeParticleEffect(input.particleEffect),
-      particleSize: normalizeParticleSize(input.particleSize),
+      particleScale: normalizeScale(particleScale, 50, 200, 5, defaultInvitation.particleScale),
+      particleAmount: normalizeScale(input.particleAmount, 25, 200, 25, defaultInvitation.particleAmount),
+      englishFont: normalizeFont(input.englishFont, englishFonts, defaultInvitation.englishFont),
+      koreanFont: normalizeFont(input.koreanFont, koreanFonts, defaultInvitation.koreanFont),
       naverMapClientId: normalizeClientId(input.naverMapClientId),
       title: input.title ?? defaultInvitation.title,
       subtitle: input.subtitle ?? defaultInvitation.subtitle,
@@ -134,14 +162,17 @@
     };
   };
 
-  const renderParticles = (effect, size) => {
+  const renderParticles = (effect, scale, amount) => {
     if (effect === "none") return "";
 
-    const positions = [4, 10, 16, 22, 29, 35, 41, 48, 54, 60, 66, 72, 78, 84, 90, 95];
+    const count = Math.round(16 * amount / 100);
     const colors = effect === "confetti"
       ? ["#f4c95d", "#ea7f8d", "#6cb7a7", "#8f7cc2"]
       : ["#f8d9df", "#f3b9c4", "#fff1d0"];
-    const particles = positions.map((position, index) => {
+    const particles = Array.from({ length: count }, (_, index) => {
+      const position = Math.min(97, Math.max(3,
+        ((index + 0.5) * 100 / count) + ((index % 3) - 1) * 1.2
+      )).toFixed(2);
       const size = 5 + (index % 4) * 2;
       const drift = ((index % 5) - 2) * 15;
       const duration = 8 + (index % 5);
@@ -150,7 +181,7 @@
       return `<span style="--x:${position}%;--size:${size}px;--drift:${drift}px;--duration:${duration}s;--delay:-${delay.toFixed(1)}s;--turn:${turn}deg;--tone:${colors[index % colors.length]}"></span>`;
     }).join("");
 
-    return `<div class="particle-layer" data-effect="${effect}" data-size="${size}" aria-hidden="true">${particles}</div>`;
+    return `<div class="particle-layer" data-effect="${effect}" data-scale="${scale}" data-amount="${amount}" style="--particle-scale:${scale / 100}" aria-hidden="true">${particles}</div>`;
   };
 
   const renderDynamicMap = (mapSettings, variant = "global", mapKey = "representative") => {
@@ -172,14 +203,16 @@
     ? `<a class="${className}" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
     : "";
 
-  const getMapFallbackUrl = (mapSettings, place) => mapSettings.mapUrl || (mapSettings.mapEnabled
-    ? place
-      ? `https://map.naver.com/p/search/${encodeURIComponent(place)}`
-      : "https://map.naver.com/"
-    : "");
+  const getMapFallbackUrl = (mapSettings, place) => mapSettings.mapUrl || (place
+    ? `https://map.naver.com/p/search/${encodeURIComponent(place)}`
+    : mapSettings.mapEnabled
+      ? "https://map.naver.com/"
+      : "");
 
   const renderInvitationBody = (input = {}) => {
     const invitation = normalizeInvitation(input);
+    const englishFont = englishFonts[invitation.englishFont];
+    const koreanFont = koreanFonts[invitation.koreanFont];
     const stops = invitation.stops.map((stop, index) => `
       <article class="invite-stop">
         <div class="invite-stop-number">${String(index + 1).padStart(2, "0")}</div>
@@ -194,8 +227,8 @@
     `).join("");
 
     return `
-      <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}">
-        ${renderParticles(invitation.particleEffect, invitation.particleSize)}
+      <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="--font-en:'${englishFont}';--font-ko:'${koreanFont}'">
+        ${renderParticles(invitation.particleEffect, invitation.particleScale, invitation.particleAmount)}
         <header class="invite-hero">
           <p class="invite-kicker">Invitation</p>
           <h1>${escapeHtml(invitation.title)}</h1>
@@ -228,13 +261,14 @@
   };
 
   const standaloneCss = `
+    @font-face{font-family:"Gmarket Sans";font-style:normal;font-weight:500;font-display:swap;src:url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff") format("woff")}@font-face{font-family:"Gmarket Sans";font-style:normal;font-weight:700;font-display:swap;src:url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff") format("woff")}
     :root{--bg:#ead5ce;--paper:#fffaf2;--ink:#2a1720;--soft:#65535a;--deep:#42101f;--mid:#7a243b;--gold:#d9ac54;--line:rgba(101,58,65,.16)}
     body[data-template="wedding"]{--bg:#f2e8d8;--paper:#fffaf1;--ink:#33241a;--soft:#705d4c;--deep:#6d4f31;--mid:#9b7551;--gold:#c7a15d}
     body[data-template="black-tie"]{--bg:#d8d3ca;--paper:#f8f4ec;--ink:#17191f;--soft:#5f6876;--deep:#08090b;--mid:#353b48;--gold:#c9a45e}
     body[data-template="botanical"]{--bg:#e4ead8;--paper:#fbfbef;--ink:#102018;--soft:#52695b;--deep:#1f3a2c;--mid:#407055;--gold:#b89d50}
     body[data-template="modern"]{--bg:#efe9e3;--paper:#fffaf5;--ink:#1f1b1a;--soft:#6d625b;--deep:#34302d;--mid:#766b62;--gold:#b17846}
-    *{box-sizing:border-box}body{margin:0;padding:28px 14px;background:linear-gradient(145deg,var(--bg),#fff);color:var(--ink);font-family:"Noto Sans KR",sans-serif;line-height:1.7}.invitation-card{max-width:430px;margin:0 auto;overflow:hidden;overflow-wrap:anywhere;background:var(--paper);box-shadow:0 26px 80px rgba(45,11,22,.22)}.invite-hero{min-height:420px;display:grid;align-content:center;padding:48px 28px;text-align:center;color:#fff;background:radial-gradient(circle at 50% 30%,rgba(217,172,84,.32),transparent 34%),linear-gradient(180deg,var(--deep),var(--mid))}.invite-kicker{margin:0 0 14px;color:#f6dda6;font-family:"Cormorant Garamond",serif;text-transform:uppercase;letter-spacing:.22em;font-size:12px}.invite-hero h1{margin:0;font-family:"Cormorant Garamond",serif;font-size:39px;line-height:1.15;font-style:italic;font-weight:500}.invite-subtitle{margin:18px 0 0;font-family:"Gowun Batang",serif;font-size:14px;opacity:.86}.invite-section{padding:28px 24px;border-bottom:1px solid var(--line)}.invite-message{font-family:"Gowun Batang",serif;font-size:17px;text-align:center}.invite-meta{display:grid;gap:12px}.invite-meta div{padding:14px;border:1px solid var(--line)}.invite-meta span{display:block;color:var(--gold);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em}.invite-meta strong{display:block;margin-top:3px}.invite-timeline{display:grid;gap:14px}.invite-stop{display:grid;grid-template-columns:42px 1fr;gap:12px}.invite-stop-number{display:grid;width:38px;height:38px;place-items:center;border:1px solid var(--gold);border-radius:50%;color:var(--mid);font-family:"Cormorant Garamond",serif;font-weight:700}.invite-stop-time{margin:0 0 3px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:.08em}.invite-stop h3{margin:0;font-family:"Gowun Batang",serif;font-size:18px}.invite-stop p{margin:4px 0 0;color:var(--soft);font-size:14px}.invite-map{display:flex;min-height:52px;align-items:center;justify-content:center;margin:24px;color:#fff;background:var(--deep);border-radius:8px;text-decoration:none;font-weight:700}@media(max-width:480px){body{padding:0}.invitation-card{box-shadow:none}}
-    .invitation-card{position:relative;isolation:isolate}.particle-layer{--particle-scale:1;position:absolute;z-index:2;inset:0;overflow:hidden;pointer-events:none}.particle-layer[data-size="small"]{--particle-scale:.7}.particle-layer[data-size="large"]{--particle-scale:1.45}.particle-layer span{position:absolute;top:0;left:var(--x);display:block;width:calc(var(--size) * var(--particle-scale));height:100%;opacity:0;animation:particle-fall var(--duration) linear var(--delay) infinite;will-change:transform}.particle-layer span::before{display:block;width:100%;height:calc(var(--size) * var(--particle-scale));animation:particle-spin 5s linear var(--delay) infinite;content:""}.particle-layer[data-effect="sparkle"] span::before{border-radius:50%;background:#fff8d9;box-shadow:0 0 8px 2px rgba(255,242,188,.78)}.particle-layer[data-effect="petals"] span::before{border-radius:70% 0 70% 0;background:var(--tone)}.particle-layer[data-effect="confetti"] span::before{height:calc(var(--size) * var(--particle-scale) * .48);border-radius:1px;background:var(--tone)}@keyframes particle-fall{0%{opacity:0;transform:translate3d(0,-24px,0)}12%,84%{opacity:.78}100%{opacity:0;transform:translate3d(var(--drift),calc(100% + 24px),0)}}@keyframes particle-spin{from{transform:rotate(var(--turn))}to{transform:rotate(calc(var(--turn) + 480deg))}}@media(max-width:480px){.particle-layer span:nth-child(n+11){display:none}}@media(prefers-reduced-motion:reduce){.particle-layer{display:none}}
+    *{box-sizing:border-box}body{margin:0;padding:28px 14px;background:linear-gradient(145deg,var(--bg),#fff);color:var(--ink);font-family:"Noto Sans KR",sans-serif;line-height:1.7}.invitation-card{max-width:430px;margin:0 auto;overflow:hidden;overflow-wrap:anywhere;background:var(--paper);box-shadow:0 26px 80px rgba(45,11,22,.22);font-family:var(--font-ko),"Noto Sans KR",sans-serif}.invite-hero{min-height:420px;display:grid;align-content:center;padding:48px 28px;text-align:center;color:#fff;background:radial-gradient(circle at 50% 30%,rgba(217,172,84,.32),transparent 34%),linear-gradient(180deg,var(--deep),var(--mid))}.invite-kicker{margin:0 0 14px;color:#f6dda6;font-family:var(--font-en),serif;text-transform:uppercase;letter-spacing:.22em;font-size:12px}.invite-hero h1{margin:0;font-family:var(--font-en),var(--font-ko),serif;font-size:39px;line-height:1.15;font-style:italic;font-weight:500}.invitation-card[data-english-font="dm-serif-display"] .invite-hero h1,.invitation-card[data-english-font="great-vibes"] .invite-hero h1{font-style:normal;font-weight:400}.invite-subtitle{margin:18px 0 0;font-family:var(--font-ko),serif;font-size:14px;opacity:.86}.invite-section{padding:28px 24px;border-bottom:1px solid var(--line)}.invite-message{font-family:var(--font-ko),serif;font-size:17px;text-align:center}.invite-meta{display:grid;gap:12px}.invite-meta div{padding:14px;border:1px solid var(--line)}.invite-meta span{display:block;color:var(--gold);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em}.invite-meta strong{display:block;margin-top:3px}.invite-timeline{display:grid;gap:14px}.invite-stop{display:grid;grid-template-columns:42px 1fr;gap:12px}.invite-stop-number{display:grid;width:38px;height:38px;place-items:center;border:1px solid var(--gold);border-radius:50%;color:var(--mid);font-family:var(--font-en),serif;font-weight:700}.invite-stop-time{margin:0 0 3px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:.08em}.invite-stop h3{margin:0;font-family:var(--font-ko),serif;font-size:18px}.invite-stop p{margin:4px 0 0;color:var(--soft);font-size:14px}.invite-map{display:flex;min-height:52px;align-items:center;justify-content:center;margin:24px;color:#fff;background:var(--deep);border-radius:8px;text-decoration:none;font-weight:700}@media(max-width:480px){body{padding:0}.invitation-card{box-shadow:none}}
+    .invitation-card{position:relative;isolation:isolate}.particle-layer{position:absolute;z-index:2;inset:0;overflow:hidden;pointer-events:none}.particle-layer span{position:absolute;top:0;left:var(--x);display:block;width:calc(var(--size) * var(--particle-scale));height:100%;opacity:0;animation:particle-fall var(--duration) linear var(--delay) infinite;will-change:transform}.particle-layer span::before{display:block;width:100%;height:calc(var(--size) * var(--particle-scale));animation:particle-spin 5s linear var(--delay) infinite;content:""}.particle-layer[data-effect="sparkle"] span::before{border-radius:50%;background:#fff8d9;box-shadow:0 0 8px 2px rgba(255,242,188,.78)}.particle-layer[data-effect="petals"] span::before{border-radius:70% 0 70% 0;background:var(--tone)}.particle-layer[data-effect="confetti"] span::before{height:calc(var(--size) * var(--particle-scale) * .48);border-radius:1px;background:var(--tone)}@keyframes particle-fall{0%{opacity:0;transform:translate3d(0,-24px,0)}12%,84%{opacity:.78}100%{opacity:0;transform:translate3d(var(--drift),calc(100% + 24px),0)}}@keyframes particle-spin{from{transform:rotate(var(--turn))}to{transform:rotate(calc(var(--turn) + 480deg))}}@media(max-width:480px){.particle-layer span:nth-child(n+17){display:none}}@media(prefers-reduced-motion:reduce){.particle-layer{display:none}}
     .invite-map-panel{position:relative;height:260px;margin:24px;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#eee7df}.invite-map-panel.is-stop-map{height:180px;margin:14px 0 0}.invite-map-canvas{width:100%;height:100%}.invite-map-status{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:24px;color:var(--soft);background:rgba(255,250,242,.94);text-align:center;font-size:13px}.invite-map-canvas[data-map-state="ready"]+.invite-map-status{display:none}.invite-stop-map-link{display:inline-flex;min-height:44px;align-items:center;margin-top:4px;color:var(--mid);font-size:13px;font-weight:700}@media(max-width:480px){.invite-map-panel{height:220px;margin:18px}.invite-map-panel.is-stop-map{height:170px;margin:12px 0 0}}
   `;
 
@@ -309,9 +343,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#42101f">
   <title>${escapeHtml(invitation.title)}</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Gowun+Batang:wght@400;700&amp;family=Noto+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link href="${googleFontsUrl.replace(/&/g, "&amp;")}" rel="stylesheet">
   <style>${standaloneCss}</style>
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}">

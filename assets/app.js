@@ -14,6 +14,7 @@ const state = {
 let naverMapsPromise;
 let previewRenderId = 0;
 let previewMapTimer;
+let pendingPreviewMapKey = null;
 const previewMapInstances = new WeakMap();
 
 const dom = {
@@ -27,7 +28,10 @@ const dom = {
   saveStatus: document.querySelector("#save-status"),
   upload: document.querySelector("#html-upload"),
   uploadStatus: document.querySelector("#upload-status"),
-  savedList: document.querySelector("#saved-list")
+  savedList: document.querySelector("#saved-list"),
+  particleScaleOutput: document.querySelector("[data-particle-scale-output]"),
+  particleAmountOutput: document.querySelector("[data-particle-amount-output]"),
+  mobileTabs: [...document.querySelectorAll(".mobile-view-tabs button[data-mobile-view]")]
 };
 
 const sanitizeFilename = (value) =>
@@ -48,7 +52,7 @@ const escapeAttribute = (value = "") => String(value).replace(/[&<>"']/g, (char)
 
 const emptyStop = () => ({
   time: "",
-  label: "PLACE",
+  label: "",
   place: "",
   note: "",
   mapUrl: "",
@@ -91,10 +95,13 @@ const renderStopsEditor = (stops = [], openIndex = 0) => {
       <article class="stop-editor-card${isOpen ? " is-open" : ""}" data-stop-card>
         <header class="stop-editor-card-header">
           <button class="stop-editor-toggle" type="button" data-toggle-stop aria-expanded="${isOpen}" aria-controls="${bodyId}">
-            <strong>코스 ${index + 1}</strong>
-            <span data-stop-summary>${escapeAttribute(stop.place || "장소 미정")}</span>
+            <span class="stop-editor-number">${String(index + 1).padStart(2, "0")}</span>
+            <span class="stop-editor-heading">
+              <strong><span data-stop-time-summary>${escapeAttribute(stop.time || "시간 미정")}</span><span aria-hidden="true"> · </span><span data-stop-label-summary>${escapeAttribute(stop.label || "PLACE")}</span></strong>
+              <span data-stop-summary>${escapeAttribute(stop.place || "장소를 입력하세요")}</span>
+            </span>
           </button>
-          <button class="remove-stop-button" type="button" data-remove-stop="${index}" aria-label="코스 ${index + 1} 삭제" title="이 코스 삭제">&times;</button>
+          <button class="remove-stop-button" type="button" data-remove-stop="${index}" aria-label="코스 ${index + 1} 삭제" title="이 코스 삭제">×</button>
         </header>
         <div id="${bodyId}" class="stop-editor-grid" data-stop-body${isOpen ? "" : " hidden"}>
           <label>
@@ -103,7 +110,7 @@ const renderStopsEditor = (stops = [], openIndex = 0) => {
           </label>
           <label>
             <span>라벨</span>
-            <input data-stop-field="label" type="text" value="${escapeAttribute(stop.label)}" autocomplete="off">
+            <input data-stop-field="label" type="text" value="${escapeAttribute(stop.label)}" placeholder="PLACE" autocomplete="off">
           </label>
           <label class="full">
             <span>장소</span>
@@ -150,6 +157,17 @@ const setStopExpanded = (card, isOpen) => {
   toggle.setAttribute("aria-expanded", String(isOpen));
 };
 
+const setMobileView = (view, shouldFocus = false) => {
+  if (!["editor", "preview", "library"].includes(view)) return;
+  document.body.dataset.mobileView = view;
+  dom.mobileTabs.forEach((button) => {
+    const isActive = button.dataset.mobileView === view;
+    button.setAttribute("aria-pressed", String(isActive));
+    if (isActive && shouldFocus) button.focus();
+  });
+  if (window.matchMedia("(max-width: 900px)").matches) window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
 const parseInvitationHtml = (html) => {
   const documentNode = new DOMParser().parseFromString(html, "text/html");
   const payload = documentNode.querySelector('#invitation-data[type="application/json"]');
@@ -194,7 +212,10 @@ const getFormData = () => {
   return InvitationCore.normalizeInvitation({
     templateId: state.activeTemplate,
     particleEffect: data.get("particleEffect"),
-    particleSize: data.get("particleSize"),
+    particleScale: data.get("particleScale"),
+    particleAmount: data.get("particleAmount"),
+    englishFont: data.get("englishFont"),
+    koreanFont: data.get("koreanFont"),
     naverMapClientId: state.naverMapClientId,
     title: data.get("title"),
     subtitle: data.get("subtitle"),
@@ -211,9 +232,17 @@ const getFormData = () => {
   });
 };
 
+const syncParticleOutputs = () => {
+  dom.particleScaleOutput.textContent = `${dom.form.elements.particleScale.value}%`;
+  dom.particleAmountOutput.textContent = `${dom.form.elements.particleAmount.value}%`;
+};
+
 const fillForm = (invitation) => {
   dom.form.elements.particleEffect.value = invitation.particleEffect || "none";
-  dom.form.elements.particleSize.value = invitation.particleSize || "medium";
+  dom.form.elements.particleScale.value = invitation.particleScale || 100;
+  dom.form.elements.particleAmount.value = invitation.particleAmount || 100;
+  dom.form.elements.englishFont.value = invitation.englishFont || "cormorant-garamond";
+  dom.form.elements.koreanFont.value = invitation.koreanFont || "gowun-batang";
   dom.form.elements.title.value = invitation.title || "";
   dom.form.elements.subtitle.value = invitation.subtitle || "";
   dom.form.elements.dateLabel.value = invitation.dateLabel || "";
@@ -225,6 +254,7 @@ const fillForm = (invitation) => {
   dom.form.elements.mapLongitude.value = invitation.mapLongitude ?? "";
   dom.form.elements.mapZoom.value = invitation.mapZoom || 16;
   dom.form.elements.message.value = invitation.message || "";
+  syncParticleOutputs();
   renderStopsEditor(invitation.stops);
 };
 
@@ -233,11 +263,27 @@ const syncMapSettingsVisibility = () => {
   dom.form.querySelector("[data-map-settings]").hidden = !representativeEnabled;
   dom.form.elements.mapLatitude.required = representativeEnabled;
   dom.form.elements.mapLongitude.required = representativeEnabled;
+  const representativeMessage = dom.form.querySelector("[data-map-message]");
+  const representativeCoordinatesValid = dom.form.elements.mapLatitude.value !== ""
+    && dom.form.elements.mapLongitude.value !== ""
+    && dom.form.elements.mapLatitude.validity.valid
+    && dom.form.elements.mapLongitude.validity.valid;
+  representativeMessage.hidden = !representativeEnabled || representativeCoordinatesValid;
+  representativeMessage.textContent = representativeMessage.hidden
+    ? ""
+    : "위도와 경도를 입력하면 미리보기에 지도가 표시됩니다.";
   dom.stopsEditor.querySelectorAll("[data-stop-card]").forEach((card) => {
     const checkbox = card.querySelector('[data-stop-field="mapEnabled"]');
     card.querySelector("[data-stop-map-settings]").hidden = !checkbox.checked;
     const latitude = card.querySelector('[data-stop-field="mapLatitude"]');
     const longitude = card.querySelector('[data-stop-field="mapLongitude"]');
+    const time = card.querySelector('[data-stop-field="time"]');
+    const place = card.querySelector('[data-stop-field="place"]');
+    const hasCourseContent = ["time", "place", "note", "mapUrl"]
+      .some((field) => card.querySelector(`[data-stop-field="${field}"]`).value.trim())
+      || checkbox.checked;
+    time.required = hasCourseContent;
+    place.required = hasCourseContent;
     latitude.required = checkbox.checked;
     longitude.required = checkbox.checked;
     const message = card.querySelector("[data-stop-map-message]");
@@ -246,6 +292,17 @@ const syncMapSettingsVisibility = () => {
     message.hidden = !checkbox.checked || hasValidCoordinates;
     message.textContent = message.hidden ? "" : "위도와 경도를 입력하면 미리보기에 지도가 표시됩니다.";
   });
+};
+
+const revealPendingPreviewMap = () => {
+  if (!pendingPreviewMapKey) return;
+  const panel = dom.preview.querySelector(`[data-map-key="${pendingPreviewMapKey}"]`);
+  if (!panel) return;
+
+  const centeredTop = panel.offsetTop - Math.max(20, (dom.preview.clientHeight - panel.offsetHeight) / 2);
+  const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  dom.preview.scrollTo({ top: Math.max(0, centeredTop), behavior });
+  pendingPreviewMapKey = null;
 };
 
 const setMapFallback = (canvas, status, canRetry = false) => {
@@ -305,7 +362,10 @@ const loadNaverMaps = () => {
 
 const mountPreviewMaps = async (renderId) => {
   const canvases = [...dom.preview.querySelectorAll("[data-dynamic-map]:not([data-map-state])")];
-  if (!canvases.length) return;
+  if (!canvases.length) {
+    revealPendingPreviewMap();
+    return;
+  }
 
   try {
     await loadNaverMaps();
@@ -327,6 +387,7 @@ const mountPreviewMaps = async (renderId) => {
   } catch {
     canvases.forEach((canvas) => setMapFallback(canvas, null, true));
   }
+  if (renderId === previewRenderId) revealPendingPreviewMap();
 };
 
 const mapSignature = (panel) => {
@@ -367,8 +428,9 @@ const updatePreviewMarkup = (html) => {
 const renderTemplates = () => {
   dom.templates.innerHTML = state.templates.map((template) => {
     const activeClass = template.id === state.activeTemplate ? " is-active" : "";
+    const isActive = template.id === state.activeTemplate;
     return `
-      <button class="template-chip${activeClass}" type="button" data-template-id="${escapeAttribute(template.id)}">
+      <button class="template-chip${activeClass}" type="button" data-template-id="${escapeAttribute(template.id)}" aria-pressed="${isActive}">
         <strong>${escapeAttribute(template.name)}</strong>
         <span>${escapeAttribute(template.note)}</span>
       </button>
@@ -469,10 +531,8 @@ const saveCurrent = () => {
 };
 
 const openSaved = (item) => {
-  const blob = new Blob([item.html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+  const url = `viewer.html?id=${encodeURIComponent(item.id)}`;
   window.open(url, "_blank", "noopener,noreferrer");
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
 };
 
 const handleSavedAction = (event) => {
@@ -485,6 +545,7 @@ const handleSavedAction = (event) => {
   if (button.dataset.action === "open") openSaved(item);
   if (button.dataset.action === "download") downloadHtml(item.html, item.title);
   if (button.dataset.action === "delete") {
+    if (!window.confirm(`“${item.title}” 초대장을 목록에서 삭제할까요?`)) return;
     const nextSaved = state.saved.filter((saved) => saved.id !== item.id);
     dom.uploadStatus.textContent = persistSaved(nextSaved)
       ? "등록된 초대장을 삭제했습니다."
@@ -551,7 +612,20 @@ const init = async () => {
   }
 };
 
-dom.form.addEventListener("input", renderPreview);
+dom.form.addEventListener("input", (event) => {
+  if (event.target.matches('[name="particleScale"], [name="particleAmount"]')) {
+    syncParticleOutputs();
+  }
+  if (event.target.matches('[name="mapEnabled"]')) {
+    pendingPreviewMapKey = event.target.checked ? "representative" : null;
+  }
+  if (event.target.matches('[data-stop-field="mapEnabled"]')) {
+    const cards = [...dom.stopsEditor.querySelectorAll("[data-stop-card]")];
+    const index = cards.indexOf(event.target.closest("[data-stop-card]"));
+    pendingPreviewMapKey = event.target.checked && index >= 0 ? `stop-${index}` : null;
+  }
+  renderPreview();
+});
 
 dom.addStop.addEventListener("click", () => {
   const currentStops = getStopsData();
@@ -577,15 +651,26 @@ dom.stopsEditor.addEventListener("click", (event) => {
   if (!button) return;
   const stops = getStopsData();
   const removedIndex = Number(button.dataset.removeStop);
+  const stopName = stops[removedIndex]?.place.trim() || `코스 ${removedIndex + 1}`;
+  if (!window.confirm(`“${stopName}” 코스를 삭제할까요?`)) return;
   stops.splice(removedIndex, 1);
   renderStopsEditor(stops, Math.min(removedIndex, stops.length - 1));
   renderPreview();
 });
 
 dom.stopsEditor.addEventListener("input", (event) => {
-  if (event.target.dataset.stopField !== "place") return;
-  const summary = event.target.closest("[data-stop-card]")?.querySelector("[data-stop-summary]");
-  if (summary) summary.textContent = event.target.value.trim() || "장소 미정";
+  const card = event.target.closest("[data-stop-card]");
+  if (!card) return;
+  const value = event.target.value.trim();
+  if (event.target.dataset.stopField === "place") {
+    card.querySelector("[data-stop-summary]").textContent = value || "장소를 입력하세요";
+  }
+  if (event.target.dataset.stopField === "time") {
+    card.querySelector("[data-stop-time-summary]").textContent = value || "시간 미정";
+  }
+  if (event.target.dataset.stopField === "label") {
+    card.querySelector("[data-stop-label-summary]").textContent = value || "PLACE";
+  }
 });
 
 dom.templates.addEventListener("click", (event) => {
@@ -620,5 +705,8 @@ dom.download.addEventListener("click", () => {
 dom.save.addEventListener("click", saveCurrent);
 dom.savedList.addEventListener("click", handleSavedAction);
 dom.upload.addEventListener("change", () => registerUploadedHtml(dom.upload.files[0]));
+dom.mobileTabs.forEach((button) => {
+  button.addEventListener("click", () => setMobileView(button.dataset.mobileView));
+});
 
 init();

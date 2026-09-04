@@ -70,7 +70,7 @@ test("normalizeInvitation preserves independent map settings for each stop", () 
   assert.equal(invitation.stops[0].mapZoom, 18);
   assert.equal(invitation.stops[0].mapUrl, "https://map.naver.com/first");
   assert.equal(invitation.stops[1].mapEnabled, false);
-  assert.equal(normalizeInvitation({ stops: [{ label: "MAP", mapUrl: "javascript:alert(1)" }] }).stops[0].mapUrl, "");
+  assert.equal(normalizeInvitation({ stops: [{ label: "MAP", mapUrl: "javascript:alert(1)" }] }).stops.length, 0);
   assert.equal(Object.hasOwn(normalizeInvitation({ clientSecret: "must-not-survive" }), "clientSecret"), false);
 });
 
@@ -80,21 +80,46 @@ test("normalizeInvitation preserves supported particle effects and rejects unkno
   assert.equal(normalizeInvitation({}).particleEffect, "none");
 });
 
-test("normalizeInvitation validates particle size and dynamic map settings", () => {
+test("normalizeInvitation preserves supported fonts and rejects unknown font values", () => {
   const invitation = normalizeInvitation({
-    particleSize: "large",
+    englishFont: "great-vibes",
+    koreanFont: "gmarket-sans"
+  });
+
+  assert.equal(invitation.englishFont, "great-vibes");
+  assert.equal(invitation.koreanFont, "gmarket-sans");
+  assert.equal(normalizeInvitation({ englishFont: "comic-sans" }).englishFont, "cormorant-garamond");
+  assert.equal(normalizeInvitation({ koreanFont: "unknown" }).koreanFont, "gowun-batang");
+});
+
+test("normalizeInvitation clamps particle scales and migrates legacy particle sizes", () => {
+  const invitation = normalizeInvitation({
+    particleScale: "175",
+    particleAmount: "150"
+  });
+
+  assert.equal(invitation.particleScale, 175);
+  assert.equal(invitation.particleAmount, 150);
+  assert.equal(normalizeInvitation({ particleScale: 400 }).particleScale, 200);
+  assert.equal(normalizeInvitation({ particleAmount: 0 }).particleAmount, 25);
+  assert.equal(normalizeInvitation({ particleScale: "invalid" }).particleScale, 100);
+  assert.equal(normalizeInvitation({ particleAmount: "invalid" }).particleAmount, 100);
+  assert.equal(normalizeInvitation({ particleSize: "small" }).particleScale, 70);
+  assert.equal(normalizeInvitation({ particleSize: "large" }).particleScale, 145);
+});
+
+test("normalizeInvitation validates dynamic map settings", () => {
+  const invitation = normalizeInvitation({
     mapEnabled: true,
     mapLatitude: "37.5446",
     mapLongitude: "127.0559",
     mapZoom: "99"
   });
 
-  assert.equal(invitation.particleSize, "large");
   assert.equal(invitation.mapEnabled, true);
   assert.equal(invitation.mapLatitude, 37.5446);
   assert.equal(invitation.mapLongitude, 127.0559);
   assert.equal(invitation.mapZoom, 21);
-  assert.equal(normalizeInvitation({ particleSize: "huge" }).particleSize, "medium");
   assert.equal(normalizeInvitation({ mapEnabled: true, mapLatitude: 120, mapLongitude: 127 }).mapEnabled, false);
   assert.equal(normalizeInvitation({ mapUrl: "" }).mapUrl, "");
 });
@@ -108,27 +133,46 @@ test("normalizeInvitation bounds the number of course cards", () => {
   assert.equal(normalizeInvitation({ stops }).stops.length, MAX_STOPS);
 });
 
+test("normalizeInvitation drops course cards with no meaningful content", () => {
+  const invitation = normalizeInvitation({
+    stops: [
+      { label: "PLACE" },
+      { time: "", label: "", place: "", note: "", mapUrl: "" },
+      { mapEnabled: true },
+      { time: "15:00", label: "CAFE", place: "연무장길 카페" }
+    ]
+  });
+
+  assert.equal(invitation.stops.length, 1);
+  assert.equal(invitation.stops[0].place, "연무장길 카페");
+});
+
 test("standalone HTML embeds the selected particle effect with reduced motion support", () => {
   const html = buildStandaloneHtml({
     title: "꽃잎이 흐르는 초대",
     particleEffect: "petals",
-    particleSize: "large"
+    particleScale: 175,
+    particleAmount: 150
   });
 
   assert.match(html, /data-particle="petals"/);
-  assert.match(html, /data-size="large"/);
+  assert.match(html, /data-scale="175"/);
+  assert.match(html, /data-amount="150"/);
+  assert.match(html, /--particle-scale:1\.75/);
   assert.match(html, /class="particle-layer"/);
+  assert.equal((html.match(/<span style="--x:/g) || []).length, 24);
   assert.match(html, /prefers-reduced-motion:reduce/);
   assert.match(html, /will-change:transform/);
   assert.doesNotMatch(html, /will-change:top/);
 });
 
-test("standalone HTML handles every particle effect and size option", () => {
+test("standalone HTML handles every particle effect and amount scale", () => {
   for (const effect of ["sparkle", "petals", "confetti"]) {
-    for (const size of ["small", "medium", "large"]) {
-      const html = buildStandaloneHtml({ particleEffect: effect, particleSize: size });
+    for (const amount of [25, 100, 200]) {
+      const html = buildStandaloneHtml({ particleEffect: effect, particleAmount: amount });
       assert.match(html, new RegExp(`data-effect="${effect}"`));
-      assert.match(html, new RegExp(`data-size="${size}"`));
+      assert.match(html, new RegExp(`data-amount="${amount}"`));
+      assert.equal((html.match(/<span style="--x:/g) || []).length, Math.round(16 * amount / 100));
     }
   }
 
@@ -215,6 +259,17 @@ test("enabled course maps get a place-search fallback when no map URL is provide
   assert.match(html, /https:\/\/map\.naver\.com\/p\/search\/%EC%84%B1%EC%88%98%EC%97%B0%EB%B0%A9%20%EC%B9%B4%ED%8E%98/);
 });
 
+test("place names get useful NAVER search links without manual map URLs", () => {
+  const html = buildStandaloneHtml({
+    location: "성수역 3번 출구",
+    mapEnabled: false,
+    stops: [{ time: "14:00", label: "MEET", place: "서울숲" }]
+  });
+
+  assert.match(html, /https:\/\/map\.naver\.com\/p\/search\/%EC%84%B1%EC%88%98%EC%97%AD%203%EB%B2%88%20%EC%B6%9C%EA%B5%AC/);
+  assert.match(html, /https:\/\/map\.naver\.com\/p\/search\/%EC%84%9C%EC%9A%B8%EC%88%B2/);
+});
+
 test("every enabled map keeps a fallback even when its label and URL are blank", () => {
   const html = buildStandaloneHtml({
     naverMapClientId: "public-client-id",
@@ -245,7 +300,23 @@ test("standalone HTML preserves the preview typography", () => {
   assert.match(html, /family=Gowun\+Batang/);
   assert.match(html, /family=Noto\+Sans\+KR/);
   assert.match(html, /body\{[^}]*font-family:"Noto Sans KR",sans-serif/);
-  assert.match(html, /\.invite-hero h1\{[^}]*font-family:"Cormorant Garamond",serif/);
-  assert.match(html, /\.invite-subtitle\{[^}]*font-family:"Gowun Batang",serif/);
+  assert.match(html, /--font-en:'Cormorant Garamond'/);
+  assert.match(html, /--font-ko:'Gowun Batang'/);
+  assert.match(html, /\.invite-hero h1\{[^}]*font-family:var\(--font-en\),var\(--font-ko\),serif/);
+  assert.match(html, /\.invite-subtitle\{[^}]*font-family:var\(--font-ko\),serif/);
   assert.match(html, /overflow-wrap:anywhere/);
+});
+
+test("standalone HTML preserves selected English and Korean fonts", () => {
+  const html = buildStandaloneHtml({
+    title: "A Day in Seongsu",
+    englishFont: "great-vibes",
+    koreanFont: "gmarket-sans"
+  });
+
+  assert.match(html, /--font-en:'Great Vibes'/);
+  assert.match(html, /--font-ko:'Gmarket Sans'/);
+  assert.match(html, /"englishFont":"great-vibes"/);
+  assert.match(html, /"koreanFont":"gmarket-sans"/);
+  assert.match(html, /GmarketSansMedium\.woff/);
 });
