@@ -62,3 +62,19 @@ test("editor exposes particle size and amount as percentage scales", () => {
   assert.match(app, /data-particle-scale-output/);
   assert.match(app, /data-particle-amount-output/);
 });
+
+test("particle selector groups every effect profile in the editor", () => {
+  const index = read("index.html");
+  const select = index.match(/<select name="particleEffect"[\s\S]*?<\/select>/)?.[0] || "";
+
+  assert.match(select, /<option value="none">효과 없음<\/option>/);
+  assert.equal((select.match(/<optgroup /g) || []).length, 4);
+  assert.match(select, /<optgroup label="로맨틱">[\s\S]*?<option value="petals">꽃잎<\/option>[\s\S]*?<option value="hearts">하트<\/option>[\s\S]*?<\/optgroup>/);
+  assert.match(select, /<optgroup label="분위기">[\s\S]*?<option value="sparkle">빛가루<\/option>[\s\S]*?<option value="fireflies">반딧불<\/option>[\s\S]*?<option value="bubbles">버블<\/option>[\s\S]*?<\/optgroup>/);
+  assert.match(select, /<optgroup label="계절">[\s\S]*?<option value="snow">눈<\/option>[\s\S]*?<option value="leaves">나뭇잎<\/option>[\s\S]*?<\/optgroup>/);
+  assert.match(select, /<optgroup label="축하">[\s\S]*?<option value="confetti">컨페티<\/option>[\s\S]*?<\/optgroup>/);
+
+  for (const effect of ["none", "petals", "hearts", "sparkle", "fireflies", "bubbles", "snow", "leaves", "confetti"]) {
+    assert.equal((select.match(new RegExp(`value="${effect}"`, "g")) || []).length, 1);
+  }
+});

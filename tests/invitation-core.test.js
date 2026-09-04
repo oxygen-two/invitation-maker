@@ -75,7 +75,10 @@ test("normalizeInvitation preserves independent map settings for each stop", () 
 });
 
 test("normalizeInvitation preserves supported particle effects and rejects unknown values", () => {
-  assert.equal(normalizeInvitation({ particleEffect: "petals" }).particleEffect, "petals");
+  for (const effect of ["none", "petals", "hearts", "sparkle", "fireflies", "bubbles", "snow", "leaves", "confetti"]) {
+    assert.equal(normalizeInvitation({ particleEffect: effect }).particleEffect, effect);
+  }
+
   assert.equal(normalizeInvitation({ particleEffect: "unknown" }).particleEffect, "none");
   assert.equal(normalizeInvitation({}).particleEffect, "none");
 });
@@ -168,7 +171,7 @@ test("standalone HTML embeds the selected particle effect with reduced motion su
 });
 
 test("standalone HTML handles every particle effect and amount scale", () => {
-  for (const effect of ["sparkle", "petals", "confetti"]) {
+  for (const effect of ["sparkle", "petals", "hearts", "fireflies", "bubbles", "snow", "leaves", "confetti"]) {
     for (const amount of [25, 100, 200, 500]) {
       const html = buildStandaloneHtml({ particleEffect: effect, particleAmount: amount });
       assert.match(html, new RegExp(`data-effect="${effect}"`));
@@ -178,6 +181,32 @@ test("standalone HTML handles every particle effect and amount scale", () => {
   }
 
   assert.doesNotMatch(buildStandaloneHtml({ particleEffect: "none" }), /class="particle-layer"/);
+});
+
+test("standalone particle profiles include effect markers and transform-only animations", () => {
+  const profileMarkers = {
+    sparkle: /box-shadow:0 0 8px 2px rgba\(255,242,188,\.78\)/,
+    petals: /border-radius:70% 0 70% 0/,
+    hearts: /content:"❤"/,
+    fireflies: /particle-pulse var\(--pulse-duration\)/,
+    bubbles: /border:1px solid rgba\(255,255,255,\.72\)/,
+    snow: /background:rgba\(255,255,255,var\(--tone\)\)/,
+    leaves: /border-radius:80% 0 70% 10%/
+  };
+
+  for (const [effect, marker] of Object.entries(profileMarkers)) {
+    const html = buildStandaloneHtml({ particleEffect: effect });
+
+    assert.match(html, new RegExp(`data-effect="${effect}"`));
+    assert.match(html, marker);
+  }
+
+  const css = buildStandaloneHtml({ particleEffect: "fireflies" }).match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+  assert.match(css, /@keyframes particle-fall/);
+  assert.match(css, /@keyframes particle-rise/);
+  assert.match(css, /@keyframes particle-pulse/);
+  const particleKeyframes = css.match(/@keyframes particle-fall[\s\S]*?@media/)?.[0] || "";
+  assert.doesNotMatch(particleKeyframes, /(?:top|left|width|height)\s*:/);
 });
 
 test("standalone HTML conditionally embeds NAVER Dynamic Map", () => {
