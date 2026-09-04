@@ -55,7 +55,7 @@ test("editor exposes particle size and amount as percentage scales", () => {
 
   assert.match(index, /<input[^>]+name="particleScale"[^>]+type="range"[^>]+min="50"[^>]+max="200"[^>]+step="5"/);
   assert.match(index, /<output[^>]+data-particle-scale-output[^>]*>100%<\/output>/);
-  assert.match(index, /<input[^>]+name="particleAmount"[^>]+type="range"[^>]+min="25"[^>]+max="200"[^>]+step="25"/);
+  assert.match(index, /<input[^>]+name="particleAmount"[^>]+type="range"[^>]+min="25"[^>]+max="500"[^>]+step="25"/);
   assert.match(index, /<output[^>]+data-particle-amount-output[^>]*>100%<\/output>/);
   assert.match(app, /data\.get\("particleScale"\)/);
   assert.match(app, /data\.get\("particleAmount"\)/);

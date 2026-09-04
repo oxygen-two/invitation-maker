@@ -101,6 +101,7 @@ test("normalizeInvitation clamps particle scales and migrates legacy particle si
   assert.equal(invitation.particleScale, 175);
   assert.equal(invitation.particleAmount, 150);
   assert.equal(normalizeInvitation({ particleScale: 400 }).particleScale, 200);
+  assert.equal(normalizeInvitation({ particleAmount: 900 }).particleAmount, 500);
   assert.equal(normalizeInvitation({ particleAmount: 0 }).particleAmount, 25);
   assert.equal(normalizeInvitation({ particleScale: "invalid" }).particleScale, 100);
   assert.equal(normalizeInvitation({ particleAmount: "invalid" }).particleAmount, 100);
@@ -168,7 +169,7 @@ test("standalone HTML embeds the selected particle effect with reduced motion su
 
 test("standalone HTML handles every particle effect and amount scale", () => {
   for (const effect of ["sparkle", "petals", "confetti"]) {
-    for (const amount of [25, 100, 200]) {
+    for (const amount of [25, 100, 200, 500]) {
       const html = buildStandaloneHtml({ particleEffect: effect, particleAmount: amount });
       assert.match(html, new RegExp(`data-effect="${effect}"`));
       assert.match(html, new RegExp(`data-amount="${amount}"`));

@@ -143,7 +143,7 @@
       templateId: input.templateId ?? defaultInvitation.templateId,
       particleEffect: normalizeParticleEffect(input.particleEffect),
       particleScale: normalizeScale(particleScale, 50, 200, 5, defaultInvitation.particleScale),
-      particleAmount: normalizeScale(input.particleAmount, 25, 200, 25, defaultInvitation.particleAmount),
+      particleAmount: normalizeScale(input.particleAmount, 25, 500, 25, defaultInvitation.particleAmount),
       englishFont: normalizeFont(input.englishFont, englishFonts, defaultInvitation.englishFont),
       koreanFont: normalizeFont(input.koreanFont, koreanFonts, defaultInvitation.koreanFont),
       naverMapClientId: normalizeClientId(input.naverMapClientId),
