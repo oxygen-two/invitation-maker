@@ -33,3 +33,18 @@ test("normalizeInvitation parses editable stop lines", () => {
     note: "천천히 걷기"
   });
 });
+
+test("standalone HTML preserves the preview typography", () => {
+  const html = buildStandaloneHtml({
+    title: "성수에서 보내는 하루",
+    subtitle: "카페에서 시작하는 오후",
+    message: "함께 오래 기억할 하루를 만들고 싶어요."
+  });
+
+  assert.match(html, /fonts\.googleapis\.com\/css2\?family=Cormorant\+Garamond/);
+  assert.match(html, /family=Gowun\+Batang/);
+  assert.match(html, /family=Noto\+Sans\+KR/);
+  assert.match(html, /body\{[^}]*font-family:"Noto Sans KR",sans-serif/);
+  assert.match(html, /\.invite-hero h1\{[^}]*font-family:"Cormorant Garamond",serif/);
+  assert.match(html, /\.invite-subtitle\{[^}]*font-family:"Gowun Batang",serif/);
+});
