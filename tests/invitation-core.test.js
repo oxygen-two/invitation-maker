@@ -1,6 +1,20 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
+
+const root = path.resolve(__dirname, "..");
+const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const particleCapBreakpoint = (css) => {
+  const capIndex = css.indexOf(".particle-layer span:nth-child(n+17)");
+  assert.notEqual(capIndex, -1);
+
+  const beforeCap = css.slice(0, capIndex);
+  const mediaMatches = [...beforeCap.matchAll(/@media\s*\(\s*max-width\s*:\s*(\d+)px\s*\)/g)];
+  assert.notEqual(mediaMatches.length, 0);
+  return mediaMatches.at(-1)[1];
+};
 
 test("buildStandaloneHtml embeds invitation data without external JSON dependency", () => {
   const html = buildStandaloneHtml({
@@ -207,6 +221,13 @@ test("standalone particle profiles include effect markers and transform-only ani
   assert.match(css, /@keyframes particle-pulse/);
   const particleKeyframes = css.match(/@keyframes particle-fall[\s\S]*?@media/)?.[0] || "";
   assert.doesNotMatch(particleKeyframes, /(?:top|left|width|height)\s*:/);
+});
+
+test("standalone particle mobile cap breakpoint matches the preview stylesheet", () => {
+  const previewCss = read("assets/style.css");
+  const standaloneCss = buildStandaloneHtml({ particleEffect: "fireflies" }).match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+
+  assert.equal(particleCapBreakpoint(standaloneCss), particleCapBreakpoint(previewCss));
 });
 
 test("standalone HTML conditionally embeds NAVER Dynamic Map", () => {
