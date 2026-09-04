@@ -124,12 +124,16 @@
           <span>메시지</span>
           <textarea name="message" rows="4"></textarea>
         </label>
-        <section class="full stops-editor-section" aria-labelledby="stops-editor-title">
-          <header class="stops-editor-header">
-            <span id="stops-editor-title">데이트 코스</span>
-            <button id="add-stop-button" class="add-stop-button" type="button">+ 코스 추가</button>
+        <section class="full content-editor-section" aria-labelledby="content-editor-title">
+          <header class="content-editor-header">
+            <span id="content-editor-title">초대장 항목</span>
+            <div class="content-editor-commands">
+              <button id="add-course-button" class="add-item-button" type="button">+ 코스</button>
+              <button id="add-photo-button" class="add-item-button" type="button">+ 사진</button>
+              <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+            </div>
           </header>
-          <div id="stops-editor" class="stops-editor"></div>
+          <div id="content-editor" class="content-editor"></div>
         </section>
       </form>
 

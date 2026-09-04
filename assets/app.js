@@ -20,8 +20,10 @@ const previewMapInstances = new WeakMap();
 const dom = {
   form: document.querySelector("#invitation-form"),
   templates: document.querySelector("#template-list"),
-  stopsEditor: document.querySelector("#stops-editor"),
-  addStop: document.querySelector("#add-stop-button"),
+  contentEditor: document.querySelector("#content-editor"),
+  addCourse: document.querySelector("#add-course-button"),
+  addPhoto: document.querySelector("#add-photo-button"),
+  photoInput: document.querySelector("#photo-input"),
   preview: document.querySelector("#preview"),
   download: document.querySelector("#download-button"),
   save: document.querySelector("#save-button"),
@@ -50,7 +52,14 @@ const escapeAttribute = (value = "") => String(value).replace(/[&<>"']/g, (char)
   "'": "&#039;"
 })[char]);
 
-const emptyStop = () => ({
+const createItemId = (type) => {
+  if (globalThis.crypto?.randomUUID) return `${type}-${globalThis.crypto.randomUUID()}`;
+  return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const emptyCourse = () => ({
+  id: createItemId("course"),
+  type: "course",
   time: "",
   label: "",
   place: "",
@@ -62,100 +71,160 @@ const emptyStop = () => ({
   mapZoom: 16
 });
 
-const getStopsData = () => [...dom.stopsEditor.querySelectorAll("[data-stop-card]")].map((card) => {
-  const value = (field) => card.querySelector(`[data-stop-field="${field}"]`).value;
+const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-card]")].map((card) => {
+  const id = card.dataset.itemId;
+  const type = card.dataset.itemType;
+  if (card.dataset.itemType === "photo") {
+    return {
+      id: card.dataset.itemId,
+      type: card.dataset.itemType,
+      src: card.querySelector("[data-photo-thumbnail]").getAttribute("src") || "",
+      alt: card.querySelector('[data-photo-field="alt"]').value,
+      caption: card.querySelector('[data-photo-field="caption"]').value
+    };
+  }
+
+  const value = (field) => card.querySelector(`[data-course-field="${field}"]`).value;
   return {
+    id,
+    type,
     time: value("time"),
     label: value("label"),
     place: value("place"),
     note: value("note"),
     mapUrl: value("mapUrl"),
-    mapEnabled: card.querySelector('[data-stop-field="mapEnabled"]').checked,
+    mapEnabled: card.querySelector('[data-course-field="mapEnabled"]').checked,
     mapLatitude: value("mapLatitude"),
     mapLongitude: value("mapLongitude"),
     mapZoom: value("mapZoom")
   };
 });
 
-const renderStopsEditor = (stops = [], openIndex = 0) => {
-  if (!stops.length) {
-    dom.stopsEditor.innerHTML = '<p class="stops-empty">코스를 추가해 일정을 구성하세요.</p>';
-    dom.addStop.disabled = false;
+const renderItemActions = (item, index, itemCount) => {
+  const typeLabel = item.type === "photo" ? "사진" : "코스";
+  return `
+    <div class="item-editor-actions">
+      <button class="item-icon-button" type="button" data-item-action="up" aria-label="${typeLabel} 항목 위로 이동" title="위로 이동"${index === 0 ? " disabled" : ""}>↑</button>
+      <button class="item-icon-button" type="button" data-item-action="down" aria-label="${typeLabel} 항목 아래로 이동" title="아래로 이동"${index === itemCount - 1 ? " disabled" : ""}>↓</button>
+      <button class="item-icon-button remove-item-button" type="button" data-item-action="delete" aria-label="${typeLabel} 항목 삭제" title="이 항목 삭제">×</button>
+    </div>
+  `;
+};
+
+const renderCourseFields = (item, bodyId, isOpen) => {
+  const checked = item.mapEnabled ? " checked" : "";
+  const hidden = item.mapEnabled ? "" : " hidden";
+  return `
+    <div id="${bodyId}" class="course-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
+      <label>
+        <span>시간</span>
+        <input data-course-field="time" type="time" step="600" value="${escapeAttribute(item.time)}">
+      </label>
+      <label>
+        <span>라벨</span>
+        <input data-course-field="label" type="text" value="${escapeAttribute(item.label)}" placeholder="PLACE" autocomplete="off">
+      </label>
+      <label class="full">
+        <span>장소</span>
+        <input data-course-field="place" type="text" value="${escapeAttribute(item.place)}" autocomplete="off">
+      </label>
+      <label class="full">
+        <span>메모</span>
+        <textarea data-course-field="note" rows="2">${escapeAttribute(item.note)}</textarea>
+      </label>
+      <label class="full">
+        <span>지도 링크</span>
+        <input data-course-field="mapUrl" type="url" value="${escapeAttribute(item.mapUrl)}" placeholder="https://map.naver.com/" autocomplete="off">
+      </label>
+      <label class="full checkbox-field">
+        <input data-course-field="mapEnabled" type="checkbox"${checked}>
+        <span>이 코스에 동적 지도 표시</span>
+      </label>
+      <div class="full map-settings stop-map-settings" data-course-map-settings${hidden}>
+        <label>
+          <span>위도</span>
+          <input data-course-field="mapLatitude" type="number" min="-90" max="90" step="any" inputmode="decimal" value="${escapeAttribute(item.mapLatitude ?? "")}">
+        </label>
+        <label>
+          <span>경도</span>
+          <input data-course-field="mapLongitude" type="number" min="-180" max="180" step="any" inputmode="decimal" value="${escapeAttribute(item.mapLongitude ?? "")}">
+        </label>
+        <label>
+          <span>지도 줌</span>
+          <input data-course-field="mapZoom" type="number" min="6" max="21" step="1" inputmode="numeric" value="${escapeAttribute(item.mapZoom || 16)}">
+        </label>
+        <small class="full stop-map-message" data-course-map-message role="status" aria-live="polite" hidden></small>
+      </div>
+    </div>
+  `;
+};
+
+const renderPhotoFields = (item, bodyId, isOpen) => `
+  <div id="${bodyId}" class="photo-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
+    <img class="photo-editor-thumbnail" data-photo-thumbnail src="${escapeAttribute(item.src)}" alt="${escapeAttribute(item.alt || "선택한 사진 미리보기")}">
+    <label class="full">
+      <span>대체 텍스트</span>
+      <input data-photo-field="alt" type="text" value="${escapeAttribute(item.alt)}" autocomplete="off">
+    </label>
+    <label class="full">
+      <span>사진 설명</span>
+      <textarea data-photo-field="caption" rows="2">${escapeAttribute(item.caption)}</textarea>
+    </label>
+  </div>
+`;
+
+const renderContentEditor = (items = [], openId = items[0]?.id) => {
+  const photoCount = items.filter((item) => item.type === "photo").length;
+  dom.addCourse.disabled = items.length >= InvitationCore.MAX_ITEMS;
+  dom.addPhoto.disabled = items.length >= InvitationCore.MAX_ITEMS || photoCount >= InvitationCore.MAX_PHOTOS;
+
+  if (!items.length) {
+    dom.contentEditor.innerHTML = '<p class="content-empty">코스나 사진을 추가해 초대장을 구성하세요.</p>';
     return;
   }
 
-  dom.addStop.disabled = stops.length >= InvitationCore.MAX_STOPS;
-
-  dom.stopsEditor.innerHTML = stops.map((stop, index) => {
-    const checked = stop.mapEnabled ? " checked" : "";
-    const hidden = stop.mapEnabled ? "" : " hidden";
-    const isOpen = index === openIndex;
-    const bodyId = `stop-editor-body-${index}`;
+  let courseNumber = 0;
+  dom.contentEditor.innerHTML = items.map((item, index) => {
+    const isPhoto = item.type === "photo";
+    if (!isPhoto) courseNumber += 1;
+    const isOpen = item.id === openId;
+    const bodyId = `content-editor-body-${index}`;
+    const typeLabel = isPhoto ? "사진" : `코스 ${courseNumber}`;
+    const primarySummary = isPhoto
+      ? item.caption || item.alt || "설명을 입력하세요"
+      : item.place || "장소를 입력하세요";
+    const secondarySummary = isPhoto
+      ? "PHOTO"
+      : `${item.time || "시간 미정"} · ${item.label || "PLACE"}`;
     return `
-      <article class="stop-editor-card${isOpen ? " is-open" : ""}" data-stop-card>
-        <header class="stop-editor-card-header">
-          <button class="stop-editor-toggle" type="button" data-toggle-stop aria-expanded="${isOpen}" aria-controls="${bodyId}">
-            <span class="stop-editor-number">${String(index + 1).padStart(2, "0")}</span>
-            <span class="stop-editor-heading">
-              <strong><span data-stop-time-summary>${escapeAttribute(stop.time || "시간 미정")}</span><span aria-hidden="true"> · </span><span data-stop-label-summary>${escapeAttribute(stop.label || "PLACE")}</span></strong>
-              <span data-stop-summary>${escapeAttribute(stop.place || "장소를 입력하세요")}</span>
+      <article class="content-item-card ${isPhoto ? "photo-editor-card" : "course-editor-card"}${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
+        <header class="content-item-header">
+          <button class="item-icon-button item-drag-handle" type="button" data-drag-handle aria-label="${typeLabel} 순서 드래그" title="순서 드래그">⋮⋮</button>
+          <button class="content-item-toggle" type="button" data-toggle-item aria-expanded="${isOpen}" aria-controls="${bodyId}">
+            <span class="content-item-number">${String(index + 1).padStart(2, "0")}</span>
+            <span class="content-item-heading">
+              <strong>${escapeAttribute(typeLabel)} · <span data-item-secondary-summary>${escapeAttribute(secondarySummary)}</span></strong>
+              <span data-item-summary>${escapeAttribute(primarySummary)}</span>
             </span>
           </button>
-          <button class="remove-stop-button" type="button" data-remove-stop="${index}" aria-label="코스 ${index + 1} 삭제" title="이 코스 삭제">×</button>
+          ${renderItemActions(item, index, items.length)}
         </header>
-        <div id="${bodyId}" class="stop-editor-grid" data-stop-body${isOpen ? "" : " hidden"}>
-          <label>
-            <span>시간</span>
-            <input data-stop-field="time" type="time" value="${escapeAttribute(stop.time)}">
-          </label>
-          <label>
-            <span>라벨</span>
-            <input data-stop-field="label" type="text" value="${escapeAttribute(stop.label)}" placeholder="PLACE" autocomplete="off">
-          </label>
-          <label class="full">
-            <span>장소</span>
-            <input data-stop-field="place" type="text" value="${escapeAttribute(stop.place)}" autocomplete="off">
-          </label>
-          <label class="full">
-            <span>메모</span>
-            <textarea data-stop-field="note" rows="2">${escapeAttribute(stop.note)}</textarea>
-          </label>
-          <label class="full">
-            <span>지도 링크</span>
-            <input data-stop-field="mapUrl" type="url" value="${escapeAttribute(stop.mapUrl)}" placeholder="https://map.naver.com/" autocomplete="off">
-          </label>
-          <label class="full checkbox-field">
-            <input data-stop-field="mapEnabled" type="checkbox"${checked}>
-            <span>이 코스에 동적 지도 표시</span>
-          </label>
-          <div class="full map-settings stop-map-settings" data-stop-map-settings${hidden}>
-            <label>
-              <span>위도</span>
-              <input data-stop-field="mapLatitude" type="number" min="-90" max="90" step="any" inputmode="decimal" value="${escapeAttribute(stop.mapLatitude ?? "")}">
-            </label>
-            <label>
-              <span>경도</span>
-              <input data-stop-field="mapLongitude" type="number" min="-180" max="180" step="any" inputmode="decimal" value="${escapeAttribute(stop.mapLongitude ?? "")}">
-            </label>
-            <label>
-              <span>지도 줌</span>
-              <input data-stop-field="mapZoom" type="number" min="6" max="21" step="1" inputmode="numeric" value="${escapeAttribute(stop.mapZoom || 16)}">
-            </label>
-            <small class="full stop-map-message" data-stop-map-message role="status" aria-live="polite" hidden></small>
-          </div>
-        </div>
+        ${isPhoto ? renderPhotoFields(item, bodyId, isOpen) : renderCourseFields(item, bodyId, isOpen)}
       </article>
     `;
   }).join("");
 };
 
-const setStopExpanded = (card, isOpen) => {
-  const body = card.querySelector("[data-stop-body]");
-  const toggle = card.querySelector("[data-toggle-stop]");
+const setItemExpanded = (card, isOpen) => {
+  const body = card.querySelector("[data-item-body]");
+  const toggle = card.querySelector("[data-toggle-item]");
   body.hidden = !isOpen;
   card.classList.toggle("is-open", isOpen);
   toggle.setAttribute("aria-expanded", String(isOpen));
 };
+
+const findItemCard = (itemId) => [...dom.contentEditor.querySelectorAll("[data-item-card]")]
+  .find((card) => card.dataset.itemId === itemId);
 
 const setMobileView = (view, shouldFocus = false) => {
   if (!["editor", "preview", "library"].includes(view)) return;
@@ -228,7 +297,7 @@ const getFormData = () => {
     mapLongitude: data.get("mapLongitude"),
     mapZoom: data.get("mapZoom"),
     message: data.get("message"),
-    stops: getStopsData()
+    items: getItemsData()
   });
 };
 
@@ -255,7 +324,7 @@ const fillForm = (invitation) => {
   dom.form.elements.mapZoom.value = invitation.mapZoom || 16;
   dom.form.elements.message.value = invitation.message || "";
   syncParticleOutputs();
-  renderStopsEditor(invitation.stops);
+  renderContentEditor(invitation.items);
 };
 
 const syncMapSettingsVisibility = () => {
@@ -272,21 +341,21 @@ const syncMapSettingsVisibility = () => {
   representativeMessage.textContent = representativeMessage.hidden
     ? ""
     : "위도와 경도를 입력하면 미리보기에 지도가 표시됩니다.";
-  dom.stopsEditor.querySelectorAll("[data-stop-card]").forEach((card) => {
-    const checkbox = card.querySelector('[data-stop-field="mapEnabled"]');
-    card.querySelector("[data-stop-map-settings]").hidden = !checkbox.checked;
-    const latitude = card.querySelector('[data-stop-field="mapLatitude"]');
-    const longitude = card.querySelector('[data-stop-field="mapLongitude"]');
-    const time = card.querySelector('[data-stop-field="time"]');
-    const place = card.querySelector('[data-stop-field="place"]');
+  dom.contentEditor.querySelectorAll('[data-item-type="course"]').forEach((card) => {
+    const checkbox = card.querySelector('[data-course-field="mapEnabled"]');
+    card.querySelector("[data-course-map-settings]").hidden = !checkbox.checked;
+    const latitude = card.querySelector('[data-course-field="mapLatitude"]');
+    const longitude = card.querySelector('[data-course-field="mapLongitude"]');
+    const time = card.querySelector('[data-course-field="time"]');
+    const place = card.querySelector('[data-course-field="place"]');
     const hasCourseContent = ["time", "place", "note", "mapUrl"]
-      .some((field) => card.querySelector(`[data-stop-field="${field}"]`).value.trim())
+      .some((field) => card.querySelector(`[data-course-field="${field}"]`).value.trim())
       || checkbox.checked;
     time.required = hasCourseContent;
     place.required = hasCourseContent;
     latitude.required = checkbox.checked;
     longitude.required = checkbox.checked;
-    const message = card.querySelector("[data-stop-map-message]");
+    const message = card.querySelector("[data-course-map-message]");
     const hasValidCoordinates = latitude.value !== "" && longitude.value !== ""
       && latitude.validity.valid && longitude.validity.valid;
     message.hidden = !checkbox.checked || hasValidCoordinates;
@@ -487,8 +556,8 @@ const validateForExport = () => {
   const invalidField = dom.form.querySelector(":invalid");
   if (!invalidField) return true;
 
-  const card = invalidField.closest("[data-stop-card]");
-  if (card) setStopExpanded(card, true);
+  const card = invalidField.closest("[data-item-card]");
+  if (card) setItemExpanded(card, true);
   invalidField.reportValidity();
   invalidField.focus();
   return false;
@@ -578,6 +647,143 @@ const registerUploadedHtml = async (file) => {
   }
 };
 
+const getOpenItemId = () => dom.contentEditor.querySelector(".content-item-card.is-open")?.dataset.itemId || null;
+
+const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]") => {
+  const items = getItemsData();
+  if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length || fromIndex === toIndex) {
+    return null;
+  }
+
+  const movedId = items[fromIndex].id;
+  const movedItems = ContentOrder.move(items, fromIndex, toIndex);
+  renderContentEditor(movedItems, movedId);
+  renderPreview();
+  findItemCard(movedId)?.querySelector(focusSelector)?.focus();
+  return movedId;
+};
+
+const handlePhotoSelection = async () => {
+  const files = [...dom.photoInput.files];
+  const openId = getOpenItemId();
+  const items = getItemsData();
+  let photoCount = items.filter((item) => item.type === "photo").length;
+  let firstNewId = null;
+  const statuses = [];
+
+  dom.addPhoto.disabled = true;
+  try {
+    for (const file of files) {
+      if (items.length >= InvitationCore.MAX_ITEMS) {
+        statuses.push(`${file.name}: 초대장 항목은 최대 ${InvitationCore.MAX_ITEMS}개까지 추가할 수 있습니다.`);
+        continue;
+      }
+      if (photoCount >= InvitationCore.MAX_PHOTOS) {
+        statuses.push(`${file.name}: 사진은 최대 ${InvitationCore.MAX_PHOTOS}개까지 추가할 수 있습니다.`);
+        continue;
+      }
+
+      dom.saveStatus.textContent = `${file.name}: 사진을 처리하고 있습니다.`;
+      try {
+        const image = await ImageTools.compress(file);
+        const item = {
+          id: createItemId("photo"),
+          type: "photo",
+          src: image.src,
+          alt: "",
+          caption: ""
+        };
+        items.push(item);
+        photoCount += 1;
+        firstNewId ||= item.id;
+        statuses.push(`${file.name}: 사진을 추가했습니다.`);
+      } catch (error) {
+        const message = error instanceof ImageTools.ImageError
+          ? error.message
+          : "이미지를 처리할 수 없습니다.";
+        statuses.push(`${file.name}: ${message}`);
+      }
+    }
+  } finally {
+    dom.photoInput.value = "";
+  }
+
+  renderContentEditor(items, firstNewId || openId);
+  if (firstNewId) {
+    renderPreview();
+    findItemCard(firstNewId)?.querySelector("[data-photo-field='caption']")?.focus();
+  }
+  dom.saveStatus.textContent = statuses.join(" ");
+};
+
+let dragState = null;
+
+const clearDropIndicators = () => {
+  dom.contentEditor.querySelectorAll(".is-drop-before, .is-drop-after").forEach((card) => {
+    card.classList.remove("is-drop-before", "is-drop-after");
+  });
+};
+
+const finishItemDrag = (event) => {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  if (event.type === "lostpointercapture" && event.target !== dragState.handle) return;
+
+  const { handle, card, pointerId } = dragState;
+  dragState = null;
+  clearDropIndicators();
+  card.classList.remove("is-dragging");
+  if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+};
+
+const beginItemDrag = (event) => {
+  const handle = event.target.closest("[data-drag-handle]");
+  if (!handle || dragState || (event.button !== undefined && event.button !== 0)) return;
+
+  const card = handle.closest("[data-item-card]");
+  if (!card) return;
+  event.preventDefault();
+  handle.setPointerCapture(event.pointerId);
+  card.classList.add("is-dragging");
+  dragState = { pointerId: event.pointerId, itemId: card.dataset.itemId, handle, card };
+};
+
+const moveItemDrag = (event) => {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  event.preventDefault();
+
+  const hit = document.elementFromPoint(event.clientX, event.clientY);
+  const targetCard = hit?.closest("[data-item-card]");
+  if (!targetCard || !dom.contentEditor.contains(targetCard)) {
+    clearDropIndicators();
+    return;
+  }
+
+  const cards = [...dom.contentEditor.querySelectorAll("[data-item-card]")];
+  const draggedCard = findItemCard(dragState.itemId);
+  const fromIndex = cards.indexOf(draggedCard);
+  const toIndex = cards.indexOf(targetCard);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+    clearDropIndicators();
+    return;
+  }
+
+  const targetRect = targetCard.getBoundingClientRect();
+  const targetMidpoint = targetRect.top + targetRect.height / 2;
+  const movingUp = toIndex < fromIndex;
+  clearDropIndicators();
+  targetCard.classList.add(movingUp ? "is-drop-before" : "is-drop-after");
+  if ((movingUp && event.clientY >= targetMidpoint) || (!movingUp && event.clientY <= targetMidpoint)) return;
+
+  const movedId = commitItemMove(fromIndex, toIndex, "[data-drag-handle]");
+  const movedCard = movedId ? findItemCard(movedId) : null;
+  const movedHandle = movedCard?.querySelector("[data-drag-handle]");
+  if (!movedCard || !movedHandle) return;
+
+  movedCard.classList.add("is-dragging");
+  movedHandle.setPointerCapture(event.pointerId);
+  dragState = { pointerId: event.pointerId, itemId: movedId, handle: movedHandle, card: movedCard };
+};
+
 const loadInitialData = async () => {
   const response = await fetch("invitation-data.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -619,59 +825,95 @@ dom.form.addEventListener("input", (event) => {
   if (event.target.matches('[name="mapEnabled"]')) {
     pendingPreviewMapKey = event.target.checked ? "representative" : null;
   }
-  if (event.target.matches('[data-stop-field="mapEnabled"]')) {
-    const cards = [...dom.stopsEditor.querySelectorAll("[data-stop-card]")];
-    const index = cards.indexOf(event.target.closest("[data-stop-card]"));
+  if (event.target.matches('[data-course-field="mapEnabled"]')) {
+    const cards = [...dom.contentEditor.querySelectorAll('[data-item-type="course"]')];
+    const index = cards.indexOf(event.target.closest("[data-item-card]"));
     pendingPreviewMapKey = event.target.checked && index >= 0 ? `stop-${index}` : null;
   }
   renderPreview();
 });
 
-dom.addStop.addEventListener("click", () => {
-  const currentStops = getStopsData();
-  if (currentStops.length >= InvitationCore.MAX_STOPS) {
-    dom.saveStatus.textContent = `코스는 최대 ${InvitationCore.MAX_STOPS}개까지 추가할 수 있습니다.`;
+dom.addCourse.addEventListener("click", () => {
+  const items = getItemsData();
+  if (items.length >= InvitationCore.MAX_ITEMS) {
+    dom.saveStatus.textContent = `초대장 항목은 최대 ${InvitationCore.MAX_ITEMS}개까지 추가할 수 있습니다.`;
     return;
   }
-  const stops = [...currentStops, emptyStop()];
-  renderStopsEditor(stops, stops.length - 1);
+  const course = emptyCourse();
+  items.push(course);
+  renderContentEditor(items, course.id);
   renderPreview();
-  dom.stopsEditor.querySelector("[data-stop-card]:last-child [data-stop-field='time']")?.focus();
+  findItemCard(course.id)?.querySelector("[data-course-field='time']")?.focus();
 });
 
-dom.stopsEditor.addEventListener("click", (event) => {
-  const toggle = event.target.closest("[data-toggle-stop]");
+dom.addPhoto.addEventListener("click", () => dom.photoInput.click());
+dom.photoInput.addEventListener("change", handlePhotoSelection);
+
+dom.contentEditor.addEventListener("click", (event) => {
+  const toggle = event.target.closest("[data-toggle-item]");
   if (toggle) {
-    const card = toggle.closest("[data-stop-card]");
-    setStopExpanded(card, card.querySelector("[data-stop-body]").hidden);
+    const card = toggle.closest("[data-item-card]");
+    setItemExpanded(card, card.querySelector("[data-item-body]").hidden);
     return;
   }
 
-  const button = event.target.closest("[data-remove-stop]");
+  const button = event.target.closest("[data-item-action]");
   if (!button) return;
-  const stops = getStopsData();
-  const removedIndex = Number(button.dataset.removeStop);
-  const stopName = stops[removedIndex]?.place.trim() || `코스 ${removedIndex + 1}`;
-  if (!window.confirm(`“${stopName}” 코스를 삭제할까요?`)) return;
-  stops.splice(removedIndex, 1);
-  renderStopsEditor(stops, Math.min(removedIndex, stops.length - 1));
+  const card = button.closest("[data-item-card]");
+  const cards = [...dom.contentEditor.querySelectorAll("[data-item-card]")];
+  const index = cards.indexOf(card);
+  const action = button.dataset.itemAction;
+
+  if (action === "up" || action === "down") {
+    const toIndex = action === "up" ? index - 1 : index + 1;
+    commitItemMove(index, toIndex, `[data-item-action="${action}"]`);
+    return;
+  }
+
+  if (action !== "delete") return;
+  const items = getItemsData();
+  const item = items[index];
+  const itemName = item.type === "photo"
+    ? item.caption.trim() || item.alt.trim() || `사진 ${index + 1}`
+    : item.place.trim() || `코스 ${index + 1}`;
+  if (!window.confirm(`“${itemName}” 항목을 삭제할까요?`)) return;
+
+  const openId = getOpenItemId();
+  items.splice(index, 1);
+  const nextOpenId = openId === item.id
+    ? items[Math.min(index, items.length - 1)]?.id
+    : openId;
+  renderContentEditor(items, nextOpenId);
   renderPreview();
 });
 
-dom.stopsEditor.addEventListener("input", (event) => {
-  const card = event.target.closest("[data-stop-card]");
+dom.contentEditor.addEventListener("input", (event) => {
+  const card = event.target.closest("[data-item-card]");
   if (!card) return;
   const value = event.target.value.trim();
-  if (event.target.dataset.stopField === "place") {
-    card.querySelector("[data-stop-summary]").textContent = value || "장소를 입력하세요";
+  if (event.target.dataset.courseField === "place") {
+    card.querySelector("[data-item-summary]").textContent = value || "장소를 입력하세요";
   }
-  if (event.target.dataset.stopField === "time") {
-    card.querySelector("[data-stop-time-summary]").textContent = value || "시간 미정";
+  if (event.target.dataset.courseField === "time" || event.target.dataset.courseField === "label") {
+    const time = card.querySelector('[data-course-field="time"]').value || "시간 미정";
+    const label = card.querySelector('[data-course-field="label"]').value || "PLACE";
+    card.querySelector("[data-item-secondary-summary]").textContent = `${time} · ${label}`;
   }
-  if (event.target.dataset.stopField === "label") {
-    card.querySelector("[data-stop-label-summary]").textContent = value || "PLACE";
+  if (event.target.dataset.photoField === "alt") {
+    card.querySelector("[data-photo-thumbnail]").alt = value || "선택한 사진 미리보기";
+  }
+  if (event.target.dataset.photoField === "alt" || event.target.dataset.photoField === "caption") {
+    const alt = card.querySelector('[data-photo-field="alt"]').value.trim();
+    const caption = card.querySelector('[data-photo-field="caption"]').value.trim();
+    card.querySelector("[data-item-summary]").textContent = caption || alt || "설명을 입력하세요";
   }
 });
+
+dom.contentEditor.addEventListener("pointerdown", beginItemDrag);
+dom.contentEditor.addEventListener("pointermove", moveItemDrag);
+dom.contentEditor.addEventListener("pointerup", finishItemDrag);
+dom.contentEditor.addEventListener("pointercancel", finishItemDrag);
+dom.contentEditor.addEventListener("lostpointercapture", finishItemDrag);
 
 dom.templates.addEventListener("click", (event) => {
   const button = event.target.closest("[data-template-id]");
