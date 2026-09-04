@@ -10,6 +10,16 @@ const InvitationCore = require("../assets/invitation-core.js");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
+const getFaviconLinks = (html) => [...html.matchAll(/<link\b[^>]*>/gi)]
+  .map(([tag]) => {
+    const attributes = {};
+    for (const match of tag.matchAll(/\s([a-z][\w:-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gi)) {
+      attributes[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4] ?? "";
+    }
+    return attributes;
+  })
+  .filter(({ rel = "" }) => rel.toLowerCase().split(/\s+/).some((token) => token === "icon" || token.endsWith("-icon")));
+
 const deferred = () => {
   let resolve;
   let reject;
@@ -526,6 +536,17 @@ test("saved invitations open through a same-origin viewer", () => {
   assert.match(app, /viewer\.html\?id=/);
   assert.doesNotMatch(app, /const openSaved = \(item\) => \{[\s\S]*?URL\.createObjectURL/);
   assert.match(viewer, /assets\/viewer\.js/);
+});
+
+test("maker and viewer each use exactly one inline favicon", () => {
+  for (const page of ["index.html", "viewer.html"]) {
+    const faviconLinks = getFaviconLinks(read(page));
+
+    assert.equal(faviconLinks.length, 1, `${page} must declare exactly one favicon link`);
+    assert.ok(faviconLinks[0].rel.toLowerCase().split(/\s+/).includes("icon"));
+    assert.ok(faviconLinks[0].href.toLowerCase().startsWith("data:"), `${page} favicon must be inline`);
+    assert.equal(faviconLinks.some(({ href = "" }) => !href.toLowerCase().startsWith("data:")), false);
+  }
 });
 
 test("legacy migration removes only each successfully durable occurrence", async () => {
