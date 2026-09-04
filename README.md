@@ -8,6 +8,8 @@ Static HTML invitation maker with template presets, live preview, standalone HTM
 - `viewer.html`: same-origin viewer for invitations saved in the local library.
 - `invitation-data.json`: template presets and the default invitation content.
 - `assets/app.js`: editor, preview, download, upload, and local registration logic.
+- `assets/image-tools.js`: JPEG, PNG, and WebP validation, resizing, and compression.
+- `assets/invitation-storage.js`: IndexedDB repository for registered invitations.
 - `assets/invitation-core.js`: shared standalone HTML renderer.
 - `assets/viewer.js`: validates and rebuilds a saved invitation before opening it.
 - `assets/style.css`: maker UI and preview styles.
@@ -31,14 +33,18 @@ http://localhost:4173
 1. Choose an invitation template.
 2. Choose none, petals, hearts, sparkle, fireflies, bubbles, snow, leaves, or confetti, then adjust particle size from 50% to 200% in 5% steps and amount from 25% to 500% in 25% steps.
 3. Choose separate display fonts for English and Korean text.
-4. Edit title, date, location, and message, then expand, add, or remove course cards.
-5. Place names automatically create NAVER Map search links. Optionally add Dynamic Map coordinates to the representative place or each course card.
-6. Check the live preview.
-7. Download a standalone `.html` invitation.
-8. Register the current invitation or upload a downloaded HTML file into the local library.
+4. Edit title, date, location, and message, then add course cards and photos in one ordered list.
+5. Reorder course and photo cards with the drag handle or the accessible move buttons.
+6. Place names automatically create NAVER Map search links. Optionally add Dynamic Map coordinates to the representative place or each course card.
+7. Check the live preview.
+8. Download a standalone `.html` invitation.
+9. Register the current invitation or upload a downloaded HTML file into the local library.
 
-On mobile, use the Maker, Preview, and Library tabs to switch between each workspace. Registered invitations are stored in the browser's `localStorage` and open through `viewer.html`, so Dynamic Maps keep the static site's registered origin.
-Only HTML downloaded by the current maker can be imported. Imports are limited to 2 MB and invitations support up to 50 course cards.
+On mobile, use the Maker, Preview, and Library tabs to switch between each workspace. Registered invitations are stored in the browser's IndexedDB and open through `viewer.html`, so Dynamic Maps keep the static site's registered origin.
+
+Photos must be JPEG, PNG, or WebP. Each invitation accepts up to 8 photos and 50 total content items. Source images are limited to 15 MiB, resized to a maximum 1600-pixel edge, and compressed to at most 600 KiB before being embedded. Downloaded invitations include those images as Base64 data, so the standalone HTML does not depend on IndexedDB or the maker site.
+
+Only HTML downloaded by the current maker can be imported. HTML imports are limited to 10 MiB. Existing localStorage registrations are migrated to IndexedDB one record at a time after a successful durable write.
 
 ## NAVER Dynamic Map
 

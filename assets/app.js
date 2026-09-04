@@ -1,6 +1,6 @@
 const STORAGE_KEY = "invitation-maker.saved";
 const MAX_SAVED = 20;
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAP_LOAD_TIMEOUT_MS = 10000;
 
 const state = {
@@ -248,9 +248,13 @@ const setMobileView = (view, shouldFocus = false) => {
 
 const parseInvitationHtml = (html) => {
   const documentNode = new DOMParser().parseFromString(html, "text/html");
-  const payload = documentNode.querySelector('#invitation-data[type="application/json"]');
-  if (!payload) throw new Error("unsupported invitation file");
+  const payloads = documentNode.querySelectorAll('#invitation-data[type="application/json"]');
+  if (payloads.length !== 1) throw new Error("unsupported invitation file");
+  const [payload] = payloads;
   const data = JSON.parse(payload.textContent);
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("invalid invitation payload");
+  }
   if (Array.isArray(data.stops) && data.stops.length > InvitationCore.MAX_STOPS) {
     throw new Error("too many course cards");
   }
@@ -258,31 +262,6 @@ const parseInvitationHtml = (html) => {
     ...data,
     naverMapClientId: state.naverMapClientId
   });
-};
-
-const readSaved = () => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    if (!Array.isArray(saved)) return [];
-
-    return saved.slice(0, MAX_SAVED).flatMap((item) => {
-      if (!item || typeof item.html !== "string") return [];
-      try {
-        const invitation = parseInvitationHtml(item.html);
-        return [{
-          id: typeof item.id === "string" ? item.id : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          title: invitation.title,
-          createdAt: typeof item.createdAt === "string" ? item.createdAt : "",
-          source: "generated",
-          html: InvitationCore.buildStandaloneHtml(invitation)
-        }];
-      } catch {
-        return [];
-      }
-    });
-  } catch {
-    return [];
-  }
 };
 
 const getFormData = () => {
@@ -549,15 +528,71 @@ const renderSaved = () => {
   `).join("");
 };
 
-const persistSaved = (nextSaved) => {
+const refreshSaved = async () => {
+  const records = await InvitationStorage.list();
+  state.saved = records.slice(0, MAX_SAVED);
+  renderSaved();
+  return state.saved;
+};
+
+const compareSavedRecords = (left, right) => {
+  const leftTime = Date.parse(String(left?.createdAt || ""));
+  const rightTime = Date.parse(String(right?.createdAt || ""));
+  const safeLeftTime = Number.isFinite(leftTime) ? leftTime : Number.NEGATIVE_INFINITY;
+  const safeRightTime = Number.isFinite(rightTime) ? rightTime : Number.NEGATIVE_INFINITY;
+  return safeRightTime - safeLeftTime || String(left?.id || "").localeCompare(String(right?.id || ""));
+};
+
+const upsertSavedState = (record) => {
+  const records = [record, ...state.saved.filter((saved) => saved.id !== record.id)].sort(compareSavedRecords);
+  state.saved = records.slice(0, MAX_SAVED);
+  if (!state.saved.some((saved) => saved.id === record.id)) {
+    state.saved[state.saved.length - 1] = record;
+  }
+  renderSaved();
+};
+
+const removeSavedState = (id) => {
+  state.saved = state.saved.filter((saved) => saved.id !== id);
+  renderSaved();
+};
+
+const enforceSavedLimit = async (protectedId = null) => {
+  const records = await InvitationStorage.list();
+  if (records.length <= MAX_SAVED) return records;
+
+  const retained = records.slice(0, MAX_SAVED);
+  const protectedRecord = protectedId
+    ? records.find((record) => record.id === protectedId)
+    : null;
+  if (protectedRecord && !retained.some((record) => record.id === protectedId)) {
+    retained[retained.length - 1] = protectedRecord;
+  }
+
+  const retainedIds = new Set(retained.map((record) => record.id));
+  for (const record of records) {
+    if (!retainedIds.has(record.id)) await InvitationStorage.remove(record.id);
+  }
+  return retained;
+};
+
+const synchronizeSaved = async (protectedId = null) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSaved));
-    state.saved = nextSaved;
-    renderSaved();
+    await enforceSavedLimit(protectedId);
+    await refreshSaved();
     return true;
   } catch {
     return false;
   }
+};
+
+const saveRecord = async (record) => {
+  await InvitationStorage.put(record);
+  upsertSavedState(record);
+  return {
+    record,
+    synchronized: await synchronizeSaved(record.id)
+  };
 };
 
 const validateForExport = () => {
@@ -584,28 +619,97 @@ const downloadHtml = (html, title) => {
   URL.revokeObjectURL(url);
 };
 
-const makeSavedItem = (html, title) => ({
-  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+const normalizeCreatedAt = (value) => {
+  const timestamp = Date.parse(String(value || ""));
+  return new Date(Number.isFinite(timestamp) ? timestamp : Date.now()).toISOString();
+};
+
+const makeSavedItem = (html, title, source = "generated", legacy = {}) => ({
+  id: typeof legacy.id === "string" && legacy.id.trim()
+    ? legacy.id
+    : createItemId("invitation"),
   title: title || "Untitled Invitation",
-  createdAt: new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(new Date()),
-  source: "generated",
+  createdAt: normalizeCreatedAt(legacy.createdAt),
+  source: source === "upload" ? "upload" : "generated",
   html
 });
 
-const saveCurrent = () => {
+const migrateLegacySaved = async () => {
+  let remaining;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (!Array.isArray(parsed)) return { migrated: 0, retained: 0 };
+    const reservedIds = new Set(parsed.flatMap((legacyItem) => {
+      const id = legacyItem && typeof legacyItem === "object" && !Array.isArray(legacyItem)
+        ? String(legacyItem.id || "").trim()
+        : "";
+      return id ? [id] : [];
+    }));
+    const usedIds = new Set();
+    remaining = parsed.map((legacyItem) => {
+      if (!legacyItem || typeof legacyItem !== "object" || Array.isArray(legacyItem)) return legacyItem;
+
+      const requestedId = typeof legacyItem.id === "string" ? legacyItem.id.trim() : "";
+      const usesRequestedId = requestedId && !usedIds.has(requestedId);
+      let id = usesRequestedId ? requestedId : createItemId("invitation");
+      while (usedIds.has(id) || (!usesRequestedId && reservedIds.has(id))) id = createItemId("invitation");
+      usedIds.add(id);
+      return legacyItem.id === id ? legacyItem : { ...legacyItem, id };
+    });
+
+    if (remaining.length) localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+  } catch {
+    return { checkpointed: false, migrated: 0, retained: remaining?.length || 0, synchronized: true };
+  }
+
+  let migrated = 0;
+  let synchronized = true;
+  for (const legacyItem of [...remaining]) {
+    const occurrenceIndex = remaining.indexOf(legacyItem);
+    if (occurrenceIndex < 0 || !legacyItem || typeof legacyItem.html !== "string") continue;
+
+    let record;
+    try {
+      const invitation = parseInvitationHtml(legacyItem.html);
+      const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation);
+      const source = legacyItem.source === "upload" ? "upload" : "generated";
+      record = makeSavedItem(rebuiltHtml, invitation.title, source, legacyItem);
+      await InvitationStorage.put(record);
+      upsertSavedState(record);
+    } catch {
+      continue;
+    }
+
+    remaining.splice(occurrenceIndex, 1);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
+      migrated += 1;
+    } catch {
+      remaining.splice(occurrenceIndex, 0, legacyItem);
+      continue;
+    }
+
+    if (!await synchronizeSaved(record.id)) synchronized = false;
+  }
+
+  return { checkpointed: true, migrated, retained: remaining.length, synchronized };
+};
+
+const saveCurrent = async () => {
   if (!validateForExport()) return;
-  const invitation = getFormData();
-  const html = InvitationCore.buildStandaloneHtml(invitation);
-  const nextSaved = [makeSavedItem(html, invitation.title), ...state.saved].slice(0, MAX_SAVED);
-  dom.saveStatus.textContent = persistSaved(nextSaved)
-    ? "목록에 등록했습니다."
-    : "브라우저 저장 공간에 기록하지 못했습니다.";
+  dom.save.disabled = true;
+  try {
+    const invitation = getFormData();
+    const html = InvitationCore.buildStandaloneHtml(invitation);
+    const result = await saveRecord(makeSavedItem(html, invitation.title, "generated"));
+    dom.saveStatus.textContent = result.synchronized
+      ? "목록에 등록했습니다."
+      : "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.";
+  } catch {
+    dom.saveStatus.textContent = "브라우저 저장 공간에 기록하지 못해 등록에 실패했습니다.";
+  } finally {
+    dom.save.disabled = false;
+  }
 };
 
 const openSaved = (item) => {
@@ -613,7 +717,7 @@ const openSaved = (item) => {
   window.open(url, "_blank", "noopener,noreferrer");
 };
 
-const handleSavedAction = (event) => {
+const handleSavedAction = async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
 
@@ -624,10 +728,24 @@ const handleSavedAction = (event) => {
   if (button.dataset.action === "download") downloadHtml(item.html, item.title);
   if (button.dataset.action === "delete") {
     if (!window.confirm(`“${item.title}” 초대장을 목록에서 삭제할까요?`)) return;
-    const nextSaved = state.saved.filter((saved) => saved.id !== item.id);
-    dom.uploadStatus.textContent = persistSaved(nextSaved)
-      ? "등록된 초대장을 삭제했습니다."
-      : "브라우저 저장 공간을 변경하지 못했습니다.";
+    button.disabled = true;
+    try {
+      await InvitationStorage.remove(item.id);
+      removeSavedState(item.id);
+      let synchronized = true;
+      try {
+        await refreshSaved();
+      } catch {
+        synchronized = false;
+      }
+      dom.uploadStatus.textContent = synchronized
+        ? "등록된 초대장을 삭제했습니다."
+        : "삭제는 완료했지만 저장 목록 새로고침을 마치지 못했습니다.";
+    } catch {
+      dom.uploadStatus.textContent = "브라우저 저장 공간을 변경하지 못했습니다.";
+    } finally {
+      button.disabled = false;
+    }
   }
 };
 
@@ -636,23 +754,31 @@ const registerUploadedHtml = async (file) => {
   dom.uploadStatus.textContent = "";
 
   if (file.size > MAX_UPLOAD_BYTES) {
-    dom.uploadStatus.textContent = "2MB 이하의 초대장 HTML만 등록할 수 있습니다.";
+    dom.uploadStatus.textContent = "10MB 이하의 초대장 HTML만 등록할 수 있습니다.";
     dom.upload.value = "";
     return;
   }
 
+  dom.upload.disabled = true;
+  let parsedSuccessfully = false;
   try {
     const html = await file.text();
     const invitation = parseInvitationHtml(html);
     const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation);
-    const nextSaved = [makeSavedItem(rebuiltHtml, invitation.title), ...state.saved].slice(0, MAX_SAVED);
-    dom.uploadStatus.textContent = persistSaved(nextSaved)
+    parsedSuccessfully = true;
+    const result = await saveRecord(makeSavedItem(rebuiltHtml, invitation.title, "upload"));
+    dom.uploadStatus.textContent = result.synchronized
       ? "초대장을 등록했습니다."
-      : "브라우저 저장 공간에 기록하지 못했습니다.";
+      : "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.";
   } catch {
-    dom.uploadStatus.textContent = "이 제작기에서 다운로드한 HTML만 등록할 수 있습니다.";
+    if (parsedSuccessfully) {
+      dom.uploadStatus.textContent = "브라우저 저장 공간에 기록하지 못해 등록에 실패했습니다.";
+    } else {
+      dom.uploadStatus.textContent = "이 제작기에서 다운로드한 HTML만 등록할 수 있습니다.";
+    }
   } finally {
     dom.upload.value = "";
+    dom.upload.disabled = false;
   }
 };
 
@@ -894,12 +1020,31 @@ const loadInitialData = async () => {
 const init = async () => {
   try {
     await loadInitialData();
-    const restoredSaved = readSaved();
-    if (!persistSaved(restoredSaved)) state.saved = restoredSaved;
     renderTemplates();
     fillForm(state.invitation);
     renderPreview();
     renderSaved();
+
+    let database;
+    try {
+      database = await InvitationStorage.open();
+      database.close?.();
+    } catch {
+      dom.uploadStatus.textContent = "등록 목록 저장소를 열지 못했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
+      return;
+    }
+
+    try {
+      const migration = await migrateLegacySaved();
+      const synchronized = await synchronizeSaved();
+      if (!migration.checkpointed) {
+        dom.uploadStatus.textContent = "기존 등록 목록 마이그레이션을 시작하지 못했습니다. 기존 데이터는 그대로 유지됩니다.";
+      } else if (!synchronized) {
+        dom.uploadStatus.textContent = "등록 목록 동기화를 마치지 못했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
+      }
+    } catch {
+      dom.uploadStatus.textContent = "등록 목록 동기화에 실패했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
+    }
   } catch {
     dom.preview.innerHTML = `
       <div class="error-panel">

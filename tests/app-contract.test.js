@@ -344,6 +344,181 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
   };
 };
 
+const invitationParser = class DOMParser {
+  parseFromString(html) {
+    const matches = [...String(html).matchAll(/<script\s+id="invitation-data"\s+type="application\/json">([\s\S]*?)<\/script>/g)]
+      .map((match) => ({ textContent: match[1] }));
+    return {
+      querySelector(selector) {
+        if (selector !== '#invitation-data[type="application/json"]') return null;
+        return matches[0] || null;
+      },
+      querySelectorAll(selector) {
+        if (selector !== '#invitation-data[type="application/json"]') return [];
+        return matches;
+      }
+    };
+  }
+};
+
+const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setItem } = {}) => {
+  const values = new Map();
+  const writes = [];
+  const storage = {
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, value) {
+      if (setItem) setItem(key, value, writes.length + 1);
+      values.set(key, value);
+      writes.push(JSON.parse(value));
+    }
+  };
+  const repositoryRecords = records.slice();
+  const InvitationStorage = {
+    async open() { return { close() {} }; },
+    async list() {
+      if (list) return list(repositoryRecords);
+      return repositoryRecords.slice().sort((left, right) => {
+        const leftTime = Date.parse(left.createdAt) || Number.NEGATIVE_INFINITY;
+        const rightTime = Date.parse(right.createdAt) || Number.NEGATIVE_INFINITY;
+        return rightTime - leftTime || String(left.id).localeCompare(String(right.id));
+      });
+    },
+    async get(id) { return repositoryRecords.find((record) => record.id === id); },
+    async put(record) {
+      if (put) await put(record);
+      const index = repositoryRecords.findIndex((item) => item.id === record.id);
+      if (index >= 0) repositoryRecords[index] = record;
+      else repositoryRecords.unshift(record);
+    },
+    async remove(id) {
+      if (remove) await remove(id);
+      const index = repositoryRecords.findIndex((record) => record.id === id);
+      if (index >= 0) repositoryRecords.splice(index, 1);
+    }
+  };
+
+  const genericNode = () => ({
+    addEventListener() {},
+    append() {},
+    click() {},
+    dataset: {},
+    disabled: false,
+    files: [],
+    focus() {},
+    innerHTML: "",
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    replaceChildren() {},
+    textContent: "",
+    value: ""
+  });
+  const nodes = new Map();
+  const node = (selector) => {
+    if (!nodes.has(selector)) nodes.set(selector, genericNode());
+    return nodes.get(selector);
+  };
+  const formElements = {
+    mapEnabled: { checked: false },
+    mapLatitude: { validity: { valid: true }, value: "" },
+    mapLongitude: { validity: { valid: true }, value: "" },
+    mapZoom: { value: "16" },
+    particleScale: { value: "100" },
+    particleAmount: { value: "100" }
+  };
+  const form = {
+    ...genericNode(),
+    elements: formElements,
+    querySelector(selector) {
+      if (selector === ":invalid") return null;
+      return { hidden: false, textContent: "" };
+    }
+  };
+  nodes.set("#invitation-form", form);
+
+  const document = {
+    ...makeEventTarget(),
+    activeElement: null,
+    body: { append() {}, dataset: {} },
+    createElement: () => genericNode(),
+    head: { append() {} },
+    querySelector: node,
+    querySelectorAll: () => []
+  };
+  const window = {
+    ...makeEventTarget(),
+    confirm: () => true,
+    matchMedia: () => ({ matches: false }),
+    open() {},
+    scrollTo() {}
+  };
+
+  let source = read("assets/app.js").replace(/\ninit\(\);\s*$/, "");
+  source += `\n;globalThis.__libraryTest = {
+    enforceSavedLimit,
+    handleSavedAction,
+    makeSavedItem,
+    migrateLegacySaved,
+    refreshSaved,
+    registerUploadedHtml,
+    saveCurrent,
+    saveRecord,
+    state
+  };`;
+  let uuid = 0;
+  const context = {
+    Blob,
+    ContentOrder,
+    DOMParser: invitationParser,
+    FormData: class FormData {
+      get(name) {
+        return {
+          title: "Saved title",
+          subtitle: "Subtitle",
+          dateLabel: "Date",
+          host: "Host",
+          location: "Location",
+          message: "Message",
+          particleEffect: "none",
+          particleScale: "100",
+          particleAmount: "100",
+          englishFont: "cormorant-garamond",
+          koreanFont: "gowun-batang"
+        }[name] || "";
+      }
+      has() { return false; }
+    },
+    ImageTools: { ImageError: class ImageError extends Error {}, compress: async () => ({}) },
+    InvitationCore,
+    InvitationStorage,
+    URL,
+    clearTimeout,
+    console,
+    crypto: { randomUUID: randomUUID || (() => `record-uuid-${++uuid}`) },
+    document,
+    fetch: async () => ({ ok: true, json: async () => ({ templates: [], defaultInvitation: {} }) }),
+    localStorage: storage,
+    setTimeout,
+    window
+  };
+  vm.runInNewContext(source, context, { filename: "assets/app.js" });
+
+  return {
+    api: context.__libraryTest,
+    node,
+    repositoryRecords,
+    storage,
+    values,
+    writes
+  };
+};
+
+const validInvitationHtml = (title = "Stored invitation") => InvitationCore.buildStandaloneHtml({
+  title,
+  items: [course(`course-${title}`, "Seongsu")]
+});
+
 test("saved invitations open through a same-origin viewer", () => {
   const app = read("assets/app.js");
   const viewer = read("viewer.html");
@@ -351,6 +526,432 @@ test("saved invitations open through a same-origin viewer", () => {
   assert.match(app, /viewer\.html\?id=/);
   assert.doesNotMatch(app, /const openSaved = \(item\) => \{[\s\S]*?URL\.createObjectURL/);
   assert.match(viewer, /assets\/viewer\.js/);
+});
+
+test("legacy migration removes only each successfully durable occurrence", async () => {
+  const failedId = "legacy-failed";
+  const legacy = [
+    { id: "legacy-ok", title: "Old title", createdAt: "2026-09-01T10:00:00.000Z", source: "upload", html: validInvitationHtml("Migrated") },
+    { id: failedId, title: "Failed", createdAt: "2026-09-02T10:00:00.000Z", source: "generated", html: validInvitationHtml("Retained") },
+    { id: "legacy-invalid", html: "<html><script id=\"invitation-data\">{}</script></html>" },
+    { id: "legacy-array", html: '<script id="invitation-data" type="application/json">[]</script>' }
+  ];
+  const puts = [];
+  let rejectFailedRecord = true;
+  const harness = loadLibraryHarness({
+    async put(record) {
+      puts.push(record);
+      if (record.id === failedId && rejectFailedRecord) throw new Error("quota");
+    }
+  });
+  harness.values.set("invitation-maker.saved", JSON.stringify(legacy));
+
+  const result = await harness.api.migrateLegacySaved();
+
+  assert.equal(result.migrated, 1);
+  assert.equal(result.retained, 3);
+  assert.deepEqual(Array.from(puts, (record) => record.id), ["legacy-ok", failedId]);
+  assert.equal(puts[0].source, "upload");
+  assert.match(puts[0].createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(puts[0].html, /Migrated/);
+  assert.equal(harness.writes.length, 2);
+  assert.deepEqual(Array.from(harness.writes[0], (record) => record.id), ["legacy-ok", failedId, "legacy-invalid", "legacy-array"]);
+  assert.deepEqual(Array.from(harness.writes[1], (record) => record.id), [failedId, "legacy-invalid", "legacy-array"]);
+  assert.deepEqual(
+    Array.from(JSON.parse(harness.values.get("invitation-maker.saved")), (record) => record.id),
+    [failedId, "legacy-invalid", "legacy-array"]
+  );
+
+  rejectFailedRecord = false;
+  const resumed = await harness.api.migrateLegacySaved();
+
+  assert.equal(resumed.migrated, 1);
+  assert.equal(resumed.retained, 2);
+  assert.deepEqual(
+    Array.from(JSON.parse(harness.values.get("invitation-maker.saved")), (record) => record.id),
+    ["legacy-invalid", "legacy-array"]
+  );
+});
+
+test("legacy migration checkpoints unique IDs before duplicate records can overwrite", async () => {
+  const legacy = [
+    { id: "duplicate", html: validInvitationHtml("First duplicate") },
+    { id: "duplicate", html: validInvitationHtml("Second duplicate") }
+  ];
+  const putIds = [];
+  const harness = loadLibraryHarness({ put: async (record) => putIds.push(record.id) });
+  harness.values.set("invitation-maker.saved", JSON.stringify(legacy));
+
+  const result = await harness.api.migrateLegacySaved();
+
+  assert.equal(result.migrated, 2);
+  assert.equal(new Set(putIds).size, 2);
+  assert.equal(putIds[0], "duplicate");
+  assert.notEqual(putIds[1], "duplicate");
+  assert.equal(harness.repositoryRecords.length, 2);
+  assert.deepEqual(
+    new Set(harness.repositoryRecords.map((record) => record.title)),
+    new Set(["First duplicate", "Second duplicate"])
+  );
+  assert.deepEqual(Array.from(harness.writes[0], (record) => record.id), putIds);
+});
+
+test("generated migration IDs cannot claim a later unique legacy ID", async () => {
+  const generated = ["reserved", "replacement"];
+  const harness = loadLibraryHarness({ randomUUID: () => generated.shift() });
+  harness.values.set("invitation-maker.saved", JSON.stringify([
+    { html: validInvitationHtml("Missing first") },
+    { id: "invitation-reserved", html: validInvitationHtml("Reserved existing") }
+  ]));
+
+  await harness.api.migrateLegacySaved();
+
+  const checkpointIds = Array.from(harness.writes[0], (record) => record.id);
+  assert.deepEqual(checkpointIds, ["invitation-replacement", "invitation-reserved"]);
+  assert.equal(new Set(checkpointIds).size, 2);
+});
+
+test("missing legacy ID is reused after a post-put checkpoint failure", async () => {
+  let failRemovalCheckpoint = true;
+  const putIds = [];
+  const harness = loadLibraryHarness({
+    put: async (record) => putIds.push(record.id),
+    setItem(key, value, callNumber) {
+      if (failRemovalCheckpoint && callNumber === 2) throw new Error("localStorage write failed");
+    }
+  });
+  harness.values.set("invitation-maker.saved", JSON.stringify([{ html: validInvitationHtml("Missing ID") }]));
+
+  const first = await harness.api.migrateLegacySaved();
+  const checkpointedId = JSON.parse(harness.values.get("invitation-maker.saved"))[0].id;
+
+  assert.equal(first.migrated, 0);
+  assert.match(checkpointedId, /^invitation-/);
+  assert.deepEqual(putIds, [checkpointedId]);
+  assert.equal(harness.repositoryRecords.length, 1);
+
+  failRemovalCheckpoint = false;
+  const resumed = await harness.api.migrateLegacySaved();
+
+  assert.equal(resumed.migrated, 1);
+  assert.deepEqual(putIds, [checkpointedId, checkpointedId]);
+  assert.equal(harness.repositoryRecords.length, 1);
+  assert.equal(harness.repositoryRecords[0].id, checkpointedId);
+  assert.deepEqual(JSON.parse(harness.values.get("invitation-maker.saved")), []);
+});
+
+test("failed identity checkpoint prevents every legacy IndexedDB write", async () => {
+  let puts = 0;
+  const harness = loadLibraryHarness({
+    put: async () => { puts += 1; },
+    setItem() { throw new Error("checkpoint unavailable"); }
+  });
+  harness.values.set("invitation-maker.saved", JSON.stringify([{ html: validInvitationHtml("No checkpoint") }]));
+
+  const result = await harness.api.migrateLegacySaved();
+
+  assert.equal(puts, 0);
+  assert.equal(result.migrated, 0);
+  assert.equal(result.retained, 1);
+  assert.equal(harness.repositoryRecords.length, 0);
+});
+
+test("record persistence enforces MAX_SAVED without deleting the current record", async () => {
+  const current = {
+    id: "current",
+    title: "Current",
+    createdAt: "2000-01-01T00:00:00.000Z",
+    source: "generated",
+    html: validInvitationHtml("Current")
+  };
+  const oldRecords = Array.from({ length: 20 }, (_, index) => ({
+    id: `newer-${index}`,
+    title: `Newer ${index}`,
+    createdAt: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+    source: "generated",
+    html: validInvitationHtml(`Newer ${index}`)
+  }));
+  const removed = [];
+  const harness = loadLibraryHarness({ records: oldRecords, remove: async (id) => removed.push(id) });
+
+  await harness.api.saveRecord(current);
+
+  assert.equal(harness.repositoryRecords.length, 20);
+  assert.ok(harness.repositoryRecords.some((record) => record.id === current.id));
+  assert.equal(removed.length, 1);
+  assert.notEqual(removed[0], current.id);
+  assert.equal(harness.api.state.saved.length, 20);
+});
+
+test("uploaded HTML waits for durable storage and restores its disabled control", async () => {
+  const pending = deferred();
+  let stored;
+  const harness = loadLibraryHarness({
+    async put(record) {
+      stored = record;
+      await pending.promise;
+    }
+  });
+  const upload = harness.node("#html-upload");
+  upload.value = "chosen.html";
+  const file = { name: "chosen.html", size: 1024, text: async () => validInvitationHtml("Uploaded") };
+
+  const registration = harness.api.registerUploadedHtml(file);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(upload.disabled, true);
+  assert.equal(harness.api.state.saved.length, 0);
+
+  pending.resolve();
+  await registration;
+
+  assert.equal(stored.source, "upload");
+  assert.match(stored.createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(upload.disabled, false);
+  assert.equal(upload.value, "");
+  assert.equal(harness.api.state.saved.length, 1);
+  assert.match(harness.node("#upload-status").textContent, /초대장을 등록했습니다/);
+});
+
+test("generated save waits for durability and restores the save button", async () => {
+  const pending = deferred();
+  const harness = loadLibraryHarness({ put: async () => pending.promise });
+  const saveButton = harness.node("#save-button");
+
+  const save = harness.api.saveCurrent();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(saveButton.disabled, true);
+  assert.equal(harness.api.state.saved.length, 0);
+
+  pending.resolve();
+  await save;
+
+  assert.equal(saveButton.disabled, false);
+  assert.equal(harness.api.state.saved.length, 1);
+  assert.equal(harness.api.state.saved[0].source, "generated");
+  assert.match(harness.node("#save-status").textContent, /목록에 등록했습니다/);
+});
+
+test("saved deletion waits for durability and restores the clicked button", async () => {
+  const pending = deferred();
+  const existing = {
+    id: "delete-me",
+    title: "Delete me",
+    createdAt: "2026-09-05T00:00:00.000Z",
+    source: "generated",
+    html: validInvitationHtml("Delete me")
+  };
+  const harness = loadLibraryHarness({ records: [existing], remove: async () => pending.promise });
+  await harness.api.refreshSaved();
+  const button = {
+    dataset: { action: "delete", id: existing.id },
+    disabled: false,
+    closest(selector) { return selector === "[data-action]" ? this : null; }
+  };
+
+  const deletion = harness.api.handleSavedAction({ target: button });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(button.disabled, true);
+  assert.equal(harness.api.state.saved.length, 1);
+
+  pending.resolve();
+  await deletion;
+
+  assert.equal(button.disabled, false);
+  assert.equal(harness.api.state.saved.length, 0);
+  assert.match(harness.node("#upload-status").textContent, /삭제했습니다/);
+});
+
+test("repository failures are reported as storage errors, not invalid uploads", async () => {
+  const harness = loadLibraryHarness({ put: async () => { throw new Error("disk unavailable"); } });
+
+  await harness.api.registerUploadedHtml({ size: 1024, text: async () => validInvitationHtml("Valid upload") });
+
+  assert.match(harness.node("#upload-status").textContent, /저장 공간에 기록하지 못해 등록에 실패했습니다/);
+  assert.doesNotMatch(harness.node("#upload-status").textContent, /이 제작기에서 다운로드한 HTML만/);
+  assert.equal(harness.node("#html-upload").disabled, false);
+});
+
+test("durable generated save remains successful when cleanup listing fails", async () => {
+  const harness = loadLibraryHarness({
+    list: async () => { throw new Error("list failed"); }
+  });
+
+  await harness.api.saveCurrent();
+
+  assert.equal(harness.repositoryRecords.length, 1);
+  assert.equal(harness.api.state.saved.length, 1);
+  assert.equal(harness.api.state.saved[0].source, "generated");
+  assert.match(harness.node("#save-status").textContent, /등록은 완료/);
+  assert.match(harness.node("#save-status").textContent, /정리|동기화/);
+  assert.doesNotMatch(harness.node("#save-status").textContent, /등록에 실패/);
+});
+
+test("durable uploaded save remains successful when cleanup listing fails", async () => {
+  const harness = loadLibraryHarness({
+    list: async () => { throw new Error("list failed"); }
+  });
+
+  await harness.api.registerUploadedHtml({ size: 1024, text: async () => validInvitationHtml("Durable upload") });
+
+  assert.equal(harness.repositoryRecords.length, 1);
+  assert.equal(harness.api.state.saved.length, 1);
+  assert.equal(harness.api.state.saved[0].source, "upload");
+  assert.match(harness.node("#upload-status").textContent, /등록은 완료/);
+  assert.match(harness.node("#upload-status").textContent, /정리|동기화/);
+  assert.doesNotMatch(harness.node("#upload-status").textContent, /등록에 실패/);
+});
+
+test("durable deletion updates local state when repository refresh fails", async () => {
+  const existing = {
+    id: "durably-deleted",
+    title: "Durably deleted",
+    createdAt: "2026-09-05T00:00:00.000Z",
+    source: "generated",
+    html: validInvitationHtml("Durably deleted")
+  };
+  const harness = loadLibraryHarness({
+    records: [existing],
+    list: async () => { throw new Error("list failed"); }
+  });
+  harness.api.state.saved = [existing];
+  const button = {
+    dataset: { action: "delete", id: existing.id },
+    disabled: false,
+    closest(selector) { return selector === "[data-action]" ? this : null; }
+  };
+
+  await harness.api.handleSavedAction({ target: button });
+
+  assert.equal(harness.repositoryRecords.length, 0);
+  assert.equal(harness.api.state.saved.length, 0);
+  assert.match(harness.node("#upload-status").textContent, /삭제는 완료/);
+  assert.match(harness.node("#upload-status").textContent, /새로고침|동기화/);
+  assert.doesNotMatch(harness.node("#upload-status").textContent, /변경하지 못/);
+  assert.equal(button.disabled, false);
+});
+
+test("library implementation uses IndexedDB outside resumable migration and accepts exactly 10 MiB", () => {
+  const app = read("assets/app.js");
+  const migration = app.match(/const migrateLegacySaved = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
+  const appWithoutMigration = app.replace(migration, "");
+
+  assert.match(app, /const MAX_UPLOAD_BYTES = 10 \* 1024 \* 1024/);
+  assert.match(app, /10MB 이하의 초대장 HTML만 등록할 수 있습니다/);
+  assert.match(app, /await InvitationStorage\.open\(\)/);
+  assert.match(app, /await InvitationStorage\.(?:put|remove|list)\(/);
+  assert.doesNotMatch(appWithoutMigration, /localStorage\.(?:getItem|setItem|removeItem)/);
+});
+
+test("library initialization distinguishes open failure from later sync failure", () => {
+  const app = read("assets/app.js");
+  const init = app.match(/const init = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
+  const statusMessages = [...init.matchAll(/dom\.uploadStatus\.textContent = "([^"]+)"/g)]
+    .map((match) => match[1]);
+
+  assert.ok(statusMessages.some((message) => /저장소를 열지 못/.test(message)));
+  assert.ok(statusMessages.some((message) => /동기화|마이그레이션/.test(message)));
+  assert.equal(new Set(statusMessages).size, statusMessages.length);
+});
+
+test("viewer awaits IndexedDB and rebuilds only a typed JSON invitation payload", async () => {
+  const viewerSource = read("assets/viewer.js");
+  const written = [];
+  const main = { innerHTML: "" };
+  const document = {
+    close() {},
+    open() {},
+    querySelector: () => main,
+    write(html) { written.push(html); }
+  };
+  let requestedId = null;
+  const context = {
+    DOMParser: invitationParser,
+    InvitationCore,
+    InvitationStorage: {
+      async get(id) {
+        requestedId = id;
+        return { id, html: validInvitationHtml("Viewer rebuilt") };
+      }
+    },
+    URLSearchParams,
+    document,
+    window: { location: { search: "?id=saved-1" } }
+  };
+
+  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/viewer.js" });
+  await result;
+
+  assert.equal(requestedId, "saved-1");
+  assert.equal(written.length, 1);
+  assert.match(written[0], /Viewer rebuilt/);
+  assert.doesNotMatch(viewerSource, /localStorage/);
+  assert.match(viewerSource, /querySelectorAll\('#invitation-data\[type="application\/json"\]'\)/);
+});
+
+test("app rejects imported HTML containing duplicate invitation payloads", async () => {
+  const harness = loadLibraryHarness();
+  const duplicated = `${validInvitationHtml("First payload")}${validInvitationHtml("Second payload")}`;
+
+  await harness.api.registerUploadedHtml({ size: duplicated.length, text: async () => duplicated });
+
+  assert.equal(harness.repositoryRecords.length, 0);
+  assert.equal(harness.api.state.saved.length, 0);
+  assert.match(harness.node("#upload-status").textContent, /이 제작기에서 다운로드한 HTML만/);
+});
+
+test("viewer rejects stored HTML containing duplicate invitation payloads", async () => {
+  const viewerSource = read("assets/viewer.js");
+  const main = { innerHTML: "" };
+  const written = [];
+  const duplicated = `${validInvitationHtml("First payload")}${validInvitationHtml("Second payload")}`;
+  const context = {
+    DOMParser: invitationParser,
+    InvitationCore,
+    InvitationStorage: { async get() { return { id: "duplicate", html: duplicated }; } },
+    URLSearchParams,
+    document: {
+      close() {},
+      open() {},
+      querySelector: () => main,
+      write(html) { written.push(html); }
+    },
+    window: { location: { search: "?id=duplicate" } }
+  };
+
+  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/viewer.js" });
+  await result;
+
+  assert.equal(written.length, 0);
+  assert.match(main.innerHTML, /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+});
+
+test("viewer preserves the missing invitation message for invalid stored HTML", async () => {
+  const viewerSource = read("assets/viewer.js");
+  const main = { innerHTML: "" };
+  const written = [];
+  const context = {
+    DOMParser: invitationParser,
+    InvitationCore,
+    InvitationStorage: {
+      async get() {
+        return { id: "bad", html: '<script id="invitation-data" type="application/json">[]</script>' };
+      }
+    },
+    URLSearchParams,
+    document: {
+      close() {},
+      open() {},
+      querySelector: () => main,
+      write(html) { written.push(html); }
+    },
+    window: { location: { search: "?id=bad" } }
+  };
+
+  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/viewer.js" });
+  await result;
+
+  assert.equal(written.length, 0);
+  assert.match(main.innerHTML, /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
 });
 
 test("editor exposes mobile view tabs and selected template state", () => {
