@@ -323,7 +323,7 @@
           <p class="invite-stop-time">${escapeHtml(item.time)} · ${escapeHtml(item.label)}</p>
           <h3>${escapeHtml(item.place)}</h3>
           <p>${escapeHtml(item.note)}</p>
-          ${renderDynamicMap({ ...item, naverMapClientId: invitation.naverMapClientId }, "stop", `course-${courseIndex}`)}
+          ${renderDynamicMap({ ...item, naverMapClientId: invitation.naverMapClientId }, "stop", `stop-${courseIndex}`)}
           ${renderMapLink(getMapFallbackUrl(item, item.place), "invite-stop-map-link", "장소 지도 열기")}
         </div>
       </article>

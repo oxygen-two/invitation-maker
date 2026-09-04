@@ -244,11 +244,42 @@ test("mixed canonical item maps use one shared NAVER loader", () => {
       }
     ]
   });
+  const firstMapIndex = html.indexOf('data-map-key="stop-0"');
+  const photoIndex = html.indexOf('<figure class="invite-photo">');
+  const secondMapIndex = html.indexOf('data-map-key="stop-1"');
 
   assert.equal((html.match(/data-dynamic-map data-latitude/g) || []).length, 2);
   assert.equal((html.match(/oapi\.map\.naver\.com\/openapi\/v3\/maps\.js/g) || []).length, 1);
-  assert.ok(html.indexOf('data-map-key="course-0"') < html.indexOf('<figure class="invite-photo">'));
-  assert.ok(html.indexOf('<figure class="invite-photo">') < html.indexOf('data-map-key="course-1"'));
+  assert.notEqual(firstMapIndex, -1);
+  assert.notEqual(photoIndex, -1);
+  assert.notEqual(secondMapIndex, -1);
+  assert.ok(firstMapIndex < photoIndex);
+  assert.ok(photoIndex < secondMapIndex);
+});
+
+test("app pending course map keys match mixed renderer map keys", () => {
+  const appSource = read("assets/app.js");
+  const pendingPrefix = appSource.match(
+    /pendingPreviewMapKey\s*=\s*event\.target\.checked\s*&&\s*index\s*>=\s*0\s*\?\s*`([a-z]+)-\$\{index\}`\s*:\s*null/
+  )?.[1];
+  const html = buildStandaloneHtml({
+    naverMapClientId: "public-client-id",
+    items: [
+      { id: "photo-before-map", type: "photo", src: SAFE_WEBP },
+      {
+        id: "course-map",
+        type: "course",
+        place: "PENDING MAP",
+        mapEnabled: true,
+        mapLatitude: 37.5446,
+        mapLongitude: 127.0559
+      }
+    ]
+  });
+  const renderedKeys = [...html.matchAll(/data-map-key="([^"]+)"/g)].map((match) => match[1]);
+
+  assert.equal(pendingPrefix, "stop");
+  assert.deepEqual(renderedKeys, ["stop-0"]);
 });
 
 test("mixed photo styles share a natural aspect ratio and overflow contract", () => {
