@@ -55,7 +55,8 @@
   const MAX_ITEMS = 50;
   const MAX_PHOTOS = 8;
   const MAX_STOPS = MAX_ITEMS;
-  const safeImagePattern = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  const base64PayloadPattern = "(?:(?:[A-Za-z0-9+/]{4})+|(?:[A-Za-z0-9+/]{4})*[A-Za-z0-9+/]{3}=|(?:[A-Za-z0-9+/]{4})*[A-Za-z0-9+/]{2}==)";
+  const safeImagePattern = new RegExp(`^data:image/(?:jpeg|png|webp);base64,${base64PayloadPattern}$`);
 
   const normalizeParticleEffect = (value) =>
     particleEffects.has(value) ? value : "none";

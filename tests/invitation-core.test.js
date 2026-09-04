@@ -5,6 +5,8 @@ const path = require("node:path");
 const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
 
 const root = path.resolve(__dirname, "..");
+const SAFE_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
+const SAFE_PNG = "data:image/png;base64,iVBORw0KGgo=";
 const SAFE_WEBP = "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/vuUAAA=";
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const particleCapBreakpoint = (css) => {
@@ -107,6 +109,39 @@ test("normalizeInvitation keeps ordered item IDs unique and drops unknown or uns
   assert.equal(new Set(invitation.items.map((item) => item.id)).size, 3);
   assert.equal(invitation.items.every((item) => typeof item.id === "string" && item.id.length > 0), true);
   assert.equal(invitation.items[0].id, "same-id");
+});
+
+test("normalizeInvitation accepts JPEG PNG and WebP photo source data URLs", () => {
+  const invitation = normalizeInvitation({
+    items: [
+      { id: "jpeg", type: "photo", src: SAFE_JPEG },
+      { id: "png", type: "photo", src: SAFE_PNG },
+      { id: "webp", type: "photo", src: SAFE_WEBP }
+    ]
+  });
+
+  assert.deepEqual(invitation.items.map((item) => item.id), ["jpeg", "png", "webp"]);
+});
+
+test("normalizeInvitation rejects malformed photo source data URLs", () => {
+  const unsafeSources = [
+    "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+    "https://example.com/photo.webp",
+    "data:image/png;base64,AAAA*",
+    "data:image/png;base64,A===",
+    "data:image/png;base64,AA==AAAA",
+    "data:image/png;base64,A",
+    "data:image/png;base64,AAA"
+  ];
+  const invitation = normalizeInvitation({
+    items: unsafeSources.map((src, index) => ({
+      id: `unsafe-${index}`,
+      type: "photo",
+      src
+    }))
+  });
+
+  assert.equal(invitation.items.length, 0);
 });
 
 test("normalizeInvitation enforces photo limits and total ordered item limit", () => {
