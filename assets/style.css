@@ -187,7 +187,7 @@ textarea {
 
 .maker-header h1 {
   color: var(--rose-100);
-  font-size: 34px;
+  font-size: 32px;
 }
 
 .maker-header p:last-child {
@@ -332,7 +332,7 @@ textarea {
 
 .panel-title h2 {
   color: var(--wine-900);
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .preview-frame {
