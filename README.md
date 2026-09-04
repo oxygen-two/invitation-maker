@@ -29,7 +29,7 @@ http://localhost:4173
 ## Workflow
 
 1. Choose an invitation template.
-2. Choose no effect, sparkle, petals, or confetti, then adjust particle size and amount with percentage scales.
+2. Choose none, petals, hearts, sparkle, fireflies, bubbles, snow, leaves, or confetti, then adjust particle size from 50% to 200% in 5% steps and amount from 25% to 500% in 25% steps.
 3. Choose separate display fonts for English and Korean text.
 4. Edit title, date, location, and message, then expand, add, or remove course cards.
 5. Place names automatically create NAVER Map search links. Optionally add Dynamic Map coordinates to the representative place or each course card.
