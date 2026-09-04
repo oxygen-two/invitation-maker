@@ -113,6 +113,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -120,6 +121,7 @@ textarea {
 button,
 a,
 input,
+select,
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
@@ -266,6 +268,181 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.checkbox-field {
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  cursor: pointer;
+}
+
+.editor-form .checkbox-field input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--wine-800);
+}
+
+.map-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream-100);
+}
+
+.map-settings[hidden] {
+  display: none;
+}
+
+.map-settings label:last-child {
+  grid-column: 1 / -1;
+}
+
+.stops-editor-section {
+  display: grid;
+  gap: 10px;
+}
+
+.stops-editor-header,
+.stop-editor-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stops-editor-header > span,
+.stop-editor-card-header strong {
+  color: var(--wine-700);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.add-stop-button {
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--cream-50);
+  border: 1px solid var(--wine-800);
+  border-radius: 8px;
+  background: var(--wine-800);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.stops-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.stop-editor-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.stop-editor-card-header {
+  padding: 7px;
+}
+
+.stop-editor-card.is-open .stop-editor-card-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.stop-editor-toggle {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  align-content: center;
+  gap: 2px;
+  padding: 4px 34px 4px 7px;
+  position: relative;
+  color: var(--ink);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.stop-editor-toggle::after {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--wine-700);
+  border-bottom: 2px solid var(--wine-700);
+  content: "";
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.stop-editor-toggle[aria-expanded="true"]::after {
+  transform: translateY(-35%) rotate(225deg);
+}
+
+.editor-form .stop-editor-toggle > span {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-stop-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  color: var(--wine-700);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.stop-editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+}
+
+.stop-editor-grid[hidden] {
+  display: none;
+}
+
+.stop-map-settings {
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.stop-map-message {
+  grid-column: 1 / -1;
+  color: var(--wine-700);
+}
+
+.stops-empty {
+  margin: 0;
+  padding: 18px;
+  color: var(--ink-soft);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
 .editor-form span {
   color: var(--wine-700);
   font-size: 12px;
@@ -273,6 +450,7 @@ textarea {
 }
 
 .editor-form input,
+.editor-form select,
 .editor-form textarea {
   width: 100%;
   padding: 11px 12px;
@@ -288,6 +466,7 @@ textarea {
 }
 
 .editor-form input:focus,
+.editor-form select:focus,
 .editor-form textarea:focus {
   border-color: var(--gold-500);
   box-shadow: 0 0 0 3px rgba(217, 172, 84, .18);
@@ -305,6 +484,18 @@ textarea {
   padding-top: 0;
 }
 
+.save-status {
+  min-height: 20px;
+  margin: -10px 22px 18px;
+  color: var(--wine-700);
+  font-size: 12px;
+}
+
+.add-stop-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
 .primary-button,
 .secondary-button,
 .saved-actions button {
@@ -313,6 +504,26 @@ textarea {
   cursor: pointer;
   font-size: 13px;
   font-weight: 800;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--gold-500);
+  outline-offset: 2px;
+}
+
+.add-stop-button:hover,
+.primary-button:hover {
+  background: var(--wine-900);
+}
+
+.remove-stop-button:hover,
+.secondary-button:hover,
+.saved-actions button:hover {
+  color: var(--wine-900);
+  border-color: var(--gold-500);
+  background: var(--cream-100);
 }
 
 .primary-button {
@@ -345,11 +556,145 @@ textarea {
 }
 
 .preview-frame .invitation-card {
+  position: relative;
+  isolation: isolate;
   max-width: 430px;
   margin: 0 auto;
   overflow: hidden;
+  overflow-wrap: anywhere;
   background: var(--cream-50);
   box-shadow: 0 24px 72px rgba(45, 11, 22, .2);
+}
+
+.particle-layer {
+  --particle-scale: 1;
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particle-layer[data-size="small"] {
+  --particle-scale: .7;
+}
+
+.particle-layer[data-size="large"] {
+  --particle-scale: 1.45;
+}
+
+.particle-layer span {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  display: block;
+  width: calc(var(--size) * var(--particle-scale));
+  height: 100%;
+  opacity: 0;
+  animation: particle-fall var(--duration) linear var(--delay) infinite;
+  will-change: transform;
+}
+
+.particle-layer span::before {
+  display: block;
+  width: 100%;
+  height: calc(var(--size) * var(--particle-scale));
+  animation: particle-spin 5s linear var(--delay) infinite;
+  content: "";
+}
+
+.particle-layer[data-effect="sparkle"] span::before {
+  border-radius: 50%;
+  background: #fff8d9;
+  box-shadow: 0 0 8px 2px rgba(255, 242, 188, .78);
+}
+
+.particle-layer[data-effect="petals"] span::before {
+  border-radius: 70% 0 70% 0;
+  background: var(--tone);
+}
+
+.particle-layer[data-effect="confetti"] span::before {
+  height: calc(var(--size) * var(--particle-scale) * .48);
+  border-radius: 1px;
+  background: var(--tone);
+}
+
+.invite-map-panel {
+  position: relative;
+  height: 260px;
+  margin: 24px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #eee7df;
+}
+
+.invite-map-panel.is-stop-map {
+  height: 180px;
+  margin: 14px 0 0;
+}
+
+.invite-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.invite-map-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--ink-soft);
+  background: rgba(255, 250, 242, .94);
+  text-align: center;
+  font-size: 13px;
+}
+
+.invite-map-canvas[data-map-state="ready"] + .invite-map-status {
+  display: none;
+}
+
+.map-retry-button {
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 14px;
+  color: var(--cream-50);
+  border: 1px solid var(--wine-800);
+  border-radius: 8px;
+  background: var(--wine-800);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@keyframes particle-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -24px, 0);
+  }
+
+  12%,
+  84% {
+    opacity: .78;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift), calc(100% + 24px), 0);
+  }
+}
+
+@keyframes particle-spin {
+  from {
+    transform: rotate(var(--turn));
+  }
+
+  to {
+    transform: rotate(calc(var(--turn) + 480deg));
+  }
 }
 
 .invite-hero {
@@ -443,6 +788,10 @@ textarea {
   gap: 12px;
 }
 
+.invite-stop-content {
+  min-width: 0;
+}
+
 .invite-stop-number {
   display: grid;
   width: 38px;
@@ -473,7 +822,21 @@ textarea {
 .invite-stop p {
   margin: 4px 0 0;
   color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.invite-stop .invite-map-status {
+  margin: 0;
+}
+
+.invite-stop-map-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-top: 4px;
+  color: var(--wine-700);
   font-size: 13px;
+  font-weight: 800;
 }
 
 .invite-map {
@@ -508,6 +871,13 @@ textarea {
   border: 1px dashed var(--wine-600);
   border-radius: 8px;
   background: var(--white);
+}
+
+.upload-status {
+  min-height: 18px;
+  margin: 0;
+  color: var(--wine-700);
+  font-size: 12px;
 }
 
 .saved-list {
@@ -545,7 +915,7 @@ textarea {
 }
 
 .saved-actions button {
-  min-height: 36px;
+  min-height: 44px;
   padding: 0 10px;
   font-size: 12px;
 }
@@ -596,7 +966,39 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .map-settings {
+    grid-template-columns: 1fr;
+  }
+
+  .stop-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-settings label:last-child {
+    grid-column: auto;
+  }
+
   .preview-frame {
     max-height: none;
+  }
+
+  .particle-layer span:nth-child(n+11) {
+    display: none;
+  }
+
+  .invite-map-panel {
+    height: 220px;
+    margin: 18px;
+  }
+
+  .invite-map-panel.is-stop-map {
+    height: 170px;
+    margin: 12px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .particle-layer {
+    display: none;
   }
 }

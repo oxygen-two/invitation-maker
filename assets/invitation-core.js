@@ -1,6 +1,13 @@
 (function (root) {
   const defaultInvitation = {
     templateId: "royal",
+    particleEffect: "none",
+    particleSize: "medium",
+    naverMapClientId: "",
+    mapEnabled: false,
+    mapLatitude: null,
+    mapLongitude: null,
+    mapZoom: 16,
     title: "우리의 특별한 하루",
     subtitle: "당신을 위해 준비한 초대장",
     dateLabel: "2026.09.12 SAT 14:00",
@@ -16,6 +23,39 @@
     ]
   };
 
+  const particleEffects = new Set(["none", "sparkle", "petals", "confetti"]);
+  const particleSizes = new Set(["small", "medium", "large"]);
+  const MAX_STOPS = 50;
+
+  const normalizeParticleEffect = (value) =>
+    particleEffects.has(value) ? value : "none";
+
+  const normalizeParticleSize = (value) =>
+    particleSizes.has(value) ? value : "medium";
+
+  const normalizeCoordinate = (value, min, max) => {
+    if (value === "" || value === null || value === undefined) return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= min && number <= max ? number : null;
+  };
+
+  const normalizeClientId = (value) => {
+    const clientId = String(value || "").trim();
+    return /^[A-Za-z0-9_-]+$/.test(clientId) ? clientId : "";
+  };
+
+  const normalizeMapUrl = (value, fallback = "") => {
+    const mapUrl = String(value || "").trim();
+    if (!mapUrl) return fallback;
+
+    try {
+      const parsed = new URL(mapUrl);
+      return parsed.protocol === "http:" || parsed.protocol === "https:" ? mapUrl : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   const escapeHtml = (value = "") =>
     String(value).replace(/[&<>"']/g, (char) => ({
       "&": "&amp;",
@@ -25,49 +65,137 @@
       "'": "&#039;"
     })[char]);
 
+  const normalizeStop = (stop = {}) => {
+    const mapLatitude = normalizeCoordinate(stop.mapLatitude, -90, 90);
+    const mapLongitude = normalizeCoordinate(stop.mapLongitude, -180, 180);
+    const requestedZoom = Number(stop.mapZoom);
+    const requestedMap = stop.mapEnabled === true || stop.mapEnabled === "true" || stop.mapEnabled === "on";
+
+    return {
+      time: stop.time || "",
+      label: stop.label || "PLACE",
+      place: stop.place || "",
+      note: stop.note || "",
+      mapUrl: normalizeMapUrl(stop.mapUrl),
+      mapEnabled: requestedMap && mapLatitude !== null && mapLongitude !== null,
+      mapLatitude,
+      mapLongitude,
+      mapZoom: Number.isFinite(requestedZoom)
+        ? Math.min(21, Math.max(6, Math.round(requestedZoom)))
+        : defaultInvitation.mapZoom
+    };
+  };
+
   const normalizeStops = (value) => {
     if (Array.isArray(value)) {
       return value
-        .filter((stop) => stop && (stop.time || stop.place || stop.note || stop.label))
-        .map((stop) => ({
-          time: stop.time || "",
-          label: stop.label || "PLACE",
-          place: stop.place || "",
-          note: stop.note || ""
-        }));
+        .filter((stop) => stop && (stop.time || stop.place || stop.note || stop.label || stop.mapUrl))
+        .slice(0, MAX_STOPS)
+        .map(normalizeStop);
     }
 
     return String(value || "")
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
+      .slice(0, MAX_STOPS)
       .map((line) => {
         const [time = "", label = "PLACE", place = "", note = ""] = line.split("|").map((part) => part.trim());
-        return { time, label, place, note };
+        return normalizeStop({ time, label, place, note });
       });
   };
 
-  const normalizeInvitation = (input = {}) => ({
-    ...defaultInvitation,
-    ...input,
-    stops: normalizeStops(input.stops || defaultInvitation.stops)
-  });
+  const normalizeInvitation = (input = {}) => {
+    const mapLatitude = normalizeCoordinate(input.mapLatitude, -90, 90);
+    const mapLongitude = normalizeCoordinate(input.mapLongitude, -180, 180);
+    const requestedZoom = Number(input.mapZoom);
+    const mapZoom = Number.isFinite(requestedZoom)
+      ? Math.min(21, Math.max(6, Math.round(requestedZoom)))
+      : defaultInvitation.mapZoom;
+    const requestedMap = input.mapEnabled === true || input.mapEnabled === "true" || input.mapEnabled === "on";
+
+    return {
+      templateId: input.templateId ?? defaultInvitation.templateId,
+      particleEffect: normalizeParticleEffect(input.particleEffect),
+      particleSize: normalizeParticleSize(input.particleSize),
+      naverMapClientId: normalizeClientId(input.naverMapClientId),
+      title: input.title ?? defaultInvitation.title,
+      subtitle: input.subtitle ?? defaultInvitation.subtitle,
+      dateLabel: input.dateLabel ?? defaultInvitation.dateLabel,
+      host: input.host ?? defaultInvitation.host,
+      location: input.location ?? defaultInvitation.location,
+      mapUrl: normalizeMapUrl(input.mapUrl, input.mapUrl === undefined ? defaultInvitation.mapUrl : ""),
+      mapEnabled: requestedMap && mapLatitude !== null && mapLongitude !== null,
+      mapLatitude,
+      mapLongitude,
+      mapZoom,
+      message: input.message ?? defaultInvitation.message,
+      stops: normalizeStops(input.stops || defaultInvitation.stops)
+    };
+  };
+
+  const renderParticles = (effect, size) => {
+    if (effect === "none") return "";
+
+    const positions = [4, 10, 16, 22, 29, 35, 41, 48, 54, 60, 66, 72, 78, 84, 90, 95];
+    const colors = effect === "confetti"
+      ? ["#f4c95d", "#ea7f8d", "#6cb7a7", "#8f7cc2"]
+      : ["#f8d9df", "#f3b9c4", "#fff1d0"];
+    const particles = positions.map((position, index) => {
+      const size = 5 + (index % 4) * 2;
+      const drift = ((index % 5) - 2) * 15;
+      const duration = 8 + (index % 5);
+      const delay = (index * 0.9) % duration;
+      const turn = (index * 47) % 180;
+      return `<span style="--x:${position}%;--size:${size}px;--drift:${drift}px;--duration:${duration}s;--delay:-${delay.toFixed(1)}s;--turn:${turn}deg;--tone:${colors[index % colors.length]}"></span>`;
+    }).join("");
+
+    return `<div class="particle-layer" data-effect="${effect}" data-size="${size}" aria-hidden="true">${particles}</div>`;
+  };
+
+  const renderDynamicMap = (mapSettings, variant = "global", mapKey = "representative") => {
+    if (!mapSettings.mapEnabled) return "";
+
+    const status = mapSettings.naverMapClientId
+      ? "지도를 불러오는 중입니다."
+      : "지도를 불러올 수 없습니다. 아래 버튼으로 확인하세요.";
+    const variantClass = variant === "stop" ? " is-stop-map" : "";
+    return `
+        <section class="invite-map-panel${variantClass}" data-map-key="${mapKey}" aria-label="약속 장소 지도">
+          <div class="invite-map-canvas" data-dynamic-map data-latitude="${mapSettings.mapLatitude}" data-longitude="${mapSettings.mapLongitude}" data-zoom="${mapSettings.mapZoom}"></div>
+          <p class="invite-map-status" data-map-status role="status" aria-live="polite">${status}</p>
+        </section>
+    `;
+  };
+
+  const renderMapLink = (mapUrl, className, label) => mapUrl
+    ? `<a class="${className}" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    : "";
+
+  const getMapFallbackUrl = (mapSettings, place) => mapSettings.mapUrl || (mapSettings.mapEnabled
+    ? place
+      ? `https://map.naver.com/p/search/${encodeURIComponent(place)}`
+      : "https://map.naver.com/"
+    : "");
 
   const renderInvitationBody = (input = {}) => {
     const invitation = normalizeInvitation(input);
     const stops = invitation.stops.map((stop, index) => `
       <article class="invite-stop">
         <div class="invite-stop-number">${String(index + 1).padStart(2, "0")}</div>
-        <div>
+        <div class="invite-stop-content">
           <p class="invite-stop-time">${escapeHtml(stop.time)} · ${escapeHtml(stop.label)}</p>
           <h3>${escapeHtml(stop.place)}</h3>
           <p>${escapeHtml(stop.note)}</p>
+          ${renderDynamicMap({ ...stop, naverMapClientId: invitation.naverMapClientId }, "stop", `stop-${index}`)}
+          ${renderMapLink(getMapFallbackUrl(stop, stop.place), "invite-stop-map-link", "장소 지도 열기")}
         </div>
       </article>
     `).join("");
 
     return `
-      <article class="invitation-card">
+      <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}">
+        ${renderParticles(invitation.particleEffect, invitation.particleSize)}
         <header class="invite-hero">
           <p class="invite-kicker">Invitation</p>
           <h1>${escapeHtml(invitation.title)}</h1>
@@ -93,7 +221,8 @@
         <section class="invite-section invite-timeline">
           ${stops}
         </section>
-        <a class="invite-map" href="${escapeHtml(invitation.mapUrl)}" target="_blank" rel="noopener noreferrer">지도 열기</a>
+        ${renderDynamicMap(invitation)}
+        ${renderMapLink(getMapFallbackUrl(invitation, invitation.location), "invite-map", "대표 지도 열기")}
       </article>
     `;
   };
@@ -104,11 +233,75 @@
     body[data-template="black-tie"]{--bg:#d8d3ca;--paper:#f8f4ec;--ink:#17191f;--soft:#5f6876;--deep:#08090b;--mid:#353b48;--gold:#c9a45e}
     body[data-template="botanical"]{--bg:#e4ead8;--paper:#fbfbef;--ink:#102018;--soft:#52695b;--deep:#1f3a2c;--mid:#407055;--gold:#b89d50}
     body[data-template="modern"]{--bg:#efe9e3;--paper:#fffaf5;--ink:#1f1b1a;--soft:#6d625b;--deep:#34302d;--mid:#766b62;--gold:#b17846}
-    *{box-sizing:border-box}body{margin:0;padding:28px 14px;background:linear-gradient(145deg,var(--bg),#fff);color:var(--ink);font-family:"Noto Sans KR",sans-serif;line-height:1.7}.invitation-card{max-width:430px;margin:0 auto;overflow:hidden;background:var(--paper);box-shadow:0 26px 80px rgba(45,11,22,.22)}.invite-hero{min-height:420px;display:grid;align-content:center;padding:48px 28px;text-align:center;color:#fff;background:radial-gradient(circle at 50% 30%,rgba(217,172,84,.32),transparent 34%),linear-gradient(180deg,var(--deep),var(--mid))}.invite-kicker{margin:0 0 14px;color:#f6dda6;font-family:"Cormorant Garamond",serif;text-transform:uppercase;letter-spacing:.22em;font-size:12px}.invite-hero h1{margin:0;font-family:"Cormorant Garamond",serif;font-size:39px;line-height:1.15;font-style:italic;font-weight:500}.invite-subtitle{margin:18px 0 0;font-family:"Gowun Batang",serif;font-size:14px;opacity:.86}.invite-section{padding:28px 24px;border-bottom:1px solid var(--line)}.invite-message{font-family:"Gowun Batang",serif;font-size:17px;text-align:center}.invite-meta{display:grid;gap:12px}.invite-meta div{padding:14px;border:1px solid var(--line)}.invite-meta span{display:block;color:var(--gold);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em}.invite-meta strong{display:block;margin-top:3px}.invite-timeline{display:grid;gap:14px}.invite-stop{display:grid;grid-template-columns:42px 1fr;gap:12px}.invite-stop-number{display:grid;width:38px;height:38px;place-items:center;border:1px solid var(--gold);border-radius:50%;color:var(--mid);font-family:"Cormorant Garamond",serif;font-weight:700}.invite-stop-time{margin:0 0 3px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:.08em}.invite-stop h3{margin:0;font-family:"Gowun Batang",serif;font-size:18px}.invite-stop p{margin:4px 0 0;color:var(--soft);font-size:13px}.invite-map{display:flex;min-height:52px;align-items:center;justify-content:center;margin:24px;color:#fff;background:var(--deep);border-radius:8px;text-decoration:none;font-weight:700}@media(max-width:480px){body{padding:0}.invitation-card{box-shadow:none}}
+    *{box-sizing:border-box}body{margin:0;padding:28px 14px;background:linear-gradient(145deg,var(--bg),#fff);color:var(--ink);font-family:"Noto Sans KR",sans-serif;line-height:1.7}.invitation-card{max-width:430px;margin:0 auto;overflow:hidden;overflow-wrap:anywhere;background:var(--paper);box-shadow:0 26px 80px rgba(45,11,22,.22)}.invite-hero{min-height:420px;display:grid;align-content:center;padding:48px 28px;text-align:center;color:#fff;background:radial-gradient(circle at 50% 30%,rgba(217,172,84,.32),transparent 34%),linear-gradient(180deg,var(--deep),var(--mid))}.invite-kicker{margin:0 0 14px;color:#f6dda6;font-family:"Cormorant Garamond",serif;text-transform:uppercase;letter-spacing:.22em;font-size:12px}.invite-hero h1{margin:0;font-family:"Cormorant Garamond",serif;font-size:39px;line-height:1.15;font-style:italic;font-weight:500}.invite-subtitle{margin:18px 0 0;font-family:"Gowun Batang",serif;font-size:14px;opacity:.86}.invite-section{padding:28px 24px;border-bottom:1px solid var(--line)}.invite-message{font-family:"Gowun Batang",serif;font-size:17px;text-align:center}.invite-meta{display:grid;gap:12px}.invite-meta div{padding:14px;border:1px solid var(--line)}.invite-meta span{display:block;color:var(--gold);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em}.invite-meta strong{display:block;margin-top:3px}.invite-timeline{display:grid;gap:14px}.invite-stop{display:grid;grid-template-columns:42px 1fr;gap:12px}.invite-stop-number{display:grid;width:38px;height:38px;place-items:center;border:1px solid var(--gold);border-radius:50%;color:var(--mid);font-family:"Cormorant Garamond",serif;font-weight:700}.invite-stop-time{margin:0 0 3px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:.08em}.invite-stop h3{margin:0;font-family:"Gowun Batang",serif;font-size:18px}.invite-stop p{margin:4px 0 0;color:var(--soft);font-size:14px}.invite-map{display:flex;min-height:52px;align-items:center;justify-content:center;margin:24px;color:#fff;background:var(--deep);border-radius:8px;text-decoration:none;font-weight:700}@media(max-width:480px){body{padding:0}.invitation-card{box-shadow:none}}
+    .invitation-card{position:relative;isolation:isolate}.particle-layer{--particle-scale:1;position:absolute;z-index:2;inset:0;overflow:hidden;pointer-events:none}.particle-layer[data-size="small"]{--particle-scale:.7}.particle-layer[data-size="large"]{--particle-scale:1.45}.particle-layer span{position:absolute;top:0;left:var(--x);display:block;width:calc(var(--size) * var(--particle-scale));height:100%;opacity:0;animation:particle-fall var(--duration) linear var(--delay) infinite;will-change:transform}.particle-layer span::before{display:block;width:100%;height:calc(var(--size) * var(--particle-scale));animation:particle-spin 5s linear var(--delay) infinite;content:""}.particle-layer[data-effect="sparkle"] span::before{border-radius:50%;background:#fff8d9;box-shadow:0 0 8px 2px rgba(255,242,188,.78)}.particle-layer[data-effect="petals"] span::before{border-radius:70% 0 70% 0;background:var(--tone)}.particle-layer[data-effect="confetti"] span::before{height:calc(var(--size) * var(--particle-scale) * .48);border-radius:1px;background:var(--tone)}@keyframes particle-fall{0%{opacity:0;transform:translate3d(0,-24px,0)}12%,84%{opacity:.78}100%{opacity:0;transform:translate3d(var(--drift),calc(100% + 24px),0)}}@keyframes particle-spin{from{transform:rotate(var(--turn))}to{transform:rotate(calc(var(--turn) + 480deg))}}@media(max-width:480px){.particle-layer span:nth-child(n+11){display:none}}@media(prefers-reduced-motion:reduce){.particle-layer{display:none}}
+    .invite-map-panel{position:relative;height:260px;margin:24px;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#eee7df}.invite-map-panel.is-stop-map{height:180px;margin:14px 0 0}.invite-map-canvas{width:100%;height:100%}.invite-map-status{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:24px;color:var(--soft);background:rgba(255,250,242,.94);text-align:center;font-size:13px}.invite-map-canvas[data-map-state="ready"]+.invite-map-status{display:none}.invite-stop-map-link{display:inline-flex;min-height:44px;align-items:center;margin-top:4px;color:var(--mid);font-size:13px;font-weight:700}@media(max-width:480px){.invite-map-panel{height:220px;margin:18px}.invite-map-panel.is-stop-map{height:170px;margin:12px 0 0}}
   `;
+
+  const renderStandaloneMapScript = (invitation) => {
+    const hasDynamicMaps = invitation.mapEnabled || invitation.stops.some((stop) => stop.mapEnabled);
+    if (!hasDynamicMaps || !invitation.naverMapClientId) return "";
+
+    const apiUrl = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(invitation.naverMapClientId)}`;
+    return `<script>
+(() => {
+  const canvases = [...document.querySelectorAll("[data-dynamic-map]")];
+  const fail = (canvas) => {
+    if (canvas) canvas.dataset.mapState = "fallback";
+    const status = canvas?.nextElementSibling;
+    if (status) status.textContent = "지도를 불러올 수 없습니다. 아래 버튼으로 확인하세요.";
+  };
+  const failAll = () => canvases.forEach(fail);
+  const mount = () => {
+    canvases.forEach((canvas) => {
+      try {
+        const position = new window.naver.maps.LatLng(
+          Number(canvas.dataset.latitude),
+          Number(canvas.dataset.longitude)
+        );
+        const map = new window.naver.maps.Map(canvas, {
+          center: position,
+          zoom: Number(canvas.dataset.zoom)
+        });
+        new window.naver.maps.Marker({ map, position });
+        canvas.dataset.mapState = "ready";
+      } catch (error) {
+        fail(canvas);
+      }
+    });
+  };
+  let timeoutId;
+  const finish = (callback) => {
+    clearTimeout(timeoutId);
+    script.onload = null;
+    script.onerror = null;
+    script.remove();
+    callback();
+  };
+  window.navermap_authFailure = failAll;
+  if (!canvases.length || location.protocol === "file:") {
+    failAll();
+    return;
+  }
+  const script = document.createElement("script");
+  script.src = "${apiUrl}";
+  script.async = true;
+  script.onload = () => finish(mount);
+  script.onerror = () => finish(failAll);
+  timeoutId = setTimeout(() => finish(failAll), 10000);
+  document.head.append(script);
+})();
+</script>`;
+  };
 
   const buildStandaloneHtml = (input = {}) => {
     const invitation = normalizeInvitation(input);
+    const invitationData = JSON.stringify(invitation)
+      .replace(/&/g, "\\u0026")
+      .replace(/</g, "\\u003c")
+      .replace(/>/g, "\\u003e")
+      .replace(/\u2028/g, "\\u2028")
+      .replace(/\u2029/g, "\\u2029");
     return `<!doctype html>
 <html lang="ko">
 <head>
@@ -121,13 +314,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&amp;family=Gowun+Batang:wght@400;700&amp;family=Noto+Sans+KR:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
   <style>${standaloneCss}</style>
 </head>
-<body data-template="${escapeHtml(invitation.templateId)}">
+<body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}">
 ${renderInvitationBody(invitation)}
+<script id="invitation-data" type="application/json">${invitationData}</script>
+${renderStandaloneMapScript(invitation)}
 </body>
 </html>`;
   };
 
   const api = {
+    MAX_STOPS,
     defaultInvitation,
     normalizeInvitation,
     renderInvitationBody,

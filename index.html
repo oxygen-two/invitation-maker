@@ -27,6 +27,23 @@
       </section>
 
       <form id="invitation-form" class="editor-form">
+        <label class="effect-field">
+          <span>파티클 효과</span>
+          <select name="particleEffect" aria-label="파티클 효과">
+            <option value="none">효과 없음</option>
+            <option value="sparkle">은은한 빛가루</option>
+            <option value="petals">꽃잎</option>
+            <option value="confetti">컨페티</option>
+          </select>
+        </label>
+        <label>
+          <span>파티클 크기</span>
+          <select name="particleSize" aria-label="파티클 크기">
+            <option value="small">작게</option>
+            <option value="medium">보통</option>
+            <option value="large">크게</option>
+          </select>
+        </label>
         <label>
           <span>제목</span>
           <input name="title" type="text" autocomplete="off">
@@ -48,24 +65,45 @@
           <input name="location" type="text" autocomplete="off">
         </label>
         <label>
-          <span>지도 링크</span>
+          <span>대표 지도 링크</span>
           <input name="mapUrl" type="url" autocomplete="off">
         </label>
+        <label class="full checkbox-field">
+          <input name="mapEnabled" type="checkbox">
+          <span>대표 동적 지도 표시</span>
+        </label>
+        <div class="full map-settings" data-map-settings hidden>
+          <label>
+            <span>위도</span>
+            <input name="mapLatitude" type="number" min="-90" max="90" step="any" inputmode="decimal">
+          </label>
+          <label>
+            <span>경도</span>
+            <input name="mapLongitude" type="number" min="-180" max="180" step="any" inputmode="decimal">
+          </label>
+          <label>
+            <span>지도 줌</span>
+            <input name="mapZoom" type="number" min="6" max="21" step="1" inputmode="numeric">
+          </label>
+        </div>
         <label class="full">
           <span>메시지</span>
           <textarea name="message" rows="4"></textarea>
         </label>
-        <label class="full">
-          <span>코스</span>
-          <textarea name="stops" rows="7" aria-describedby="stops-help"></textarea>
-          <small id="stops-help">한 줄에 `시간|라벨|장소|메모` 형식으로 입력합니다.</small>
-        </label>
+        <section class="full stops-editor-section" aria-labelledby="stops-editor-title">
+          <header class="stops-editor-header">
+            <span id="stops-editor-title">데이트 코스</span>
+            <button id="add-stop-button" class="add-stop-button" type="button">+ 코스 추가</button>
+          </header>
+          <div id="stops-editor" class="stops-editor"></div>
+        </section>
       </form>
 
       <div class="action-row">
         <button id="download-button" class="primary-button" type="button">HTML 다운로드</button>
         <button id="save-button" class="secondary-button" type="button">목록에 등록</button>
       </div>
+      <p id="save-status" class="save-status" role="status" aria-live="polite"></p>
     </section>
 
     <section class="preview-panel">
@@ -84,6 +122,7 @@
       <div class="upload-box">
         <label for="html-upload">다운로드된 HTML 등록</label>
         <input id="html-upload" type="file" accept=".html,text/html">
+        <p id="upload-status" class="upload-status" role="status" aria-live="polite"></p>
       </div>
       <div id="saved-list" class="saved-list"></div>
     </section>

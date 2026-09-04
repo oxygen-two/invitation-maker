@@ -1,7 +1,8 @@
 {
   "site": {
     "title": "Invitation Maker",
-    "defaultTemplate": "royal"
+    "defaultTemplate": "royal",
+    "naverMapClientId": "6qlfm6v8or"
   },
   "templates": [
     {
@@ -32,37 +33,63 @@
   ],
   "defaultInvitation": {
     "templateId": "royal",
+    "particleEffect": "none",
+    "particleSize": "medium",
     "title": "성수에서 보내는 하루",
     "subtitle": "카페에서 시작해 와인바로 끝나는 오후",
     "dateLabel": "2026.09.12 SAT 14:00",
     "host": "From. Rin",
     "location": "성수역 3번 출구",
     "mapUrl": "https://map.naver.com/",
+    "mapEnabled": false,
+    "mapLatitude": 37.5446,
+    "mapLongitude": 127.0559,
+    "mapZoom": 16,
     "message": "오늘은 바쁘게 움직이기보다, 좋아하는 것들을 천천히 이어가며 함께 오래 기억할 하루를 만들고 싶어요.",
     "stops": [
       {
         "time": "14:00",
         "label": "MEET",
         "place": "성수역 3번 출구",
-        "note": "첫 만남 장소입니다."
+        "note": "첫 만남 장소입니다.",
+        "mapUrl": "https://map.naver.com/",
+        "mapEnabled": false,
+        "mapLatitude": 37.5446,
+        "mapLongitude": 127.0559,
+        "mapZoom": 16
       },
       {
         "time": "14:20",
         "label": "CAFE",
         "place": "카페 이름을 입력하세요",
-        "note": "대화하기 좋은 조용한 카페를 넣어주세요."
+        "note": "대화하기 좋은 조용한 카페를 넣어주세요.",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16
       },
       {
         "time": "16:00",
         "label": "WALK",
         "place": "산책 장소를 입력하세요",
-        "note": "날씨와 분위기에 맞는 산책 구간을 연결하세요."
+        "note": "날씨와 분위기에 맞는 산책 구간을 연결하세요.",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16
       },
       {
         "time": "18:00",
         "label": "DINNER",
         "place": "저녁 장소를 입력하세요",
-        "note": "예약 여부와 추천 메뉴를 적어두면 좋습니다."
+        "note": "예약 여부와 추천 메뉴를 적어두면 좋습니다.",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16
       }
     ]
   }
