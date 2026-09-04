@@ -15,6 +15,8 @@ let naverMapsPromise;
 let previewRenderId = 0;
 let previewMapTimer;
 let pendingPreviewMapKey = null;
+let dragState = null;
+let photoSelectionPending = false;
 const previewMapInstances = new WeakMap();
 
 const dom = {
@@ -104,8 +106,8 @@ const renderItemActions = (item, index, itemCount) => {
   const typeLabel = item.type === "photo" ? "사진" : "코스";
   return `
     <div class="item-editor-actions">
-      <button class="item-icon-button" type="button" data-item-action="up" aria-label="${typeLabel} 항목 위로 이동" title="위로 이동"${index === 0 ? " disabled" : ""}>↑</button>
-      <button class="item-icon-button" type="button" data-item-action="down" aria-label="${typeLabel} 항목 아래로 이동" title="아래로 이동"${index === itemCount - 1 ? " disabled" : ""}>↓</button>
+      <button class="item-icon-button" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${typeLabel} 항목 위로 이동" title="위로 이동">↑</button>
+      <button class="item-icon-button" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${typeLabel} 항목 아래로 이동" title="아래로 이동">↓</button>
       <button class="item-icon-button remove-item-button" type="button" data-item-action="delete" aria-label="${typeLabel} 항목 삭제" title="이 항목 삭제">×</button>
     </div>
   `;
@@ -173,10 +175,17 @@ const renderPhotoFields = (item, bodyId, isOpen) => `
   </div>
 `;
 
-const renderContentEditor = (items = [], openId = items[0]?.id) => {
+const syncAddItemAvailability = (items) => {
   const photoCount = items.filter((item) => item.type === "photo").length;
   dom.addCourse.disabled = items.length >= InvitationCore.MAX_ITEMS;
-  dom.addPhoto.disabled = items.length >= InvitationCore.MAX_ITEMS || photoCount >= InvitationCore.MAX_PHOTOS;
+  dom.addPhoto.disabled = photoSelectionPending
+    || items.length >= InvitationCore.MAX_ITEMS
+    || photoCount >= InvitationCore.MAX_PHOTOS;
+};
+
+const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag = false } = {}) => {
+  if (dragState && !preserveDrag) cancelActiveDrag();
+  syncAddItemAvailability(items);
 
   if (!items.length) {
     dom.contentEditor.innerHTML = '<p class="content-empty">코스나 사진을 추가해 초대장을 구성하세요.</p>';
@@ -649,40 +658,74 @@ const registerUploadedHtml = async (file) => {
 
 const getOpenItemId = () => dom.contentEditor.querySelector(".content-item-card.is-open")?.dataset.itemId || null;
 
-const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]") => {
+const getFocusedItemContext = () => {
+  const activeElement = document.activeElement;
+  const card = activeElement?.closest?.("[data-item-card]");
+  if (!card || !dom.contentEditor.contains(card)) return null;
+
+  let selector = null;
+  if (activeElement.matches("[data-drag-handle]")) selector = "[data-drag-handle]";
+  if (activeElement.matches("[data-toggle-item]")) selector = "[data-toggle-item]";
+  if (activeElement.dataset.itemAction) selector = `[data-item-action="${activeElement.dataset.itemAction}"]`;
+  if (activeElement.dataset.courseField) selector = `[data-course-field="${activeElement.dataset.courseField}"]`;
+  if (activeElement.dataset.photoField) selector = `[data-photo-field="${activeElement.dataset.photoField}"]`;
+  return selector ? { itemId: card.dataset.itemId, selector } : null;
+};
+
+const focusItemControl = (itemId, selector = "[data-toggle-item]") => {
+  const control = findItemCard(itemId)?.querySelector(selector);
+  if (!control) return false;
+  control.focus();
+  return true;
+};
+
+const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]", { preserveDrag = false } = {}) => {
   const items = getItemsData();
   if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length || fromIndex === toIndex) {
     return null;
   }
 
+  const openId = getOpenItemId();
   const movedId = items[fromIndex].id;
   const movedItems = ContentOrder.move(items, fromIndex, toIndex);
-  renderContentEditor(movedItems, movedId);
+  renderContentEditor(movedItems, openId, { preserveDrag });
   renderPreview();
-  findItemCard(movedId)?.querySelector(focusSelector)?.focus();
+  focusItemControl(movedId, focusSelector);
   return movedId;
+};
+
+const mergeCompressedPhotos = (currentItems, compressedPhotos) => {
+  const items = currentItems.slice();
+  const committed = [];
+  const skipped = [];
+  let photoCount = items.filter((item) => item.type === "photo").length;
+
+  for (const result of compressedPhotos) {
+    if (items.length >= InvitationCore.MAX_ITEMS) {
+      skipped.push({ ...result, reason: "items" });
+      continue;
+    }
+    if (photoCount >= InvitationCore.MAX_PHOTOS) {
+      skipped.push({ ...result, reason: "photos" });
+      continue;
+    }
+    items.push(result.item);
+    photoCount += 1;
+    committed.push(result);
+  }
+
+  return { committed, items, skipped };
 };
 
 const handlePhotoSelection = async () => {
   const files = [...dom.photoInput.files];
-  const openId = getOpenItemId();
-  const items = getItemsData();
-  let photoCount = items.filter((item) => item.type === "photo").length;
-  let firstNewId = null;
-  const statuses = [];
+  const compressedPhotos = [];
+  const statuses = Array(files.length).fill("");
 
+  photoSelectionPending = true;
   dom.addPhoto.disabled = true;
   try {
-    for (const file of files) {
-      if (items.length >= InvitationCore.MAX_ITEMS) {
-        statuses.push(`${file.name}: 초대장 항목은 최대 ${InvitationCore.MAX_ITEMS}개까지 추가할 수 있습니다.`);
-        continue;
-      }
-      if (photoCount >= InvitationCore.MAX_PHOTOS) {
-        statuses.push(`${file.name}: 사진은 최대 ${InvitationCore.MAX_PHOTOS}개까지 추가할 수 있습니다.`);
-        continue;
-      }
-
+    for (const [index, file] of files.entries()) {
       dom.saveStatus.textContent = `${file.name}: 사진을 처리하고 있습니다.`;
       try {
         const image = await ImageTools.compress(file);
@@ -693,30 +736,43 @@ const handlePhotoSelection = async () => {
           alt: "",
           caption: ""
         };
-        items.push(item);
-        photoCount += 1;
-        firstNewId ||= item.id;
-        statuses.push(`${file.name}: 사진을 추가했습니다.`);
+        compressedPhotos.push({ fileName: file.name, index, item });
       } catch (error) {
         const message = error instanceof ImageTools.ImageError
           ? error.message
           : "이미지를 처리할 수 없습니다.";
-        statuses.push(`${file.name}: ${message}`);
+        statuses[index] = `${file.name}: ${message}`;
       }
     }
   } finally {
     dom.photoInput.value = "";
+    photoSelectionPending = false;
   }
 
-  renderContentEditor(items, firstNewId || openId);
-  if (firstNewId) {
+  const focusedItem = getFocusedItemContext();
+  const openId = getOpenItemId();
+  const currentItems = getItemsData();
+  const result = mergeCompressedPhotos(currentItems, compressedPhotos);
+  for (const committed of result.committed) {
+    statuses[committed.index] = `${committed.fileName}: 사진을 추가했습니다.`;
+  }
+  for (const skipped of result.skipped) {
+    const limit = skipped.reason === "items" ? "초대장 항목" : "사진";
+    statuses[skipped.index] = `${skipped.fileName}: 사진 처리를 완료했지만 ${limit} 제한으로 추가하지 않았습니다.`;
+  }
+
+  if (result.committed.length) {
+    const firstNewId = result.committed[0].item.id;
+    renderContentEditor(result.items, openId || firstNewId);
     renderPreview();
-    findItemCard(firstNewId)?.querySelector("[data-photo-field='caption']")?.focus();
+    if (!focusedItem || !focusItemControl(focusedItem.itemId, focusedItem.selector)) {
+      focusItemControl(firstNewId, '[data-photo-field="caption"]');
+    }
+  } else {
+    syncAddItemAvailability(currentItems);
   }
-  dom.saveStatus.textContent = statuses.join(" ");
+  dom.saveStatus.textContent = statuses.filter(Boolean).join(" ");
 };
-
-let dragState = null;
 
 const clearDropIndicators = () => {
   dom.contentEditor.querySelectorAll(".is-drop-before, .is-drop-after").forEach((card) => {
@@ -724,15 +780,24 @@ const clearDropIndicators = () => {
   });
 };
 
-const finishItemDrag = (event) => {
-  if (!dragState || event.pointerId !== dragState.pointerId) return;
-  if (event.type === "lostpointercapture" && event.target !== dragState.handle) return;
-
+const cancelActiveDrag = () => {
+  if (!dragState) return;
   const { handle, card, pointerId } = dragState;
   dragState = null;
   clearDropIndicators();
-  card.classList.remove("is-dragging");
-  if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+  card?.classList.remove("is-dragging");
+  try {
+    if (handle?.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+  } catch {
+    // A detached capture target is already released by the browser.
+  }
+};
+
+const finishItemDrag = (event) => {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  if (event.type === "lostpointercapture" && dragState.transferring) return;
+  if (event.type === "lostpointercapture" && event.target !== dragState.handle) return;
+  cancelActiveDrag();
 };
 
 const beginItemDrag = (event) => {
@@ -744,7 +809,7 @@ const beginItemDrag = (event) => {
   event.preventDefault();
   handle.setPointerCapture(event.pointerId);
   card.classList.add("is-dragging");
-  dragState = { pointerId: event.pointerId, itemId: card.dataset.itemId, handle, card };
+  dragState = { pointerId: event.pointerId, itemId: card.dataset.itemId, handle, card, transferring: false };
 };
 
 const moveItemDrag = (event) => {
@@ -774,14 +839,28 @@ const moveItemDrag = (event) => {
   targetCard.classList.add(movingUp ? "is-drop-before" : "is-drop-after");
   if ((movingUp && event.clientY >= targetMidpoint) || (!movingUp && event.clientY <= targetMidpoint)) return;
 
-  const movedId = commitItemMove(fromIndex, toIndex, "[data-drag-handle]");
+  dragState.transferring = true;
+  const movedId = commitItemMove(fromIndex, toIndex, "[data-drag-handle]", { preserveDrag: true });
   const movedCard = movedId ? findItemCard(movedId) : null;
   const movedHandle = movedCard?.querySelector("[data-drag-handle]");
-  if (!movedCard || !movedHandle) return;
+  if (!movedCard || !movedHandle) {
+    cancelActiveDrag();
+    return;
+  }
 
   movedCard.classList.add("is-dragging");
-  movedHandle.setPointerCapture(event.pointerId);
-  dragState = { pointerId: event.pointerId, itemId: movedId, handle: movedHandle, card: movedCard };
+  try {
+    movedHandle.setPointerCapture(event.pointerId);
+    dragState = {
+      pointerId: event.pointerId,
+      itemId: movedId,
+      handle: movedHandle,
+      card: movedCard,
+      transferring: false
+    };
+  } catch {
+    cancelActiveDrag();
+  }
 };
 
 const loadInitialData = async () => {
@@ -865,6 +944,7 @@ dom.contentEditor.addEventListener("click", (event) => {
   const action = button.dataset.itemAction;
 
   if (action === "up" || action === "down") {
+    if (button.getAttribute("aria-disabled") === "true") return;
     const toIndex = action === "up" ? index - 1 : index + 1;
     commitItemMove(index, toIndex, `[data-item-action="${action}"]`);
     return;
@@ -880,11 +960,13 @@ dom.contentEditor.addEventListener("click", (event) => {
 
   const openId = getOpenItemId();
   items.splice(index, 1);
+  const focusId = items[Math.min(index, items.length - 1)]?.id || null;
   const nextOpenId = openId === item.id
-    ? items[Math.min(index, items.length - 1)]?.id
+    ? focusId
     : openId;
   renderContentEditor(items, nextOpenId);
   renderPreview();
+  if (!focusId || !focusItemControl(focusId)) dom.addCourse.focus();
 });
 
 dom.contentEditor.addEventListener("input", (event) => {
@@ -911,9 +993,9 @@ dom.contentEditor.addEventListener("input", (event) => {
 
 dom.contentEditor.addEventListener("pointerdown", beginItemDrag);
 dom.contentEditor.addEventListener("pointermove", moveItemDrag);
-dom.contentEditor.addEventListener("pointerup", finishItemDrag);
-dom.contentEditor.addEventListener("pointercancel", finishItemDrag);
-dom.contentEditor.addEventListener("lostpointercapture", finishItemDrag);
+window.addEventListener("pointerup", finishItemDrag);
+window.addEventListener("pointercancel", finishItemDrag);
+document.addEventListener("lostpointercapture", finishItemDrag, true);
 
 dom.templates.addEventListener("click", (event) => {
   const button = event.target.closest("[data-template-id]");
