@@ -9,6 +9,16 @@ const SAFE_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
 const SAFE_PNG = "data:image/png;base64,iVBORw0KGgo=";
 const SAFE_WEBP = "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/vuUAAA=";
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const invitationDataFrom = (html) => {
+  const match = html.match(/<script id="invitation-data" type="application\/json">([\s\S]*?)<\/script>/);
+  assert.ok(match);
+  return JSON.parse(match[1]);
+};
+const cssRule = (css, selector) => {
+  const start = css.indexOf(`${selector}{`);
+  assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
+  return css.slice(start, css.indexOf("}", start) + 1);
+};
 const particleCapBreakpoint = (css) => {
   const capIndex = css.indexOf(".particle-layer span:nth-child(n+17)");
   assert.notEqual(capIndex, -1);
@@ -142,6 +152,126 @@ test("normalizeInvitation rejects malformed photo source data URLs", () => {
   });
 
   assert.equal(invitation.items.length, 0);
+});
+
+test("unsafe photo sources are dropped before mixed invitation rendering", () => {
+  const html = buildStandaloneHtml({
+    items: [
+      { id: "course-safe", type: "course", place: "SAFE COURSE" },
+      { id: "photo-unsafe", type: "photo", src: "data:image/svg+xml;base64,PHN2Zz4=" }
+    ]
+  });
+
+  assert.match(html, /SAFE COURSE/);
+  assert.doesNotMatch(html, /photo-unsafe|image\/svg\+xml|<figure class="invite-photo">/);
+});
+
+test("mixed invitation items render in exact order and number courses only", () => {
+  const html = buildStandaloneHtml({
+    items: [
+      { id: "course-first", type: "course", place: "FIRST COURSE" },
+      { id: "photo-middle", type: "photo", src: SAFE_WEBP, alt: "MIDDLE PHOTO" },
+      { id: "course-second", type: "course", place: "SECOND COURSE" }
+    ]
+  });
+  const firstCourseIndex = html.indexOf("FIRST COURSE");
+  const photoIndex = html.indexOf('<figure class="invite-photo">');
+  const secondCourseIndex = html.indexOf("SECOND COURSE");
+
+  assert.ok(firstCourseIndex < photoIndex);
+  assert.ok(photoIndex < secondCourseIndex);
+  assert.deepEqual([...html.matchAll(/invite-stop-number">(\d{2})/g)].map((match) => match[1]), ["01", "02"]);
+});
+
+test("mixed invitation photos escape text and omit blank captions", () => {
+  const html = buildStandaloneHtml({
+    items: [
+      {
+        id: "photo-captioned",
+        type: "photo",
+        src: SAFE_WEBP,
+        alt: '\"><img src=x onerror="ALT_ATTACK">',
+        caption: '<b data-attack="CAPTION_ATTACK">Us & them</b>'
+      },
+      { id: "photo-blank", type: "photo", src: SAFE_PNG, alt: "Blank caption", caption: "" }
+    ]
+  });
+
+  assert.match(html, /alt="&quot;&gt;&lt;img src=x onerror=&quot;ALT_ATTACK&quot;&gt;"/);
+  assert.match(html, /<figcaption>&lt;b data-attack=&quot;CAPTION_ATTACK&quot;&gt;Us &amp; them&lt;\/b&gt;<\/figcaption>/);
+  assert.equal((html.match(/<figure class="invite-photo">/g) || []).length, 2);
+  assert.equal((html.match(/<figcaption>/g) || []).length, 1);
+  assert.doesNotMatch(html, /<img src=x onerror="ALT_ATTACK">|<b data-attack="CAPTION_ATTACK">/);
+});
+
+test("standalone canonical JSON stores items without stops and preserves Base64 photos", () => {
+  const html = buildStandaloneHtml({
+    items: [
+      { id: "course-json", type: "course", place: "SERIALIZED COURSE" },
+      { id: "photo-json", type: "photo", src: SAFE_WEBP, alt: "Exported photo", caption: "Exact bytes" }
+    ]
+  });
+  const invitationData = invitationDataFrom(html);
+
+  assert.equal(Object.hasOwn(invitationData, "stops"), false);
+  assert.deepEqual(invitationData.items.map(({ id, type }) => ({ id, type })), [
+    { id: "course-json", type: "course" },
+    { id: "photo-json", type: "photo" }
+  ]);
+  assert.equal(invitationData.items[1].src, SAFE_WEBP);
+});
+
+test("mixed canonical item maps use one shared NAVER loader", () => {
+  const html = buildStandaloneHtml({
+    naverMapClientId: "public-client-id",
+    items: [
+      {
+        id: "course-map-first",
+        type: "course",
+        place: "FIRST MAP",
+        mapEnabled: true,
+        mapLatitude: 37.5446,
+        mapLongitude: 127.0559
+      },
+      { id: "photo-between-maps", type: "photo", src: SAFE_WEBP },
+      {
+        id: "course-map-second",
+        type: "course",
+        place: "SECOND MAP",
+        mapEnabled: true,
+        mapLatitude: 37.548,
+        mapLongitude: 127.041
+      }
+    ]
+  });
+
+  assert.equal((html.match(/data-dynamic-map data-latitude/g) || []).length, 2);
+  assert.equal((html.match(/oapi\.map\.naver\.com\/openapi\/v3\/maps\.js/g) || []).length, 1);
+  assert.ok(html.indexOf('data-map-key="course-0"') < html.indexOf('<figure class="invite-photo">'));
+  assert.ok(html.indexOf('<figure class="invite-photo">') < html.indexOf('data-map-key="course-1"'));
+});
+
+test("mixed photo styles share a natural aspect ratio and overflow contract", () => {
+  const previewCss = read("assets/style.css").replace(/\s+/g, "");
+  const standaloneCss = buildStandaloneHtml({
+    items: [{ id: "photo-style", type: "photo", src: SAFE_WEBP }]
+  }).match(/<style>([\s\S]*?)<\/style>/)?.[1].replace(/\s+/g, "") || "";
+
+  for (const css of [previewCss, standaloneCss]) {
+    const figureRule = cssRule(css, ".invite-photo");
+    const imageRule = cssRule(css, ".invite-photoimg");
+    const captionRule = cssRule(css, ".invite-photofigcaption");
+
+    assert.match(figureRule, /max-width:100%/);
+    assert.match(figureRule, /overflow:hidden/);
+    assert.doesNotMatch(figureRule, /border|background|box-shadow|border-radius/);
+    assert.match(imageRule, /display:block/);
+    assert.match(imageRule, /width:100%/);
+    assert.match(imageRule, /height:auto/);
+    assert.match(captionRule, /max-width:100%/);
+    assert.match(captionRule, /padding:8px4px0/);
+    assert.match(captionRule, /overflow-wrap:anywhere/);
+  }
 });
 
 test("normalizeInvitation enforces photo limits and total ordered item limit", () => {
