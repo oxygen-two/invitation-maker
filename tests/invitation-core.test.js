@@ -162,6 +162,47 @@ test("normalizeInvitation preserves ordered course and photo items", () => {
   assert.equal(invitation.items[1].caption, "첫 산책");
 });
 
+test("normalizes all five ordered item types and preserves their order", () => {
+  const invitation = normalizeInvitation({
+    templateId: "wedding",
+    items: [
+      { id: "profile-1", type: "profile", name: "김민준", role: "신랑", description: "서로의 평생 친구" },
+      { id: "notice-1", type: "notice", heading: "주차 안내", body: "지하 2층을 이용해주세요." },
+      { id: "course-1", type: "course", time: "14:00", place: "그랜드홀" },
+      { id: "link-1", type: "link", label: "참석 여부", value: "9월 30일까지", url: "https://example.com/rsvp" },
+      { id: "photo-1", type: "photo", src: SAFE_WEBP, alt: "두 사람" }
+    ]
+  });
+
+  assert.equal(invitation.layoutFamily, "wedding-editorial");
+  assert.deepEqual(invitation.items.map(({ type }) => type), ["profile", "notice", "course", "link", "photo"]);
+});
+
+test("rejects executable item links and keeps safe contact schemes", () => {
+  const invitation = normalizeInvitation({ items: [
+    { id: "bad", type: "link", label: "Bad", url: "javascript:alert(1)" },
+    { id: "tel", type: "link", label: "전화", url: "tel:01012345678" },
+    { id: "sms", type: "link", label: "문자", url: "sms:01012345678" }
+  ] });
+
+  assert.equal(invitation.items[0].url, "");
+  assert.equal(invitation.items[1].url, "tel:01012345678");
+  assert.equal(invitation.items[2].url, "sms:01012345678");
+});
+
+test("renders new item text escaped and unsafe links as non-clickable information", () => {
+  const html = buildStandaloneHtml({ items: [
+    { id: "notice", type: "notice", heading: "<img src=x>", body: "준비물" },
+    { id: "profile", type: "profile", name: "하린", role: "주인공", description: "첫 생일" },
+    { id: "link", type: "link", label: "회신", value: "문의", url: "javascript:alert(1)" }
+  ] });
+
+  assert.match(html, /&lt;img src=x&gt;/);
+  assert.match(html, /invite-profile/);
+  assert.match(html, /invite-link-info/);
+  assert.doesNotMatch(html, /href="javascript:/);
+});
+
 test("normalizeInvitation migrates legacy stops to course items only when items are absent", () => {
   const legacy = normalizeInvitation({ stops: [{ place: "성수역" }] });
   const canonical = normalizeInvitation({

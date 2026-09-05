@@ -5,6 +5,9 @@
     getStyles: () => "",
     getStandaloneRuntime: () => ""
   });
+  const noTemplateCatalog = Object.freeze({
+    normalizeFamily: () => "romantic-story"
+  });
   const InvitationIntro = (() => {
     if (typeof module !== "undefined" && module.exports) {
       try {
@@ -14,6 +17,16 @@
       }
     }
     return root.InvitationIntro || noIntro;
+  })();
+  const TemplateCatalog = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        return require("./template-catalog.js");
+      } catch {
+        return noTemplateCatalog;
+      }
+    }
+    return root.TemplateCatalog || noTemplateCatalog;
   })();
   const defaultInvitation = {
     templateId: "royal",
@@ -187,6 +200,37 @@
     ? { id, type: "photo", src: item.src, alt: String(item.alt || ""), caption: String(item.caption || "") }
     : null;
 
+  const normalizeNotice = (item, id) => {
+    const heading = String(item.heading || "").trim();
+    const body = String(item.body || "").trim();
+    return heading || body ? { id, type: "notice", heading, body } : null;
+  };
+
+  const normalizeProfile = (item, id) => {
+    const name = String(item.name || "").trim();
+    const role = String(item.role || "").trim();
+    const description = String(item.description || "").trim();
+    return name || role || description ? { id, type: "profile", name, role, description } : null;
+  };
+
+  const normalizeActionUrl = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      const parsed = new URL(raw);
+      return ["http:", "https:", "tel:", "sms:"].includes(parsed.protocol) ? raw : "";
+    } catch {
+      return "";
+    }
+  };
+
+  const normalizeLink = (item, id) => {
+    const label = String(item.label || "").trim();
+    const value = String(item.value || "").trim();
+    const url = normalizeActionUrl(item.url);
+    return label || value || url ? { id, type: "link", label, value, url } : null;
+  };
+
   const itemToStop = (item) => ({
     time: item.time,
     label: item.label,
@@ -209,13 +253,17 @@
 
     for (const item of sourceItems) {
       if (!item || normalized.length >= MAX_ITEMS) continue;
-      const type = item.type === "photo" ? "photo" : item.type === "course" ? "course" : "";
+      const type = ["course", "photo", "notice", "profile", "link"].includes(item.type) ? item.type : "";
       if (!type || (type === "photo" && photoCount >= MAX_PHOTOS)) continue;
 
       const id = normalizeItemId(item.id, type, usedIds);
-      const normalizedItem = type === "photo"
-        ? normalizePhoto(item, id)
-        : normalizeCourse(item, id);
+      const normalizedItem = ({
+        course: normalizeCourse,
+        photo: normalizePhoto,
+        notice: normalizeNotice,
+        profile: normalizeProfile,
+        link: normalizeLink
+      })[type](item, id);
       if (!normalizedItem) {
         usedIds.delete(id);
         continue;
@@ -243,6 +291,7 @@
 
     return {
       templateId: input.templateId ?? defaultInvitation.templateId,
+      layoutFamily: TemplateCatalog.normalizeFamily(input.layoutFamily, input.templateId ?? defaultInvitation.templateId),
       introEffect: InvitationIntro.normalizeEffect(input.introEffect),
       particleEffect: normalizeParticleEffect(input.particleEffect),
       particleScale: normalizeScale(particleScale, 50, 200, 5, defaultInvitation.particleScale),
@@ -319,10 +368,9 @@
       ? "https://map.naver.com/"
       : "");
 
-  const renderInvitationBody = (input = {}) => {
-    const invitation = normalizeInvitation(input);
+  const renderInvitationItems = (invitation) => {
     let courseNumber = 0;
-    const items = invitation.items.map((item) => {
+    return invitation.items.map((item) => {
       if (item.type === "photo") {
         const caption = item.caption.trim()
           ? `<figcaption>${escapeHtml(item.caption)}</figcaption>`
@@ -333,6 +381,36 @@
         ${caption}
       </figure>
         `;
+      }
+
+      if (item.type === "notice") {
+        return `
+      <section class="invite-notice">
+        <p class="invite-item-eyebrow">안내</p>
+        <h3>${escapeHtml(item.heading)}</h3>
+        <p>${escapeHtml(item.body)}</p>
+      </section>
+        `;
+      }
+
+      if (item.type === "profile") {
+        return `
+      <section class="invite-profile">
+        <p class="invite-profile-role">${escapeHtml(item.role)}</p>
+        <h3>${escapeHtml(item.name)}</h3>
+        <p>${escapeHtml(item.description)}</p>
+      </section>
+        `;
+      }
+
+      if (item.type === "link") {
+        const content = `
+          <p class="invite-item-eyebrow">${escapeHtml(item.label)}</p>
+          <strong>${escapeHtml(item.value)}</strong>
+        `;
+        return item.url
+          ? `<a class="invite-link-action" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${content}</a>`
+          : `<section class="invite-link-info">${content}</section>`;
       }
 
       const courseIndex = courseNumber;
@@ -350,6 +428,11 @@
       </article>
       `;
     }).join("");
+  };
+
+  const renderInvitationBody = (input = {}) => {
+    const invitation = normalizeInvitation(input);
+    const items = renderInvitationItems(invitation);
 
     return `
       <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="${invitationStyleFrom(invitation)}">
