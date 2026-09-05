@@ -1185,7 +1185,13 @@ const loadInitialData = async () => {
   const response = await fetch("invitation-data.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
-  state.templates = Array.isArray(data.templates) ? data.templates : [];
+  const catalog = globalThis.TemplateCatalog?.normalizeCatalog
+    ? TemplateCatalog.normalizeCatalog(data)
+    : {
+        occasions: Array.isArray(data.occasions) ? data.occasions : [],
+        templates: Array.isArray(data.templates) ? data.templates : []
+      };
+  state.templates = catalog.templates;
   state.naverMapClientId = String(data.site?.naverMapClientId || "").trim();
   state.activeTemplate = data.site?.defaultTemplate || state.templates[0]?.id || "royal";
   state.invitation = InvitationCore.normalizeInvitation({
