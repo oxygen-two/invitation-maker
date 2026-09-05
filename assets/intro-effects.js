@@ -69,7 +69,6 @@
     return `<div class="invitation-intro" data-intro-overlay data-intro-effect="${escapeHtml(effect)}" data-intro-duration="${preset.duration}"${preview}>
   ${renderDecor(effect, invitation)}
   <div class="intro-copy">
-    <p class="intro-kicker">Invitation</p>
     <h1>${escapeHtml(invitation.title || "")}</h1>
     <p class="intro-subtitle">${escapeHtml(invitation.subtitle || "")}</p>
     <p class="intro-date">${escapeHtml(invitation.dateLabel || "")}</p>
@@ -83,7 +82,6 @@
 .invitation-intro{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;overflow:hidden;padding:24px;background:var(--paper,#fffaf2);color:var(--ink,#2a1720);font-family:var(--font-ko,"Noto Sans KR",serif);isolation:isolate;cursor:pointer}
 .invitation-intro[data-intro-preview]{position:absolute}
 .intro-copy{position:relative;z-index:3;width:min(88vw,420px);text-align:center;overflow-wrap:anywhere;pointer-events:none}
-.intro-kicker{margin:0 0 12px;color:var(--gold,#d9ac54);font-family:var(--font-en,serif);font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
 .intro-copy h1{margin:0;color:var(--deep,#42101f);font-family:var(--font-en,var(--font-ko,serif));font-size:clamp(32px,10vw,58px);font-style:italic;font-weight:500;line-height:1.1;letter-spacing:0}
 .intro-subtitle,.intro-date,.intro-host{margin:12px 0 0;color:var(--soft,#65535a);font-size:14px;line-height:1.55}
 .intro-date{color:var(--mid,#7a243b);font-weight:700}.intro-host{font-family:var(--font-en,var(--font-ko,serif))}
@@ -198,6 +196,10 @@
         if (overlay) overlay.remove();
         return null;
       }
+      if (!overlay) {
+        host.classList.remove("is-intro-active");
+        return null;
+      }
       let finished = false;
       let timerId = null;
       const finish = () => {
@@ -214,13 +216,18 @@
       const onKeyDown = (event) => {
         if (event.key === "Escape") finish();
       };
-      host.classList.add("is-intro-active");
-      overlay.addEventListener("click", finish);
-      document.addEventListener("keydown", onKeyDown);
-      timerId = window.setTimeout(finish, Math.round(presets[effect].duration * 1000));
-      const controller = { finish };
-      activeController.set(host, controller);
-      return controller;
+      try {
+        host.classList.add("is-intro-active");
+        overlay.addEventListener("click", finish);
+        document.addEventListener("keydown", onKeyDown);
+        timerId = window.setTimeout(finish, Math.round(presets[effect].duration * 1000));
+        const controller = { finish };
+        activeController.set(host, controller);
+        return controller;
+      } catch {
+        finish();
+        return null;
+      }
     },
     stop(host) {
       const controller = activeController.get(host);

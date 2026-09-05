@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const vm = require("node:vm");
 
 const InvitationIntro = require("../assets/intro-effects.js");
 
@@ -25,32 +26,41 @@ const createEventTarget = () => {
     dispatchEvent(event) {
       for (const listener of listeners.get(event.type) || []) listener(event);
     },
+    listenerCount(type) {
+      return (listeners.get(type) || []).length;
+    },
     removeEventListener(type, listener) {
       listeners.set(type, (listeners.get(type) || []).filter((registered) => registered !== listener));
     }
   };
 };
 
-const createIntroFixture = ({ reducedMotion = false } = {}) => {
+const createIntroFixture = ({ mountOverlay = true, reducedMotion = false } = {}) => {
   const document = createEventTarget();
   let removedOverlays = 0;
   let clearedTimers = 0;
   let overlay = null;
+  let skip = null;
+  let timerCallback = null;
   let timerId = 0;
   const host = {
     classList: createClassList(),
     ownerDocument: document,
     insertAdjacentHTML(position, html) {
       assert.equal(position, "afterbegin");
+      if (!mountOverlay) return;
       overlay = createEventTarget();
+      overlay.classList = createClassList();
       overlay.html = html;
       overlay.remove = () => {
         if (overlay) {
           removedOverlays += 1;
           overlay = null;
+          skip = null;
         }
       };
-      overlay.querySelector = (selector) => selector === "[data-intro-skip]" ? createEventTarget() : null;
+      skip = createEventTarget();
+      overlay.querySelector = (selector) => selector === "[data-intro-skip]" ? skip : null;
     },
     querySelector(selector) {
       return selector === "[data-intro-overlay]" ? overlay : null;
@@ -65,15 +75,49 @@ const createIntroFixture = ({ reducedMotion = false } = {}) => {
     get removedOverlays() {
       return removedOverlays;
     },
+    clickOverlay() {
+      overlay.dispatchEvent({ type: "click", preventDefault() {} });
+    },
+    clickSkip() {
+      skip.dispatchEvent({ type: "click", preventDefault() {} });
+    },
+    pressEscape() {
+      document.dispatchEvent({ type: "keydown", key: "Escape" });
+    },
+    runTimer() {
+      timerCallback();
+    },
     environment: {
       clearTimeout(id) {
         if (id) clearedTimers += 1;
       },
       matchReducedMotion: () => reducedMotion,
-      setTimeout() {
+      setTimeout(callback) {
+        timerCallback = callback;
         timerId += 1;
         return timerId;
       }
+    }
+  };
+};
+
+const createStandaloneSandbox = ({ bodyQuerySelector = () => null } = {}) => {
+  const classList = createClassList();
+  const document = createEventTarget();
+  document.body = {
+    classList,
+    querySelector: bodyQuerySelector
+  };
+  document.readyState = "complete";
+  document.getElementById = () => ({
+    textContent: JSON.stringify({ introEffect: "envelope" })
+  });
+  return {
+    document,
+    window: {
+      clearTimeout() {},
+      matchMedia: () => ({ matches: false }),
+      setTimeout: () => 1
     }
   };
 };
@@ -117,6 +161,23 @@ test("photo focus reuses the first safe photo and falls back without one", () =>
   assert.match(withPhoto, /data:image\/webp/);
   assert.match(withoutPhoto, /data-photo-fallback/);
   assert.doesNotMatch(withoutPhoto, /<img/);
+});
+
+test("rendered intro contains no visible intro-only copy", () => {
+  const html = InvitationIntro.renderMarkup({
+    introEffect: "dawn",
+    title: "우리의 초대",
+    subtitle: "함께해 주세요",
+    dateLabel: "2026.09.12",
+    host: "Rin"
+  });
+
+  assert.doesNotMatch(html, />Invitation</);
+  assert.match(html, /우리의 초대/);
+  assert.match(html, /함께해 주세요/);
+  assert.match(html, /2026\.09\.12/);
+  assert.match(html, /Rin/);
+  assert.match(html, />건너뛰기</);
 });
 
 test("rendered intro escapes reused invitation text and photo attributes", () => {
@@ -163,6 +224,76 @@ test("play completes once and restores the host after repeated finish signals", 
   assert.equal(fixture.host.classList.contains("is-intro-active"), false);
   assert.equal(fixture.removedOverlays, 1);
   assert.equal(fixture.clearedTimers, 1);
+});
+
+test("skip click completes playback and clears the active state", () => {
+  const fixture = createIntroFixture();
+  InvitationIntro.play(fixture.host, { introEffect: "curtain", title: "Us" }, fixture.environment);
+  fixture.clickSkip();
+
+  assert.equal(fixture.host.classList.contains("is-intro-active"), false);
+  assert.equal(fixture.removedOverlays, 1);
+  assert.equal(fixture.clearedTimers, 1);
+});
+
+test("escape completes playback and removes the overlay", () => {
+  const fixture = createIntroFixture();
+  InvitationIntro.play(fixture.host, { introEffect: "spotlight", title: "Us" }, fixture.environment);
+  fixture.pressEscape();
+
+  assert.equal(fixture.host.querySelector("[data-intro-overlay]"), null);
+  assert.equal(fixture.host.classList.contains("is-intro-active"), false);
+  assert.equal(fixture.clearedTimers, 1);
+});
+
+test("timer completion restores the host", () => {
+  const fixture = createIntroFixture();
+  InvitationIntro.play(fixture.host, { introEffect: "fireworks", title: "Us" }, fixture.environment);
+  fixture.runTimer();
+
+  assert.equal(fixture.host.classList.contains("is-intro-active"), false);
+  assert.equal(fixture.removedOverlays, 1);
+  assert.equal(fixture.clearedTimers, 1);
+});
+
+test("stop completes active playback", () => {
+  const fixture = createIntroFixture();
+  InvitationIntro.play(fixture.host, { introEffect: "petals", title: "Us" }, fixture.environment);
+  InvitationIntro.stop(fixture.host);
+
+  assert.equal(fixture.host.classList.contains("is-intro-active"), false);
+  assert.equal(fixture.removedOverlays, 1);
+  assert.equal(fixture.clearedTimers, 1);
+});
+
+test("play replaces an existing controller on the same host", () => {
+  const fixture = createIntroFixture();
+  InvitationIntro.play(fixture.host, { introEffect: "envelope", title: "First" }, fixture.environment);
+  const second = InvitationIntro.play(fixture.host, { introEffect: "dawn", title: "Second" }, fixture.environment);
+
+  assert.equal(fixture.host.classList.contains("is-intro-active"), true);
+  assert.equal(fixture.removedOverlays, 1);
+  assert.equal(fixture.clearedTimers, 1);
+  second.finish();
+  assert.equal(fixture.host.classList.contains("is-intro-active"), false);
+  assert.equal(fixture.removedOverlays, 2);
+  assert.equal(fixture.clearedTimers, 2);
+});
+
+test("setup errors fail open and clear the active state", () => {
+  const fixture = createIntroFixture({ mountOverlay: false });
+  const controller = InvitationIntro.play(fixture.host, { introEffect: "envelope", title: "Us" }, fixture.environment);
+
+  assert.equal(controller, null);
+  assert.equal(fixture.host.classList.contains("is-intro-active"), false);
+  assert.equal(fixture.host.querySelector("[data-intro-overlay]"), null);
+});
+
+test("standalone runtime setup errors fail open when no overlay is mounted", () => {
+  const sandbox = createStandaloneSandbox();
+  vm.runInNewContext(InvitationIntro.getStandaloneRuntime().replace(/^<script data-intro-runtime>|<\/script>$/g, ""), sandbox);
+
+  assert.equal(sandbox.document.body.classList.contains("is-intro-active"), false);
 });
 
 test("reduced motion skips before an active overlay remains mounted", () => {
