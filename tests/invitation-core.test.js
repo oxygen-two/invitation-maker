@@ -7,6 +7,7 @@ const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, getInvitationStyl
 const InvitationIntro = require("../assets/intro-effects.js");
 const InvitationCore = require("../assets/invitation-core.js");
 const TemplateCatalog = require("../assets/template-catalog.js");
+const TemplateArt = require("../assets/template-art.js");
 
 const root = path.resolve(__dirname, "..");
 const SAFE_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
@@ -141,6 +142,17 @@ test("preview body and standalone HTML resolve the same layout family", () => {
     assert.match(invitationCardOpeningTagFrom(InvitationCore.renderInvitationBody(input)), new RegExp(`data-layout-family="${layoutFamily}"`));
     assert.match(invitationCardOpeningTagFrom(InvitationCore.buildStandaloneHtml(input)), new RegExp(`data-layout-family="${layoutFamily}"`));
   }
+});
+
+test("standalone HTML embeds only the selected template art data URL", () => {
+  const colorPopArt = TemplateArt.getDataUrl("color-pop");
+  const bluePorcelainArt = TemplateArt.getDataUrl("blue-porcelain");
+  const html = buildStandaloneHtml({ templateId: "color-pop" });
+
+  assert.notEqual(colorPopArt, "");
+  assert.notEqual(bluePorcelainArt, "");
+  assert.match(html, new RegExp(colorPopArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.doesNotMatch(html, new RegExp(bluePorcelainArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("normalizeInvitation parses editable stop lines", () => {

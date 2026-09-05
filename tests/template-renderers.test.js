@@ -6,6 +6,7 @@ const InvitationCore = require("../assets/invitation-core.js");
 const slots = {
   articleAttributes: 'data-template="sample"',
   particles: "PARTICLES",
+  art: "data:image/webp;base64,AA==",
   kicker: "INVITATION",
   title: "TITLE",
   subtitle: "SUBTITLE",
@@ -28,6 +29,14 @@ test("renders every family with the complete safe slot set", () => {
 
 test("unknown families fall back to romantic-story", () => {
   assert.match(TemplateRenderers.render("unknown", slots), /data-layout-family="romantic-story"/);
+});
+
+test("built-in art is rendered only when an art data URL is supplied", () => {
+  const withArt = TemplateRenderers.render("celebration-poster", slots);
+  const withoutArt = TemplateRenderers.render("celebration-poster", { ...slots, art: "" });
+
+  assert.match(withArt, /<img class="invite-hero-art" src="data:image\/webp;base64,AA==" alt="" aria-hidden="true">/);
+  assert.doesNotMatch(withoutArt, /invite-hero-art/);
 });
 
 test("ensureStyles inserts one reusable family style element", () => {
