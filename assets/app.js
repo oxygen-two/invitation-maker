@@ -3,6 +3,19 @@ const MAX_SAVED = 20;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAP_LOAD_TIMEOUT_MS = 10000;
 const COURSE_LABEL_PRESETS = ["MEET", "CAFE", "WALK", "DINNER", "DRINK", "ACTIVITY"];
+const ITEM_LABELS = Object.freeze({
+  course: "코스",
+  photo: "사진",
+  notice: "안내",
+  profile: "인물 소개",
+  link: "연락처·링크"
+});
+const ITEM_FOCUS_SELECTORS = Object.freeze({
+  course: '[data-course-field="time"]',
+  notice: '[data-notice-field="heading"]',
+  profile: '[data-profile-field="name"]',
+  link: '[data-link-field="label"]'
+});
 
 const state = {
   templates: [],
@@ -29,6 +42,7 @@ const dom = {
   contentEditor: document.querySelector("#content-editor"),
   addCourse: document.querySelector("#add-course-button"),
   addPhoto: document.querySelector("#add-photo-button"),
+  addItemButtons: [...document.querySelectorAll("[data-add-item]")],
   photoInput: document.querySelector("#photo-input"),
   preview: document.querySelector("#preview"),
   introEffect: document.querySelector('[name="introEffect"]'),
@@ -77,51 +91,114 @@ const createItemId = (type) => {
   return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const emptyCourse = () => ({
-  id: createItemId("course"),
-  type: "course",
-  time: "",
-  label: "MEET",
-  place: "",
-  note: "",
-  mapUrl: "",
-  mapEnabled: false,
-  mapLatitude: "",
-  mapLongitude: "",
-  mapZoom: 16
-});
+const createEmptyItem = (type) => {
+  switch (type) {
+    case "course":
+      return {
+        id: createItemId("course"),
+        type: "course",
+        time: "",
+        label: "MEET",
+        place: "",
+        note: "",
+        mapUrl: "",
+        mapEnabled: false,
+        mapLatitude: "",
+        mapLongitude: "",
+        mapZoom: 16
+      };
+    case "notice":
+      return {
+        id: createItemId("notice"),
+        type: "notice",
+        heading: "",
+        body: ""
+      };
+    case "profile":
+      return {
+        id: createItemId("profile"),
+        type: "profile",
+        name: "",
+        role: "",
+        description: ""
+      };
+    case "link":
+      return {
+        id: createItemId("link"),
+        type: "link",
+        label: "",
+        value: "",
+        url: ""
+      };
+    default:
+      return null;
+  }
+};
 
 const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-card]")].map((card) => {
   const id = card.dataset.itemId;
   const type = card.dataset.itemType;
-  if (card.dataset.itemType === "photo") {
-    return {
-      id: card.dataset.itemId,
-      type: card.dataset.itemType,
-      src: card.querySelector("[data-photo-thumbnail]").getAttribute("src") || "",
-      alt: card.querySelector('[data-photo-field="alt"]').value,
-      caption: card.querySelector('[data-photo-field="caption"]').value
-    };
-  }
 
-  const value = (field) => card.querySelector(`[data-course-field="${field}"]`).value;
-  return {
-    id,
-    type,
-    time: value("time"),
-    label: value("label"),
-    place: value("place"),
-    note: value("note"),
-    mapUrl: value("mapUrl"),
-    mapEnabled: card.querySelector('[data-course-field="mapEnabled"]').checked,
-    mapLatitude: value("mapLatitude"),
-    mapLongitude: value("mapLongitude"),
-    mapZoom: value("mapZoom")
-  };
+  switch (type) {
+    case "photo":
+      return {
+        id,
+        type,
+        src: card.querySelector("[data-photo-thumbnail]").getAttribute("src") || "",
+        alt: card.querySelector('[data-photo-field="alt"]').value,
+        caption: card.querySelector('[data-photo-field="caption"]').value
+      };
+    case "notice": {
+      const value = (field) => card.querySelector(`[data-notice-field="${field}"]`).value;
+      return {
+        id,
+        type,
+        heading: value("heading"),
+        body: value("body")
+      };
+    }
+    case "profile": {
+      const value = (field) => card.querySelector(`[data-profile-field="${field}"]`).value;
+      return {
+        id,
+        type,
+        name: value("name"),
+        role: value("role"),
+        description: value("description")
+      };
+    }
+    case "link": {
+      const value = (field) => card.querySelector(`[data-link-field="${field}"]`).value;
+      return {
+        id,
+        type,
+        label: value("label"),
+        value: value("value"),
+        url: value("url")
+      };
+    }
+    case "course":
+    default: {
+      const value = (field) => card.querySelector(`[data-course-field="${field}"]`).value;
+      return {
+        id,
+        type,
+        time: value("time"),
+        label: value("label"),
+        place: value("place"),
+        note: value("note"),
+        mapUrl: value("mapUrl"),
+        mapEnabled: card.querySelector('[data-course-field="mapEnabled"]').checked,
+        mapLatitude: value("mapLatitude"),
+        mapLongitude: value("mapLongitude"),
+        mapZoom: value("mapZoom")
+      };
+    }
+  }
 });
 
 const renderItemActions = (item, index, itemCount) => {
-  const typeLabel = item.type === "photo" ? "사진" : "코스";
+  const typeLabel = ITEM_LABELS[item.type] || ITEM_LABELS.course;
   return `
     <div class="item-editor-actions">
       <button class="item-icon-button" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${typeLabel} 항목 위로 이동" title="위로 이동">↑</button>
@@ -212,15 +289,128 @@ const renderPhotoFields = (item, bodyId, isOpen) => `
   </div>
 `;
 
+const renderNoticeFields = (item, bodyId, isOpen) => `
+  <div id="${bodyId}" class="notice-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
+    <label class="full">
+      <span>제목</span>
+      <input data-notice-field="heading" type="text" value="${escapeAttribute(item.heading)}" autocomplete="off">
+    </label>
+    <label class="full">
+      <span>내용</span>
+      <textarea data-notice-field="body" rows="2">${escapeAttribute(item.body)}</textarea>
+    </label>
+  </div>
+`;
+
+const renderProfileFields = (item, bodyId, isOpen) => `
+  <div id="${bodyId}" class="profile-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
+    <label>
+      <span>이름</span>
+      <input data-profile-field="name" type="text" value="${escapeAttribute(item.name)}" autocomplete="off">
+    </label>
+    <label>
+      <span>역할</span>
+      <input data-profile-field="role" type="text" value="${escapeAttribute(item.role)}" autocomplete="off">
+    </label>
+    <label class="full">
+      <span>소개</span>
+      <textarea data-profile-field="description" rows="2">${escapeAttribute(item.description)}</textarea>
+    </label>
+  </div>
+`;
+
+const renderLinkFields = (item, bodyId, isOpen) => `
+  <div id="${bodyId}" class="link-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
+    <label>
+      <span>라벨</span>
+      <input data-link-field="label" type="text" value="${escapeAttribute(item.label)}" autocomplete="off">
+    </label>
+    <label>
+      <span>표시값</span>
+      <input data-link-field="value" type="text" value="${escapeAttribute(item.value)}" autocomplete="off">
+    </label>
+    <label class="full">
+      <span>URL</span>
+      <input data-link-field="url" type="url" value="${escapeAttribute(item.url)}" autocomplete="off">
+    </label>
+  </div>
+`;
+
+const renderItemFields = (item, bodyId, isOpen) => {
+  switch (item.type) {
+    case "photo":
+      return renderPhotoFields(item, bodyId, isOpen);
+    case "notice":
+      return renderNoticeFields(item, bodyId, isOpen);
+    case "profile":
+      return renderProfileFields(item, bodyId, isOpen);
+    case "link":
+      return renderLinkFields(item, bodyId, isOpen);
+    case "course":
+    default:
+      return renderCourseFields(item, bodyId, isOpen);
+  }
+};
+
 const syncAddItemAvailability = (items) => {
   const photoCount = items.filter((item) => item.type === "photo").length;
-  dom.addCourse.disabled = items.length >= InvitationCore.MAX_ITEMS;
+  const itemsFull = items.length >= InvitationCore.MAX_ITEMS;
+  dom.addCourse.disabled = itemsFull;
+  dom.addItemButtons.forEach((button) => { button.disabled = itemsFull; });
   dom.addPhoto.disabled = photoSelectionPending
     || saveWritePending
-    || items.length >= InvitationCore.MAX_ITEMS
+    || itemsFull
     || photoCount >= InvitationCore.MAX_PHOTOS;
   dom.download.disabled = photoSelectionPending;
   dom.save.disabled = photoSelectionPending || saveWritePending;
+};
+
+const getItemPrimarySummary = (item) => {
+  switch (item.type) {
+    case "photo":
+      return item.caption || item.alt || "설명을 입력하세요";
+    case "notice":
+      return item.heading || item.body || "안내 내용을 입력하세요";
+    case "profile":
+      return item.name || item.role || "소개할 인물을 입력하세요";
+    case "link":
+      return item.label || item.value || item.url || "연락처나 링크를 입력하세요";
+    case "course":
+    default:
+      return item.place || "장소를 입력하세요";
+  }
+};
+
+const getItemSecondarySummary = (item) => {
+  switch (item.type) {
+    case "photo":
+      return "PHOTO";
+    case "notice":
+      return "NOTICE";
+    case "profile":
+      return item.role || "PROFILE";
+    case "link":
+      return item.value || item.url || "LINK";
+    case "course":
+    default:
+      return `${item.time || "시간 미정"} · ${item.label || "PLACE"}`;
+  }
+};
+
+const getDeleteItemName = (item, index) => {
+  switch (item.type) {
+    case "photo":
+      return item.caption.trim() || item.alt.trim() || `사진 ${index + 1}`;
+    case "notice":
+      return item.heading.trim() || item.body.trim() || `안내 ${index + 1}`;
+    case "profile":
+      return item.name.trim() || item.role.trim() || `인물 소개 ${index + 1}`;
+    case "link":
+      return item.label.trim() || item.value.trim() || item.url.trim() || `연락처·링크 ${index + 1}`;
+    case "course":
+    default:
+      return item.place.trim() || `코스 ${index + 1}`;
+  }
 };
 
 const captureItemPositions = () => new Map(
@@ -261,21 +451,14 @@ const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag =
     return;
   }
 
-  let courseNumber = 0;
   dom.contentEditor.innerHTML = items.map((item, index) => {
-    const isPhoto = item.type === "photo";
-    if (!isPhoto) courseNumber += 1;
     const isOpen = item.id === openId;
     const bodyId = `content-editor-body-${index}`;
-    const typeLabel = isPhoto ? "사진" : `코스 ${courseNumber}`;
-    const primarySummary = isPhoto
-      ? item.caption || item.alt || "설명을 입력하세요"
-      : item.place || "장소를 입력하세요";
-    const secondarySummary = isPhoto
-      ? "PHOTO"
-      : `${item.time || "시간 미정"} · ${item.label || "PLACE"}`;
+    const typeLabel = ITEM_LABELS[item.type] || ITEM_LABELS.course;
+    const primarySummary = getItemPrimarySummary(item);
+    const secondarySummary = getItemSecondarySummary(item);
     return `
-      <article class="content-item-card ${isPhoto ? "photo-editor-card" : "course-editor-card"}${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
+      <article class="content-item-card ${escapeAttribute(item.type)}-editor-card${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
         <header class="content-item-header">
           <button class="item-icon-button item-drag-handle" type="button" data-drag-handle aria-label="${typeLabel} 순서 드래그" title="순서 드래그">
             <span class="drag-grip-bars" aria-hidden="true">
@@ -292,7 +475,7 @@ const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag =
           </button>
           ${renderItemActions(item, index, items.length)}
         </header>
-        ${isPhoto ? renderPhotoFields(item, bodyId, isOpen) : renderCourseFields(item, bodyId, isOpen)}
+        ${renderItemFields(item, bodyId, isOpen)}
       </article>
     `;
   }).join("");
@@ -965,6 +1148,9 @@ const getFocusedItemContext = () => {
   if (activeElement.dataset.itemAction) selector = `[data-item-action="${activeElement.dataset.itemAction}"]`;
   if (activeElement.dataset.courseField) selector = `[data-course-field="${activeElement.dataset.courseField}"]`;
   if (activeElement.dataset.photoField) selector = `[data-photo-field="${activeElement.dataset.photoField}"]`;
+  if (activeElement.dataset.noticeField) selector = `[data-notice-field="${activeElement.dataset.noticeField}"]`;
+  if (activeElement.dataset.profileField) selector = `[data-profile-field="${activeElement.dataset.profileField}"]`;
+  if (activeElement.dataset.linkField) selector = `[data-link-field="${activeElement.dataset.linkField}"]`;
   return selector ? { itemId: card.dataset.itemId, selector } : null;
 };
 
@@ -1296,17 +1482,26 @@ dom.form.addEventListener("change", (event) => {
   }
 });
 
-dom.addCourse.addEventListener("click", () => {
+const addEditableItem = (type) => {
   const items = getItemsData();
   if (items.length >= InvitationCore.MAX_ITEMS) {
     dom.saveStatus.textContent = `초대장 항목은 최대 ${InvitationCore.MAX_ITEMS}개까지 추가할 수 있습니다.`;
     return;
   }
-  const course = emptyCourse();
-  items.push(course);
-  renderContentEditor(items, course.id);
+  const item = createEmptyItem(type);
+  if (!item) return;
+  items.push(item);
+  renderContentEditor(items, item.id);
   renderPreview();
-  findItemCard(course.id)?.querySelector("[data-course-field='time']")?.focus();
+  focusItemControl(item.id, ITEM_FOCUS_SELECTORS[type]);
+};
+
+dom.addCourse.addEventListener("click", () => {
+  addEditableItem("course");
+});
+
+dom.addItemButtons.forEach((button) => {
+  button.addEventListener("click", () => addEditableItem(button.dataset.addItem));
 });
 
 dom.addPhoto.addEventListener("click", () => dom.photoInput.click());
@@ -1337,9 +1532,7 @@ dom.contentEditor.addEventListener("click", (event) => {
   if (action !== "delete") return;
   const items = getItemsData();
   const item = items[index];
-  const itemName = item.type === "photo"
-    ? item.caption.trim() || item.alt.trim() || `사진 ${index + 1}`
-    : item.place.trim() || `코스 ${index + 1}`;
+  const itemName = getDeleteItemName(item, index);
   if (!window.confirm(`“${itemName}” 항목을 삭제할까요?`)) return;
 
   const openId = getOpenItemId();
@@ -1372,6 +1565,24 @@ dom.contentEditor.addEventListener("input", (event) => {
     const alt = card.querySelector('[data-photo-field="alt"]').value.trim();
     const caption = card.querySelector('[data-photo-field="caption"]').value.trim();
     card.querySelector("[data-item-summary]").textContent = caption || alt || "설명을 입력하세요";
+  }
+  if (event.target.dataset.noticeField) {
+    const heading = card.querySelector('[data-notice-field="heading"]').value.trim();
+    const body = card.querySelector('[data-notice-field="body"]').value.trim();
+    card.querySelector("[data-item-summary]").textContent = heading || body || "안내 내용을 입력하세요";
+  }
+  if (event.target.dataset.profileField) {
+    const name = card.querySelector('[data-profile-field="name"]').value.trim();
+    const role = card.querySelector('[data-profile-field="role"]').value.trim();
+    card.querySelector("[data-item-summary]").textContent = name || role || "소개할 인물을 입력하세요";
+    card.querySelector("[data-item-secondary-summary]").textContent = role || "PROFILE";
+  }
+  if (event.target.dataset.linkField) {
+    const label = card.querySelector('[data-link-field="label"]').value.trim();
+    const valueText = card.querySelector('[data-link-field="value"]').value.trim();
+    const url = card.querySelector('[data-link-field="url"]').value.trim();
+    card.querySelector("[data-item-summary]").textContent = label || valueText || url || "연락처나 링크를 입력하세요";
+    card.querySelector("[data-item-secondary-summary]").textContent = valueText || url || "LINK";
   }
 });
 

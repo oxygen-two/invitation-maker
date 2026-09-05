@@ -685,7 +685,10 @@ textarea {
 }
 
 .course-editor-grid,
-.photo-editor-grid {
+.photo-editor-grid,
+.notice-editor-grid,
+.profile-editor-grid,
+.link-editor-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
@@ -693,7 +696,11 @@ textarea {
   background: rgba(255, 250, 242, .5);
 }
 
-.course-editor-grid > .full {
+.course-editor-grid > .full,
+.photo-editor-grid > .full,
+.notice-editor-grid > .full,
+.profile-editor-grid > .full,
+.link-editor-grid > .full {
   grid-column: 1 / -1;
 }
 
@@ -701,12 +708,11 @@ textarea {
   display: none;
 }
 
-.photo-editor-grid > .full {
-  grid-column: 1 / -1;
-}
-
 .course-editor-grid[hidden],
-.photo-editor-grid[hidden] {
+.photo-editor-grid[hidden],
+.notice-editor-grid[hidden],
+.profile-editor-grid[hidden],
+.link-editor-grid[hidden] {
   display: none;
 }
 
@@ -1511,8 +1517,27 @@ a:focus-visible {
   }
 
   .course-editor-grid,
-  .photo-editor-grid {
+  .photo-editor-grid,
+  .notice-editor-grid,
+  .profile-editor-grid,
+  .link-editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .content-editor-commands {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .content-editor-commands .add-item-button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    white-space: nowrap;
   }
 
   .map-settings label:last-child {

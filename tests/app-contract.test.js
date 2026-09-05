@@ -212,6 +212,17 @@ const loadEditorHarness = ({
       addControl("[data-photo-thumbnail]", { attrs: { src: item.src, alt: item.alt || "" } });
       addControl('[data-photo-field="alt"]', { dataset: { photoField: "alt" }, value: item.alt });
       addControl('[data-photo-field="caption"]', { dataset: { photoField: "caption" }, value: item.caption });
+    } else if (item.type === "notice") {
+      addControl('[data-notice-field="heading"]', { dataset: { noticeField: "heading" }, value: item.heading });
+      addControl('[data-notice-field="body"]', { dataset: { noticeField: "body" }, value: item.body });
+    } else if (item.type === "profile") {
+      addControl('[data-profile-field="name"]', { dataset: { profileField: "name" }, value: item.name });
+      addControl('[data-profile-field="role"]', { dataset: { profileField: "role" }, value: item.role });
+      addControl('[data-profile-field="description"]', { dataset: { profileField: "description" }, value: item.description });
+    } else if (item.type === "link") {
+      addControl('[data-link-field="label"]', { dataset: { linkField: "label" }, value: item.label });
+      addControl('[data-link-field="value"]', { dataset: { linkField: "value" }, value: item.value });
+      addControl('[data-link-field="url"]', { dataset: { linkField: "url" }, value: item.url });
     } else {
       for (const field of ["time", "label", "place", "note", "mapUrl", "mapLatitude", "mapLongitude", "mapZoom"]) {
         addControl(`[data-course-field="${field}"]`, { dataset: { courseField: field }, value: item[field] });
@@ -233,27 +244,56 @@ const loadEditorHarness = ({
   const parseCards = (markup) => [...markup.matchAll(/<article class="([^"]*)" data-item-card data-item-id="([^"]+)" data-item-type="([^"]+)">([\s\S]*?)<\/article>/g)]
     .map((match, index) => {
       const [, className, id, type, body] = match;
-      const item = type === "photo"
-        ? {
+      const item = (() => {
+        if (type === "photo") {
+          return {
             id,
             type,
             src: readAttribute(body.match(/<img[^>]+data-photo-thumbnail[^>]*>/)?.[0] || "", "src"),
             alt: readInput(body, "photo", "alt"),
             caption: readTextarea(body, "photo", "caption")
-          }
-        : {
+          };
+        }
+        if (type === "notice") {
+          return {
             id,
             type,
-            time: readInput(body, "course", "time"),
-            label: readInput(body, "course", "label"),
-            place: readInput(body, "course", "place"),
-            note: readTextarea(body, "course", "note"),
-            mapUrl: readInput(body, "course", "mapUrl"),
-            mapEnabled: /data-course-field="mapEnabled"[^>]* checked/.test(body),
-            mapLatitude: readInput(body, "course", "mapLatitude"),
-            mapLongitude: readInput(body, "course", "mapLongitude"),
-            mapZoom: readInput(body, "course", "mapZoom")
+            heading: readInput(body, "notice", "heading"),
+            body: readTextarea(body, "notice", "body")
           };
+        }
+        if (type === "profile") {
+          return {
+            id,
+            type,
+            name: readInput(body, "profile", "name"),
+            role: readInput(body, "profile", "role"),
+            description: readTextarea(body, "profile", "description")
+          };
+        }
+        if (type === "link") {
+          return {
+            id,
+            type,
+            label: readInput(body, "link", "label"),
+            value: readInput(body, "link", "value"),
+            url: readInput(body, "link", "url")
+          };
+        }
+        return {
+          id,
+          type,
+          time: readInput(body, "course", "time"),
+          label: readInput(body, "course", "label"),
+          place: readInput(body, "course", "place"),
+          note: readTextarea(body, "course", "note"),
+          mapUrl: readInput(body, "course", "mapUrl"),
+          mapEnabled: /data-course-field="mapEnabled"[^>]* checked/.test(body),
+          mapLatitude: readInput(body, "course", "mapLatitude"),
+          mapLongitude: readInput(body, "course", "mapLongitude"),
+          mapZoom: readInput(body, "course", "mapZoom")
+        };
+      })();
       const card = makeCard(item, { isOpen: className.includes("is-open"), top: index * 50 });
       for (const action of ["up", "down", "delete"]) {
         const button = body.match(new RegExp(`<button[^>]+data-item-action="${action}"[^>]*>`))?.[0] || "";
@@ -341,6 +381,7 @@ const loadEditorHarness = ({
   source = source.replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__editorTest = {
     beginItemDrag,
+    commitItemMove,
     getDragState: () => dragState,
     getItemsData,
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
@@ -1375,7 +1416,7 @@ test("course map settings span the full card width", () => {
   const css = read("assets/style.css");
 
   assert.match(css, /\.editor-form\s*>\s*\.full\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
-  assert.match(css, /\.course-editor-grid\s*>\s*\.full\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
+  assert.match(css, /\.course-editor-grid\s*>\s*\.full,\s*[\s\S]*?\.link-editor-grid\s*>\s*\.full\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
   assert.match(css, /\.stop-map-settings\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
 });
 
@@ -1435,19 +1476,25 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   const app = read("assets/app.js");
 
   assert.match(app, /const getItemsData = \(\) => \[\.\.\.dom\.contentEditor\.querySelectorAll\("\[data-item-card\]"\)\]/);
-  assert.match(app, /id:\s*card\.dataset\.itemId/);
-  assert.match(app, /type:\s*card\.dataset\.itemType/);
-  assert.match(app, /card\.dataset\.itemType === "photo"[\s\S]*?data-photo-thumbnail[\s\S]*?data-photo-field="alt"[\s\S]*?data-photo-field="caption"/);
+  assert.match(app, /const id = card\.dataset\.itemId/);
+  assert.match(app, /const type = card\.dataset\.itemType/);
+  assert.match(app, /switch \(type\)[\s\S]*?case "photo"[\s\S]*?data-photo-thumbnail[\s\S]*?data-photo-field="alt"[\s\S]*?data-photo-field="caption"/);
+  assert.match(app, /case "notice"[\s\S]*?data-notice-field="\$\{field\}"[\s\S]*?heading: value\("heading"\)[\s\S]*?body: value\("body"\)/);
+  assert.match(app, /case "profile"[\s\S]*?data-profile-field="\$\{field\}"[\s\S]*?name: value\("name"\)[\s\S]*?role: value\("role"\)[\s\S]*?description: value\("description"\)/);
+  assert.match(app, /case "link"[\s\S]*?data-link-field="\$\{field\}"[\s\S]*?label: value\("label"\)[\s\S]*?value: value\("value"\)[\s\S]*?url: value\("url"\)/);
   assert.match(app, /data-item-id="\$\{escapeAttribute\(item\.id\)\}"/);
   assert.match(app, /data-item-type="\$\{item\.type\}"/);
   assert.match(app, /data-course-field="time" type="time" step="600"/);
+  assert.match(app, /data-notice-field="heading"/);
+  assert.match(app, /data-profile-field="name"/);
+  assert.match(app, /data-link-field="url" type="url"/);
   assert.match(app, /data-drag-handle/);
   for (const action of ["up", "down", "delete"]) {
     assert.match(app, new RegExp(`data-item-action="${action}"[^>]+aria-label="[^"]+"[^>]+title="[^"]+"`));
   }
   assert.match(app, /items:\s*getItemsData\(\)/);
   assert.doesNotMatch(app, /stops:\s*getStopsData\(\)/);
-  assert.match(app, /if \(action !== "delete"\)[\s\S]*?const items = getItemsData\(\)[\s\S]*?item\.type === "photo"[\s\S]*?items\.splice\(index, 1\)/);
+  assert.match(app, /if \(action !== "delete"\)[\s\S]*?const items = getItemsData\(\)[\s\S]*?getDeleteItemName\(item, index\)[\s\S]*?items\.splice\(index, 1\)/);
 });
 
 test("course labels use presets and reveal text entry only for a custom label", () => {
@@ -1744,6 +1791,32 @@ test("all photo compression failures preserve the live editor state", async () =
   assert.equal(node("#photo-input").value, "");
   assert.match(node("#save-status").textContent, /broken-a\.png: 이미지를 처리할 수 없습니다/);
   assert.match(node("#save-status").textContent, /broken-b\.png: 이미지를 처리할 수 없습니다/);
+});
+
+test("editor renders and re-collects every optional information card", () => {
+  const harness = loadEditorHarness({ maxItems: 10 });
+  const items = [
+    { id: "notice-1", type: "notice", heading: "준비물", body: "물병" },
+    { id: "profile-1", type: "profile", name: "김하린", role: "주인공", description: "첫 생일" },
+    { id: "link-1", type: "link", label: "참석 여부", value: "회신해주세요", url: "https://example.com/rsvp" }
+  ];
+  harness.api.renderContentEditor(items, "notice-1");
+
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.api.getItemsData())), items);
+  assert.match(harness.contentEditor.html, /data-notice-field="heading"/);
+  assert.match(harness.contentEditor.html, /data-profile-field="name"/);
+  assert.match(harness.contentEditor.html, /data-link-field="url"/);
+});
+
+test("new information cards use the existing drag and move controls", () => {
+  const harness = loadEditorHarness({ maxItems: 10 });
+  harness.api.renderContentEditor([
+    { id: "notice-1", type: "notice", heading: "안내", body: "내용" },
+    { id: "link-1", type: "link", label: "문의", value: "전화", url: "tel:01012345678" }
+  ], "notice-1");
+
+  assert.equal(harness.api.commitItemMove(0, 1), "notice-1");
+  assert.deepEqual(Array.from(harness.api.getItemsData(), ({ id }) => id), ["link-1", "notice-1"]);
 });
 
 test("boundary move controls stay focusable and moved focus survives the new boundary", () => {
