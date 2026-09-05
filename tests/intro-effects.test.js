@@ -197,27 +197,58 @@ test("rendered intro contains no visible intro-only copy", () => {
   assert.doesNotMatch(html, />Invitation</);
   assert.match(html, /우리의 초대/);
   assert.match(html, /함께해 주세요/);
-  assert.match(html, /2026\.09\.12/);
-  assert.match(html, /Rin/);
+  assert.doesNotMatch(html, /2026\.09\.12/);
+  assert.doesNotMatch(html, /Rin/);
   assert.match(html, />건너뛰기</);
 });
 
+test("each intro preset renders only its tuned invitation copy", () => {
+  const invitation = {
+    title: "TITLE",
+    subtitle: "SUBTITLE",
+    dateLabel: "DATE",
+    host: "HOST"
+  };
+  const expected = {
+    envelope: ["TITLE", "HOST"],
+    "card-shrink": ["TITLE", "SUBTITLE"],
+    dawn: ["TITLE", "SUBTITLE"],
+    fireworks: ["TITLE", "DATE"],
+    curtain: ["TITLE", "HOST"],
+    petals: ["TITLE", "SUBTITLE"],
+    spotlight: ["TITLE", "DATE"],
+    "photo-focus": ["TITLE", "SUBTITLE"]
+  };
+
+  for (const [effect, visible] of Object.entries(expected)) {
+    const html = InvitationIntro.renderMarkup({ ...invitation, introEffect: effect });
+    for (const value of Object.values(invitation)) {
+      assert.equal(html.includes(value), visible.includes(value), `${effect} copy mismatch for ${value}`);
+    }
+  }
+});
+
 test("rendered intro escapes reused invitation text and photo attributes", () => {
-  const html = InvitationIntro.renderMarkup({
-    introEffect: "photo-focus",
+  const invitation = {
     title: "<img src=x onerror=TITLE>",
     subtitle: 'Sub "quoted"',
     dateLabel: "<time>now</time>",
     host: "A&B",
     items: [{ type: "photo", src: SAFE_WEBP, alt: '"><img src=x onerror=ALT>' }]
+  };
+  const photoHtml = InvitationIntro.renderMarkup({
+    ...invitation,
+    introEffect: "photo-focus",
   });
+  const dateHtml = InvitationIntro.renderMarkup({ ...invitation, introEffect: "spotlight" });
+  const hostHtml = InvitationIntro.renderMarkup({ ...invitation, introEffect: "envelope" });
 
-  assert.match(html, /&lt;img src=x onerror=TITLE&gt;/);
-  assert.match(html, /Sub &quot;quoted&quot;/);
-  assert.match(html, /&lt;time&gt;now&lt;\/time&gt;/);
-  assert.match(html, /A&amp;B/);
-  assert.match(html, /alt="&quot;&gt;&lt;img src=x onerror=ALT&gt;"/);
-  assert.doesNotMatch(html, /<img src=x onerror=TITLE>|<time>now<\/time>|<img src=x onerror=ALT>/);
+  assert.match(photoHtml, /&lt;img src=x onerror=TITLE&gt;/);
+  assert.match(photoHtml, /Sub &quot;quoted&quot;/);
+  assert.match(photoHtml, /alt="&quot;&gt;&lt;img src=x onerror=ALT&gt;"/);
+  assert.match(dateHtml, /&lt;time&gt;now&lt;\/time&gt;/);
+  assert.match(hostHtml, /A&amp;B/);
+  assert.doesNotMatch(`${photoHtml}${dateHtml}${hostHtml}`, /<img src=x onerror=TITLE>|<time>now<\/time>|<img src=x onerror=ALT>/);
 });
 
 test("ensureStyles inserts one preview style element", () => {
@@ -234,6 +265,17 @@ test("active intros pause particle spans and their pseudo-element animation owne
   const styles = InvitationIntro.getStyles();
 
   assert.match(styles, /\.is-intro-active \.particle-layer,\.is-intro-active \.particle-layer span,\.is-intro-active \.particle-layer span::before\{animation-play-state:paused\}/);
+});
+
+test("intro styles inherit editor and standalone palette token names without dead finishing animation", () => {
+  const styles = InvitationIntro.getStyles();
+
+  assert.match(styles, /var\(--paper,var\(--cream-50,#fffaf2\)\)/);
+  assert.match(styles, /var\(--deep,var\(--wine-900,#42101f\)\)/);
+  assert.match(styles, /var\(--mid,var\(--wine-700,#7a243b\)\)/);
+  assert.match(styles, /var\(--soft,var\(--ink-soft,#65535a\)\)/);
+  assert.match(styles, /var\(--bg,var\(--page-bg-a,#ead5ce\)\)/);
+  assert.doesNotMatch(styles, /is-finishing|intro-fade-out/);
 });
 
 test("standalone active body locks scrolling without overriding preview frames", () => {

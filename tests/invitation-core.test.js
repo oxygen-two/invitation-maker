@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
+const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, getInvitationStyle, normalizeInvitation } = require("../assets/invitation-core.js");
 const InvitationIntro = require("../assets/intro-effects.js");
 
 const root = path.resolve(__dirname, "..");
@@ -69,6 +69,21 @@ test("active standalone intro is self-contained and canonical", () => {
   assert.match(html, /data-intro-effect="envelope"/);
   assert.match(html, /data-intro-runtime/);
   assert.equal(invitationDataFrom(html).introEffect, "envelope");
+});
+
+test("standalone intro inherits the selected template palette and fonts from its body host", () => {
+  const html = buildStandaloneHtml({
+    introEffect: "dawn",
+    templateId: "botanical",
+    englishFont: "great-vibes",
+    koreanFont: "gmarket-sans"
+  });
+
+  assert.equal(getInvitationStyle({ englishFont: "great-vibes", koreanFont: "gmarket-sans" }), "--font-en:'Great Vibes';--font-ko:'Gmarket Sans'");
+  assert.match(html, /<body[^>]*data-template="botanical"[^>]*style="--font-en:'Great Vibes';--font-ko:'Gmarket Sans'"/);
+  assert.match(html, /var\(--paper,var\(--cream-50,#fffaf2\)\)/);
+  assert.match(html, /var\(--deep,var\(--wine-900,#42101f\)\)/);
+  assert.match(html, /var\(--font-en,var\(--font-ko,serif\)\)/);
 });
 
 test("none omits standalone intro markup styles and runtime", () => {

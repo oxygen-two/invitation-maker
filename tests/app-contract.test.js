@@ -452,6 +452,10 @@ const loadIntroLifecycleHarness = () => {
     children: [],
     classList: makeClassList(),
     dataset: {},
+    attributes: {},
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
     append(child) {
       child.parentNode = this;
       this.children.push(child);
@@ -745,6 +749,11 @@ const validInvitationHtml = (title = "Stored invitation") => InvitationCore.buil
   title,
   items: [course(`course-${title}`, "Seongsu")]
 });
+const invitationDataFrom = (html) => {
+  const match = String(html).match(/<script id="invitation-data" type="application\/json">([\s\S]*?)<\/script>/);
+  assert.ok(match);
+  return JSON.parse(match[1]);
+};
 
 test("saved invitations open through a same-origin viewer", () => {
   const app = read("assets/app.js");
@@ -948,6 +957,50 @@ test("uploaded HTML waits for durable storage and restores its disabled control"
   assert.equal(upload.value, "");
   assert.equal(harness.api.state.saved.length, 1);
   assert.match(harness.node("#upload-status").textContent, /초대장을 등록했습니다/);
+});
+
+test("active intro survives download import storage and viewer rebuild", async () => {
+  const sourceHtml = InvitationCore.buildStandaloneHtml({
+    introEffect: "fireworks",
+    templateId: "botanical",
+    englishFont: "great-vibes",
+    koreanFont: "gmarket-sans",
+    title: "Round trip invitation",
+    items: [course("round-trip-course", "Seongsu")]
+  });
+  const harness = loadLibraryHarness();
+
+  await harness.api.registerUploadedHtml({ size: sourceHtml.length, text: async () => sourceHtml });
+
+  assert.equal(harness.repositoryRecords.length, 1);
+  const stored = harness.repositoryRecords[0];
+  assert.equal(invitationDataFrom(stored.html).introEffect, "fireworks");
+  assert.match(stored.html, /data-intro-effect="fireworks"/);
+  assert.match(stored.html, /data-intro-runtime/);
+
+  const viewerSource = read("assets/viewer.js");
+  const written = [];
+  const result = vm.runInNewContext(viewerSource, {
+    DOMParser: invitationParser,
+    InvitationCore,
+    InvitationStorage: { async get() { return stored; } },
+    URLSearchParams,
+    document: {
+      close() {},
+      open() {},
+      querySelector: () => ({ innerHTML: "" }),
+      write(html) { written.push(html); }
+    },
+    window: { location: { search: `?id=${stored.id}` } }
+  }, { filename: "assets/viewer.js" });
+  await result;
+
+  assert.equal(written.length, 1);
+  assert.equal(invitationDataFrom(written[0]).introEffect, "fireworks");
+  assert.match(written[0], /data-template="botanical"/);
+  assert.match(written[0], /style="--font-en:'Great Vibes';--font-ko:'Gmarket Sans'"/);
+  assert.match(written[0], /data-intro-effect="fireworks"/);
+  assert.match(written[0], /data-intro-runtime/);
 });
 
 test("generated save waits for durability and restores the save button", async () => {
@@ -1209,6 +1262,22 @@ test("mobile preview frame remains viewport-bounded and scrollable", () => {
 
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*height: calc\(100dvh - 158px\);\s*max-height: calc\(100dvh - 158px\);\s*overflow: auto;/);
   assert.doesNotMatch(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*max-height: none;\s*overflow: visible;/);
+});
+
+test("editor template palettes define the intro text colors used by standalone output", () => {
+  const css = read("assets/style.css");
+  const expected = {
+    wedding: ["#33241a", "#705d4c"],
+    "black-tie": ["#17191f", "#5f6876"],
+    botanical: ["#102018", "#52695b"],
+    modern: ["#1f1b1a", "#6d625b"]
+  };
+
+  for (const [template, [ink, soft]] of Object.entries(expected)) {
+    const rule = css.match(new RegExp(`body\\[data-template="${template}"\\]\\s*\\{([\\s\\S]*?)\\}`))?.[1] || "";
+    assert.match(rule, new RegExp(`--ink:\\s*${ink}`));
+    assert.match(rule, new RegExp(`--ink-soft:\\s*${soft}`));
+  }
 });
 
 test("course map settings span the full card width", () => {
@@ -1836,6 +1905,8 @@ test("editor exposes grouped intro choices and replay control", () => {
   for (const effect of ["envelope", "card-shrink", "dawn", "fireworks", "curtain", "petals", "spotlight", "photo-focus"]) {
     assert.match(html, new RegExp(`value="${effect}"`));
   }
+  assert.match(html, /value="petals">꽃잎 사이로</);
+  assert.match(html, /value="photo-focus">사진 초점 전환</);
 });
 
 test("ordinary preview rendering does not start intro playback", () => {
@@ -1893,4 +1964,14 @@ test("ordinary preview rendering preserves an active overlay without replaying",
 
   assert.equal(harness.calls.length, 1);
   assert.equal(harness.preview.querySelector("[data-intro-overlay]"), activeOverlay);
+});
+
+test("preview host receives the selected invitation font variables", () => {
+  const harness = loadIntroLifecycleHarness();
+  harness.elements.englishFont.value = "great-vibes";
+  harness.elements.koreanFont.value = "gmarket-sans";
+
+  harness.api.renderPreview();
+
+  assert.equal(harness.preview.attributes.style, "--font-en:'Great Vibes';--font-ko:'Gmarket Sans'");
 });

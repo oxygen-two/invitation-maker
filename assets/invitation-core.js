@@ -266,6 +266,11 @@
     };
   };
 
+  const invitationStyleFrom = (invitation) =>
+    `--font-en:'${englishFonts[invitation.englishFont]}';--font-ko:'${koreanFonts[invitation.koreanFont]}'`;
+
+  const getInvitationStyle = (input = {}) => invitationStyleFrom(normalizeInvitation(input));
+
   const renderParticles = (effect, scale, amount) => {
     if (effect === "none") return "";
 
@@ -316,8 +321,6 @@
 
   const renderInvitationBody = (input = {}) => {
     const invitation = normalizeInvitation(input);
-    const englishFont = englishFonts[invitation.englishFont];
-    const koreanFont = koreanFonts[invitation.koreanFont];
     let courseNumber = 0;
     const items = invitation.items.map((item) => {
       if (item.type === "photo") {
@@ -349,7 +352,7 @@
     }).join("");
 
     return `
-      <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="--font-en:'${englishFont}';--font-ko:'${koreanFont}'">
+      <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="${invitationStyleFrom(invitation)}">
         ${renderParticles(invitation.particleEffect, invitation.particleScale, invitation.particleAmount)}
         <header class="invite-hero">
           <p class="invite-kicker">Invitation</p>
@@ -477,7 +480,7 @@
   <link href="${googleFontsUrl.replace(/&/g, "&amp;")}" rel="stylesheet">
   <style>${standaloneCss}${introStyles}</style>
 </head>
-<body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}">
+<body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" style="${invitationStyleFrom(invitation)}">
 ${introMarkup}
 ${renderInvitationBody(invitation)}
 <script id="invitation-data" type="application/json">${invitationData}</script>
@@ -492,6 +495,7 @@ ${introRuntime}
     MAX_PHOTOS,
     MAX_STOPS,
     defaultInvitation,
+    getInvitationStyle,
     normalizeInvitation,
     renderInvitationBody,
     buildStandaloneHtml

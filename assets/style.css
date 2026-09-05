@@ -37,6 +37,8 @@
 }
 
 body[data-template="wedding"] {
+  --ink: #33241a;
+  --ink-soft: #705d4c;
   --wine-950: #3a2a1d;
   --wine-900: #6d4f31;
   --wine-800: #8a6844;
@@ -54,6 +56,8 @@ body[data-template="wedding"] {
 }
 
 body[data-template="black-tie"] {
+  --ink: #17191f;
+  --ink-soft: #5f6876;
   --wine-950: #08090b;
   --wine-900: #17191f;
   --wine-800: #242833;
@@ -71,6 +75,8 @@ body[data-template="black-tie"] {
 }
 
 body[data-template="botanical"] {
+  --ink: #102018;
+  --ink-soft: #52695b;
   --wine-950: #102018;
   --wine-900: #1f3a2c;
   --wine-800: #2f5641;
@@ -88,6 +94,8 @@ body[data-template="botanical"] {
 }
 
 body[data-template="modern"] {
+  --ink: #1f1b1a;
+  --ink-soft: #6d625b;
   --wine-950: #1f1b1a;
   --wine-900: #34302d;
   --wine-800: #504943;

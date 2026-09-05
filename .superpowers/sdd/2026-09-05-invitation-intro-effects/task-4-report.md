@@ -76,7 +76,24 @@ At 390x844, the preview frame remains bounded and scrollable while the skip cont
 
 ## Concerns
 
-The local browser pass covers the supplied desktop/mobile visual defects and console health. The controller remains responsible for the requested final full browser matrix across all eight effects, standalone completion paths, reduced motion, and map interactions.
+None after the controller browser matrix below.
+
+## Controller Browser Matrix
+
+The controller completed the remaining browser acceptance checks with the Playwright CLI against `http://localhost:4173`.
+
+- Desktop preview at 1440x1000: all eight presets stayed inside `#preview`, kept `.intro-copy` visible, completed automatically, removed the overlay, and cleared `is-intro-active`.
+- Mobile preview at 390x844: all eight presets stayed inside the bounded preview frame, kept intro copy inside the viewport, completed automatically, removed the overlay, and cleared `is-intro-active`.
+- Standalone output at 1440x1000 and 390x844: all eight presets covered the full viewport, locked body scrolling while active, removed the overlay through the skip command, cleared active state, restored scrolling, and retained five invitation links.
+- Standalone automatic completion: all eight presets completed within their configured durations and restored scrolling.
+- Reduced motion: all eight presets skipped immediately with no overlay, active state, or scroll lock.
+- Input paths: overlay click, Escape, skip-button click, and touch `tap()` each removed the overlay and restored interaction.
+- Live editing: changing the title during a preview intro preserved the same overlay, updated the card behind it, kept invitation particles paused, and resumed particles after completion.
+- Photo focus: uploading a PNG produced one compressed WebP photo item and a visible `data:image/webp;base64` intro image.
+- Saved viewer: the registered invitation opened at `viewer.html?id=...`; its mobile intro covered the full viewport, locked and restored scrolling, then the representative NAVER map reached `data-map-state="ready"` and its fallback link remained visible.
+- Console: zero warnings and zero errors after the complete matrix.
+
+Representative final captures are stored under `output/playwright/final-preview-*-desktop.png`, `output/playwright/final-preview-*-mobile.png`, and `output/playwright/final-standalone-*-{1440,390}.png`.
 
 ## Follow-up Defect: Malformed Standalone Payload Fails Open
 
@@ -145,3 +162,22 @@ node --test tests/*.test.js
 git diff --check
 # exit 0
 ```
+
+## Final Review Corrections
+
+The whole-feature review found that preview intros inherited the editor's template background tokens but not its selected font variables or template-specific text colors. It also identified missing automated coverage for an active intro completing the download, import, storage, and viewer rebuild path.
+
+### RED Evidence
+
+New regression coverage initially reported seven failures across the focused suites. The failures covered host font variables, editor/standalone palette aliases, preset-specific copy, canonical labels, the active-intro round trip, and removal of a dead finishing animation. A final palette contract separately failed because editor template rules did not define `--ink` and `--ink-soft`.
+
+### GREEN Evidence
+
+- The preview host and standalone body now share the same allowlisted `--font-en` and `--font-ko` declaration.
+- Intro CSS resolves both standalone tokens and the editor's existing template-token names.
+- Editor templates define text colors matching standalone output.
+- Each preset renders only its tuned invitation fields, while all reused values remain escaped.
+- Downloaded active-intro HTML survives import, IndexedDB-style storage, and viewer reconstruction with its effect, template, fonts, overlay, and runtime intact.
+- Editor option labels match the canonical preset catalog, and the ineffective immediate-removal fade class was deleted.
+
+Browser verification at 390x844 with `Botanical`, `Great Vibes`, and `Gmarket Sans` resolved `--ink` to `#102018`, `--ink-soft` to `#52695b`, the title font to `Great Vibes`, and the standalone overlay to the full 390x844 viewport. Completing the viewer intro restored body overflow from `hidden` to `visible`.

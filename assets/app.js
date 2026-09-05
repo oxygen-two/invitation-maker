@@ -551,6 +551,7 @@ const renderPreview = () => {
   document.body.dataset.template = state.activeTemplate;
   document.body.dataset.particle = state.invitation.particleEffect;
   dom.preview.dataset.template = state.activeTemplate;
+  dom.preview.setAttribute("style", InvitationCore.getInvitationStyle(state.invitation));
   updatePreviewMarkup(InvitationCore.renderInvitationBody(state.invitation));
   previewRenderId += 1;
   clearTimeout(previewMapTimer);
