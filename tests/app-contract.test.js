@@ -85,9 +85,17 @@ const photo = (id, caption = id) => ({
   caption
 });
 
-const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInvitation = (value) => value, put } = {}) => {
+const loadEditorHarness = ({
+  maxItems = 4,
+  maxPhotos = 8,
+  compress,
+  normalizeInvitation = (value) => value,
+  put,
+  reducedMotion = false
+} = {}) => {
   const documentEvents = makeEventTarget();
   const windowEvents = makeEventTarget();
+  const matchMediaCalls = [];
   const document = {
     ...documentEvents,
     activeElement: null,
@@ -105,7 +113,10 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
   const window = {
     ...windowEvents,
     confirm: () => true,
-    matchMedia: () => ({ matches: false }),
+    matchMedia(query) {
+      matchMediaCalls.push(query);
+      return { matches: reducedMotion && query === "(prefers-reduced-motion: reduce)" };
+    },
     open() {},
     scrollTo() {}
   };
@@ -153,6 +164,10 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
 
   const makeCard = (item, { isOpen = false, top = 0 } = {}) => {
     const card = {
+      animations: [],
+      animate(frames, options) {
+        this.animations.push({ frames, options });
+      },
       classList: makeClassList(`content-item-card${isOpen ? " is-open" : ""}`),
       controls: new Map(),
       dataset: { itemId: item.id, itemType: item.type },
@@ -357,6 +372,7 @@ const loadEditorHarness = ({ maxItems = 4, maxPhotos = 8, compress, normalizeInv
     api: context.__editorTest,
     contentEditor,
     document,
+    matchMediaCalls,
     node,
     terminal(type, event) {
       document.dispatch(type, event);
@@ -1047,6 +1063,15 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   assert.match(app, /if \(action !== "delete"\)[\s\S]*?const items = getItemsData\(\)[\s\S]*?item\.type === "photo"[\s\S]*?items\.splice\(index, 1\)/);
 });
 
+test("editor card headings omit redundant number badges", () => {
+  const app = read("assets/app.js");
+  const css = read("assets/style.css");
+
+  assert.doesNotMatch(app, /content-item-number/);
+  assert.doesNotMatch(css, /content-item-number/);
+  assert.match(css, /\.content-item-toggle\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+});
+
 test("course map pending key follows the normalized rendered course index", () => {
   const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
   const { api, contentEditor, node } = harness;
@@ -1441,6 +1466,38 @@ test("midpoint capture transfer survives detach and global cancel permits a seco
   assert.equal(api.getDragState(), null);
 });
 
+test("pointer reorder animates displaced cards without animating the dragged card", () => {
+  const harness = loadEditorHarness();
+  const { api, contentEditor, document } = harness;
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  const draggedHandle = contentEditor.cards[0].querySelector("[data-drag-handle]");
+  contentEditor.dispatch("pointerdown", {
+    button: 0,
+    pointerId: 31,
+    preventDefault() {},
+    target: draggedHandle
+  });
+  document.hitTarget = contentEditor.cards[1];
+  contentEditor.dispatch("pointermove", {
+    clientX: 10,
+    clientY: 100,
+    pointerId: 31,
+    preventDefault() {},
+    target: draggedHandle
+  });
+
+  const draggedCard = contentEditor.cards.find((card) => card.dataset.itemId === "course-a");
+  const displacedCard = contentEditor.cards.find((card) => card.dataset.itemId === "course-b");
+  assert.deepEqual(draggedCard.animations, []);
+  assert.equal(displacedCard.animations[0].frames[0].transform, "translateY(50px)");
+  assert.equal(displacedCard.animations[0].frames[1].transform, "translateY(0)");
+  assert.equal(displacedCard.animations[0].options.duration, 400);
+
+  harness.terminal("pointerup", { pointerId: 31, target: api.getDragState().handle });
+  assert.equal(api.getDragState(), null);
+});
+
 test("buttons and pointer drag share the immutable move commit", () => {
   const app = read("assets/app.js");
   const commit = app.match(/const commitItemMove = \(fromIndex, toIndex[\s\S]*?\n\};/)?.[0] || "";
@@ -1464,11 +1521,54 @@ test("buttons and pointer drag share the immutable move commit", () => {
   assert.match(app, /document\.addEventListener\("lostpointercapture", finishItemDrag, true\)/);
 });
 
+test("editor renders a three-bar drag handle instead of dot glyphs", () => {
+  const { api, contentEditor } = loadEditorHarness();
+  api.renderContentEditor([course("course-a")], "course-a");
+
+  const handle = contentEditor.html.match(/<button[^>]+data-drag-handle[^>]*>([\s\S]*?)<\/button>/)?.[1] || "";
+  assert.equal((handle.match(/class="drag-grip-bar"/g) || []).length, 3);
+  assert.doesNotMatch(handle, /drag-grip-dot/);
+  assert.doesNotMatch(handle, /⋮|\.\.\./);
+  assert.match(handle, /class="drag-grip-bars" aria-hidden="true"/);
+});
+
+test("move controls animate cards from their previous positions", () => {
+  const { api, contentEditor } = loadEditorHarness();
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  const secondUp = contentEditor.cards[1].querySelector('[data-item-action="up"]');
+  contentEditor.dispatch("click", { target: secondUp });
+
+  const moved = contentEditor.cards.find((card) => card.dataset.itemId === "course-b");
+  const shifted = contentEditor.cards.find((card) => card.dataset.itemId === "course-a");
+  assert.equal(moved.animations[0].frames[0].transform, "translateY(50px)");
+  assert.equal(moved.animations[0].frames[1].transform, "translateY(0)");
+  assert.equal(moved.animations[0].options.duration, 400);
+  assert.equal(moved.animations[0].options.easing, "cubic-bezier(0.22, 1, 0.36, 1)");
+  assert.equal(shifted.animations[0].frames[0].transform, "translateY(-50px)");
+});
+
+test("reorder motion respects reduced-motion preferences", () => {
+  const { api, contentEditor, matchMediaCalls } = loadEditorHarness({ reducedMotion: true });
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  contentEditor.dispatch("click", {
+    target: contentEditor.cards[1].querySelector('[data-item-action="up"]')
+  });
+
+  assert.deepEqual(contentEditor.cards.flatMap((card) => card.animations), []);
+  assert.ok(matchMediaCalls.includes("(prefers-reduced-motion: reduce)"));
+});
+
 test("ordered editor controls and thumbnails stay bounded on narrow screens", () => {
   const css = read("assets/style.css");
 
   assert.match(css, /\.item-icon-button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
   assert.match(css, /\.item-drag-handle\s*\{[^}]*touch-action:\s*none/s);
+  assert.match(css, /\.drag-grip-bars\s*\{[^}]*gap:\s*4px/s);
+  assert.match(css, /\.drag-grip-bar\s*\{[^}]*height:\s*2px[^}]*border-radius:\s*999px/s);
+  assert.match(css, /\.drag-grip-bar:nth-child\(2\)\s*\{[^}]*width:\s*18px/s);
+  assert.doesNotMatch(css, /\.drag-grip-dot\s*\{/s);
   assert.doesNotMatch(css, /\.content-item-card\s*\{[^}]*touch-action:\s*none/s);
   assert.match(css, /\.photo-editor-thumbnail\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3[^}]*object-fit:\s*cover/s);
   assert.match(css, /\.content-item-card\.is-dragging/);

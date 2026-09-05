@@ -467,8 +467,25 @@ textarea {
 .item-drag-handle {
   touch-action: none;
   cursor: grab;
-  font-size: 15px;
-  letter-spacing: 0;
+}
+
+.drag-grip-bars {
+  display: grid;
+  gap: 4px;
+  place-content: center;
+  place-items: center;
+  width: 18px;
+}
+
+.drag-grip-bar {
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.drag-grip-bar:nth-child(2) {
+  width: 18px;
 }
 
 .item-drag-handle:active {
@@ -477,7 +494,7 @@ textarea {
 
 .content-item-toggle {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 48px;
   align-items: center;
@@ -506,20 +523,6 @@ textarea {
 
 .content-item-toggle[aria-expanded="true"]::after {
   transform: translateY(-35%) rotate(225deg);
-}
-
-.editor-form .content-item-number {
-  display: grid;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  color: var(--wine-800);
-  border: 1px solid rgba(217, 172, 84, .78);
-  border-radius: 8px;
-  background: var(--cream-50);
-  font-family: "Cormorant Garamond", serif;
-  font-size: 15px;
-  font-weight: 700;
 }
 
 .content-item-heading {

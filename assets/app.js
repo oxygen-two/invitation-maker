@@ -187,6 +187,35 @@ const syncAddItemAvailability = (items) => {
   dom.save.disabled = photoSelectionPending || saveWritePending;
 };
 
+const captureItemPositions = () => new Map(
+  [...dom.contentEditor.querySelectorAll("[data-item-card]")]
+    .map((card) => [card.dataset.itemId, card.getBoundingClientRect().top])
+);
+
+const animateItemReorder = (previousPositions, skippedId = null) => {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  dom.contentEditor.querySelectorAll("[data-item-card]").forEach((card) => {
+    if (card.dataset.itemId === skippedId || typeof card.animate !== "function") return;
+    const previousTop = previousPositions.get(card.dataset.itemId);
+    if (!Number.isFinite(previousTop)) return;
+
+    const offset = previousTop - card.getBoundingClientRect().top;
+    if (!offset) return;
+
+    card.animate(
+      [
+        { transform: `translateY(${offset}px)` },
+        { transform: "translateY(0)" }
+      ],
+      {
+        duration: 400,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+      }
+    );
+  });
+};
+
 const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag = false } = {}) => {
   if (dragState && !preserveDrag) cancelActiveDrag();
   syncAddItemAvailability(items);
@@ -212,9 +241,14 @@ const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag =
     return `
       <article class="content-item-card ${isPhoto ? "photo-editor-card" : "course-editor-card"}${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
         <header class="content-item-header">
-          <button class="item-icon-button item-drag-handle" type="button" data-drag-handle aria-label="${typeLabel} 순서 드래그" title="순서 드래그">⋮⋮</button>
+          <button class="item-icon-button item-drag-handle" type="button" data-drag-handle aria-label="${typeLabel} 순서 드래그" title="순서 드래그">
+            <span class="drag-grip-bars" aria-hidden="true">
+              <span class="drag-grip-bar"></span>
+              <span class="drag-grip-bar"></span>
+              <span class="drag-grip-bar"></span>
+            </span>
+          </button>
           <button class="content-item-toggle" type="button" data-toggle-item aria-expanded="${isOpen}" aria-controls="${bodyId}">
-            <span class="content-item-number">${String(index + 1).padStart(2, "0")}</span>
             <span class="content-item-heading">
               <strong>${escapeAttribute(typeLabel)} · <span data-item-secondary-summary>${escapeAttribute(secondarySummary)}</span></strong>
               <span data-item-summary>${escapeAttribute(primarySummary)}</span>
@@ -821,7 +855,9 @@ const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]"
   const openId = getOpenItemId();
   const movedId = items[fromIndex].id;
   const movedItems = ContentOrder.move(items, fromIndex, toIndex);
+  const previousPositions = captureItemPositions();
   renderContentEditor(movedItems, openId, { preserveDrag });
+  animateItemReorder(previousPositions, preserveDrag ? movedId : null);
   renderPreview();
   focusItemControl(movedId, focusSelector);
   return movedId;
