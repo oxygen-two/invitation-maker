@@ -28,6 +28,8 @@ const dom = {
   addPhoto: document.querySelector("#add-photo-button"),
   photoInput: document.querySelector("#photo-input"),
   preview: document.querySelector("#preview"),
+  introEffect: document.querySelector('[name="introEffect"]'),
+  replayIntro: document.querySelector("#replay-intro-button"),
   download: document.querySelector("#download-button"),
   save: document.querySelector("#save-button"),
   saveStatus: document.querySelector("#save-status"),
@@ -306,6 +308,7 @@ const getFormData = () => {
   const data = new FormData(dom.form);
   return InvitationCore.normalizeInvitation({
     templateId: state.activeTemplate,
+    introEffect: data.get("introEffect"),
     particleEffect: data.get("particleEffect"),
     particleScale: data.get("particleScale"),
     particleAmount: data.get("particleAmount"),
@@ -332,7 +335,12 @@ const syncParticleOutputs = () => {
   dom.particleAmountOutput.textContent = `${dom.form.elements.particleAmount.value}%`;
 };
 
+const syncIntroReplayAvailability = () => {
+  dom.replayIntro.disabled = InvitationIntro.normalizeEffect(dom.introEffect.value) === "none";
+};
+
 const fillForm = (invitation) => {
+  dom.form.elements.introEffect.value = invitation.introEffect || "none";
   dom.form.elements.particleEffect.value = invitation.particleEffect || "none";
   dom.form.elements.particleScale.value = invitation.particleScale || 100;
   dom.form.elements.particleAmount.value = invitation.particleAmount || 100;
@@ -350,6 +358,7 @@ const fillForm = (invitation) => {
   dom.form.elements.mapZoom.value = invitation.mapZoom || 16;
   dom.form.elements.message.value = invitation.message || "";
   syncParticleOutputs();
+  syncIntroReplayAvailability();
   renderContentEditor(invitation.items);
 };
 
@@ -502,6 +511,7 @@ const cleanupPreviewMap = (canvas) => {
 const updatePreviewMarkup = (html) => {
   const next = document.createElement("div");
   next.innerHTML = html;
+  const activeIntroOverlay = dom.preview.querySelector("[data-intro-overlay]");
   const currentPanels = new Map(
     [...dom.preview.querySelectorAll("[data-map-key]")].map((panel) => [mapSignature(panel), panel])
   );
@@ -517,7 +527,9 @@ const updatePreviewMarkup = (html) => {
   dom.preview.querySelectorAll("[data-dynamic-map]").forEach((canvas) => {
     if (!preservedCanvases.has(canvas)) cleanupPreviewMap(canvas);
   });
+  activeIntroOverlay?.remove();
   dom.preview.replaceChildren(...next.childNodes);
+  if (activeIntroOverlay) dom.preview.append(activeIntroOverlay);
 };
 
 const renderTemplates = () => {
@@ -543,6 +555,11 @@ const renderPreview = () => {
   previewRenderId += 1;
   clearTimeout(previewMapTimer);
   previewMapTimer = setTimeout(() => mountPreviewMaps(previewRenderId), 180);
+};
+
+const playPreviewIntro = () => {
+  const invitation = getFormData();
+  InvitationIntro.play(dom.preview, invitation);
 };
 
 const renderSaved = () => {
@@ -1068,6 +1085,7 @@ const loadInitialData = async () => {
 
 const init = async () => {
   try {
+    InvitationIntro.ensureStyles(document);
     await loadInitialData();
     renderTemplates();
     fillForm(state.invitation);
@@ -1119,6 +1137,11 @@ dom.form.addEventListener("input", (event) => {
     pendingPreviewMapKey = index >= 0 && courses[index].mapEnabled ? `stop-${index}` : null;
   }
   renderPreview();
+  if (event.target.name === "introEffect") {
+    syncIntroReplayAvailability();
+    if (state.invitation.introEffect === "none") InvitationIntro.stop(dom.preview);
+    else playPreviewIntro();
+  }
 });
 
 dom.addCourse.addEventListener("click", () => {
@@ -1228,6 +1251,8 @@ dom.preview.addEventListener("click", (event) => {
   previewRenderId += 1;
   mountPreviewMaps(previewRenderId);
 });
+
+dom.replayIntro.addEventListener("click", playPreviewIntro);
 
 dom.download.addEventListener("click", () => {
   if (photoSelectionPending) return;

@@ -9,6 +9,13 @@ const InvitationCore = require("../assets/invitation-core.js");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const functionBody = (source, name) => {
+  const start = source.indexOf(`const ${name} = () => {`);
+  if (start < 0) return "";
+  const bodyStart = source.indexOf("{", start) + 1;
+  const end = source.indexOf("\n};", bodyStart);
+  return end < 0 ? "" : source.slice(bodyStart, end);
+};
 
 const getFaviconLinks = (html) => [...html.matchAll(/<link\b[^>]*>/gi)]
   .map(([tag]) => {
@@ -317,7 +324,7 @@ const loadEditorHarness = ({
   let source = read("assets/app.js");
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
-  source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; };${source.slice(previewEnd)}`;
+  source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; };\nconst playPreviewIntro = () => {};${source.slice(previewEnd)}`;
   source = source.replace(
     /const validateForExport = \(\) => \{[\s\S]*?\n\};/,
     "const validateForExport = () => true;"
@@ -1630,4 +1637,20 @@ test("particle selector groups every effect profile in the editor", () => {
   for (const effect of ["none", "petals", "hearts", "sparkle", "fireflies", "bubbles", "snow", "leaves", "confetti"]) {
     assert.equal((select.match(new RegExp(`value="${effect}"`, "g")) || []).length, 1);
   }
+});
+
+test("editor exposes grouped intro choices and replay control", () => {
+  const html = read("index.html");
+  assert.match(html, /name="introEffect"/);
+  assert.match(html, /id="replay-intro-button"/);
+  for (const effect of ["envelope", "card-shrink", "dawn", "fireworks", "curtain", "petals", "spotlight", "photo-focus"]) {
+    assert.match(html, new RegExp(`value="${effect}"`));
+  }
+});
+
+test("ordinary preview rendering does not start intro playback", () => {
+  const source = read("assets/app.js");
+  const renderPreviewBody = functionBody(source, "renderPreview");
+  assert.doesNotMatch(renderPreviewBody, /InvitationIntro\.play/);
+  assert.match(source, /const playPreviewIntro/);
 });

@@ -318,6 +318,42 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.intro-effect-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 6px 8px;
+  align-items: end;
+}
+
+.intro-effect-field label {
+  grid-column: 1 / -1;
+}
+
+.intro-effect-field select {
+  min-width: 0;
+}
+
+.replay-intro-button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  place-items: center;
+  color: var(--wine-800);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.replay-intro-button:disabled {
+  color: var(--ink-soft);
+  cursor: not-allowed;
+  opacity: .48;
+}
+
 .checkbox-field {
   grid-template-columns: 18px 1fr;
   align-items: center;
@@ -723,6 +759,7 @@ a:focus-visible {
 }
 
 .preview-frame {
+  position: relative;
   max-height: calc(100vh - 116px);
   overflow: auto;
   border-radius: 8px;
