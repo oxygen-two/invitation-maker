@@ -1,6 +1,10 @@
 (function (root) {
+  const InvitationIntro = typeof module !== "undefined" && module.exports
+    ? require("./intro-effects.js")
+    : root.InvitationIntro;
   const defaultInvitation = {
     templateId: "royal",
+    introEffect: "none",
     particleEffect: "none",
     particleScale: 100,
     particleAmount: 100,
@@ -226,6 +230,7 @@
 
     return {
       templateId: input.templateId ?? defaultInvitation.templateId,
+      introEffect: InvitationIntro.normalizeEffect(input.introEffect),
       particleEffect: normalizeParticleEffect(input.particleEffect),
       particleScale: normalizeScale(particleScale, 50, 200, 5, defaultInvitation.particleScale),
       particleAmount: normalizeScale(input.particleAmount, 25, 500, 25, defaultInvitation.particleAmount),
@@ -435,6 +440,10 @@
 
   const buildStandaloneHtml = (input = {}) => {
     const invitation = normalizeInvitation(input);
+    const hasIntro = invitation.introEffect !== "none";
+    const introStyles = hasIntro ? InvitationIntro.getStyles() : "";
+    const introMarkup = hasIntro ? InvitationIntro.renderMarkup(invitation) : "";
+    const introRuntime = hasIntro ? InvitationIntro.getStandaloneRuntime() : "";
     const canonicalInvitation = { ...invitation, stops: undefined };
     const invitationData = JSON.stringify(canonicalInvitation)
       .replace(/&/g, "\\u0026")
@@ -453,12 +462,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="${googleFontsUrl.replace(/&/g, "&amp;")}" rel="stylesheet">
-  <style>${standaloneCss}</style>
+  <style>${standaloneCss}${introStyles}</style>
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}">
+${introMarkup}
 ${renderInvitationBody(invitation)}
 <script id="invitation-data" type="application/json">${invitationData}</script>
 ${renderStandaloneMapScript(invitation)}
+${introRuntime}
 </body>
 </html>`;
   };

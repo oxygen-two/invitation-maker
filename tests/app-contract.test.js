@@ -1044,6 +1044,18 @@ test("editor exposes one ordered content shell and constrained photo picker", ()
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
 });
 
+test("editor and viewer load intro effects before invitation core", () => {
+  for (const page of ["index.html", "viewer.html"]) {
+    const html = read(page);
+    const introIndex = html.indexOf('src="assets/intro-effects.js"');
+    const coreIndex = html.indexOf('src="assets/invitation-core.js"');
+
+    assert.notEqual(introIndex, -1, `${page} must load intro effects`);
+    assert.notEqual(coreIndex, -1, `${page} must load invitation core`);
+    assert.ok(introIndex < coreIndex, `${page} must load intro effects before invitation core`);
+  }
+});
+
 test("mixed editor cards preserve identity and expose type-specific fields", () => {
   const app = read("assets/app.js");
 

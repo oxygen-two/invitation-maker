@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
+const InvitationIntro = require("../assets/intro-effects.js");
 
 const root = path.resolve(__dirname, "..");
 const SAFE_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
@@ -28,6 +29,48 @@ const particleCapBreakpoint = (css) => {
   assert.notEqual(mediaMatches.length, 0);
   return mediaMatches.at(-1)[1];
 };
+
+test("normalizeInvitation allowlists intro effects", () => {
+  assert.equal(normalizeInvitation({ introEffect: "curtain" }).introEffect, "curtain");
+  assert.equal(normalizeInvitation({ introEffect: "script" }).introEffect, "none");
+});
+
+test("active standalone intro is self-contained and canonical", () => {
+  const html = buildStandaloneHtml({ introEffect: "envelope", title: "Invite" });
+
+  assert.match(html, /data-intro-effect="envelope"/);
+  assert.match(html, /data-intro-runtime/);
+  assert.equal(invitationDataFrom(html).introEffect, "envelope");
+});
+
+test("none omits standalone intro markup styles and runtime", () => {
+  const html = buildStandaloneHtml({ introEffect: "none" });
+
+  assert.doesNotMatch(html, /data-intro-overlay|data-intro-runtime|invitation-intro/);
+});
+
+test("every intro preset exports its canonical overlay", () => {
+  for (const effect of Object.keys(InvitationIntro.PRESETS)) {
+    const html = buildStandaloneHtml({ introEffect: effect });
+
+    assert.match(html, new RegExp(`data-intro-effect="${effect}"`));
+    assert.equal(invitationDataFrom(html).introEffect, effect);
+  }
+});
+
+test("photo-focus standalone export reuses a safe photo and falls back without one", () => {
+  const withPhoto = buildStandaloneHtml({
+    introEffect: "photo-focus",
+    items: [{ id: "intro-photo", type: "photo", src: SAFE_WEBP, alt: "Focus photo" }]
+  });
+  const withoutPhoto = buildStandaloneHtml({ introEffect: "photo-focus" });
+
+  assert.match(withPhoto, /data-intro-photo/);
+  assert.match(withPhoto, new RegExp(SAFE_WEBP));
+  assert.doesNotMatch(withPhoto, /data-photo-fallback/);
+  assert.match(withoutPhoto, /data-photo-fallback/);
+  assert.doesNotMatch(withoutPhoto, /data-intro-photo/);
+});
 
 test("buildStandaloneHtml embeds invitation data without external JSON dependency", () => {
   const html = buildStandaloneHtml({
