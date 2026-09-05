@@ -155,6 +155,27 @@ test("standalone HTML embeds only the selected template art data URL", () => {
   assert.doesNotMatch(html, new RegExp(bluePorcelainArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
+test("every production preset normalizes and renders through the canonical output paths", () => {
+  const data = JSON.parse(read("invitation-data.json"));
+  const catalog = TemplateCatalog.normalizeCatalog(data);
+
+  for (const preset of catalog.templates) {
+    const invitation = normalizeInvitation({
+      ...preset.defaults,
+      templateId: preset.id,
+      layoutFamily: preset.familyId
+    });
+
+    assert.equal(invitation.templateId, preset.id);
+    assert.equal(invitation.layoutFamily, preset.familyId);
+    assert.ok(invitation.title.trim(), `${preset.id} has a title`);
+    assert.ok(invitation.message.trim(), `${preset.id} has a message`);
+    assert.ok(invitation.items.length > 0, `${preset.id} has ordered content`);
+    assert.match(InvitationCore.renderInvitationBody(invitation), new RegExp(`data-template="${preset.id}"`));
+    assert.match(InvitationCore.buildStandaloneHtml(invitation), /<script id="invitation-data" type="application\/json">/);
+  }
+});
+
 test("normalizeInvitation parses editable stop lines", () => {
   const invitation = normalizeInvitation({
     stops: "14:00|CAFE|카페|조용한 자리\n16:00|WALK|산책로|천천히 걷기"

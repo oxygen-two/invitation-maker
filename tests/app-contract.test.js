@@ -107,6 +107,7 @@ const loadEditorHarness = ({
   const windowEvents = makeEventTarget();
   const matchMediaCalls = [];
   const scrollCalls = [];
+  const animationFrames = [];
   const document = {
     ...documentEvents,
     activeElement: null,
@@ -427,6 +428,10 @@ const loadEditorHarness = ({
     }
   });
   const selectors = new Map();
+  const mobileTabs = ["editor", "preview", "library"].map((view) => ({
+    ...genericNode(),
+    dataset: { mobileView: view }
+  }));
   const node = (selector) => {
     if (!selectors.has(selector)) selectors.set(selector, genericNode());
     return selectors.get(selector);
@@ -464,6 +469,8 @@ const loadEditorHarness = ({
   selectors.set("#occasion-list", makeListNode());
   selectors.set("#template-list", makeListNode());
   document.querySelector = node;
+  document.querySelectorAll = (selector) =>
+    selector === ".mobile-view-tabs button[data-mobile-view]" ? mobileTabs : [];
 
   let source = read("assets/app.js");
   const previewStart = source.indexOf("const renderPreview = () => {");
@@ -484,7 +491,9 @@ const loadEditorHarness = ({
     fillForm,
     getDragState: () => dragState,
     getFillFormCalls: () => globalThis.__fillFormCalls,
+    getFormData,
     getItemsData,
+    getMobileTabs: () => dom.mobileTabs,
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handlePhotoSelection,
     moveItemDrag,
@@ -537,6 +546,10 @@ const loadEditorHarness = ({
     crypto: { randomUUID: () => `uuid-${++uuid}` },
     document,
     localStorage: { getItem: () => null, setItem() {} },
+    requestAnimationFrame(callback) {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    },
     setTimeout,
     window
   };
@@ -548,6 +561,9 @@ const loadEditorHarness = ({
     document,
     matchMediaCalls,
     node,
+    runAnimationFrames() {
+      while (animationFrames.length) animationFrames.shift()();
+    },
     scrollCalls,
     terminal(type, event) {
       document.dispatch(type, event);
@@ -1172,6 +1188,58 @@ test("active intro survives download import storage and viewer rebuild", async (
   assert.match(written[0], /data-intro-runtime/);
 });
 
+test("one preset per family survives upload registration and viewer rebuild without item reordering", async () => {
+  const data = JSON.parse(read("invitation-data.json"));
+  const catalog = TemplateCatalog.normalizeCatalog(data);
+  const presetsByFamily = new Map();
+  for (const preset of catalog.templates) {
+    if (!presetsByFamily.has(preset.familyId)) presetsByFamily.set(preset.familyId, preset);
+  }
+  const viewerSource = read("assets/viewer.js");
+
+  for (const familyId of TemplateCatalog.FAMILY_IDS) {
+    const preset = presetsByFamily.get(familyId);
+    assert.ok(preset, `${familyId} has a preset`);
+    const previewInvitation = InvitationCore.normalizeInvitation({
+      ...preset.defaults,
+      templateId: preset.id,
+      layoutFamily: preset.familyId
+    });
+    const expectedOrder = previewInvitation.items.map(({ id, type }) => `${id}:${type}`);
+    const standaloneHtml = InvitationCore.buildStandaloneHtml(previewInvitation);
+    const harness = loadLibraryHarness();
+
+    await harness.api.registerUploadedHtml({ size: standaloneHtml.length, text: async () => standaloneHtml });
+
+    const stored = harness.repositoryRecords[0];
+    const storedInvitation = invitationDataFrom(stored.html);
+    const written = [];
+    const result = vm.runInNewContext(viewerSource, {
+      DOMParser: invitationParser,
+      InvitationCore,
+      InvitationStorage: { async get() { return stored; } },
+      URLSearchParams,
+      document: {
+        close() {},
+        open() {},
+        querySelector: () => ({ innerHTML: "" }),
+        write(html) { written.push(html); }
+      },
+      window: { location: { search: `?id=${stored.id}` } }
+    }, { filename: "assets/viewer.js" });
+    await result;
+
+    const standaloneInvitation = invitationDataFrom(standaloneHtml);
+    const viewerInvitation = invitationDataFrom(written[0]);
+    for (const invitation of [standaloneInvitation, storedInvitation, viewerInvitation]) {
+      assert.equal(invitation.title, previewInvitation.title);
+      assert.equal(invitation.templateId, preset.id);
+      assert.equal(invitation.layoutFamily, familyId);
+      assert.deepEqual(invitation.items.map(({ id, type }) => `${id}:${type}`), expectedOrder);
+    }
+  }
+});
+
 test("generated save waits for durability and restores the save button", async () => {
   const pending = deferred();
   const harness = loadLibraryHarness({ put: async () => pending.promise });
@@ -1508,6 +1576,7 @@ test("successful template apply fills once and undo restores the previous normal
   assert.equal(harness.api.getFillFormCalls(), callsBeforeApply + 1);
   assert.equal(harness.api.state.activeTemplate, "modern-vow");
   assert.equal(harness.node("#invitation-form").elements.title.value, "Together, We Begin");
+  assert.equal(harness.api.getFormData().layoutFamily, "wedding-editorial");
   assert.equal(harness.node("#undo-template-button").hidden, false);
 
   harness.node("#undo-template-button").dispatch("click", { target: harness.node("#undo-template-button") });
@@ -1516,6 +1585,40 @@ test("successful template apply fills once and undo restores the previous normal
   assert.deepEqual(JSON.parse(JSON.stringify(harness.api.getItemsData().map((item) => [item.id, item.type, item.place]))), [["draft-course", "course", "기존 장소"]]);
   assert.equal(harness.api.state.undoSnapshot, null);
   assert.equal(harness.node("#undo-template-button").hidden, true);
+  assert.equal(harness.document.activeElement.dataset.templateId, "royal");
+});
+
+test("template prepare errors preserve draft state and report failure status", async () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+
+  await harness.api.loadInitialData();
+  harness.api.fillForm(harness.api.state.invitation);
+  harness.api.renderContentEditor([course("draft-course", "기존 장소")]);
+  harness.api.state.catalog = {
+    occasions: harness.api.state.catalog.occasions.slice(),
+    templates: [
+      ...harness.api.state.catalog.templates,
+      {
+        id: "broken-preset",
+        occasionId: harness.api.state.activeOccasion,
+        name: "Broken Preset",
+        note: "Malformed",
+        defaults: { title: "Should not apply" }
+      }
+    ]
+  };
+  harness.api.state.pendingTemplateId = "broken-preset";
+  harness.api.renderTemplates();
+  harness.node("#invitation-form").elements.title.value = "보존할 초안";
+  const previousMarkup = harness.contentEditor.innerHTML;
+  const previousState = JSON.stringify(harness.api.state);
+
+  harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
+
+  assert.equal(harness.node("#invitation-form").elements.title.value, "보존할 초안");
+  assert.equal(harness.contentEditor.innerHTML, previousMarkup);
+  assert.equal(JSON.stringify(harness.api.state), previousState);
+  assert.match(harness.node("#save-status").textContent, /템플릿을 적용하지 못했습니다/);
 });
 
 test("mobile view switching restores the previous scroll position for each workspace", () => {
@@ -1531,6 +1634,27 @@ test("mobile view switching restores the previous scroll position for each works
   harness.api.setMobileView("editor");
   assert.equal(harness.scrollCalls.at(-1).top, 1280);
   assert.equal(harness.scrollCalls.at(-1).behavior, "auto");
+  harness.window.scrollY = 0;
+  harness.runAnimationFrames();
+  assert.equal(harness.scrollCalls.at(-1).top, 1280);
+  assert.equal(harness.window.scrollY, 1280);
+});
+
+test("mobile tab pointer capture preserves scroll before browser focus moves the page", () => {
+  const harness = loadEditorHarness({ mobile: true });
+
+  harness.document.body.dataset.mobileView = "editor";
+  harness.window.scrollY = 640;
+  harness.api.getMobileTabs()[1].dispatch("pointerdown");
+  harness.window.scrollY = 0;
+  harness.api.setMobileView("preview");
+  harness.api.getMobileTabs()[0].dispatch("pointerdown");
+  harness.window.scrollY = 0;
+  harness.api.setMobileView("editor");
+  harness.runAnimationFrames();
+
+  assert.equal(harness.scrollCalls.at(-1).top, 640);
+  assert.equal(harness.window.scrollY, 640);
 });
 
 test("editor groups related controls and keeps mobile export actions reachable", () => {

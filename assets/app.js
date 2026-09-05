@@ -39,6 +39,7 @@ let photoSelectionPending = false;
 let saveWritePending = false;
 const previewMapInstances = new WeakMap();
 const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
+let mobileViewScrollCaptured = false;
 const mapLookupVersions = new Map();
 
 const dom = {
@@ -501,18 +502,37 @@ const setItemExpanded = (card, isOpen) => {
 const findItemCard = (itemId) => [...dom.contentEditor.querySelectorAll("[data-item-card]")]
   .find((card) => card.dataset.itemId === itemId);
 
+const restoreMobileScroll = (top) => {
+  const target = Math.max(0, Number(top) || 0);
+  window.scrollTo({ top: target, behavior: "auto" });
+  globalThis.requestAnimationFrame?.(() => {
+    window.scrollTo({ top: target, behavior: "auto" });
+  });
+};
+
+const rememberMobileViewScroll = () => {
+  const currentView = document.body.dataset.mobileView || "editor";
+  if (!["editor", "preview", "library"].includes(currentView)) return;
+  if (!window.matchMedia("(max-width: 900px)").matches) return;
+  mobileViewScrollPositions[currentView] = window.scrollY || 0;
+  mobileViewScrollCaptured = true;
+};
+
 const setMobileView = (view, shouldFocus = false) => {
   if (!["editor", "preview", "library"].includes(view)) return;
   const isMobile = window.matchMedia("(max-width: 900px)").matches;
   const currentView = document.body.dataset.mobileView || "editor";
-  if (isMobile) mobileViewScrollPositions[currentView] = window.scrollY || 0;
+  if (isMobile && (!mobileViewScrollCaptured || currentView === view)) {
+    mobileViewScrollPositions[currentView] = window.scrollY || 0;
+  }
+  mobileViewScrollCaptured = false;
   document.body.dataset.mobileView = view;
   dom.mobileTabs.forEach((button) => {
     const isActive = button.dataset.mobileView === view;
     button.setAttribute("aria-pressed", String(isActive));
     if (isActive && shouldFocus) button.focus();
   });
-  if (isMobile) window.scrollTo({ top: mobileViewScrollPositions[view] || 0, behavior: "auto" });
+  if (isMobile) restoreMobileScroll(mobileViewScrollPositions[view]);
 };
 
 const parseInvitationHtml = (html) => {
@@ -535,8 +555,10 @@ const parseInvitationHtml = (html) => {
 
 const getFormData = () => {
   const data = new FormData(dom.form);
+  const activePreset = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.activeTemplate);
   return InvitationCore.normalizeInvitation({
     templateId: state.activeTemplate,
+    layoutFamily: activePreset?.familyId,
     introEffect: data.get("introEffect"),
     particleEffect: data.get("particleEffect"),
     particleScale: data.get("particleScale"),
@@ -1740,6 +1762,7 @@ dom.save.addEventListener("click", saveCurrent);
 dom.savedList.addEventListener("click", handleSavedAction);
 dom.upload.addEventListener("change", () => registerUploadedHtml(dom.upload.files[0]));
 dom.mobileTabs.forEach((button) => {
+  button.addEventListener("pointerdown", rememberMobileViewScroll);
   button.addEventListener("click", () => setMobileView(button.dataset.mobileView));
 });
 
