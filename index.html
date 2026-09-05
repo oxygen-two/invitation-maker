@@ -32,121 +32,95 @@
       </section>
 
       <form id="invitation-form" class="editor-form">
-        <div class="full intro-effect-field">
-          <label for="intro-effect"><span>인트로 효과</span></label>
-          <select id="intro-effect" name="introEffect" aria-label="인트로 효과">
-            <option value="none">사용 안 함</option>
-            <optgroup label="클래식"><option value="envelope">봉투 열기</option><option value="card-shrink">전체 화면 카드</option></optgroup>
-            <optgroup label="시네마틱"><option value="dawn">어둠에서 밝아지기</option><option value="curtain">커튼 열기</option><option value="spotlight">스포트라이트</option></optgroup>
-            <optgroup label="축하"><option value="fireworks">골드 폭죽</option></optgroup>
-            <optgroup label="로맨틱"><option value="petals">꽃잎 사이로</option></optgroup>
-            <optgroup label="사진"><option value="photo-focus">사진 초점 전환</option></optgroup>
-          </select>
-          <button id="replay-intro-button" class="replay-intro-button" type="button" title="인트로 다시 보기" aria-label="인트로 다시 보기" disabled>&#8635;</button>
-        </div>
-        <label class="full effect-field">
-          <span>파티클 효과</span>
-          <select name="particleEffect" aria-label="파티클 효과">
-            <option value="none">효과 없음</option>
-            <optgroup label="로맨틱"><option value="petals">꽃잎</option><option value="hearts">하트</option></optgroup>
-            <optgroup label="분위기"><option value="sparkle">빛가루</option><option value="fireflies">반딧불</option><option value="bubbles">버블</option></optgroup>
-            <optgroup label="계절"><option value="snow">눈</option><option value="leaves">나뭇잎</option></optgroup>
-            <optgroup label="축하"><option value="confetti">컨페티</option></optgroup>
-          </select>
-        </label>
-        <label class="range-field">
-          <span class="range-heading">
-            <span>파티클 크기</span>
-            <output data-particle-scale-output for="particle-scale">100%</output>
-          </span>
-          <input id="particle-scale" name="particleScale" type="range" min="50" max="200" step="5" value="100" aria-label="파티클 크기 스케일">
-        </label>
-        <label class="range-field">
-          <span class="range-heading">
-            <span>파티클 양</span>
-            <output data-particle-amount-output for="particle-amount">100%</output>
-          </span>
-          <input id="particle-amount" name="particleAmount" type="range" min="25" max="500" step="25" value="100" aria-label="파티클 양 스케일">
-        </label>
-        <label>
-          <span>영문 폰트</span>
-          <select name="englishFont" aria-label="영문 폰트">
-            <option value="cormorant-garamond">Cormorant Garamond</option>
-            <option value="playfair-display">Playfair Display</option>
-            <option value="dm-serif-display">DM Serif Display</option>
-            <option value="libre-baskerville">Libre Baskerville</option>
-            <option value="great-vibes">Great Vibes</option>
-          </select>
-        </label>
-        <label>
-          <span>한글 폰트</span>
-          <select name="koreanFont" aria-label="한글 폰트">
-            <option value="gowun-batang">고운바탕</option>
-            <option value="noto-serif-kr">노토 명조</option>
-            <option value="nanum-myeongjo">나눔명조</option>
-            <option value="nanum-gothic">나눔고딕</option>
-            <option value="song-myung">송명</option>
-            <option value="gmarket-sans">Gmarket Sans</option>
-          </select>
-        </label>
-        <label>
-          <span>제목</span>
-          <input name="title" type="text" autocomplete="off">
-        </label>
-        <label>
-          <span>부제</span>
-          <input name="subtitle" type="text" autocomplete="off">
-        </label>
-        <label>
-          <span>일시</span>
-          <input name="dateLabel" type="text" autocomplete="off">
-        </label>
-        <label>
-          <span>보내는 사람</span>
-          <input name="host" type="text" autocomplete="off">
-        </label>
-        <label>
-          <span>대표 장소</span>
-          <input name="location" type="text" autocomplete="off">
-        </label>
-        <label>
-          <span>대표 지도 링크</span>
-          <input name="mapUrl" type="url" autocomplete="off">
-        </label>
-        <label class="full checkbox-field">
-          <input name="mapEnabled" type="checkbox">
-          <span>대표 동적 지도 표시</span>
-        </label>
-        <div class="full map-settings" data-map-settings hidden>
-          <label>
-            <span>위도</span>
-            <input name="mapLatitude" type="number" min="-90" max="90" step="any" inputmode="decimal">
-          </label>
-          <label>
-            <span>경도</span>
-            <input name="mapLongitude" type="number" min="-180" max="180" step="any" inputmode="decimal">
-          </label>
-          <label>
-            <span>지도 줌</span>
-            <input name="mapZoom" type="number" min="6" max="21" step="1" inputmode="numeric">
-          </label>
-          <small class="full map-message" data-map-message role="status" aria-live="polite" hidden></small>
-        </div>
-        <label class="full">
-          <span>메시지</span>
-          <textarea name="message" rows="4"></textarea>
-        </label>
-        <section class="full content-editor-section" aria-labelledby="content-editor-title">
-          <header class="content-editor-header">
-            <span id="content-editor-title">초대장 항목</span>
-            <div class="content-editor-commands">
-              <button id="add-course-button" class="add-item-button" type="button">+ 코스</button>
-              <button id="add-photo-button" class="add-item-button" type="button">+ 사진</button>
-              <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <details class="editor-group" data-editor-group="style" open>
+          <summary><span>스타일과 효과</span><small>인트로 · 파티클 · 폰트</small></summary>
+          <div class="editor-group-body">
+            <div class="full intro-effect-field">
+              <label for="intro-effect"><span>인트로 효과</span></label>
+              <select id="intro-effect" name="introEffect" aria-label="인트로 효과">
+                <option value="none">사용 안 함</option>
+                <optgroup label="클래식"><option value="envelope">봉투 열기</option><option value="card-shrink">전체 화면 카드</option></optgroup>
+                <optgroup label="시네마틱"><option value="dawn">어둠에서 밝아지기</option><option value="curtain">커튼 열기</option><option value="spotlight">스포트라이트</option></optgroup>
+                <optgroup label="축하"><option value="fireworks">골드 폭죽</option></optgroup>
+                <optgroup label="로맨틱"><option value="petals">꽃잎 사이로</option></optgroup>
+                <optgroup label="사진"><option value="photo-focus">사진 초점 전환</option></optgroup>
+              </select>
+              <button id="replay-intro-button" class="replay-intro-button" type="button" title="인트로 다시 보기" aria-label="인트로 다시 보기" disabled>&#8635;</button>
             </div>
-          </header>
-          <div id="content-editor" class="content-editor"></div>
-        </section>
+            <label class="full effect-field">
+              <span>파티클 효과</span>
+              <select name="particleEffect" aria-label="파티클 효과">
+                <option value="none">효과 없음</option>
+                <optgroup label="로맨틱"><option value="petals">꽃잎</option><option value="hearts">하트</option></optgroup>
+                <optgroup label="분위기"><option value="sparkle">빛가루</option><option value="fireflies">반딧불</option><option value="bubbles">버블</option></optgroup>
+                <optgroup label="계절"><option value="snow">눈</option><option value="leaves">나뭇잎</option></optgroup>
+                <optgroup label="축하"><option value="confetti">컨페티</option></optgroup>
+              </select>
+            </label>
+            <label class="range-field">
+              <span class="range-heading"><span>파티클 크기</span><output data-particle-scale-output for="particle-scale">100%</output></span>
+              <input id="particle-scale" name="particleScale" type="range" min="50" max="200" step="5" value="100" aria-label="파티클 크기 스케일">
+            </label>
+            <label class="range-field">
+              <span class="range-heading"><span>파티클 양</span><output data-particle-amount-output for="particle-amount">100%</output></span>
+              <input id="particle-amount" name="particleAmount" type="range" min="25" max="500" step="25" value="100" aria-label="파티클 양 스케일">
+            </label>
+            <label>
+              <span>영문 폰트</span>
+              <select name="englishFont" aria-label="영문 폰트">
+                <option value="cormorant-garamond">Cormorant Garamond</option><option value="playfair-display">Playfair Display</option><option value="dm-serif-display">DM Serif Display</option><option value="libre-baskerville">Libre Baskerville</option><option value="great-vibes">Great Vibes</option>
+              </select>
+            </label>
+            <label>
+              <span>한글 폰트</span>
+              <select name="koreanFont" aria-label="한글 폰트">
+                <option value="gowun-batang">고운바탕</option><option value="noto-serif-kr">노토 명조</option><option value="nanum-myeongjo">나눔명조</option><option value="nanum-gothic">나눔고딕</option><option value="song-myung">송명</option><option value="gmarket-sans">Gmarket Sans</option>
+              </select>
+            </label>
+          </div>
+        </details>
+
+        <details class="editor-group" data-editor-group="details" open>
+          <summary><span>기본 정보</span><small>제목 · 일정 · 메시지</small></summary>
+          <div class="editor-group-body">
+            <label><span>제목</span><input name="title" type="text" autocomplete="off"></label>
+            <label><span>부제</span><input name="subtitle" type="text" autocomplete="off"></label>
+            <label><span>일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
+            <label><span>보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
+            <label class="full"><span>메시지</span><textarea name="message" rows="4"></textarea></label>
+          </div>
+        </details>
+
+        <details class="editor-group" data-editor-group="location" open>
+          <summary><span>대표 장소</span><small>장소 · 네이버 지도</small></summary>
+          <div class="editor-group-body">
+            <label><span>장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
+            <label><span>지도 링크</span><input name="mapUrl" type="url" autocomplete="off"></label>
+            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span>대표 동적 지도 표시</span></label>
+            <div class="full map-settings" data-map-settings hidden>
+              <input name="mapLatitude" type="hidden">
+              <input name="mapLongitude" type="hidden">
+              <input name="mapZoom" type="hidden" value="16">
+              <small class="map-message" data-map-message role="status" aria-live="polite"></small>
+            </div>
+          </div>
+        </details>
+
+        <details class="editor-group" data-editor-group="content" open>
+          <summary><span>코스와 사진</span><small>드래그해서 순서 변경</small></summary>
+          <div class="editor-group-body editor-content-body">
+            <section class="full content-editor-section" aria-label="초대장 항목">
+              <header class="content-editor-header">
+                <div class="content-editor-commands">
+                  <button id="add-course-button" class="add-item-button" type="button">+ 코스</button>
+                  <button id="add-photo-button" class="add-item-button" type="button">+ 사진</button>
+                  <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                </div>
+              </header>
+              <div id="content-editor" class="content-editor"></div>
+            </section>
+          </div>
+        </details>
       </form>
 
       <div class="action-row">
@@ -183,6 +157,7 @@
   <script src="assets/image-tools.js"></script>
   <script src="assets/content-order.js"></script>
   <script src="assets/invitation-storage.js"></script>
+  <script src="assets/map-location.js"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>

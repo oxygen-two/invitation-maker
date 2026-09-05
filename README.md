@@ -11,6 +11,7 @@ Static HTML invitation maker with template presets, live preview, standalone HTM
 - `assets/image-tools.js`: JPEG, PNG, and WebP validation, resizing, and compression.
 - `assets/invitation-storage.js`: IndexedDB repository for registered invitations.
 - `assets/invitation-core.js`: shared standalone HTML renderer.
+- `assets/map-location.js`: NAVER Geocoding response normalization and place lookup.
 - `assets/viewer.js`: validates and rebuilds a saved invitation before opening it.
 - `assets/style.css`: maker UI and preview styles.
 
@@ -35,7 +36,7 @@ http://localhost:4173
 3. Choose separate display fonts for English and Korean text.
 4. Edit title, date, location, and message, then add course cards and photos in one ordered list.
 5. Reorder course and photo cards with the drag handle or the accessible move buttons.
-6. Place names automatically create NAVER Map search links. Optionally add Dynamic Map coordinates to the representative place or each course card.
+6. Place names automatically create NAVER Map search links. Optionally enable Dynamic Map for the representative place or each course card; the maker resolves coordinates from the entered place or address.
 7. Check the live preview.
 8. Download a standalone `.html` invitation.
 9. Register the current invitation or upload a downloaded HTML file into the local library.
@@ -58,6 +59,8 @@ Set the public Web Dynamic Map Client ID in `invitation-data.json`:
 }
 ```
 
-Register the deployed HTTP or HTTPS origin as a Web service URL in NAVER Cloud. The downloaded invitation keeps the `지도 열기` link as a fallback because a file opened directly with `file://` cannot use an origin-registered Dynamic Map.
+Enable both **Dynamic Map** and **Geocoding** for the NAVER Maps application. Register the exact local and deployed HTTP or HTTPS origins as Web service URLs, for example `http://localhost:4173` and the production Vercel origin.
+
+The downloaded invitation keeps the `지도 열기` link as a fallback because a file opened directly with `file://` cannot use an origin-registered Dynamic Map. Dynamic Maps render when the invitation is served from a registered origin, including invitations opened from the local library.
 
 Never place a NAVER Maps Client Secret in this repository or generated HTML. Browser-based Dynamic Map rendering uses only the public Client ID.

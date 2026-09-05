@@ -21,15 +21,6 @@ const cssRule = (css, selector) => {
   assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
   return css.slice(start, css.indexOf("}", start) + 1);
 };
-const particleCapBreakpoint = (css) => {
-  const capIndex = css.indexOf(".particle-layer span:nth-child(n+17)");
-  assert.notEqual(capIndex, -1);
-
-  const beforeCap = css.slice(0, capIndex);
-  const mediaMatches = [...beforeCap.matchAll(/@media\s*\(\s*max-width\s*:\s*(\d+)px\s*\)/g)];
-  assert.notEqual(mediaMatches.length, 0);
-  return mediaMatches.at(-1)[1];
-};
 const loadCoreWithoutIntro = () => {
   const module = { exports: {} };
   const missingIntro = (request) => {
@@ -533,12 +524,12 @@ test("standalone HTML handles every particle effect and amount scale", () => {
 
 test("standalone particle profiles include effect markers and transform-only animations", () => {
   const profileMarkers = {
-    sparkle: /box-shadow:0 0 8px 2px rgba\(255,242,188,\.78\)/,
+    sparkle: /box-shadow:0 0 8px 2px var\(--particle-glow\)/,
     petals: /border-radius:70% 0 70% 0/,
     hearts: /content:"❤"/,
     fireflies: /particle-pulse var\(--pulse-duration\)/,
-    bubbles: /border:1px solid rgba\(255,255,255,\.72\)/,
-    snow: /background:rgba\(255,255,255,var\(--tone\)\)/,
+    bubbles: /border:1px solid var\(--particle-edge\)/,
+    snow: /background:var\(--tone\)/,
     leaves: /border-radius:80% 0 70% 10%/
   };
 
@@ -557,11 +548,27 @@ test("standalone particle profiles include effect markers and transform-only ani
   assert.doesNotMatch(particleKeyframes, /(?:top|left|width|height)\s*:/);
 });
 
-test("standalone particle mobile cap breakpoint matches the preview stylesheet", () => {
+test("preview and standalone keep the full selected particle amount on mobile", () => {
   const previewCss = read("assets/style.css");
   const standaloneCss = buildStandaloneHtml({ particleEffect: "fireflies" }).match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
 
-  assert.equal(particleCapBreakpoint(standaloneCss), particleCapBreakpoint(previewCss));
+  assert.doesNotMatch(previewCss, /\.particle-layer span:nth-child\(n\+/);
+  assert.doesNotMatch(standaloneCss, /\.particle-layer span:nth-child\(n\+/);
+  assert.equal((buildStandaloneHtml({ particleEffect: "fireflies", particleAmount: 500 }).match(/<span style="--x:/g) || []).length, 80);
+});
+
+test("particle palettes adapt to each template and render above all invitation content", () => {
+  const previewCss = read("assets/style.css");
+  const standaloneCss = buildStandaloneHtml({ particleEffect: "sparkle" }).match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+
+  for (const css of [previewCss, standaloneCss]) {
+    assert.match(css, /--particle-light:/);
+    assert.match(css, /--particle-accent:/);
+    assert.match(css, /--particle-edge:/);
+    assert.match(css, /\.particle-layer\s*\{[^}]*z-index:\s*10[^}]*pointer-events:\s*none/s);
+    assert.doesNotMatch(css, /\.invitation-card\s*>\s*:not\(\.particle-layer\)[^{]*\{[^}]*z-index/s);
+    assert.match(css, /background:\s*var\(--particle-light\)/);
+  }
 });
 
 test("standalone HTML conditionally embeds NAVER Dynamic Map", () => {

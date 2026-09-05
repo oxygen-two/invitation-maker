@@ -267,6 +267,19 @@ test("active intros pause particle spans and their pseudo-element animation owne
   assert.match(styles, /\.is-intro-active \.particle-layer,\.is-intro-active \.particle-layer span,\.is-intro-active \.particle-layer span::before\{animation-play-state:paused\}/);
 });
 
+test("petal intro uses explicit two-dimensional positions and template palette tokens", () => {
+  const markup = InvitationIntro.renderMarkup({ introEffect: "petals", title: "Us" });
+  const styles = InvitationIntro.getStyles();
+
+  assert.equal((markup.match(/--petal-x:/g) || []).length, 10);
+  assert.equal((markup.match(/--petal-y:/g) || []).length, 10);
+  assert.match(markup, /--petal-delay:/);
+  assert.match(styles, /left:var\(--petal-x\)/);
+  assert.match(styles, /top:var\(--petal-y\)/);
+  assert.match(styles, /var\(--particle-accent/);
+  assert.doesNotMatch(styles, /var\(--i\) %/);
+});
+
 test("intro styles inherit editor and standalone palette token names without dead finishing animation", () => {
   const styles = InvitationIntro.getStyles();
 

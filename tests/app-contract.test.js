@@ -98,11 +98,13 @@ const loadEditorHarness = ({
   compress,
   normalizeInvitation = (value) => value,
   put,
-  reducedMotion = false
+  reducedMotion = false,
+  mobile = false
 } = {}) => {
   const documentEvents = makeEventTarget();
   const windowEvents = makeEventTarget();
   const matchMediaCalls = [];
+  const scrollCalls = [];
   const document = {
     ...documentEvents,
     activeElement: null,
@@ -122,10 +124,17 @@ const loadEditorHarness = ({
     confirm: () => true,
     matchMedia(query) {
       matchMediaCalls.push(query);
-      return { matches: reducedMotion && query === "(prefers-reduced-motion: reduce)" };
+      return {
+        matches: (reducedMotion && query === "(prefers-reduced-motion: reduce)")
+          || (mobile && query === "(max-width: 900px)")
+      };
     },
     open() {},
-    scrollTo() {}
+    scrollTo(options) {
+      scrollCalls.push(options);
+      this.scrollY = options.top;
+    },
+    scrollY: 0
   };
 
   const makeControl = (card, selector, { attrs = {}, dataset = {}, value = "", checked = false } = {}) => {
@@ -338,7 +347,8 @@ const loadEditorHarness = ({
     handlePhotoSelection,
     moveItemDrag,
     renderContentEditor,
-    saveCurrent
+    saveCurrent,
+    setMobileView
   };`;
 
   let uuid = 0;
@@ -381,10 +391,12 @@ const loadEditorHarness = ({
     document,
     matchMediaCalls,
     node,
+    scrollCalls,
     terminal(type, event) {
       document.dispatch(type, event);
       window.dispatch(type, event);
-    }
+    },
+    window
   };
 };
 
@@ -663,7 +675,7 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
     elements: formElements,
     querySelector(selector) {
       if (selector === ":invalid") return null;
-      return { hidden: false, textContent: "" };
+      return genericNode();
     }
   };
   nodes.set("#invitation-form", form);
@@ -1257,11 +1269,72 @@ test("editor exposes mobile view tabs and selected template state", () => {
   assert.match(app, /aria-pressed/);
 });
 
+test("mobile view switching restores the previous scroll position for each workspace", () => {
+  const harness = loadEditorHarness({ mobile: true });
+
+  harness.document.body.dataset.mobileView = "editor";
+  harness.window.scrollY = 1280;
+  harness.api.setMobileView("preview");
+  assert.equal(harness.scrollCalls.at(-1).top, 0);
+  assert.equal(harness.scrollCalls.at(-1).behavior, "auto");
+
+  harness.window.scrollY = 360;
+  harness.api.setMobileView("editor");
+  assert.equal(harness.scrollCalls.at(-1).top, 1280);
+  assert.equal(harness.scrollCalls.at(-1).behavior, "auto");
+});
+
+test("editor groups related controls and keeps mobile export actions reachable", () => {
+  const index = read("index.html");
+  const css = read("assets/style.css");
+
+  for (const group of ["style", "details", "location", "content"]) {
+    assert.match(index, new RegExp(`data-editor-group="${group}"`));
+  }
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?body\[data-mobile-view="editor"\] \.action-row\s*\{[^}]*position:\s*fixed[^}]*bottom:/s);
+  assert.match(css, /@media \(max-width: 540px\)[\s\S]*?body\[data-mobile-view="editor"\]\s*\{[^}]*padding-bottom:\s*calc\(136px/s);
+  assert.match(css, /@media \(max-width: 540px\)[\s\S]*?body\[data-mobile-view="editor"\] \.save-status:not\(:empty\)\s*\{[^}]*bottom:\s*calc\(132px/s);
+  assert.match(css, /\.mobile-view-tabs button\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /\.replay-intro-button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+});
+
+test("map controls use place geocoding without exposing coordinates or zoom", () => {
+  const index = read("index.html");
+  const app = read("assets/app.js");
+
+  assert.doesNotMatch(index, /<span>위도<\/span>|<span>경도<\/span>|<span>지도 줌<\/span>/);
+  assert.doesNotMatch(app, /<span>위도<\/span>|<span>경도<\/span>|<span>지도 줌<\/span>/);
+  assert.match(index, /name="mapLatitude" type="hidden"/);
+  assert.match(index, /name="mapLongitude" type="hidden"/);
+  assert.match(app, /data-course-field="mapLatitude" type="hidden"/);
+  assert.match(app, /data-course-field="mapLongitude" type="hidden"/);
+  assert.match(app, /submodules=geocoder/);
+  assert.match(index, /src="assets\/map-location\.js"/);
+  assert.match(app, /error\.code === "SERVICE_UNAVAILABLE"[\s\S]*?NAVER Geocoding 설정을 확인해 주세요/);
+});
+
 test("mobile preview frame remains viewport-bounded and scrollable", () => {
   const css = read("assets/style.css");
 
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*height: calc\(100dvh - 158px\);\s*max-height: calc\(100dvh - 158px\);\s*overflow: auto;/);
   assert.doesNotMatch(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*max-height: none;\s*overflow: visible;/);
+});
+
+test("saved invitation cards render friendly dates and source labels", async () => {
+  const createdAt = "2026-09-05T03:52:31.704Z";
+  const harness = loadLibraryHarness({ records: [{
+    id: "friendly-date",
+    title: "Evening invite",
+    createdAt,
+    source: "upload",
+    html: validInvitationHtml("Evening invite")
+  }] });
+
+  await harness.api.refreshSaved();
+  const markup = harness.node("#saved-list").innerHTML;
+  assert.match(markup, /<time datetime="2026-09-05T03:52:31\.704Z">/);
+  assert.match(markup, /HTML 등록/);
+  assert.doesNotMatch(markup, />2026-09-05T03:52:31\.704Z</);
 });
 
 test("editor template palettes define the intro text colors used by standalone output", () => {
@@ -1339,6 +1412,19 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   assert.match(app, /items:\s*getItemsData\(\)/);
   assert.doesNotMatch(app, /stops:\s*getStopsData\(\)/);
   assert.match(app, /if \(action !== "delete"\)[\s\S]*?const items = getItemsData\(\)[\s\S]*?item\.type === "photo"[\s\S]*?items\.splice\(index, 1\)/);
+});
+
+test("course labels use presets and reveal text entry only for a custom label", () => {
+  const app = read("assets/app.js");
+
+  assert.match(app, /data-course-label-preset/);
+  for (const label of ["MEET", "CAFE", "WALK", "DINNER"]) {
+    assert.match(app, new RegExp(`COURSE_LABEL_PRESETS[^;]+"${label}"`));
+  }
+  assert.match(app, /<option value="custom"[^>]*>직접 입력<\/option>/);
+  assert.match(app, /data-custom-label-field/);
+  assert.match(app, /data-course-field="label" type="text"/);
+  assert.match(app, /syncCourseLabelPreset\(event\.target\)/);
 });
 
 test("editor card headings omit redundant number badges", () => {
@@ -1880,6 +1966,8 @@ test("editor exposes particle size and amount as percentage scales", () => {
   assert.match(app, /data\.get\("particleAmount"\)/);
   assert.match(app, /data-particle-scale-output/);
   assert.match(app, /data-particle-amount-output/);
+  assert.match(app, /particleScaleOutput\.setAttribute\("aria-label"/);
+  assert.match(app, /particleAmountOutput\.setAttribute\("aria-label"/);
 });
 
 test("particle selector groups every effect profile in the editor", () => {

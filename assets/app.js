@@ -2,6 +2,7 @@ const STORAGE_KEY = "invitation-maker.saved";
 const MAX_SAVED = 20;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAP_LOAD_TIMEOUT_MS = 10000;
+const COURSE_LABEL_PRESETS = ["MEET", "CAFE", "WALK", "DINNER", "DRINK", "ACTIVITY"];
 
 const state = {
   templates: [],
@@ -19,6 +20,8 @@ let dragState = null;
 let photoSelectionPending = false;
 let saveWritePending = false;
 const previewMapInstances = new WeakMap();
+const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
+const mapLookupVersions = new Map();
 
 const dom = {
   form: document.querySelector("#invitation-form"),
@@ -57,6 +60,18 @@ const escapeAttribute = (value = "") => String(value).replace(/[&<>"']/g, (char)
   "'": "&#039;"
 })[char]);
 
+const formatSavedDate = (value) => {
+  const date = new Date(String(value || ""));
+  if (!Number.isFinite(date.getTime())) return "날짜 정보 없음";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+};
+
 const createItemId = (type) => {
   if (globalThis.crypto?.randomUUID) return `${type}-${globalThis.crypto.randomUUID()}`;
   return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -66,7 +81,7 @@ const emptyCourse = () => ({
   id: createItemId("course"),
   type: "course",
   time: "",
-  label: "",
+  label: "MEET",
   place: "",
   note: "",
   mapUrl: "",
@@ -119,6 +134,8 @@ const renderItemActions = (item, index, itemCount) => {
 const renderCourseFields = (item, bodyId, isOpen) => {
   const checked = item.mapEnabled ? " checked" : "";
   const hidden = item.mapEnabled ? "" : " hidden";
+  const label = String(item.label || "").trim();
+  const labelPreset = COURSE_LABEL_PRESETS.includes(label) ? label : label ? "custom" : "MEET";
   return `
     <div id="${bodyId}" class="course-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
       <label>
@@ -127,10 +144,17 @@ const renderCourseFields = (item, bodyId, isOpen) => {
       </label>
       <label>
         <span>라벨</span>
-        <input data-course-field="label" type="text" value="${escapeAttribute(item.label)}" placeholder="PLACE" autocomplete="off">
+        <select data-course-label-preset aria-label="코스 라벨">
+          ${COURSE_LABEL_PRESETS.map((preset) => `<option value="${preset}"${labelPreset === preset ? " selected" : ""}>${preset}</option>`).join("")}
+          <option value="custom"${labelPreset === "custom" ? " selected" : ""}>직접 입력</option>
+        </select>
+      </label>
+      <label class="full custom-label-field" data-custom-label-field${labelPreset === "custom" ? "" : " hidden"}>
+        <span>직접 입력</span>
+        <input data-course-field="label" type="text" value="${escapeAttribute(labelPreset === "custom" ? label : labelPreset)}" placeholder="예: EXHIBITION" autocomplete="off">
       </label>
       <label class="full">
-        <span>장소</span>
+        <span>장소 또는 주소</span>
         <input data-course-field="place" type="text" value="${escapeAttribute(item.place)}" autocomplete="off">
       </label>
       <label class="full">
@@ -146,22 +170,32 @@ const renderCourseFields = (item, bodyId, isOpen) => {
         <span>이 코스에 동적 지도 표시</span>
       </label>
       <div class="full map-settings stop-map-settings" data-course-map-settings${hidden}>
-        <label>
-          <span>위도</span>
-          <input data-course-field="mapLatitude" type="number" min="-90" max="90" step="any" inputmode="decimal" value="${escapeAttribute(item.mapLatitude ?? "")}">
-        </label>
-        <label>
-          <span>경도</span>
-          <input data-course-field="mapLongitude" type="number" min="-180" max="180" step="any" inputmode="decimal" value="${escapeAttribute(item.mapLongitude ?? "")}">
-        </label>
-        <label>
-          <span>지도 줌</span>
-          <input data-course-field="mapZoom" type="number" min="6" max="21" step="1" inputmode="numeric" value="${escapeAttribute(item.mapZoom || 16)}">
-        </label>
-        <small class="full stop-map-message" data-course-map-message role="status" aria-live="polite" hidden></small>
+        <input data-course-field="mapLatitude" type="hidden" value="${escapeAttribute(item.mapLatitude ?? "")}">
+        <input data-course-field="mapLongitude" type="hidden" value="${escapeAttribute(item.mapLongitude ?? "")}">
+        <input data-course-field="mapZoom" type="hidden" value="${escapeAttribute(item.mapZoom || 16)}">
+        <small class="stop-map-message" data-course-map-message role="status" aria-live="polite"></small>
       </div>
     </div>
   `;
+};
+
+const syncCourseLabelPreset = (select) => {
+  const card = select.closest("[data-item-card]");
+  const labelInput = card?.querySelector('[data-course-field="label"]');
+  const customField = card?.querySelector("[data-custom-label-field]");
+  if (!card || !labelInput || !customField) return;
+
+  const usesCustomLabel = select.value === "custom";
+  customField.hidden = !usesCustomLabel;
+  if (usesCustomLabel) {
+    if (COURSE_LABEL_PRESETS.includes(labelInput.value)) labelInput.value = "";
+    labelInput.focus();
+  } else {
+    labelInput.value = select.value;
+  }
+
+  const time = card.querySelector('[data-course-field="time"]').value || "시간 미정";
+  card.querySelector("[data-item-secondary-summary]").textContent = `${time} · ${labelInput.value || "PLACE"}`;
 };
 
 const renderPhotoFields = (item, bodyId, isOpen) => `
@@ -277,13 +311,16 @@ const findItemCard = (itemId) => [...dom.contentEditor.querySelectorAll("[data-i
 
 const setMobileView = (view, shouldFocus = false) => {
   if (!["editor", "preview", "library"].includes(view)) return;
+  const isMobile = window.matchMedia("(max-width: 900px)").matches;
+  const currentView = document.body.dataset.mobileView || "editor";
+  if (isMobile) mobileViewScrollPositions[currentView] = window.scrollY || 0;
   document.body.dataset.mobileView = view;
   dom.mobileTabs.forEach((button) => {
     const isActive = button.dataset.mobileView === view;
     button.setAttribute("aria-pressed", String(isActive));
     if (isActive && shouldFocus) button.focus();
   });
-  if (window.matchMedia("(max-width: 900px)").matches) window.scrollTo({ top: 0, behavior: "smooth" });
+  if (isMobile) window.scrollTo({ top: mobileViewScrollPositions[view] || 0, behavior: "auto" });
 };
 
 const parseInvitationHtml = (html) => {
@@ -331,8 +368,12 @@ const getFormData = () => {
 };
 
 const syncParticleOutputs = () => {
-  dom.particleScaleOutput.textContent = `${dom.form.elements.particleScale.value}%`;
-  dom.particleAmountOutput.textContent = `${dom.form.elements.particleAmount.value}%`;
+  const scale = dom.form.elements.particleScale.value;
+  const amount = dom.form.elements.particleAmount.value;
+  dom.particleScaleOutput.textContent = `${scale}%`;
+  dom.particleScaleOutput.setAttribute("aria-label", `파티클 크기 ${scale}%`);
+  dom.particleAmountOutput.textContent = `${amount}%`;
+  dom.particleAmountOutput.setAttribute("aria-label", `파티클 양 ${amount}%`);
 };
 
 const syncIntroReplayAvailability = () => {
@@ -365,17 +406,22 @@ const fillForm = (invitation) => {
 const syncMapSettingsVisibility = () => {
   const representativeEnabled = dom.form.elements.mapEnabled.checked;
   dom.form.querySelector("[data-map-settings]").hidden = !representativeEnabled;
-  dom.form.elements.mapLatitude.required = representativeEnabled;
-  dom.form.elements.mapLongitude.required = representativeEnabled;
   const representativeMessage = dom.form.querySelector("[data-map-message]");
   const representativeCoordinatesValid = dom.form.elements.mapLatitude.value !== ""
-    && dom.form.elements.mapLongitude.value !== ""
-    && dom.form.elements.mapLatitude.validity.valid
-    && dom.form.elements.mapLongitude.validity.valid;
-  representativeMessage.hidden = !representativeEnabled || representativeCoordinatesValid;
-  representativeMessage.textContent = representativeMessage.hidden
-    ? ""
-    : "위도와 경도를 입력하면 미리보기에 지도가 표시됩니다.";
+    && dom.form.elements.mapLongitude.value !== "";
+  if (!representativeEnabled) {
+    representativeMessage.textContent = "";
+    delete representativeMessage.dataset.mapLookupState;
+  } else if (representativeCoordinatesValid && representativeMessage.dataset.mapLookupState !== "loading") {
+    representativeMessage.textContent = "지도 위치를 확인했습니다.";
+    representativeMessage.dataset.mapLookupState = "ready";
+  } else if (!dom.form.elements.location.value.trim()) {
+    representativeMessage.textContent = "장소 또는 주소를 입력해 주세요.";
+    representativeMessage.dataset.mapLookupState = "empty";
+  } else if (!representativeMessage.dataset.mapLookupState || representativeMessage.dataset.mapLookupState === "ready") {
+    representativeMessage.textContent = "장소 입력을 마치면 지도 위치를 확인합니다.";
+    representativeMessage.dataset.mapLookupState = "pending";
+  }
   dom.contentEditor.querySelectorAll('[data-item-type="course"]').forEach((card) => {
     const checkbox = card.querySelector('[data-course-field="mapEnabled"]');
     card.querySelector("[data-course-map-settings]").hidden = !checkbox.checked;
@@ -388,13 +434,21 @@ const syncMapSettingsVisibility = () => {
       || checkbox.checked;
     time.required = hasCourseContent;
     place.required = hasCourseContent;
-    latitude.required = checkbox.checked;
-    longitude.required = checkbox.checked;
     const message = card.querySelector("[data-course-map-message]");
-    const hasValidCoordinates = latitude.value !== "" && longitude.value !== ""
-      && latitude.validity.valid && longitude.validity.valid;
-    message.hidden = !checkbox.checked || hasValidCoordinates;
-    message.textContent = message.hidden ? "" : "위도와 경도를 입력하면 미리보기에 지도가 표시됩니다.";
+    const hasValidCoordinates = latitude.value !== "" && longitude.value !== "";
+    if (!checkbox.checked) {
+      message.textContent = "";
+      delete message.dataset.mapLookupState;
+    } else if (hasValidCoordinates && message.dataset.mapLookupState !== "loading") {
+      message.textContent = "지도 위치를 확인했습니다.";
+      message.dataset.mapLookupState = "ready";
+    } else if (!place.value.trim()) {
+      message.textContent = "장소 또는 주소를 입력해 주세요.";
+      message.dataset.mapLookupState = "empty";
+    } else if (!message.dataset.mapLookupState || message.dataset.mapLookupState === "ready") {
+      message.textContent = "장소 입력을 마치면 지도 위치를 확인합니다.";
+      message.dataset.mapLookupState = "pending";
+    }
   });
 };
 
@@ -444,7 +498,7 @@ const loadNaverMaps = () => {
       script.remove();
       callback(value);
     };
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}`;
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}&submodules=geocoder`;
     script.async = true;
     script.onload = () => window.naver?.maps
       ? finish(resolve, window.naver.maps)
@@ -463,6 +517,60 @@ const loadNaverMaps = () => {
 
   return naverMapsPromise;
 };
+
+const resolveMapFields = async ({ key, query, latitude, longitude, message, mapKey }) => {
+  const normalizedQuery = String(query || "").trim();
+  const version = (mapLookupVersions.get(key) || 0) + 1;
+  mapLookupVersions.set(key, version);
+  latitude.value = "";
+  longitude.value = "";
+  message.dataset.mapLookupState = "loading";
+  message.textContent = "지도 위치를 찾고 있습니다.";
+
+  try {
+    const maps = await loadNaverMaps();
+    const coordinates = await MapLocation.resolve(maps, normalizedQuery);
+    if (mapLookupVersions.get(key) !== version) return;
+    latitude.value = String(coordinates.latitude);
+    longitude.value = String(coordinates.longitude);
+    message.dataset.mapLookupState = "ready";
+    message.textContent = "지도 위치를 확인했습니다.";
+    pendingPreviewMapKey = typeof mapKey === "function" ? mapKey() : mapKey;
+  } catch (error) {
+    if (mapLookupVersions.get(key) !== version) return;
+    message.dataset.mapLookupState = "error";
+    if (error.code === "SERVICE_UNAVAILABLE") {
+      message.textContent = "지도 위치 검색을 사용할 수 없습니다. NAVER Geocoding 설정을 확인해 주세요.";
+    } else {
+      message.textContent = normalizedQuery
+        ? "장소를 찾지 못했습니다. 도로명 주소를 입력해 주세요."
+        : "장소 또는 주소를 입력해 주세요.";
+    }
+  }
+  renderPreview();
+};
+
+const resolveRepresentativeMapLocation = () => resolveMapFields({
+  key: "representative",
+  query: dom.form.elements.location.value,
+  latitude: dom.form.elements.mapLatitude,
+  longitude: dom.form.elements.mapLongitude,
+  message: dom.form.querySelector("[data-map-message]"),
+  mapKey: "representative"
+});
+
+const resolveCourseMapLocation = (card) => resolveMapFields({
+  key: card.dataset.itemId,
+  query: card.querySelector('[data-course-field="place"]').value,
+  latitude: card.querySelector('[data-course-field="mapLatitude"]'),
+  longitude: card.querySelector('[data-course-field="mapLongitude"]'),
+  message: card.querySelector("[data-course-map-message]"),
+  mapKey: () => {
+    const courses = getFormData().items.filter((item) => item.type === "course");
+    const index = courses.findIndex((item) => item.id === card.dataset.itemId);
+    return index >= 0 ? `stop-${index}` : null;
+  }
+});
 
 const mountPreviewMaps = async (renderId) => {
   const canvases = [...dom.preview.querySelectorAll("[data-dynamic-map]:not([data-map-state])")];
@@ -571,9 +679,12 @@ const renderSaved = () => {
 
   dom.savedList.innerHTML = state.saved.map((item) => `
     <article class="saved-item">
-      <div>
+      <div class="saved-item-copy">
         <strong>${escapeAttribute(item.title)}</strong>
-        <span>${escapeAttribute(item.createdAt)}</span>
+        <div class="saved-item-meta">
+          <span class="saved-source">${item.source === "upload" ? "HTML 등록" : "직접 제작"}</span>
+          <time datetime="${escapeAttribute(item.createdAt)}">${escapeAttribute(formatSavedDate(item.createdAt))}</time>
+        </div>
       </div>
       <div class="saved-actions">
         <button type="button" data-action="open" data-id="${escapeAttribute(item.id)}">열기</button>
@@ -1137,11 +1248,51 @@ dom.form.addEventListener("input", (event) => {
     const index = courses.findIndex((item) => item.id === clickedItemId);
     pendingPreviewMapKey = index >= 0 && courses[index].mapEnabled ? `stop-${index}` : null;
   }
+  if (event.target.matches('[name="location"]') && dom.form.elements.mapEnabled.checked) {
+    dom.form.elements.mapLatitude.value = "";
+    dom.form.elements.mapLongitude.value = "";
+    dom.form.querySelector("[data-map-message]").dataset.mapLookupState = "pending";
+  }
+  if (event.target.matches('[data-course-field="place"]')) {
+    const card = event.target.closest("[data-item-card]");
+    if (card?.querySelector('[data-course-field="mapEnabled"]').checked) {
+      card.querySelector('[data-course-field="mapLatitude"]').value = "";
+      card.querySelector('[data-course-field="mapLongitude"]').value = "";
+      card.querySelector("[data-course-map-message]").dataset.mapLookupState = "pending";
+    }
+  }
   renderPreview();
   if (event.target.name === "introEffect") {
     syncIntroReplayAvailability();
     if (state.invitation.introEffect === "none") InvitationIntro.stop(dom.preview);
     else playPreviewIntro();
+  }
+});
+
+dom.form.addEventListener("change", (event) => {
+  if (event.target.matches("[data-course-label-preset]")) {
+    syncCourseLabelPreset(event.target);
+    renderPreview();
+    return;
+  }
+  if (event.target.matches('[name="mapEnabled"]')) {
+    if (event.target.checked) resolveRepresentativeMapLocation();
+    else mapLookupVersions.set("representative", (mapLookupVersions.get("representative") || 0) + 1);
+    return;
+  }
+  if (event.target.matches('[name="location"]') && dom.form.elements.mapEnabled.checked) {
+    resolveRepresentativeMapLocation();
+    return;
+  }
+
+  const card = event.target.closest?.("[data-item-card]");
+  if (!card) return;
+  if (event.target.matches('[data-course-field="mapEnabled"]')) {
+    if (event.target.checked) resolveCourseMapLocation(card);
+    else mapLookupVersions.set(card.dataset.itemId, (mapLookupVersions.get(card.dataset.itemId) || 0) + 1);
+  } else if (event.target.matches('[data-course-field="place"]')
+    && card.querySelector('[data-course-field="mapEnabled"]').checked) {
+    resolveCourseMapLocation(card);
   }
 });
 
