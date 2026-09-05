@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const ContentOrder = require("../assets/content-order.js");
+const HeroImage = require("../assets/hero-image.js");
 const InvitationCore = require("../assets/invitation-core.js");
 const PresetApplication = require("../assets/preset-application.js");
 
@@ -391,14 +392,20 @@ const loadEditorHarness = ({
     ...makeEventTarget(),
     append() {},
     click() {},
+    classList: makeClassList(),
+    capturedPointers: new Set(),
     dataset: {},
     disabled: false,
     focus() { document.activeElement = this; },
+    getBoundingClientRect() { return { width: 200, height: 300 }; },
+    hasPointerCapture(pointerId) { return this.capturedPointers.has(pointerId); },
     hidden: false,
     html: "",
     querySelector: () => ({ hidden: false, textContent: "" }),
     querySelectorAll: () => [],
+    releasePointerCapture(pointerId) { this.capturedPointers.delete(pointerId); },
     replaceChildren() {},
+    setPointerCapture(pointerId) { this.capturedPointers.add(pointerId); },
     setAttribute(name, valueToSet) {
       this.attrs = { ...(this.attrs || {}), [name]: String(valueToSet) };
     },
@@ -487,21 +494,31 @@ const loadEditorHarness = ({
   source = source.replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__editorTest = {
     beginItemDrag,
+    beginHeroImageDrag: typeof beginHeroImageDrag === "function" ? beginHeroImageDrag : undefined,
     commitItemMove,
     fillForm,
     getDragState: () => dragState,
+    getHeroImageDragState: () => typeof heroImageDragState === "undefined" ? null : heroImageDragState,
     getFillFormCalls: () => globalThis.__fillFormCalls,
     getFormData,
     getItemsData,
     getMobileTabs: () => dom.mobileTabs,
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
+    handleHeroImageSelection: typeof handleHeroImageSelection === "function" ? handleHeroImageSelection : undefined,
     handlePhotoSelection,
     moveItemDrag,
     loadInitialData,
     renderContentEditor,
     renderTemplates,
+    removeHeroImage: typeof removeHeroImage === "function" ? removeHeroImage : undefined,
+    resetHeroImage: typeof resetHeroImage === "function" ? resetHeroImage : undefined,
     saveCurrent,
     setMobileView,
+    syncHeroImageEditor: typeof syncHeroImageEditor === "function" ? syncHeroImageEditor : undefined,
+    updateHeroImageScale: typeof updateHeroImageScale === "function" ? updateHeroImageScale : undefined,
+    moveHeroImageDrag: typeof moveHeroImageDrag === "function" ? moveHeroImageDrag : undefined,
+    moveHeroImageByKeyboard: typeof moveHeroImageByKeyboard === "function" ? moveHeroImageByKeyboard : undefined,
+    finishHeroImageDrag: typeof finishHeroImageDrag === "function" ? finishHeroImageDrag : undefined,
     state
   };`;
 
@@ -514,6 +531,7 @@ const loadEditorHarness = ({
       get(name) { return this.form.elements[name]?.value || ""; }
       has(name) { return Boolean(this.form.elements[name]?.checked); }
     },
+    HeroImage,
     ImageTools: {
       ImageError: class ImageError extends Error {},
       compress: compress || (async () => ({ src: "data:image/png;base64,QQ==" }))
@@ -1754,6 +1772,159 @@ test("editor exposes one ordered content shell and constrained photo picker", ()
   assert.match(photoInput, /\shidden(?:\s|>)/);
   assert.ok(scriptOrder.every((position) => position >= 0));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
+});
+
+test("editor exposes a separate single-file hero background tool before invitation core", () => {
+  const index = read("index.html");
+  const heroInput = index.match(/<input[^>]+id="hero-image-input"[^>]*>/)?.[0] || "";
+  const bodyPhotoInput = index.match(/<input[^>]+id="photo-input"[^>]*>/)?.[0] || "";
+  const heroModuleIndex = index.indexOf('src="assets/hero-image.js"');
+  const coreIndex = index.indexOf('src="assets/invitation-core.js"');
+
+  assert.match(index, /data-editor-group="hero-image"/);
+  assert.match(index, /id="hero-image-frame"/);
+  assert.match(index, /id="hero-image-scale"[^>]+min="100"[^>]+max="250"[^>]+step="5"/);
+  assert.match(index, /id="hero-image-reset-button"/);
+  assert.match(index, /id="hero-image-remove-button"/);
+  assert.match(heroInput, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.doesNotMatch(heroInput, /\smultiple(?:\s|>)/);
+  assert.match(bodyPhotoInput, /\smultiple(?:\s|>)/);
+  assert.ok(heroModuleIndex >= 0 && heroModuleIndex < coreIndex);
+
+  const viewer = read("viewer.html");
+  const viewerHeroModuleIndex = viewer.indexOf('src="assets/hero-image.js"');
+  const viewerCoreIndex = viewer.indexOf('src="assets/invitation-core.js"');
+  assert.ok(viewerHeroModuleIndex >= 0 && viewerHeroModuleIndex < viewerCoreIndex);
+});
+
+test("hero background upload stays outside ordered photo items and supports scale and drag", async () => {
+  const harness = loadEditorHarness({
+    normalizeInvitation: InvitationCore.normalizeInvitation,
+    async compress() {
+      return { src: "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/vuUAAA=" };
+    }
+  });
+  const { api, node } = harness;
+  await api.loadInitialData();
+  api.fillForm(api.state.invitation);
+  api.renderContentEditor([photo("body-photo")], "body-photo");
+  node("#hero-image-input").files = [{ name: "cover.png" }];
+
+  await api.handleHeroImageSelection();
+
+  assert.equal(api.getItemsData().length, 1);
+  assert.equal(api.getItemsData()[0].id, "body-photo");
+  assert.equal(api.state.heroImage.scale, 100);
+  assert.equal(node("#hero-image-select-button").textContent, "사진 변경");
+  assert.equal(node("#hero-image-adjustments").hidden, false);
+
+  api.updateHeroImageScale(150);
+  api.beginHeroImageDrag({ pointerId: 7, button: 0, clientX: 100, clientY: 100, preventDefault() {} });
+  api.moveHeroImageDrag({ pointerId: 7, clientX: 140, clientY: 70, preventDefault() {} });
+  api.finishHeroImageDrag({ pointerId: 7 });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), {
+    src: "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAQAcJaQAA3AA/vuUAAA=",
+    scale: 150,
+    positionX: 36.67,
+    positionY: 56.67
+  });
+  assert.equal(api.getHeroImageDragState(), null);
+  assert.match(node("#hero-image-preview").attrs.style, /--hero-image-scale:1\.5/);
+
+  let prevented = false;
+  api.moveHeroImageByKeyboard({ key: "ArrowLeft", preventDefault() { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.ok(api.state.heroImage.positionX > 36.67);
+});
+
+test("hero upload failure preserves the previous image and reset and remove are explicit", async () => {
+  const harness = loadEditorHarness({
+    normalizeInvitation: InvitationCore.normalizeInvitation,
+    async compress() {
+      throw new Error("decode failed");
+    }
+  });
+  const { api, node } = harness;
+  const previous = {
+    src: "data:image/png;base64,iVBORw0KGgo=",
+    scale: 200,
+    positionX: 20,
+    positionY: 80
+  };
+  api.state.heroImage = previous;
+  api.syncHeroImageEditor();
+  node("#hero-image-input").files = [{ name: "broken.png" }];
+
+  await api.handleHeroImageSelection();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), previous);
+  assert.match(node("#hero-image-status").textContent, /이미지를 처리할 수 없습니다/);
+  api.resetHeroImage();
+  assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), {
+    src: previous.src,
+    scale: 100,
+    positionX: 50,
+    positionY: 50
+  });
+  api.removeHeroImage();
+  assert.equal(api.state.heroImage, null);
+  assert.equal(node("#hero-image-adjustments").hidden, true);
+  assert.equal(node("#hero-image-select-button").textContent, "배경 사진 추가");
+});
+
+test("template changes stay locked until a pending hero upload settles", async () => {
+  const compression = deferred();
+  const harness = loadEditorHarness({
+    normalizeInvitation: InvitationCore.normalizeInvitation,
+    compress: () => compression.promise
+  });
+  const { api, node } = harness;
+  await api.loadInitialData();
+  api.fillForm(api.state.invitation);
+  api.renderTemplates();
+  node("#template-list").dispatch("click", {
+    target: node("#template-list").buttons.find((button) => button.dataset.templateId !== api.state.activeTemplate)
+  });
+  const pendingTemplateId = api.state.pendingTemplateId;
+  node("#hero-image-input").files = [{ name: "cover.png" }];
+
+  const upload = api.handleHeroImageSelection();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(node("#apply-template-button").disabled, true);
+  assert.ok(node("#template-list").buttons.every((button) => button.disabled));
+  node("#apply-template-button").dispatch("click", { target: node("#apply-template-button") });
+  assert.notEqual(api.state.activeTemplate, pendingTemplateId);
+
+  compression.resolve({ src: "data:image/png;base64,iVBORw0KGgo=" });
+  await upload;
+  assert.equal(node("#apply-template-button").disabled, false);
+  node("#apply-template-button").dispatch("click", { target: node("#apply-template-button") });
+  assert.equal(api.state.activeTemplate, pendingTemplateId);
+  assert.equal(api.state.heroImage, null);
+});
+
+test("template undo restores the custom hero image and crop", async () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+  const heroImage = {
+    src: "data:image/png;base64,iVBORw0KGgo=",
+    scale: 185,
+    positionX: 18,
+    positionY: 73
+  };
+
+  await harness.api.loadInitialData();
+  harness.api.fillForm({ ...harness.api.state.invitation, heroImage });
+  harness.api.renderTemplates();
+  harness.node("#template-list").dispatch("click", {
+    target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId !== harness.api.state.activeTemplate)
+  });
+  harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
+  assert.equal(harness.api.state.heroImage, null);
+
+  harness.node("#undo-template-button").dispatch("click", { target: harness.node("#undo-template-button") });
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.api.state.heroImage)), heroImage);
 });
 
 test("editor and viewer load intro effects before invitation core", () => {

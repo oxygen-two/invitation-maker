@@ -155,6 +155,73 @@ test("standalone HTML embeds only the selected template art data URL", () => {
   assert.doesNotMatch(html, new RegExp(bluePorcelainArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
+test("normalizes a safe hero image independently from ordered content photos", () => {
+  const invitation = normalizeInvitation({
+    heroImage: {
+      src: SAFE_WEBP,
+      scale: 178,
+      positionX: -4,
+      positionY: 81.239
+    },
+    items: Array.from({ length: MAX_PHOTOS + 1 }, (_, index) => ({
+      id: `photo-${index}`,
+      type: "photo",
+      src: SAFE_PNG
+    }))
+  });
+
+  assert.deepEqual(invitation.heroImage, {
+    src: SAFE_WEBP,
+    scale: 180,
+    positionX: 0,
+    positionY: 81.24
+  });
+  assert.equal(invitation.items.filter((item) => item.type === "photo").length, MAX_PHOTOS);
+});
+
+test("rejects unsafe hero images and keeps legacy invitations on template art", () => {
+  const unsafe = normalizeInvitation({
+    templateId: "color-pop",
+    heroImage: {
+      src: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+      scale: 200,
+      positionX: 10,
+      positionY: 90
+    }
+  });
+  const legacy = normalizeInvitation({ templateId: "color-pop" });
+
+  assert.equal(unsafe.heroImage, null);
+  assert.equal(legacy.heroImage, null);
+  assert.match(InvitationCore.renderInvitationBody(legacy), new RegExp(TemplateArt.getDataUrl("color-pop").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
+test("custom hero image replaces template art in preview and standalone output", () => {
+  const input = {
+    templateId: "color-pop",
+    heroImage: {
+      src: SAFE_WEBP,
+      scale: 175,
+      positionX: 24.5,
+      positionY: 72.25
+    }
+  };
+  const templateArt = TemplateArt.getDataUrl("color-pop");
+  const preview = InvitationCore.renderInvitationBody(input);
+  const standalone = buildStandaloneHtml(input);
+  const exported = invitationDataFrom(standalone);
+
+  for (const html of [preview, standalone]) {
+    assert.match(html, new RegExp(SAFE_WEBP.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(html, new RegExp(templateArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(html, /data-custom-hero-image/);
+    assert.match(html, /--hero-image-scale:1\.75/);
+    assert.match(html, /--hero-image-x:24\.5%/);
+    assert.match(html, /--hero-image-y:72\.25%/);
+  }
+  assert.deepEqual(exported.heroImage, input.heroImage);
+});
+
 test("every production preset normalizes and renders through the canonical output paths", () => {
   const data = JSON.parse(read("invitation-data.json"));
   const catalog = TemplateCatalog.normalizeCatalog(data);

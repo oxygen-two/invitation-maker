@@ -26,6 +26,7 @@ const state = {
   appliedBaseline: {},
   undoSnapshot: null,
   naverMapClientId: "",
+  heroImage: null,
   invitation: {},
   saved: []
 };
@@ -36,6 +37,8 @@ let previewMapTimer;
 let pendingPreviewMapKey = null;
 let dragState = null;
 let photoSelectionPending = false;
+let heroImageSelectionPending = false;
+let heroImageDragState = null;
 let saveWritePending = false;
 const previewMapInstances = new WeakMap();
 const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
@@ -54,6 +57,18 @@ const dom = {
   addPhoto: document.querySelector("#add-photo-button"),
   addItemButtons: [...document.querySelectorAll("[data-add-item]")],
   photoInput: document.querySelector("#photo-input"),
+  heroImageEditor: document.querySelector("#hero-image-editor"),
+  heroImageFrame: document.querySelector("#hero-image-frame"),
+  heroImagePreview: document.querySelector("#hero-image-preview"),
+  heroImageEmpty: document.querySelector("#hero-image-empty"),
+  heroImageInput: document.querySelector("#hero-image-input"),
+  heroImageSelect: document.querySelector("#hero-image-select-button"),
+  heroImageAdjustments: document.querySelector("#hero-image-adjustments"),
+  heroImageScale: document.querySelector("#hero-image-scale"),
+  heroImageScaleOutput: document.querySelector("#hero-image-scale-output"),
+  heroImageReset: document.querySelector("#hero-image-reset-button"),
+  heroImageRemove: document.querySelector("#hero-image-remove-button"),
+  heroImageStatus: document.querySelector("#hero-image-status"),
   preview: document.querySelector("#preview"),
   introEffect: document.querySelector('[name="introEffect"]'),
   replayIntro: document.querySelector("#replay-intro-button"),
@@ -362,17 +377,32 @@ const renderItemFields = (item, bodyId, isOpen) => {
   }
 };
 
+const hasPendingEditorOperation = () =>
+  photoSelectionPending || heroImageSelectionPending || saveWritePending;
+
+const syncTemplateAvailability = () => {
+  const busy = hasPendingEditorOperation();
+  const pending = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.pendingTemplateId);
+  dom.occasions.querySelectorAll("[data-occasion-id]").forEach((button) => { button.disabled = busy; });
+  dom.templates.querySelectorAll("[data-template-id]").forEach((button) => { button.disabled = busy; });
+  dom.applyTemplate.disabled = busy || !pending;
+  dom.undoTemplate.disabled = busy || !state.undoSnapshot;
+};
+
 const syncAddItemAvailability = (items) => {
   const photoCount = items.filter((item) => item.type === "photo").length;
   const itemsFull = items.length >= InvitationCore.MAX_ITEMS;
   dom.addCourse.disabled = itemsFull;
   dom.addItemButtons.forEach((button) => { button.disabled = itemsFull; });
   dom.addPhoto.disabled = photoSelectionPending
+    || heroImageSelectionPending
     || saveWritePending
     || itemsFull
     || photoCount >= InvitationCore.MAX_PHOTOS;
-  dom.download.disabled = photoSelectionPending;
-  dom.save.disabled = photoSelectionPending || saveWritePending;
+  dom.download.disabled = photoSelectionPending || heroImageSelectionPending;
+  dom.save.disabled = photoSelectionPending || heroImageSelectionPending || saveWritePending;
+  syncHeroImageAvailability();
+  syncTemplateAvailability();
 };
 
 const getItemPrimarySummary = (item) => {
@@ -558,6 +588,7 @@ const getFormData = () => {
   const activePreset = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.activeTemplate);
   return InvitationCore.normalizeInvitation({
     templateId: state.activeTemplate,
+    heroImage: state.heroImage,
     layoutFamily: activePreset?.familyId,
     introEffect: data.get("introEffect"),
     particleEffect: data.get("particleEffect"),
@@ -594,7 +625,47 @@ const syncIntroReplayAvailability = () => {
   dom.replayIntro.disabled = InvitationIntro.normalizeEffect(dom.introEffect.value) === "none";
 };
 
+const syncHeroImageAvailability = () => {
+  const busy = heroImageSelectionPending || photoSelectionPending || saveWritePending;
+  dom.heroImageSelect.disabled = busy;
+  dom.heroImageInput.disabled = busy;
+  dom.heroImageScale.disabled = busy || !state.heroImage;
+  dom.heroImageReset.disabled = busy || !state.heroImage;
+  dom.heroImageRemove.disabled = busy || !state.heroImage;
+};
+
+const syncHeroImageEditor = () => {
+  const heroImage = state.heroImage;
+  const activePreset = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.activeTemplate);
+  dom.heroImageEditor.dataset.layoutFamily = activePreset?.familyId || "romantic-story";
+  dom.heroImagePreview.hidden = !heroImage;
+  dom.heroImageEmpty.hidden = Boolean(heroImage);
+  dom.heroImageAdjustments.hidden = !heroImage;
+  dom.heroImageSelect.textContent = heroImage ? "사진 변경" : "배경 사진 추가";
+
+  if (heroImage) {
+    const crop = HeroImage.normalizeCrop(heroImage);
+    state.heroImage = { src: heroImage.src, ...crop };
+    dom.heroImagePreview.setAttribute("src", heroImage.src);
+    dom.heroImagePreview.setAttribute(
+      "style",
+      `--hero-image-scale:${crop.scale / 100};--hero-image-x:${crop.positionX}%;--hero-image-y:${crop.positionY}%`
+    );
+    dom.heroImageScale.value = String(crop.scale);
+    dom.heroImageScaleOutput.textContent = `${crop.scale}%`;
+    dom.heroImageScaleOutput.setAttribute("aria-label", `배경 사진 확대 ${crop.scale}%`);
+  } else {
+    dom.heroImagePreview.removeAttribute?.("src");
+    dom.heroImagePreview.removeAttribute?.("style");
+    dom.heroImageScale.value = String(HeroImage.MIN_SCALE);
+    dom.heroImageScaleOutput.textContent = `${HeroImage.MIN_SCALE}%`;
+  }
+
+  syncHeroImageAvailability();
+};
+
 const fillForm = (invitation) => {
+  state.heroImage = invitation.heroImage ? { ...invitation.heroImage } : null;
   dom.form.elements.introEffect.value = invitation.introEffect || "none";
   dom.form.elements.particleEffect.value = invitation.particleEffect || "none";
   dom.form.elements.particleScale.value = invitation.particleScale || 100;
@@ -614,6 +685,7 @@ const fillForm = (invitation) => {
   dom.form.elements.message.value = invitation.message || "";
   syncParticleOutputs();
   syncIntroReplayAvailability();
+  syncHeroImageEditor();
   renderContentEditor(invitation.items);
 };
 
@@ -882,8 +954,8 @@ const renderTemplates = () => {
   dom.templateSummary.textContent = pending
     ? `${occasion?.name || "템플릿"} · ${pending.name}을 선택했습니다. 적용 버튼을 누르면 현재 초안이 교체됩니다.`
     : "적용할 템플릿을 선택해 주세요.";
-  dom.applyTemplate.disabled = !pending;
   dom.undoTemplate.hidden = !state.undoSnapshot;
+  syncTemplateAvailability();
 };
 
 const setPendingTemplate = (templateId) => {
@@ -901,6 +973,7 @@ const focusPresetCard = (templateId) => {
 };
 
 const applyPendingTemplate = () => {
+  if (hasPendingEditorOperation()) return;
   const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
   if (!preset) return;
 
@@ -931,7 +1004,7 @@ const applyPendingTemplate = () => {
 };
 
 const undoTemplateApplication = () => {
-  if (!state.undoSnapshot) return;
+  if (hasPendingEditorOperation() || !state.undoSnapshot) return;
   const restored = PresetApplication.snapshot(state.undoSnapshot);
   state.undoSnapshot = null;
   state.appliedBaseline = restored;
@@ -1155,7 +1228,7 @@ const migrateLegacySaved = async () => {
 };
 
 const saveCurrent = async () => {
-  if (photoSelectionPending || saveWritePending) return;
+  if (photoSelectionPending || heroImageSelectionPending || saveWritePending) return;
   if (!validateForExport()) return;
   saveWritePending = true;
   syncAddItemAvailability(getItemsData());
@@ -1321,7 +1394,7 @@ const getAvailablePhotoCapacity = () => {
 
 const handlePhotoSelection = async () => {
   const files = [...dom.photoInput.files];
-  if (photoSelectionPending || saveWritePending) {
+  if (photoSelectionPending || heroImageSelectionPending || saveWritePending) {
     dom.photoInput.value = "";
     return;
   }
@@ -1384,6 +1457,130 @@ const handlePhotoSelection = async () => {
     dom.photoInput.value = "";
     photoSelectionPending = false;
     syncAddItemAvailability(getItemsData());
+  }
+};
+
+const handleHeroImageSelection = async () => {
+  const file = dom.heroImageInput.files?.[0];
+  if (!file || heroImageSelectionPending || photoSelectionPending || saveWritePending) {
+    dom.heroImageInput.value = "";
+    return;
+  }
+
+  heroImageSelectionPending = true;
+  dom.heroImageStatus.textContent = `${file.name}: 배경 사진을 처리하고 있습니다.`;
+  syncAddItemAvailability(getItemsData());
+  try {
+    const image = await ImageTools.compress(file);
+    state.heroImage = {
+      src: image.src,
+      ...HeroImage.normalizeCrop()
+    };
+    syncHeroImageEditor();
+    renderPreview();
+    dom.heroImageStatus.textContent = `${file.name}: 배경 사진을 추가했습니다.`;
+  } catch (error) {
+    const message = error instanceof ImageTools.ImageError
+      ? error.message
+      : "이미지를 처리할 수 없습니다.";
+    dom.heroImageStatus.textContent = `${file.name}: ${message}`;
+  } finally {
+    dom.heroImageInput.value = "";
+    heroImageSelectionPending = false;
+    syncAddItemAvailability(getItemsData());
+  }
+};
+
+const updateHeroImageScale = (value) => {
+  if (!state.heroImage) return;
+  state.heroImage = {
+    src: state.heroImage.src,
+    ...HeroImage.normalizeCrop({ ...state.heroImage, scale: value })
+  };
+  syncHeroImageEditor();
+  renderPreview();
+};
+
+const resetHeroImage = () => {
+  if (!state.heroImage) return;
+  state.heroImage = { src: state.heroImage.src, ...HeroImage.normalizeCrop() };
+  syncHeroImageEditor();
+  renderPreview();
+  dom.heroImageStatus.textContent = "배경 사진 위치와 확대를 초기화했습니다.";
+};
+
+const removeHeroImage = () => {
+  if (!state.heroImage) return;
+  state.heroImage = null;
+  syncHeroImageEditor();
+  renderPreview();
+  dom.heroImageStatus.textContent = "템플릿 기본 배경으로 되돌렸습니다.";
+};
+
+const beginHeroImageDrag = (event) => {
+  if (!state.heroImage || event.button !== 0 || heroImageSelectionPending) return;
+  event.preventDefault?.();
+  try {
+    dom.heroImageFrame.setPointerCapture(event.pointerId);
+    heroImageDragState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      crop: HeroImage.normalizeCrop(state.heroImage)
+    };
+    dom.heroImageFrame.classList.add("is-dragging");
+  } catch {
+    heroImageDragState = null;
+  }
+};
+
+const moveHeroImageDrag = (event) => {
+  if (!heroImageDragState || event.pointerId !== heroImageDragState.pointerId || !state.heroImage) return;
+  event.preventDefault?.();
+  const bounds = dom.heroImageFrame.getBoundingClientRect();
+  const crop = HeroImage.moveByDrag(heroImageDragState.crop, {
+    deltaX: event.clientX - heroImageDragState.startX,
+    deltaY: event.clientY - heroImageDragState.startY,
+    frameWidth: bounds.width,
+    frameHeight: bounds.height
+  });
+  state.heroImage = { src: state.heroImage.src, ...crop };
+  syncHeroImageEditor();
+  renderPreview();
+};
+
+const moveHeroImageByKeyboard = (event) => {
+  if (!state.heroImage || heroImageSelectionPending) return;
+  const directions = {
+    ArrowLeft: { deltaX: -16, deltaY: 0 },
+    ArrowRight: { deltaX: 16, deltaY: 0 },
+    ArrowUp: { deltaX: 0, deltaY: -16 },
+    ArrowDown: { deltaX: 0, deltaY: 16 }
+  };
+  const direction = directions[event.key];
+  if (!direction) return;
+
+  event.preventDefault?.();
+  const bounds = dom.heroImageFrame.getBoundingClientRect();
+  const crop = HeroImage.moveByDrag(state.heroImage, {
+    ...direction,
+    frameWidth: bounds.width,
+    frameHeight: bounds.height
+  });
+  state.heroImage = { src: state.heroImage.src, ...crop };
+  syncHeroImageEditor();
+  renderPreview();
+};
+
+const finishHeroImageDrag = (event) => {
+  if (!heroImageDragState || (event.pointerId !== undefined && event.pointerId !== heroImageDragState.pointerId)) return;
+  const { pointerId } = heroImageDragState;
+  heroImageDragState = null;
+  dom.heroImageFrame.classList.remove("is-dragging");
+  try {
+    if (dom.heroImageFrame.hasPointerCapture(pointerId)) dom.heroImageFrame.releasePointerCapture(pointerId);
+  } catch {
+    // Pointer capture can already be released when the control leaves the document.
   }
 };
 
@@ -1545,6 +1742,10 @@ const init = async () => {
 };
 
 dom.form.addEventListener("input", (event) => {
+  if (event.target === dom.heroImageScale) {
+    updateHeroImageScale(event.target.value);
+    return;
+  }
   if (event.target.matches('[name="particleScale"], [name="particleAmount"]')) {
     syncParticleOutputs();
   }
@@ -1629,6 +1830,16 @@ dom.addItemButtons.forEach((button) => {
 
 dom.addPhoto.addEventListener("click", () => dom.photoInput.click());
 dom.photoInput.addEventListener("change", handlePhotoSelection);
+dom.heroImageSelect.addEventListener("click", () => dom.heroImageInput.click());
+dom.heroImageInput.addEventListener("change", handleHeroImageSelection);
+dom.heroImageReset.addEventListener("click", resetHeroImage);
+dom.heroImageRemove.addEventListener("click", removeHeroImage);
+dom.heroImageFrame.addEventListener("pointerdown", beginHeroImageDrag);
+dom.heroImageFrame.addEventListener("pointermove", moveHeroImageDrag);
+dom.heroImageFrame.addEventListener("pointerup", finishHeroImageDrag);
+dom.heroImageFrame.addEventListener("pointercancel", finishHeroImageDrag);
+dom.heroImageFrame.addEventListener("lostpointercapture", finishHeroImageDrag);
+dom.heroImageFrame.addEventListener("keydown", moveHeroImageByKeyboard);
 
 dom.contentEditor.addEventListener("click", (event) => {
   const toggle = event.target.closest("[data-toggle-item]");
@@ -1717,7 +1928,7 @@ document.addEventListener("lostpointercapture", finishItemDrag, true);
 
 dom.occasions.addEventListener("click", (event) => {
   const button = event.target.closest("[data-occasion-id]");
-  if (!button) return;
+  if (!button || hasPendingEditorOperation()) return;
   const presets = TemplateCatalog.getPresetsForOccasion(state.catalog, button.dataset.occasionId);
   if (!presets.length) return;
   state.activeOccasion = button.dataset.occasionId;
@@ -1727,7 +1938,7 @@ dom.occasions.addEventListener("click", (event) => {
 
 dom.templates.addEventListener("click", (event) => {
   const button = event.target.closest("[data-template-id]");
-  if (!button) return;
+  if (!button || hasPendingEditorOperation()) return;
   if (setPendingTemplate(button.dataset.templateId)) renderTemplates();
 });
 
@@ -1752,7 +1963,7 @@ dom.preview.addEventListener("click", (event) => {
 dom.replayIntro.addEventListener("click", playPreviewIntro);
 
 dom.download.addEventListener("click", () => {
-  if (photoSelectionPending) return;
+  if (photoSelectionPending || heroImageSelectionPending) return;
   if (!validateForExport()) return;
   const invitation = getFormData();
   downloadHtml(InvitationCore.buildStandaloneHtml(invitation), invitation.title);

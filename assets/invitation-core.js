@@ -36,6 +36,9 @@
   const noTemplateArt = Object.freeze({
     getDataUrl: () => ""
   });
+  const noHeroImage = Object.freeze({
+    normalizeCrop: () => ({ scale: 100, positionX: 50, positionY: 50 })
+  });
   const InvitationIntro = (() => {
     if (typeof module !== "undefined" && module.exports) {
       try {
@@ -76,8 +79,19 @@
     }
     return root.TemplateArt || noTemplateArt;
   })();
+  const HeroImage = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        return require("./hero-image.js");
+      } catch {
+        return noHeroImage;
+      }
+    }
+    return root.HeroImage || noHeroImage;
+  })();
   const defaultInvitation = {
     templateId: "royal",
+    heroImage: null,
     introEffect: "none",
     particleEffect: "none",
     particleScale: 100,
@@ -248,6 +262,11 @@
     ? { id, type: "photo", src: item.src, alt: String(item.alt || ""), caption: String(item.caption || "") }
     : null;
 
+  const normalizeHeroImage = (value) => {
+    if (!value || !safeImagePattern.test(String(value.src || ""))) return null;
+    return { src: value.src, ...HeroImage.normalizeCrop(value) };
+  };
+
   const normalizeNotice = (item, id) => {
     const heading = String(item.heading || "").trim();
     const body = String(item.body || "").trim();
@@ -339,6 +358,7 @@
 
     return {
       templateId: input.templateId ?? defaultInvitation.templateId,
+      heroImage: normalizeHeroImage(input.heroImage),
       layoutFamily: TemplateCatalog.normalizeFamily(input.layoutFamily, input.templateId ?? defaultInvitation.templateId),
       introEffect: InvitationIntro.normalizeEffect(input.introEffect),
       particleEffect: normalizeParticleEffect(input.particleEffect),
@@ -480,11 +500,16 @@
 
   const renderInvitationBody = (input = {}) => {
     const invitation = normalizeInvitation(input);
-    const art = TemplateArt.getDataUrl(invitation.templateId);
+    const customHero = invitation.heroImage;
+    const art = customHero?.src || TemplateArt.getDataUrl(invitation.templateId);
+    const artAttributes = customHero
+      ? `data-custom-hero-image style="--hero-image-scale:${customHero.scale / 100};--hero-image-x:${customHero.positionX}%;--hero-image-y:${customHero.positionY}%"`
+      : "";
     const slots = {
       articleAttributes: `data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="${invitationStyleFrom(invitation)}"`,
       particles: renderParticles(invitation.particleEffect, invitation.particleScale, invitation.particleAmount),
       art: escapeHtml(art),
+      artAttributes,
       kicker: "Invitation",
       title: escapeHtml(invitation.title),
       subtitle: escapeHtml(invitation.subtitle),

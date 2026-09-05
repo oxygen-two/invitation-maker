@@ -13,7 +13,8 @@
   const slot = (slots, name) => String(slots?.[name] ?? "");
   const art = (slots) => {
     const src = slot(slots, "art");
-    return src ? `<img class="invite-hero-art" src="${src}" alt="" aria-hidden="true">` : "";
+    const attributes = slot(slots, "artAttributes");
+    return src ? `<img class="invite-hero-art" src="${src}" alt="" aria-hidden="true"${attributes ? ` ${attributes}` : ""}>` : "";
   };
 
   const article = (familyId, slots, content) => `
@@ -108,7 +109,7 @@
   const getStyles = () => `
     .invitation-card[data-layout-family]{--family-pad:24px;--family-radius:8px;--family-frame:1px solid var(--line);--family-soft:rgba(255,253,249,.82)}
     .invitation-card[data-layout-family] .invite-hero{position:relative;isolation:isolate;overflow:hidden}
-    .invitation-card[data-layout-family] .invite-hero-art{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+    .invitation-card[data-layout-family] .invite-hero-art{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--hero-image-x,50%) var(--hero-image-y,50%);transform:scale(var(--hero-image-scale,1));transform-origin:var(--hero-image-x,50%) var(--hero-image-y,50%);pointer-events:none}
     .invitation-card[data-layout-family] .invite-hero::after{position:absolute;z-index:0;inset:0;background:linear-gradient(180deg,rgba(45,11,22,.08),rgba(45,11,22,.42));content:""}
     .invitation-card[data-layout-family] .invite-hero-copy{position:relative;z-index:1;min-width:0}
     .invitation-card[data-layout-family] .invite-meta div,.invitation-card[data-layout-family] .invite-notice,.invitation-card[data-layout-family] .invite-profile,.invitation-card[data-layout-family] .invite-link-info,.invitation-card[data-layout-family] .invite-link-action{border-radius:var(--family-radius)}

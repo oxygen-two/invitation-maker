@@ -19,6 +19,11 @@ const slots = {
 const fullSlotMarkers = ["[[PARTICLES]]", "[[TITLE]]", "[[SUBTITLE]]", "[[MESSAGE]]", "[[META]]", "[[ITEMS]]", "[[MAP]]", "[[MAP_LINK]]"];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const count = (html, value) => (html.match(new RegExp(escapeRegExp(value), "g")) || []).length;
+const cssRule = (css, selector) => {
+  const start = css.indexOf(`${selector}{`);
+  assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
+  return css.slice(start, css.indexOf("}", start) + 1);
+};
 
 test("renders every family with the complete safe slot set", () => {
   for (const family of ["romantic-story", "celebration-poster", "kids-storybook", "wedding-editorial", "korean-heritage"]) {
@@ -50,6 +55,27 @@ test("built-in art is rendered only when an art data URL is supplied", () => {
 
   assert.match(withArt, /<img class="invite-hero-art" src="data:image\/webp;base64,AA==" alt="" aria-hidden="true">/);
   assert.doesNotMatch(withoutArt, /invite-hero-art/);
+});
+
+test("custom hero art carries normalized crop variables without changing built-in art markup", () => {
+  const custom = TemplateRenderers.render("romantic-story", {
+    ...slots,
+    artAttributes: 'data-custom-hero-image style="--hero-image-scale:1.5;--hero-image-x:20%;--hero-image-y:80%"'
+  });
+  const builtIn = TemplateRenderers.render("romantic-story", slots);
+
+  assert.match(custom, /<img class="invite-hero-art"[^>]+data-custom-hero-image[^>]+--hero-image-scale:1\.5/);
+  assert.doesNotMatch(builtIn, /data-custom-hero-image|--hero-image-scale/);
+});
+
+test("hero art styles preserve cover cropping and apply the custom focal point", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const rule = cssRule(css, '.invitation-card[data-layout-family].invite-hero-art');
+
+  assert.match(rule, /object-fit:cover/);
+  assert.match(rule, /object-position:var\(--hero-image-x,50%\)var\(--hero-image-y,50%\)/);
+  assert.match(rule, /transform:scale\(var\(--hero-image-scale,1\)\)/);
+  assert.match(rule, /transform-origin:var\(--hero-image-x,50%\)var\(--hero-image-y,50%\)/);
 });
 
 test("ensureStyles inserts one reusable family style element", () => {

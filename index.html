@@ -87,6 +87,33 @@
           </div>
         </details>
 
+        <details class="editor-group" data-editor-group="hero-image" open>
+          <summary><span>첫 화면 배경</span><small>사진 · 위치 · 확대</small></summary>
+          <div class="editor-group-body">
+            <section id="hero-image-editor" class="full hero-image-editor" data-layout-family="romantic-story">
+              <div id="hero-image-frame" class="hero-image-frame" tabindex="0" role="img" aria-label="첫 화면 배경 사진 위치 조정">
+                <img id="hero-image-preview" alt="" draggable="false" hidden>
+                <span id="hero-image-empty" class="hero-image-empty">템플릿 기본 배경</span>
+              </div>
+              <div class="hero-image-toolbar">
+                <button id="hero-image-select-button" class="hero-image-select-button" type="button">배경 사진 추가</button>
+                <div id="hero-image-adjustments" class="hero-image-adjustments" hidden>
+                  <label class="range-field" for="hero-image-scale">
+                    <span class="range-heading"><span>확대</span><output id="hero-image-scale-output" for="hero-image-scale">100%</output></span>
+                    <input id="hero-image-scale" type="range" min="100" max="250" step="5" value="100" aria-label="배경 사진 확대">
+                  </label>
+                  <div class="hero-image-actions">
+                    <button id="hero-image-reset-button" type="button" title="배경 사진 위치 초기화">초기화</button>
+                    <button id="hero-image-remove-button" type="button" title="배경 사진 삭제">삭제</button>
+                  </div>
+                </div>
+              </div>
+              <input id="hero-image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+              <p id="hero-image-status" class="hero-image-status" role="status" aria-live="polite"></p>
+            </section>
+          </div>
+        </details>
+
         <details class="editor-group" data-editor-group="details" open>
           <summary><span>기본 정보</span><small>제목 · 일정 · 메시지</small></summary>
           <div class="editor-group-body">
@@ -166,6 +193,7 @@
   <script src="assets/template-catalog.js"></script>
   <script src="assets/template-art.js"></script>
   <script src="assets/template-renderers.js"></script>
+  <script src="assets/hero-image.js"></script>
   <script src="assets/invitation-core.js"></script>
   <script src="assets/preset-application.js"></script>
   <script src="assets/image-tools.js"></script>
