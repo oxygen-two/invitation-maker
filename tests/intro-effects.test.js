@@ -236,6 +236,13 @@ test("active intros pause particle spans and their pseudo-element animation owne
   assert.match(styles, /\.is-intro-active \.particle-layer,\.is-intro-active \.particle-layer span,\.is-intro-active \.particle-layer span::before\{animation-play-state:paused\}/);
 });
 
+test("standalone active body locks scrolling without overriding preview frames", () => {
+  const styles = InvitationIntro.getStyles();
+
+  assert.match(styles, /body\.is-intro-active\{overflow:hidden\}/);
+  assert.doesNotMatch(styles, /\.preview-frame\.is-intro-active\{overflow:hidden\}/);
+});
+
 test("standalone runtime contains the self-starting playback boundary", () => {
   const runtime = InvitationIntro.getStandaloneRuntime();
 

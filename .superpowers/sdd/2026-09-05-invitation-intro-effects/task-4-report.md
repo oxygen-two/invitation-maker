@@ -112,3 +112,36 @@ git diff --check
 ```
 
 The controller will run and document the full eight-effect browser matrix separately; that external matrix is not a blocker for this malformed-payload fallback fix.
+
+## Follow-up Defect: Standalone Intro Scroll Lock
+
+Standalone playback uses `document.body` as its intro host, so it adds `is-intro-active` to the page body. The shared stylesheet did not previously consume that state to suppress document scrolling while the fixed overlay was active.
+
+### RED Evidence
+
+Before the stylesheet fix:
+
+```sh
+node --test tests/intro-effects.test.js
+# 19 passed, 1 failed
+```
+
+The new `standalone active body locks scrolling without overriding preview frames` style contract failed because `body.is-intro-active{overflow:hidden}` was absent from the generated shared styles.
+
+### GREEN Evidence
+
+The generated styles now include the body-only overflow rule. The contract also rejects a `.preview-frame.is-intro-active` overflow override, preserving the preview frame's existing scoped scrolling behavior. Completion and fail-open paths already remove `is-intro-active`, restoring standalone scrolling automatically.
+
+```sh
+node --test tests/intro-effects.test.js
+# 20 passed, 0 failed
+
+node --check assets/intro-effects.js
+# exit 0
+
+node --test tests/*.test.js
+# 150 passed, 0 failed
+
+git diff --check
+# exit 0
+```

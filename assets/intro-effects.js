@@ -87,6 +87,7 @@
 
   const getStyles = () => `
 .invitation-intro{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;overflow:hidden;padding:24px;background:var(--paper,#fffaf2);color:var(--ink,#2a1720);font-family:var(--font-ko,"Noto Sans KR",serif);isolation:isolate;cursor:pointer}
+body.is-intro-active{overflow:hidden}
 .invitation-intro[data-intro-preview]{position:absolute}
 .intro-copy{position:relative;z-index:3;width:min(100%,420px);text-align:center;overflow-wrap:anywhere;pointer-events:none}
 .intro-copy h1{margin:0;color:var(--deep,#42101f);font-family:var(--font-en,var(--font-ko,serif));font-size:clamp(32px,10vw,58px);font-style:italic;font-weight:500;line-height:1.1;letter-spacing:0}
