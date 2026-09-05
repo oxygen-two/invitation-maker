@@ -275,6 +275,11 @@
       InvitationIntro.play(document.body, payload ? JSON.parse(payload.textContent || "{}") : {});
     } catch {
       InvitationIntro.stop(document.body);
+      const overlays = document.body && document.body.querySelectorAll
+        ? document.body.querySelectorAll("[data-intro-overlay]")
+        : [document.body && document.body.querySelector("[data-intro-overlay]")];
+      for (const overlay of overlays) if (overlay && overlay.remove) overlay.remove();
+      if (document.body && document.body.classList) document.body.classList.remove("is-intro-active");
     }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });

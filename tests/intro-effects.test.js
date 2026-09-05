@@ -123,7 +123,7 @@ const createIntroFixture = ({
   };
 };
 
-const createStandaloneSandbox = ({ bodyQuerySelector = () => null } = {}) => {
+const createStandaloneSandbox = ({ bodyQuerySelector = () => null, invitationData = JSON.stringify({ introEffect: "envelope" }) } = {}) => {
   const classList = createClassList();
   const document = createEventTarget();
   document.body = {
@@ -132,7 +132,7 @@ const createStandaloneSandbox = ({ bodyQuerySelector = () => null } = {}) => {
   };
   document.readyState = "complete";
   document.getElementById = () => ({
-    textContent: JSON.stringify({ introEffect: "envelope" })
+    textContent: invitationData
   });
   return {
     document,
@@ -336,6 +336,21 @@ test("standalone runtime setup errors fail open when no overlay is mounted", () 
   const sandbox = createStandaloneSandbox();
   vm.runInNewContext(InvitationIntro.getStandaloneRuntime().replace(/^<script data-intro-runtime>|<\/script>$/g, ""), sandbox);
 
+  assert.equal(sandbox.document.body.classList.contains("is-intro-active"), false);
+});
+
+test("standalone malformed payload removes the server-rendered overlay", () => {
+  let overlayRemoved = false;
+  const overlay = { remove() { overlayRemoved = true; } };
+  const sandbox = createStandaloneSandbox({
+    bodyQuerySelector: (selector) => selector === "[data-intro-overlay]" ? overlay : null,
+    invitationData: "{malformed"
+  });
+  sandbox.document.body.classList.add("is-intro-active");
+
+  vm.runInNewContext(InvitationIntro.getStandaloneRuntime().replace(/^<script data-intro-runtime>|<\/script>$/g, ""), sandbox);
+
+  assert.equal(overlayRemoved, true);
   assert.equal(sandbox.document.body.classList.contains("is-intro-active"), false);
 });
 

@@ -77,3 +77,38 @@ At 390x844, the preview frame remains bounded and scrollable while the skip cont
 ## Concerns
 
 The local browser pass covers the supplied desktop/mobile visual defects and console health. The controller remains responsible for the requested final full browser matrix across all eight effects, standalone completion paths, reduced motion, and map interactions.
+
+## Follow-up Defect: Malformed Standalone Payload Fails Open
+
+The standalone runtime previously caught malformed `#invitation-data` JSON and called `InvitationIntro.stop(document.body)`. Because parsing fails before a controller is created, that call could not remove the server-rendered overlay. The fixed overlay could therefore continue intercepting input.
+
+### RED Evidence
+
+Before the runtime fix:
+
+```sh
+node --test tests/intro-effects.test.js
+# 18 passed, 1 failed
+```
+
+The new `standalone malformed payload removes the server-rendered overlay` regression failed with `false !== true`: the pre-existing `[data-intro-overlay]` was not removed.
+
+### GREEN Evidence
+
+The standalone catch path now stops any controller, removes every available `[data-intro-overlay]`, and clears `is-intro-active` from `document.body`.
+
+```sh
+node --test tests/intro-effects.test.js
+# 19 passed, 0 failed
+
+node --check assets/intro-effects.js
+# exit 0
+
+node --test tests/*.test.js
+# 149 passed, 0 failed
+
+git diff --check
+# exit 0
+```
+
+The controller will run and document the full eight-effect browser matrix separately; that external matrix is not a blocker for this malformed-payload fallback fix.
