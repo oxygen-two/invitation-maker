@@ -1,5 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const TemplateCatalog = require("../assets/template-catalog.js");
 
 const fixture = {
@@ -36,4 +38,16 @@ test("maps legacy IDs to approved families and unknown values to romantic-story"
   assert.equal(TemplateCatalog.normalizeFamily("", "wedding"), "wedding-editorial");
   assert.equal(TemplateCatalog.normalizeFamily("", "black-tie"), "celebration-poster");
   assert.equal(TemplateCatalog.normalizeFamily("unknown", "unknown"), "romantic-story");
+});
+
+test("production catalog provides nine occasions with two presets each while keeping legacy IDs", () => {
+  const data = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../invitation-data.json"), "utf8"));
+  const catalog = TemplateCatalog.normalizeCatalog(data);
+
+  assert.equal(catalog.occasions.length, 9);
+  assert.equal(catalog.templates.length, 18);
+  for (const occasion of catalog.occasions) {
+    assert.equal(TemplateCatalog.getPresetsForOccasion(catalog, occasion.id).length, 2);
+  }
+  assert.deepEqual(["royal", "wedding", "black-tie", "botanical", "modern"].filter((id) => !TemplateCatalog.getPreset(catalog, id)), []);
 });

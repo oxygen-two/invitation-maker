@@ -259,12 +259,46 @@ textarea {
 }
 
 .template-picker {
+  display: grid;
+  gap: 10px;
   border-bottom: 1px solid var(--line);
 }
 
 .template-picker .picker-label,
 .panel-title .eyebrow {
   color: var(--wine-600);
+}
+
+.occasion-list {
+  display: flex;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.occasion-chip {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.occasion-chip:hover,
+.occasion-chip.is-active {
+  color: var(--cream-50);
+  border-color: var(--wine-700);
+  background: var(--wine-800);
 }
 
 .template-list {
@@ -297,11 +331,70 @@ textarea {
   font-size: 11px;
 }
 
+.template-chip-status {
+  display: inline-flex;
+  margin-top: 7px;
+  padding: 2px 6px;
+  color: var(--wine-700);
+  border: 1px solid rgba(217, 172, 84, .42);
+  border-radius: 6px;
+  background: rgba(246, 221, 166, .32);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .template-chip:hover,
 .template-chip.is-active {
   border-color: rgba(217, 172, 84, .58);
   background: var(--cream-100);
   transform: translateY(-1px);
+}
+
+.template-apply-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.template-apply-row p {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.template-apply-row button {
+  min-height: 40px;
+  padding: 0 12px;
+  color: var(--cream-50);
+  border: 0;
+  border-radius: 8px;
+  background: var(--wine-800);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.template-apply-row button:hover {
+  background: var(--wine-700);
+}
+
+.template-apply-row button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.template-apply-row #undo-template-button {
+  color: var(--wine-800);
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+
+.template-apply-row #undo-template-button:hover {
+  background: var(--cream-100);
 }
 
 .editor-form {
@@ -1492,6 +1585,7 @@ a:focus-visible {
 
   .editor-form,
   .editor-group-body,
+  .template-apply-row,
   .action-row {
     grid-template-columns: 1fr;
   }

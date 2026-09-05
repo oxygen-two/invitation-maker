@@ -18,8 +18,13 @@ const ITEM_FOCUS_SELECTORS = Object.freeze({
 });
 
 const state = {
+  catalog: { occasions: [], templates: [] },
   templates: [],
+  activeOccasion: "date",
+  pendingTemplateId: "royal",
   activeTemplate: "royal",
+  appliedBaseline: {},
+  undoSnapshot: null,
   naverMapClientId: "",
   invitation: {},
   saved: []
@@ -38,7 +43,11 @@ const mapLookupVersions = new Map();
 
 const dom = {
   form: document.querySelector("#invitation-form"),
+  occasions: document.querySelector("#occasion-list"),
   templates: document.querySelector("#template-list"),
+  templateSummary: document.querySelector("#template-summary"),
+  applyTemplate: document.querySelector("#apply-template-button"),
+  undoTemplate: document.querySelector("#undo-template-button"),
   contentEditor: document.querySelector("#content-editor"),
   addCourse: document.querySelector("#add-course-button"),
   addPhoto: document.querySelector("#add-photo-button"),
@@ -824,16 +833,94 @@ const updatePreviewMarkup = (html) => {
 };
 
 const renderTemplates = () => {
-  dom.templates.innerHTML = state.templates.map((template) => {
-    const activeClass = template.id === state.activeTemplate ? " is-active" : "";
-    const isActive = template.id === state.activeTemplate;
+  dom.occasions.innerHTML = state.catalog.occasions.map((occasion) => {
+    const isActive = occasion.id === state.activeOccasion;
     return `
-      <button class="template-chip${activeClass}" type="button" data-template-id="${escapeAttribute(template.id)}" aria-pressed="${isActive}">
-        <strong>${escapeAttribute(template.name)}</strong>
-        <span>${escapeAttribute(template.note)}</span>
+      <button class="occasion-chip${isActive ? " is-active" : ""}" type="button" data-occasion-id="${escapeAttribute(occasion.id)}" aria-pressed="${isActive}">
+        ${escapeAttribute(occasion.name)}
       </button>
     `;
   }).join("");
+
+  const presets = TemplateCatalog.getPresetsForOccasion(state.catalog, state.activeOccasion);
+  dom.templates.innerHTML = presets.map((template) => {
+    const isPending = template.id === state.pendingTemplateId;
+    const isApplied = template.id === state.activeTemplate;
+    return `
+      <button class="template-chip${isPending ? " is-active" : ""}" type="button" data-template-id="${escapeAttribute(template.id)}" aria-pressed="${isPending}">
+        <strong>${escapeAttribute(template.name)}</strong>
+        <span>${escapeAttribute(template.note)}</span>
+        ${isApplied ? '<small class="template-chip-status">적용됨</small>' : ""}
+      </button>
+    `;
+  }).join("");
+
+  const pending = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId) || presets[0] || null;
+  const occasion = state.catalog.occasions.find((entry) => entry.id === state.activeOccasion);
+  dom.templateSummary.textContent = pending
+    ? `${occasion?.name || "템플릿"} · ${pending.name}을 선택했습니다. 적용 버튼을 누르면 현재 초안이 교체됩니다.`
+    : "적용할 템플릿을 선택해 주세요.";
+  dom.applyTemplate.disabled = !pending;
+  dom.undoTemplate.hidden = !state.undoSnapshot;
+};
+
+const setPendingTemplate = (templateId) => {
+  const preset = TemplateCatalog.getPreset(state.catalog, templateId);
+  if (!preset) return false;
+  state.activeOccasion = preset.occasionId;
+  state.pendingTemplateId = preset.id;
+  return true;
+};
+
+const focusPresetCard = (templateId) => {
+  [...dom.templates.querySelectorAll("[data-template-id]")]
+    .find((button) => button.dataset.templateId === templateId)
+    ?.focus();
+};
+
+const applyPendingTemplate = () => {
+  const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
+  if (!preset) return;
+
+  const current = getFormData();
+  if (PresetApplication.isDirty(current, state.appliedBaseline)
+    && !window.confirm("현재 편집 중인 초안이 템플릿 내용으로 교체됩니다. 계속할까요?")) {
+    return;
+  }
+
+  try {
+    const { previous, next } = PresetApplication.prepare({
+      current,
+      preset,
+      naverMapClientId: state.naverMapClientId
+    });
+    state.undoSnapshot = previous;
+    state.appliedBaseline = next;
+    state.invitation = next;
+    state.activeTemplate = next.templateId;
+    state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, next.templateId);
+    state.pendingTemplateId = next.templateId;
+    fillForm(next);
+    renderTemplates();
+    renderPreview();
+  } catch {
+    dom.saveStatus.textContent = "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다.";
+  }
+};
+
+const undoTemplateApplication = () => {
+  if (!state.undoSnapshot) return;
+  const restored = PresetApplication.snapshot(state.undoSnapshot);
+  state.undoSnapshot = null;
+  state.appliedBaseline = restored;
+  state.invitation = restored;
+  state.activeTemplate = restored.templateId;
+  state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, restored.templateId);
+  state.pendingTemplateId = restored.templateId;
+  fillForm(restored);
+  renderTemplates();
+  renderPreview();
+  focusPresetCard(restored.templateId);
 };
 
 const renderPreview = () => {
@@ -1371,7 +1458,8 @@ const loadInitialData = async () => {
   const response = await fetch("invitation-data.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
-  state.templates = Array.isArray(data.templates) ? data.templates : [];
+  state.catalog = TemplateCatalog.normalizeCatalog(data);
+  state.templates = state.catalog.templates;
   state.naverMapClientId = String(data.site?.naverMapClientId || "").trim();
   state.activeTemplate = data.site?.defaultTemplate || state.templates[0]?.id || "royal";
   state.invitation = InvitationCore.normalizeInvitation({
@@ -1379,6 +1467,18 @@ const loadInitialData = async () => {
     naverMapClientId: state.naverMapClientId
   });
   state.activeTemplate = state.invitation.templateId || state.activeTemplate;
+  if (!TemplateCatalog.getPreset(state.catalog, state.activeTemplate)) {
+    state.activeTemplate = state.templates[0]?.id || "royal";
+    state.invitation = InvitationCore.normalizeInvitation({
+      ...state.invitation,
+      templateId: state.activeTemplate,
+      naverMapClientId: state.naverMapClientId
+    });
+  }
+  state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
+  state.pendingTemplateId = state.activeTemplate;
+  state.appliedBaseline = PresetApplication.snapshot(state.invitation);
+  state.undoSnapshot = null;
 };
 
 const init = async () => {
@@ -1593,13 +1693,24 @@ window.addEventListener("pointerup", finishItemDrag);
 window.addEventListener("pointercancel", finishItemDrag);
 document.addEventListener("lostpointercapture", finishItemDrag, true);
 
+dom.occasions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-occasion-id]");
+  if (!button) return;
+  const presets = TemplateCatalog.getPresetsForOccasion(state.catalog, button.dataset.occasionId);
+  if (!presets.length) return;
+  state.activeOccasion = button.dataset.occasionId;
+  state.pendingTemplateId = presets[0].id;
+  renderTemplates();
+});
+
 dom.templates.addEventListener("click", (event) => {
   const button = event.target.closest("[data-template-id]");
   if (!button) return;
-  state.activeTemplate = button.dataset.templateId;
-  renderTemplates();
-  renderPreview();
+  if (setPendingTemplate(button.dataset.templateId)) renderTemplates();
 });
+
+dom.applyTemplate.addEventListener("click", applyPendingTemplate);
+dom.undoTemplate.addEventListener("click", undoTemplateApplication);
 
 dom.preview.addEventListener("click", (event) => {
   const retryButton = event.target.closest("[data-retry-map]");

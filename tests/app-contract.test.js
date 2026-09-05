@@ -6,6 +6,7 @@ const vm = require("node:vm");
 
 const ContentOrder = require("../assets/content-order.js");
 const InvitationCore = require("../assets/invitation-core.js");
+const PresetApplication = require("../assets/preset-application.js");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -96,6 +97,7 @@ const loadEditorHarness = ({
   maxItems = 4,
   maxPhotos = 8,
   compress,
+  confirm = () => true,
   normalizeInvitation = (value) => value,
   put,
   reducedMotion = false,
@@ -121,7 +123,7 @@ const loadEditorHarness = ({
   };
   const window = {
     ...windowEvents,
-    confirm: () => true,
+    confirm,
     matchMedia(query) {
       matchMediaCalls.push(query);
       return {
@@ -348,18 +350,81 @@ const loadEditorHarness = ({
     }
   };
 
+  const parseAttributes = (tag) => {
+    const attributes = {};
+    for (const match of String(tag).matchAll(/\s([a-z][\w:-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gi)) {
+      attributes[match[1]] = match[2] ?? match[3] ?? match[4] ?? "";
+    }
+    return attributes;
+  };
+  const buttonFromMarkup = (tag) => {
+    const attrs = parseAttributes(tag);
+    const dataset = {};
+    for (const [key, value] of Object.entries(attrs)) {
+      if (key.startsWith("data-")) {
+        const camel = key.slice(5).replace(/-([a-z])/g, (_match, char) => char.toUpperCase());
+        dataset[camel] = value;
+      }
+    }
+    return {
+      attrs,
+      classList: makeClassList(attrs.class || ""),
+      dataset,
+      focus() {
+        document.activeElement = this;
+      },
+      getAttribute(name) {
+        return this.attrs[name] ?? null;
+      },
+      closest(selector) {
+        if (selector === "[data-template-id]" && this.dataset.templateId) return this;
+        if (selector === "[data-occasion-id]" && this.dataset.occasionId) return this;
+        return null;
+      },
+      setAttribute(name, valueToSet) {
+        this.attrs[name] = String(valueToSet);
+      }
+    };
+  };
   const genericNode = () => ({
-    addEventListener() {},
+    ...makeEventTarget(),
     append() {},
     click() {},
     dataset: {},
     disabled: false,
     focus() { document.activeElement = this; },
+    hidden: false,
+    html: "",
     querySelector: () => ({ hidden: false, textContent: "" }),
     querySelectorAll: () => [],
     replaceChildren() {},
+    setAttribute(name, valueToSet) {
+      this.attrs = { ...(this.attrs || {}), [name]: String(valueToSet) };
+    },
     textContent: "",
-    value: ""
+    value: "",
+    set innerHTML(markup) {
+      this.html = markup;
+    },
+    get innerHTML() {
+      return this.html;
+    }
+  });
+  const makeListNode = () => ({
+    ...genericNode(),
+    buttons: [],
+    querySelectorAll(selector) {
+      if (selector === "[data-template-id]") return this.buttons.filter((button) => button.dataset.templateId);
+      if (selector === "[data-occasion-id]") return this.buttons.filter((button) => button.dataset.occasionId);
+      return [];
+    },
+    set innerHTML(markup) {
+      this.html = markup;
+      this.buttons = [...String(markup).matchAll(/<button\b[^>]*>/gi)].map(([tag]) => buttonFromMarkup(tag));
+    },
+    get innerHTML() {
+      return this.html;
+    }
   });
   const selectors = new Map();
   const node = (selector) => {
@@ -367,7 +432,37 @@ const loadEditorHarness = ({
     return selectors.get(selector);
   };
   selectors.set("#content-editor", contentEditor);
-  selectors.set("#invitation-form", { ...genericNode(), ...makeEventTarget() });
+  const formElements = {
+    introEffect: { value: "none" },
+    particleEffect: { value: "none" },
+    particleScale: { value: "100" },
+    particleAmount: { value: "100" },
+    englishFont: { value: "cormorant-garamond" },
+    koreanFont: { value: "gowun-batang" },
+    title: { value: "" },
+    subtitle: { value: "" },
+    dateLabel: { value: "" },
+    host: { value: "" },
+    location: { value: "" },
+    mapUrl: { value: "" },
+    mapEnabled: { checked: false },
+    mapLatitude: { value: "" },
+    mapLongitude: { value: "" },
+    mapZoom: { value: "16" },
+    message: { value: "" }
+  };
+  const formNode = {
+    ...genericNode(),
+    elements: formElements,
+    querySelector(selector) {
+      if (selector === "[data-map-settings]") return node("[data-map-settings]");
+      if (selector === "[data-map-message]") return node("[data-map-message]");
+      return genericNode();
+    }
+  };
+  selectors.set("#invitation-form", formNode);
+  selectors.set("#occasion-list", makeListNode());
+  selectors.set("#template-list", makeListNode());
   document.querySelector = node;
 
   let source = read("assets/app.js");
@@ -378,17 +473,24 @@ const loadEditorHarness = ({
     /const validateForExport = \(\) => \{[\s\S]*?\n\};/,
     "const validateForExport = () => true;"
   );
+  source = source.replace(
+    "const fillForm = (invitation) => {",
+    "const fillForm = (invitation) => { globalThis.__fillFormCalls += 1;"
+  );
   source = source.replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__editorTest = {
     beginItemDrag,
     commitItemMove,
+    fillForm,
     getDragState: () => dragState,
+    getFillFormCalls: () => globalThis.__fillFormCalls,
     getItemsData,
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handlePhotoSelection,
     moveItemDrag,
     loadInitialData,
     renderContentEditor,
+    renderTemplates,
     saveCurrent,
     setMobileView,
     state
@@ -398,7 +500,11 @@ const loadEditorHarness = ({
   const context = {
     Blob,
     ContentOrder,
-    FormData: class FormData { get() { return ""; } has() { return false; } },
+    FormData: class FormData {
+      constructor(form) { this.form = form; }
+      get(name) { return this.form.elements[name]?.value || ""; }
+      has(name) { return Boolean(this.form.elements[name]?.checked); }
+    },
     ImageTools: {
       ImageError: class ImageError extends Error {},
       compress: compress || (async () => ({ src: "data:image/png;base64,QQ==" }))
@@ -411,6 +517,12 @@ const loadEditorHarness = ({
       normalizeInvitation,
       renderInvitationBody: () => ""
     },
+    InvitationIntro: {
+      normalizeEffect: (value) => value || "none",
+      stop() {}
+    },
+    PresetApplication,
+    TemplateCatalog,
     InvitationStorage: {
       async list() { return []; },
       async put(record) { if (put) await put(record); },
@@ -419,6 +531,7 @@ const loadEditorHarness = ({
     URL,
     fetch: async () => ({ ok: true, json: async () => JSON.parse(read("invitation-data.json")) }),
     __previewRenders: 0,
+    __fillFormCalls: 0,
     clearTimeout,
     console,
     crypto: { randomUUID: () => `uuid-${++uuid}` },
@@ -1313,19 +1426,96 @@ test("editor exposes mobile view tabs and selected template state", () => {
   assert.match(app, /aria-pressed/);
 });
 
-test("current picker boot path keeps the five legacy templates intact", async () => {
+test("current picker boot path exposes nine occasions with two presets and keeps legacy IDs", async () => {
   const harness = loadEditorHarness();
 
   await harness.api.loadInitialData();
 
-  assert.deepEqual(harness.api.state.templates.map(({ id }) => id), [
-    "royal",
-    "wedding",
-    "black-tie",
-    "botanical",
-    "modern"
-  ]);
-  assert.equal(harness.api.state.templates.length, 5);
+  assert.equal(harness.api.state.catalog.occasions.length, 9);
+  assert.equal(harness.api.state.catalog.templates.length, 18);
+  for (const occasion of harness.api.state.catalog.occasions) {
+    assert.equal(TemplateCatalog.getPresetsForOccasion(harness.api.state.catalog, occasion.id).length, 2);
+  }
+  assert.deepEqual(["royal", "wedding", "black-tie", "botanical", "modern"].filter((id) => !TemplateCatalog.getPreset(harness.api.state.catalog, id)), []);
+});
+
+test("occasion and preset browsing update pending selection without filling the draft", async () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+
+  await harness.api.loadInitialData();
+  harness.api.renderTemplates();
+  const fillCalls = harness.api.getFillFormCalls();
+
+  harness.node("#occasion-list").dispatch("click", {
+    target: harness.node("#occasion-list").buttons.find((button) => button.dataset.occasionId === "wedding")
+  });
+  assert.equal(harness.api.state.activeOccasion, "wedding");
+  assert.equal(harness.api.state.pendingTemplateId, "wedding");
+  assert.equal(harness.api.getFillFormCalls(), fillCalls);
+
+  harness.node("#template-list").dispatch("click", {
+    target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId === "modern-vow")
+  });
+  assert.equal(harness.api.state.pendingTemplateId, "modern-vow");
+  assert.equal(harness.api.state.activeTemplate, "royal");
+  assert.equal(harness.api.getFillFormCalls(), fillCalls);
+});
+
+test("cancelled template confirmation leaves draft markup and state unchanged", async () => {
+  let confirmations = 0;
+  const harness = loadEditorHarness({
+    confirm: () => {
+      confirmations += 1;
+      return false;
+    },
+    normalizeInvitation: InvitationCore.normalizeInvitation
+  });
+
+  await harness.api.loadInitialData();
+  harness.api.fillForm(harness.api.state.invitation);
+  harness.api.renderTemplates();
+  harness.node("#invitation-form").elements.title.value = "수정 중인 초안";
+  harness.node("#occasion-list").dispatch("click", {
+    target: harness.node("#occasion-list").buttons.find((button) => button.dataset.occasionId === "wedding")
+  });
+  const previousMarkup = harness.contentEditor.innerHTML;
+  const previousState = JSON.stringify(harness.api.state);
+  harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
+
+  assert.equal(confirmations, 1);
+  assert.equal(harness.contentEditor.innerHTML, previousMarkup);
+  assert.equal(JSON.stringify(harness.api.state), previousState);
+});
+
+test("successful template apply fills once and undo restores the previous normalized draft", async () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+
+  await harness.api.loadInitialData();
+  harness.api.fillForm(harness.api.state.invitation);
+  harness.api.renderTemplates();
+  harness.node("#invitation-form").elements.title.value = "직접 수정한 제목";
+  harness.api.renderContentEditor([course("draft-course", "기존 장소")]);
+  const callsBeforeApply = harness.api.getFillFormCalls();
+
+  harness.node("#occasion-list").dispatch("click", {
+    target: harness.node("#occasion-list").buttons.find((button) => button.dataset.occasionId === "wedding")
+  });
+  harness.node("#template-list").dispatch("click", {
+    target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId === "modern-vow")
+  });
+  harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
+
+  assert.equal(harness.api.getFillFormCalls(), callsBeforeApply + 1);
+  assert.equal(harness.api.state.activeTemplate, "modern-vow");
+  assert.equal(harness.node("#invitation-form").elements.title.value, "Together, We Begin");
+  assert.equal(harness.node("#undo-template-button").hidden, false);
+
+  harness.node("#undo-template-button").dispatch("click", { target: harness.node("#undo-template-button") });
+
+  assert.equal(harness.node("#invitation-form").elements.title.value, "직접 수정한 제목");
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.api.getItemsData().map((item) => [item.id, item.type, item.place]))), [["draft-course", "course", "기존 장소"]]);
+  assert.equal(harness.api.state.undoSnapshot, null);
+  assert.equal(harness.node("#undo-template-button").hidden, true);
 });
 
 test("mobile view switching restores the previous scroll position for each workspace", () => {

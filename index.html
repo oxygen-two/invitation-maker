@@ -27,8 +27,15 @@
       </header>
 
       <section class="template-picker" aria-label="초대장 템플릿 선택">
+        <span class="picker-label">Occasion</span>
+        <div id="occasion-list" class="occasion-list" aria-label="행사 유형"></div>
         <span class="picker-label">Template</span>
         <div id="template-list" class="template-list"></div>
+        <div class="template-apply-row">
+          <p id="template-summary" aria-live="polite"></p>
+          <button id="apply-template-button" type="button">이 템플릿 적용</button>
+          <button id="undo-template-button" type="button" hidden>되돌리기</button>
+        </div>
       </section>
 
       <form id="invitation-form" class="editor-form">
@@ -159,6 +166,7 @@
   <script src="assets/template-catalog.js"></script>
   <script src="assets/template-renderers.js"></script>
   <script src="assets/invitation-core.js"></script>
+  <script src="assets/preset-application.js"></script>
   <script src="assets/image-tools.js"></script>
   <script src="assets/content-order.js"></script>
   <script src="assets/invitation-storage.js"></script>
