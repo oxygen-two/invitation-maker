@@ -1384,6 +1384,7 @@ const loadInitialData = async () => {
 const init = async () => {
   try {
     InvitationIntro.ensureStyles(document);
+    TemplateRenderers.ensureStyles(document);
     await loadInitialData();
     renderTemplates();
     fillForm(state.invitation);

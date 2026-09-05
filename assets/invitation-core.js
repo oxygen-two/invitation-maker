@@ -8,6 +8,31 @@
   const noTemplateCatalog = Object.freeze({
     normalizeFamily: () => "romantic-story"
   });
+  const noTemplateRenderers = Object.freeze({
+    ensureStyles: () => null,
+    getStyles: () => "",
+    render: (_familyId, slots = {}) => `
+      <article class="invitation-card" ${slots.articleAttributes || ""} data-layout-family="romantic-story">
+        ${slots.particles || ""}
+        <header class="invite-hero">
+          <p class="invite-kicker">${slots.kicker || ""}</p>
+          <h1>${slots.title || ""}</h1>
+          <p class="invite-subtitle">${slots.subtitle || ""}</p>
+        </header>
+        <section class="invite-section invite-message">
+          <p>${slots.message || ""}</p>
+        </section>
+        <section class="invite-section invite-meta">
+          ${slots.meta || ""}
+        </section>
+        <section class="invite-section invite-timeline">
+          ${slots.items || ""}
+        </section>
+        ${slots.map || ""}
+        ${slots.mapLink || ""}
+      </article>
+    `
+  });
   const InvitationIntro = (() => {
     if (typeof module !== "undefined" && module.exports) {
       try {
@@ -27,6 +52,16 @@
       }
     }
     return root.TemplateCatalog || noTemplateCatalog;
+  })();
+  const TemplateRenderers = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        return require("./template-renderers.js");
+      } catch {
+        return noTemplateRenderers;
+      }
+    }
+    return root.TemplateRenderers || noTemplateRenderers;
   })();
   const defaultInvitation = {
     templateId: "royal",
@@ -432,20 +467,14 @@
 
   const renderInvitationBody = (input = {}) => {
     const invitation = normalizeInvitation(input);
-    const items = renderInvitationItems(invitation);
-
-    return `
-      <article class="invitation-card" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="${invitationStyleFrom(invitation)}">
-        ${renderParticles(invitation.particleEffect, invitation.particleScale, invitation.particleAmount)}
-        <header class="invite-hero">
-          <p class="invite-kicker">Invitation</p>
-          <h1>${escapeHtml(invitation.title)}</h1>
-          <p class="invite-subtitle">${escapeHtml(invitation.subtitle)}</p>
-        </header>
-        <section class="invite-section invite-message">
-          <p>${escapeHtml(invitation.message)}</p>
-        </section>
-        <section class="invite-section invite-meta">
+    const slots = {
+      articleAttributes: `data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="${invitationStyleFrom(invitation)}"`,
+      particles: renderParticles(invitation.particleEffect, invitation.particleScale, invitation.particleAmount),
+      kicker: "Invitation",
+      title: escapeHtml(invitation.title),
+      subtitle: escapeHtml(invitation.subtitle),
+      message: escapeHtml(invitation.message),
+      meta: `
           <div>
             <span>Date</span>
             <strong>${escapeHtml(invitation.dateLabel)}</strong>
@@ -458,14 +487,13 @@
             <span>Host</span>
             <strong>${escapeHtml(invitation.host)}</strong>
           </div>
-        </section>
-        <section class="invite-section invite-timeline">
-          ${items}
-        </section>
-        ${renderDynamicMap(invitation)}
-        ${renderMapLink(getMapFallbackUrl(invitation, invitation.location), "invite-map", "대표 지도 열기")}
-      </article>
-    `;
+      `,
+      items: renderInvitationItems(invitation),
+      map: renderDynamicMap(invitation),
+      mapLink: renderMapLink(getMapFallbackUrl(invitation, invitation.location), "invite-map", "대표 지도 열기")
+    };
+
+    return TemplateRenderers.render(invitation.layoutFamily, slots);
   };
 
   const standaloneCss = `
@@ -561,7 +589,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="${googleFontsUrl.replace(/&/g, "&amp;")}" rel="stylesheet">
-  <style>${standaloneCss}${introStyles}</style>
+  <style>${standaloneCss}${TemplateRenderers.getStyles()}${introStyles}</style>
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" style="${invitationStyleFrom(invitation)}">
 ${introMarkup}

@@ -5,6 +5,8 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, getInvitationStyle, normalizeInvitation } = require("../assets/invitation-core.js");
 const InvitationIntro = require("../assets/intro-effects.js");
+const InvitationCore = require("../assets/invitation-core.js");
+const TemplateCatalog = require("../assets/template-catalog.js");
 
 const root = path.resolve(__dirname, "..");
 const SAFE_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
@@ -122,6 +124,18 @@ test("buildStandaloneHtml embeds invitation data without external JSON dependenc
   assert.match(html, /서울숲역/);
   assert.match(html, /https:\/\/map\.naver\.com\/example/);
   assert.doesNotMatch(html, /courses\.json/);
+});
+
+test("preview body and standalone HTML resolve the same layout family", () => {
+  for (const layoutFamily of TemplateCatalog.FAMILY_IDS) {
+    const input = {
+      layoutFamily,
+      title: layoutFamily,
+      items: [{ id: "notice", type: "notice", heading: "안내", body: "내용" }]
+    };
+    assert.match(InvitationCore.renderInvitationBody(input), new RegExp(`data-layout-family="${layoutFamily}"`));
+    assert.match(InvitationCore.buildStandaloneHtml(input), new RegExp(`data-layout-family="${layoutFamily}"`));
+  }
 });
 
 test("normalizeInvitation parses editable stop lines", () => {

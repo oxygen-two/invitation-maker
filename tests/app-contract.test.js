@@ -1454,22 +1454,28 @@ test("editor and viewer load intro effects before invitation core", () => {
   }
 });
 
-test("maker and viewer load TemplateCatalog before InvitationCore for browser family normalization", () => {
+test("maker and viewer load TemplateCatalog and TemplateRenderers before InvitationCore for browser family rendering", () => {
   for (const page of ["index.html", "viewer.html"]) {
     const html = read(page);
     const catalogIndex = html.indexOf('src="assets/template-catalog.js"');
+    const renderersIndex = html.indexOf('src="assets/template-renderers.js"');
     const coreIndex = html.indexOf('src="assets/invitation-core.js"');
 
     assert.ok(catalogIndex >= 0, `${page} loads TemplateCatalog`);
+    assert.ok(renderersIndex >= 0, `${page} loads TemplateRenderers`);
     assert.ok(catalogIndex < coreIndex, `${page} loads TemplateCatalog before InvitationCore`);
+    assert.ok(catalogIndex < renderersIndex, `${page} loads TemplateCatalog before TemplateRenderers`);
+    assert.ok(renderersIndex < coreIndex, `${page} loads TemplateRenderers before InvitationCore`);
   }
 
   const browser = { URL };
   browser.globalThis = browser;
   vm.runInNewContext(read("assets/template-catalog.js"), browser, { filename: "assets/template-catalog.js" });
+  vm.runInNewContext(read("assets/template-renderers.js"), browser, { filename: "assets/template-renderers.js" });
   vm.runInNewContext(read("assets/invitation-core.js"), browser, { filename: "assets/invitation-core.js" });
 
   assert.equal(browser.InvitationCore.normalizeInvitation({ templateId: "wedding" }).layoutFamily, "wedding-editorial");
+  assert.match(browser.InvitationCore.renderInvitationBody({ layoutFamily: "wedding-editorial" }), /data-layout-family="wedding-editorial"/);
 });
 
 test("mixed editor cards preserve identity and expose type-specific fields", () => {
