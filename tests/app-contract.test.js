@@ -1204,6 +1204,13 @@ test("editor exposes mobile view tabs and selected template state", () => {
   assert.match(app, /aria-pressed/);
 });
 
+test("mobile preview frame remains viewport-bounded and scrollable", () => {
+  const css = read("assets/style.css");
+
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*height: calc\(100dvh - 158px\);\s*max-height: calc\(100dvh - 158px\);\s*overflow: auto;/);
+  assert.doesNotMatch(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*max-height: none;\s*overflow: visible;/);
+});
+
 test("course map settings span the full card width", () => {
   const css = read("assets/style.css");
 

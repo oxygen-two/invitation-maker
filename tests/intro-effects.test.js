@@ -35,7 +35,24 @@ const createEventTarget = () => {
   };
 };
 
-const createIntroFixture = ({ mountOverlay = true, reducedMotion = false } = {}) => {
+const createStyle = () => {
+  const properties = new Map();
+  return {
+    getPropertyValue(name) {
+      return properties.get(name) || "";
+    },
+    setProperty(name, value) {
+      properties.set(name, String(value));
+    }
+  };
+};
+
+const createIntroFixture = ({
+  cardRect = null,
+  hostRect = { height: 800, left: 0, top: 0, width: 600 },
+  mountOverlay = true,
+  reducedMotion = false
+} = {}) => {
   const document = createEventTarget();
   let removedOverlays = 0;
   let clearedTimers = 0;
@@ -43,8 +60,10 @@ const createIntroFixture = ({ mountOverlay = true, reducedMotion = false } = {})
   let skip = null;
   let timerCallback = null;
   let timerId = 0;
+  const card = cardRect ? { getBoundingClientRect: () => cardRect } : null;
   const host = {
     classList: createClassList(),
+    getBoundingClientRect: () => hostRect,
     ownerDocument: document,
     insertAdjacentHTML(position, html) {
       assert.equal(position, "afterbegin");
@@ -52,6 +71,7 @@ const createIntroFixture = ({ mountOverlay = true, reducedMotion = false } = {})
       overlay = createEventTarget();
       overlay.classList = createClassList();
       overlay.html = html;
+      overlay.style = createStyle();
       overlay.remove = () => {
         if (overlay) {
           removedOverlays += 1;
@@ -63,7 +83,9 @@ const createIntroFixture = ({ mountOverlay = true, reducedMotion = false } = {})
       overlay.querySelector = (selector) => selector === "[data-intro-skip]" ? skip : null;
     },
     querySelector(selector) {
-      return selector === "[data-intro-overlay]" ? overlay : null;
+      if (selector === "[data-intro-overlay]") return overlay;
+      if (selector === ".invitation-card") return card;
+      return null;
     }
   };
 
@@ -208,6 +230,12 @@ test("ensureStyles inserts one preview style element", () => {
   assert.match(first.textContent, /\.invitation-intro/);
 });
 
+test("active intros pause particle spans and their pseudo-element animation owners", () => {
+  const styles = InvitationIntro.getStyles();
+
+  assert.match(styles, /\.is-intro-active \.particle-layer,\.is-intro-active \.particle-layer span,\.is-intro-active \.particle-layer span::before\{animation-play-state:paused\}/);
+});
+
 test("standalone runtime contains the self-starting playback boundary", () => {
   const runtime = InvitationIntro.getStandaloneRuntime();
 
@@ -224,6 +252,21 @@ test("play completes once and restores the host after repeated finish signals", 
   assert.equal(fixture.host.classList.contains("is-intro-active"), false);
   assert.equal(fixture.removedOverlays, 1);
   assert.equal(fixture.clearedTimers, 1);
+});
+
+test("card shrink measures the preview card before animation begins", () => {
+  const fixture = createIntroFixture({
+    cardRect: { height: 1000, left: 90, top: 130, width: 300 },
+    hostRect: { height: 800, left: 30, top: 50, width: 600 }
+  });
+
+  InvitationIntro.play(fixture.host, { introEffect: "card-shrink", title: "Us" }, fixture.environment);
+  const overlay = fixture.host.querySelector("[data-intro-overlay]");
+
+  assert.equal(overlay.style.getPropertyValue("--intro-target-scale"), "0.5");
+  assert.equal(overlay.style.getPropertyValue("--intro-target-x"), "60px");
+  assert.equal(overlay.style.getPropertyValue("--intro-target-y"), "80px");
+  assert.equal(overlay.style.getPropertyValue("--intro-target-origin"), "top left");
 });
 
 test("skip click completes playback and clears the active state", () => {
@@ -294,6 +337,45 @@ test("standalone runtime setup errors fail open when no overlay is mounted", () 
   vm.runInNewContext(InvitationIntro.getStandaloneRuntime().replace(/^<script data-intro-runtime>|<\/script>$/g, ""), sandbox);
 
   assert.equal(sandbox.document.body.classList.contains("is-intro-active"), false);
+});
+
+test("standalone card shrink measures the invitation card before playback", () => {
+  const document = createEventTarget();
+  const overlay = {
+    ...createEventTarget(),
+    classList: createClassList(),
+    getBoundingClientRect: () => ({ height: 900, left: 0, top: 0, width: 900 }),
+    remove() {},
+    style: createStyle()
+  };
+  const card = {
+    getBoundingClientRect: () => ({ height: 1200, left: 180, top: 120, width: 450 })
+  };
+  document.body = {
+    classList: createClassList(),
+    getBoundingClientRect: () => ({ height: 900, left: 0, top: 0, width: 900 }),
+    querySelector(selector) {
+      if (selector === "[data-intro-overlay]") return overlay;
+      if (selector === ".invitation-card") return card;
+      return null;
+    }
+  };
+  document.readyState = "complete";
+  document.getElementById = () => ({ textContent: JSON.stringify({ introEffect: "card-shrink" }) });
+
+  vm.runInNewContext(InvitationIntro.getStandaloneRuntime().replace(/^<script data-intro-runtime>|<\/script>$/g, ""), {
+    document,
+    window: {
+      clearTimeout() {},
+      matchMedia: () => ({ matches: false }),
+      setTimeout: () => 1
+    }
+  });
+
+  assert.equal(overlay.style.getPropertyValue("--intro-target-scale"), "0.5");
+  assert.equal(overlay.style.getPropertyValue("--intro-target-x"), "180px");
+  assert.equal(overlay.style.getPropertyValue("--intro-target-y"), "120px");
+  assert.equal(overlay.style.getPropertyValue("--intro-target-origin"), "top left");
 });
 
 test("reduced motion skips before an active overlay remains mounted", () => {

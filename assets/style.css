@@ -1307,8 +1307,10 @@ a:focus-visible {
   }
 
   .preview-frame {
-    max-height: none;
-    overflow: visible;
+    height: calc(100dvh - 158px);
+    max-height: calc(100dvh - 158px);
+    overflow: auto;
+    overscroll-behavior: contain;
   }
 }
 
@@ -1343,10 +1345,6 @@ a:focus-visible {
 
   .map-settings label:last-child {
     grid-column: auto;
-  }
-
-  .preview-frame {
-    max-height: none;
   }
 
   .particle-layer span:nth-child(n+17) {
