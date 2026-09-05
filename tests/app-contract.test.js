@@ -346,9 +346,11 @@ const loadEditorHarness = ({
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handlePhotoSelection,
     moveItemDrag,
+    loadInitialData,
     renderContentEditor,
     saveCurrent,
-    setMobileView
+    setMobileView,
+    state
   };`;
 
   let uuid = 0;
@@ -374,6 +376,7 @@ const loadEditorHarness = ({
       async remove() {}
     },
     URL,
+    fetch: async () => ({ ok: true, json: async () => JSON.parse(read("invitation-data.json")) }),
     __previewRenders: 0,
     clearTimeout,
     console,
@@ -1267,6 +1270,21 @@ test("editor exposes mobile view tabs and selected template state", () => {
   assert.match(index, /data-mobile-view="library"/);
   assert.match(app, /querySelectorAll\("\.mobile-view-tabs button\[data-mobile-view\]"\)/);
   assert.match(app, /aria-pressed/);
+});
+
+test("current picker boot path keeps the five legacy templates intact", async () => {
+  const harness = loadEditorHarness();
+
+  await harness.api.loadInitialData();
+
+  assert.deepEqual(harness.api.state.templates.map(({ id }) => id), [
+    "royal",
+    "wedding",
+    "black-tie",
+    "botanical",
+    "modern"
+  ]);
+  assert.equal(harness.api.state.templates.length, 5);
 });
 
 test("mobile view switching restores the previous scroll position for each workspace", () => {
