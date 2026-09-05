@@ -18,6 +18,11 @@ const invitationDataFrom = (html) => {
   assert.ok(match);
   return JSON.parse(match[1]);
 };
+const invitationCardOpeningTagFrom = (html) => {
+  const match = html.match(/<article class="invitation-card"[^>]*>/);
+  assert.ok(match);
+  return match[0];
+};
 const cssRule = (css, selector) => {
   const start = css.indexOf(`${selector}{`);
   assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
@@ -133,8 +138,8 @@ test("preview body and standalone HTML resolve the same layout family", () => {
       title: layoutFamily,
       items: [{ id: "notice", type: "notice", heading: "안내", body: "내용" }]
     };
-    assert.match(InvitationCore.renderInvitationBody(input), new RegExp(`data-layout-family="${layoutFamily}"`));
-    assert.match(InvitationCore.buildStandaloneHtml(input), new RegExp(`data-layout-family="${layoutFamily}"`));
+    assert.match(invitationCardOpeningTagFrom(InvitationCore.renderInvitationBody(input)), new RegExp(`data-layout-family="${layoutFamily}"`));
+    assert.match(invitationCardOpeningTagFrom(InvitationCore.buildStandaloneHtml(input)), new RegExp(`data-layout-family="${layoutFamily}"`));
   }
 });
 

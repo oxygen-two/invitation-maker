@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const TemplateRenderers = require("../assets/template-renderers.js");
+const InvitationCore = require("../assets/invitation-core.js");
 
 const slots = {
   articleAttributes: 'data-template="sample"',
@@ -40,4 +41,20 @@ test("ensureStyles inserts one reusable family style element", () => {
   assert.equal(appended.length, 1);
   assert.equal(appended[0].id, "invitation-template-family-styles");
   assert.match(appended[0].textContent, /data-layout-family="korean-heritage"/);
+});
+
+test("renderer styles only use standalone-defined variables or explicit fallbacks", () => {
+  const standaloneCss = InvitationCore.buildStandaloneHtml().match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+  const rendererCss = TemplateRenderers.getStyles();
+  const definedTokens = new Set([...standaloneCss.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
+  const unresolved = [];
+
+  for (const match of rendererCss.matchAll(/var\(\s*(--[\w-]+)([^)]*)\)/g)) {
+    const [, token, tail] = match;
+    if (!definedTokens.has(token) && !tail.trim().startsWith(",")) {
+      unresolved.push(token);
+    }
+  }
+
+  assert.deepEqual([...new Set(unresolved)].sort(), []);
 });
