@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, normalizeInvitation } = require("../assets/invitation-core.js");
 const InvitationIntro = require("../assets/intro-effects.js");
 
@@ -29,10 +30,37 @@ const particleCapBreakpoint = (css) => {
   assert.notEqual(mediaMatches.length, 0);
   return mediaMatches.at(-1)[1];
 };
+const loadCoreWithoutIntro = () => {
+  const module = { exports: {} };
+  const missingIntro = (request) => {
+    const error = new Error(`Cannot find module '${request}'`);
+    error.code = "MODULE_NOT_FOUND";
+    throw error;
+  };
+
+  vm.runInNewContext(read("assets/invitation-core.js"), {
+    globalThis: {},
+    module,
+    require: missingIntro
+  }, { filename: "assets/invitation-core.js" });
+
+  return module.exports;
+};
 
 test("normalizeInvitation allowlists intro effects", () => {
   assert.equal(normalizeInvitation({ introEffect: "curtain" }).introEffect, "curtain");
   assert.equal(normalizeInvitation({ introEffect: "script" }).introEffect, "none");
+});
+
+test("InvitationCore fails open when the intro dependency is unavailable", () => {
+  const unavailableCore = loadCoreWithoutIntro();
+  const invitation = unavailableCore.normalizeInvitation({ introEffect: "curtain", title: "Fallback invite" });
+  const html = unavailableCore.buildStandaloneHtml({ introEffect: "curtain", title: "Fallback invite" });
+
+  assert.equal(invitation.introEffect, "none");
+  assert.equal(invitationDataFrom(html).introEffect, "none");
+  assert.match(html, /Fallback invite/);
+  assert.doesNotMatch(html, /data-intro-overlay|data-intro-runtime|invitation-intro/);
 });
 
 test("active standalone intro is self-contained and canonical", () => {

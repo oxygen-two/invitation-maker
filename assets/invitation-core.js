@@ -1,7 +1,20 @@
 (function (root) {
-  const InvitationIntro = typeof module !== "undefined" && module.exports
-    ? require("./intro-effects.js")
-    : root.InvitationIntro;
+  const noIntro = Object.freeze({
+    normalizeEffect: () => "none",
+    renderMarkup: () => "",
+    getStyles: () => "",
+    getStandaloneRuntime: () => ""
+  });
+  const InvitationIntro = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        return require("./intro-effects.js");
+      } catch {
+        return noIntro;
+      }
+    }
+    return root.InvitationIntro || noIntro;
+  })();
   const defaultInvitation = {
     templateId: "royal",
     introEffect: "none",
