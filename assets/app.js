@@ -559,7 +559,7 @@ const renderPreview = () => {
 
 const playPreviewIntro = () => {
   const invitation = getFormData();
-  InvitationIntro.play(dom.preview, invitation);
+  InvitationIntro.play(dom.preview, invitation, { preview: true });
 };
 
 const renderSaved = () => {

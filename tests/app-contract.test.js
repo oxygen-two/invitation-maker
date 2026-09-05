@@ -388,6 +388,189 @@ const loadEditorHarness = ({
   };
 };
 
+const loadIntroLifecycleHarness = () => {
+  const documentEvents = makeEventTarget();
+  const windowEvents = makeEventTarget();
+  const genericNode = () => ({
+    ...makeEventTarget(),
+    classList: makeClassList(),
+    dataset: {},
+    disabled: false,
+    hidden: false,
+    textContent: "",
+    value: "",
+    append() {},
+    click() {},
+    focus() {},
+    querySelector: () => genericNode(),
+    querySelectorAll: () => [],
+    replaceChildren() {}
+  });
+  const controls = new Map();
+  const control = (name, value = "") => ({
+    ...makeEventTarget(),
+    checked: false,
+    disabled: false,
+    name,
+    validity: { valid: true },
+    value,
+    matches: () => false
+  });
+  const elements = {
+    introEffect: control("introEffect", "none"),
+    particleEffect: control("particleEffect", "none"),
+    particleScale: control("particleScale", "100"),
+    particleAmount: control("particleAmount", "100"),
+    englishFont: control("englishFont", "cormorant-garamond"),
+    koreanFont: control("koreanFont", "gowun-batang"),
+    title: control("title", "Preview test"),
+    subtitle: control("subtitle"),
+    dateLabel: control("dateLabel"),
+    host: control("host"),
+    location: control("location"),
+    mapUrl: control("mapUrl"),
+    mapEnabled: control("mapEnabled"),
+    mapLatitude: control("mapLatitude"),
+    mapLongitude: control("mapLongitude"),
+    mapZoom: control("mapZoom", "16"),
+    message: control("message")
+  };
+  const form = {
+    ...makeEventTarget(),
+    elements,
+    querySelector(selector) {
+      if (selector === "[data-map-settings]") return controls.get("map-settings");
+      if (selector === "[data-map-message]") return controls.get("map-message");
+      return genericNode();
+    }
+  };
+  controls.set("map-settings", genericNode());
+  controls.set("map-message", genericNode());
+
+  const preview = {
+    ...makeEventTarget(),
+    children: [],
+    classList: makeClassList(),
+    dataset: {},
+    append(child) {
+      child.parentNode = this;
+      this.children.push(child);
+    },
+    querySelector(selector) {
+      if (selector === "[data-intro-overlay]") {
+        return this.children.find((child) => child.dataset?.introOverlay !== undefined) || null;
+      }
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+    replaceChildren(...children) {
+      this.children.forEach((child) => { child.parentNode = null; });
+      this.children = children;
+      children.forEach((child) => { child.parentNode = this; });
+    }
+  };
+  const replay = control("", "");
+  const contentEditor = {
+    ...makeEventTarget(),
+    querySelector: () => null,
+    querySelectorAll: () => []
+  };
+  const document = {
+    ...documentEvents,
+    body: { dataset: {} },
+    defaultView: null,
+    head: { append() {} },
+    createElement() {
+      return {
+        childNodes: [],
+        querySelectorAll: () => [],
+        set innerHTML(markup) {
+          this.childNodes = [{ markup, parentNode: null }];
+        }
+      };
+    },
+    elementFromPoint: () => null,
+    querySelector(selector) {
+      if (selector === "#invitation-form") return form;
+      if (selector === "#preview") return preview;
+      if (selector === "#replay-intro-button") return replay;
+      if (selector === '[name="introEffect"]') return elements.introEffect;
+      if (selector === "#content-editor") return contentEditor;
+      if (!controls.has(selector)) controls.set(selector, genericNode());
+      return controls.get(selector);
+    },
+    querySelectorAll: () => []
+  };
+  const calls = [];
+  const stops = [];
+  const createOverlay = () => ({
+    dataset: { introOverlay: "" },
+    parentNode: null,
+    remove() {
+      if (!this.parentNode) return;
+      const index = this.parentNode.children.indexOf(this);
+      if (index >= 0) this.parentNode.children.splice(index, 1);
+      this.parentNode = null;
+    }
+  });
+  const InvitationIntro = {
+    ensureStyles() {},
+    normalizeEffect(value) {
+      return ["envelope", "card-shrink", "dawn", "fireworks", "curtain", "petals", "spotlight", "photo-focus"].includes(value)
+        ? value
+        : "none";
+    },
+    play(host, invitation, options) {
+      host.querySelector("[data-intro-overlay]")?.remove();
+      const overlay = createOverlay();
+      host.append(overlay);
+      calls.push({ host, invitation, options, overlay });
+      return { finish: () => overlay.remove() };
+    },
+    stop(host) {
+      stops.push(host);
+      host.querySelector("[data-intro-overlay]")?.remove();
+    }
+  };
+  const window = {
+    ...windowEvents,
+    confirm: () => true,
+    matchMedia: () => ({ matches: false }),
+    open() {},
+    scrollTo() {}
+  };
+  document.defaultView = window;
+
+  let source = read("assets/app.js").replace(/\ninit\(\);\s*$/, "");
+  source += "\n;globalThis.__introLifecycleTest = { renderPreview };";
+  const context = {
+    Blob,
+    ContentOrder,
+    FormData: class FormData {
+      constructor(formNode) { this.elements = formNode.elements; }
+      get(name) { return this.elements[name]?.value || ""; }
+      has(name) { return Boolean(this.elements[name]?.checked); }
+    },
+    ImageTools: { ImageError: class ImageError extends Error {}, compress: async () => ({}) },
+    InvitationCore,
+    InvitationIntro,
+    InvitationStorage: { async list() { return []; }, async open() { return { close() {} }; }, async put() {}, async remove() {} },
+    URL,
+    clearTimeout() {},
+    console,
+    crypto: { randomUUID: () => "intro-test" },
+    document,
+    localStorage: { getItem: () => null, setItem() {} },
+    setTimeout: () => 1,
+    window
+  };
+  vm.runInNewContext(source, context, { filename: "assets/app.js" });
+
+  return { calls, elements, form, preview, replay, stops, api: context.__introLifecycleTest };
+};
+
 const invitationParser = class DOMParser {
   parseFromString(html) {
     const matches = [...String(html).matchAll(/<script\s+id="invitation-data"\s+type="application\/json">([\s\S]*?)<\/script>/g)]
@@ -1653,4 +1836,54 @@ test("ordinary preview rendering does not start intro playback", () => {
   const renderPreviewBody = functionBody(source, "renderPreview");
   assert.doesNotMatch(renderPreviewBody, /InvitationIntro\.play/);
   assert.match(source, /const playPreviewIntro/);
+});
+
+test("selecting an active intro plays one preview-scoped overlay", () => {
+  const harness = loadIntroLifecycleHarness();
+  harness.elements.introEffect.value = "dawn";
+
+  harness.form.dispatch("input", { target: harness.elements.introEffect });
+
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.calls[0].options?.preview, true);
+  assert.equal(harness.preview.querySelector("[data-intro-overlay]"), harness.calls[0].overlay);
+  assert.equal(harness.replay.disabled, false);
+});
+
+test("replay starts a fresh preview-scoped intro", () => {
+  const harness = loadIntroLifecycleHarness();
+  harness.elements.introEffect.value = "dawn";
+  harness.form.dispatch("input", { target: harness.elements.introEffect });
+  const initialOverlay = harness.preview.querySelector("[data-intro-overlay]");
+
+  harness.replay.dispatch("click");
+
+  assert.equal(harness.calls.length, 2);
+  assert.equal(harness.calls[1].options?.preview, true);
+  assert.notEqual(harness.preview.querySelector("[data-intro-overlay]"), initialOverlay);
+});
+
+test("selecting none stops the active intro and disables replay", () => {
+  const harness = loadIntroLifecycleHarness();
+  harness.elements.introEffect.value = "dawn";
+  harness.form.dispatch("input", { target: harness.elements.introEffect });
+
+  harness.elements.introEffect.value = "none";
+  harness.form.dispatch("input", { target: harness.elements.introEffect });
+
+  assert.deepEqual(harness.stops, [harness.preview]);
+  assert.equal(harness.preview.querySelector("[data-intro-overlay]"), null);
+  assert.equal(harness.replay.disabled, true);
+});
+
+test("ordinary preview rendering preserves an active overlay without replaying", () => {
+  const harness = loadIntroLifecycleHarness();
+  harness.elements.introEffect.value = "dawn";
+  harness.form.dispatch("input", { target: harness.elements.introEffect });
+  const activeOverlay = harness.preview.querySelector("[data-intro-overlay]");
+
+  harness.api.renderPreview();
+
+  assert.equal(harness.calls.length, 1);
+  assert.equal(harness.preview.querySelector("[data-intro-overlay]"), activeOverlay);
 });

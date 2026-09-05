@@ -59,3 +59,39 @@ node --test tests/*.test.js
 ## Concerns
 
 No known concerns. Browser-specific visual interaction was not separately automated; the HTML, lifecycle contract, syntax, whitespace, and full Node test suite are covered above.
+
+## Review Fix Evidence
+
+### Finding 1: Preview Scope
+
+`playPreviewIntro()` now calls `InvitationIntro.play(dom.preview, invitation, { preview: true })`. This selects the preview-specific absolute overlay mode, keeping the animation bounded to `.preview-frame` rather than fixed across the maker viewport.
+
+### Finding 2: Executable Lifecycle Coverage
+
+Added a separate VM integration harness that executes the real editor `getFormData`, `renderPreview`, `updatePreviewMarkup`, form input listener, and replay listener. The harness fakes only the browser DOM boundary and `InvitationIntro`, allowing the tests to observe the real preview host, active overlay identity, and playback options.
+
+RED command:
+
+```sh
+node --test tests/app-contract.test.js
+```
+
+RED result: 54 passed, 2 failed, 0 skipped. Both active-selection and replay tests observed `InvitationIntro.play` receiving `undefined` instead of preview mode, which reproduced the review finding before the production change.
+
+GREEN commands:
+
+```sh
+node --test tests/app-contract.test.js
+# 56 passed, 0 failed, 0 skipped
+
+node --check assets/app.js
+# exit 0
+
+git diff --check
+# exit 0
+
+node --test tests/*.test.js
+# 144 passed, 0 failed, 0 skipped
+```
+
+The new executable coverage verifies all requested branches: active selection plays once with preview mode, replay starts a fresh preview-scoped intro, selecting `none` calls `stop` and disables replay, and ordinary rendering preserves the same active overlay without an additional play call.
