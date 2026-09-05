@@ -1413,6 +1413,24 @@ test("editor and viewer load intro effects before invitation core", () => {
   }
 });
 
+test("maker and viewer load TemplateCatalog before InvitationCore for browser family normalization", () => {
+  for (const page of ["index.html", "viewer.html"]) {
+    const html = read(page);
+    const catalogIndex = html.indexOf('src="assets/template-catalog.js"');
+    const coreIndex = html.indexOf('src="assets/invitation-core.js"');
+
+    assert.ok(catalogIndex >= 0, `${page} loads TemplateCatalog`);
+    assert.ok(catalogIndex < coreIndex, `${page} loads TemplateCatalog before InvitationCore`);
+  }
+
+  const browser = { URL };
+  browser.globalThis = browser;
+  vm.runInNewContext(read("assets/template-catalog.js"), browser, { filename: "assets/template-catalog.js" });
+  vm.runInNewContext(read("assets/invitation-core.js"), browser, { filename: "assets/invitation-core.js" });
+
+  assert.equal(browser.InvitationCore.normalizeInvitation({ templateId: "wedding" }).layoutFamily, "wedding-editorial");
+});
+
 test("mixed editor cards preserve identity and expose type-specific fields", () => {
   const app = read("assets/app.js");
 
