@@ -398,6 +398,7 @@ const loadEditorHarness = ({
     dataset: {},
     disabled: false,
     focus() { document.activeElement = this; },
+    getAttribute(name) { return this.attrs?.[name] ?? null; },
     getBoundingClientRect() { return { width: 200, height: 300 }; },
     hasPointerCapture(pointerId) { return this.capturedPointers.has(pointerId); },
     hidden: false,
@@ -1513,17 +1514,37 @@ test("editor exposes mobile view tabs and selected template state", () => {
   assert.match(app, /aria-pressed/);
 });
 
-test("current picker boot path exposes nine occasions with two presets and keeps legacy IDs", async () => {
+test("current picker boot path exposes eight birthday presets and keeps the original catalog", async () => {
   const harness = loadEditorHarness();
+  const originalIds = [
+    "botanical", "midnight-cinema", "modern", "color-pop", "royal", "memory-film",
+    "black-tie", "gallery-notice", "sunny-classroom", "little-forest", "wedding",
+    "modern-vow", "blue-porcelain", "peony-tribute", "red-silk", "golden-years",
+    "first-chapter", "little-star"
+  ];
 
   await harness.api.loadInitialData();
 
   assert.equal(harness.api.state.catalog.occasions.length, 9);
-  assert.equal(harness.api.state.catalog.templates.length, 18);
+  assert.equal(harness.api.state.catalog.templates.length, 24);
   for (const occasion of harness.api.state.catalog.occasions) {
-    assert.equal(TemplateCatalog.getPresetsForOccasion(harness.api.state.catalog, occasion.id).length, 2);
+    assert.equal(
+      TemplateCatalog.getPresetsForOccasion(harness.api.state.catalog, occasion.id).length,
+      occasion.id === "birthday" ? 8 : 2,
+      `${occasion.id} preset count`
+    );
   }
-  assert.deepEqual(["royal", "wedding", "black-tie", "botanical", "modern"].filter((id) => !TemplateCatalog.getPreset(harness.api.state.catalog, id)), []);
+  assert.deepEqual(originalIds.filter((id) => !TemplateCatalog.getPreset(harness.api.state.catalog, id)), []);
+
+  harness.api.state.activeOccasion = "birthday";
+  harness.api.renderTemplates();
+  assert.deepEqual(
+    harness.node("#template-list").buttons.map((button) => button.dataset.templateId),
+    [
+      "modern", "color-pop", "cherry-muse", "silver-afterglow", "peach-table",
+      "midnight-toast", "bloom-portrait", "signature-birthday"
+    ]
+  );
 });
 
 test("occasion and preset browsing update pending selection without filling the draft and preserve template focus", async () => {

@@ -6,6 +6,9 @@ const OUTPUT_FILE = path.resolve(__dirname, "..", "assets", "template-art.js");
 const MAX_BYTES = 80 * 1024;
 
 const sourceToTemplates = Object.freeze({
+  "silver-afterglow": ["silver-afterglow"],
+  "peach-table": ["peach-table"],
+  "bloom-portrait": ["bloom-portrait"],
   "romantic-story-cover": ["botanical", "memory-film", "modern-vow"],
   "gallery-notice": ["gallery-notice"],
   "sunny-classroom": ["sunny-classroom"],

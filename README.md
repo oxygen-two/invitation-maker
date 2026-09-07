@@ -35,7 +35,7 @@ http://localhost:4173
 ## Workflow
 
 1. Choose one of nine occasions: date, birthday, anniversary, event, kindergarten, wedding, 70th birthday, 60th birthday, or first birthday.
-2. Pick one of the two presets in that occasion. The catalog has 18 presets total, including the preserved `royal`, `wedding`, `black-tie`, `botanical`, and `modern` IDs.
+2. Pick a visual preset: birthday offers eight designs, and each other occasion offers two. The catalog has 24 presets total, including all original 18 and the preserved `royal`, `wedding`, `black-tie`, `botanical`, and `modern` IDs. Birthday styles range from cherry-red editorial and silver party photography to peach dinner, champagne evening, floral portrait and burgundy stationery; ages are never required or fixed in the designs.
 3. Selecting a preset card only changes the pending selection. Press **이 템플릿 적용** to replace the current draft; cancelling the confirmation keeps the draft untouched, and **되돌리기** restores the previous draft once.
 4. Choose none, petals, hearts, sparkle, fireflies, bubbles, snow, leaves, or confetti, then adjust particle size from 50% to 200% in 5% steps and amount from 25% to 500% in 25% steps.
 5. Choose separate display fonts for English and Korean text.
@@ -71,3 +71,13 @@ Enable both **Dynamic Map** and **Geocoding** for the NAVER Maps application. Re
 The downloaded invitation keeps the `지도 열기` link as a fallback because a file opened directly with `file://` cannot use an origin-registered Dynamic Map. Dynamic Maps render when the invitation is served from a registered origin, including invitations opened from the local library.
 
 Never place a NAVER Maps Client Secret in this repository or generated HTML. Browser-based Dynamic Map rendering uses only the public Client ID.
+
+## Validation
+
+Run the dependency-free checks with `node --test tests/*.test.js`.
+
+For the eight-card birthday picker regression, start the static server and run `node scripts/verify-birthday-picker.cjs` with an existing Playwright installation and Google Chrome. If Playwright is installed outside this project, set `PLAYWRIGHT_MODULE` to its module path. `INVITATION_BASE_URL` optionally overrides `http://localhost:4173`. The check covers 390/768/1440px, non-collapsed card widths, stable thumbnail sizing, selection versus Apply, focus preservation, and browser errors; it does not install dependencies.
+
+Run `node scripts/verify-maker-ux.cjs` with the same environment to verify the pending-design start action, draft cancellation/undo, essential-fields-first editor, expandable gallery, and missing reply-contact warning before HTML download. Effects and photo settings start collapsed. The UI/design acceptance baseline is recorded in `DESIGN.md`.
+
+Birthday photo asset prompts and provenance are recorded in [birthday-art-prompts.md](assets/template-art/birthday-art-prompts.md).

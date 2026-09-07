@@ -40,14 +40,32 @@ test("maps legacy IDs to approved families and unknown values to romantic-story"
   assert.equal(TemplateCatalog.normalizeFamily("unknown", "unknown"), "romantic-story");
 });
 
-test("production catalog provides nine occasions with two presets each while keeping legacy IDs", () => {
+test("production catalog adds six birthday presets without replacing the original eighteen", () => {
   const data = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../invitation-data.json"), "utf8"));
   const catalog = TemplateCatalog.normalizeCatalog(data);
+  const originalIds = [
+    "botanical", "midnight-cinema", "modern", "color-pop", "royal", "memory-film",
+    "black-tie", "gallery-notice", "sunny-classroom", "little-forest", "wedding",
+    "modern-vow", "blue-porcelain", "peony-tribute", "red-silk", "golden-years",
+    "first-chapter", "little-star"
+  ];
+  const newBirthdayIds = [
+    "cherry-muse", "silver-afterglow", "peach-table", "midnight-toast",
+    "bloom-portrait", "signature-birthday"
+  ];
 
   assert.equal(catalog.occasions.length, 9);
-  assert.equal(catalog.templates.length, 18);
+  assert.equal(catalog.templates.length, 24);
   for (const occasion of catalog.occasions) {
-    assert.equal(TemplateCatalog.getPresetsForOccasion(catalog, occasion.id).length, 2);
+    assert.equal(
+      TemplateCatalog.getPresetsForOccasion(catalog, occasion.id).length,
+      occasion.id === "birthday" ? 8 : 2,
+      `${occasion.id} preset count`
+    );
   }
-  assert.deepEqual(["royal", "wedding", "black-tie", "botanical", "modern"].filter((id) => !TemplateCatalog.getPreset(catalog, id)), []);
+  assert.deepEqual(originalIds.filter((id) => !TemplateCatalog.getPreset(catalog, id)), []);
+  assert.deepEqual(
+    TemplateCatalog.getPresetsForOccasion(catalog, "birthday").map(({ id }) => id),
+    ["modern", "color-pop", ...newBirthdayIds]
+  );
 });

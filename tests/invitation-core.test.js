@@ -255,6 +255,56 @@ test("every production preset normalizes and renders through the canonical outpu
   }
 });
 
+test("new birthday presets preserve identity, family, custom crop, and escaped metadata through export", () => {
+  const data = JSON.parse(read("invitation-data.json"));
+  const catalog = TemplateCatalog.normalizeCatalog(data);
+  const expectedFamilies = {
+    "cherry-muse": "celebration-poster",
+    "silver-afterglow": "celebration-poster",
+    "peach-table": "romantic-story",
+    "midnight-toast": "celebration-poster",
+    "bloom-portrait": "wedding-editorial",
+    "signature-birthday": "wedding-editorial"
+  };
+
+  for (const [templateId, familyId] of Object.entries(expectedFamilies)) {
+    const preset = TemplateCatalog.getPreset(catalog, templateId);
+    assert.ok(preset, `${templateId} remains available after catalog normalization`);
+
+    const invitation = normalizeInvitation({
+      ...preset.defaults,
+      templateId,
+      layoutFamily: familyId,
+      title: `<Birthday & ${templateId}>`,
+      subtitle: `\"${templateId}\" <script>alert(1)</script>`,
+      heroImage: {
+        src: SAFE_WEBP,
+        scale: 185,
+        positionX: 23.5,
+        positionY: 74.25
+      }
+    });
+    const html = buildStandaloneHtml(invitation);
+    const exported = invitationDataFrom(html);
+
+    assert.equal(exported.templateId, templateId);
+    assert.equal(exported.layoutFamily, familyId);
+    assert.deepEqual(exported.heroImage, {
+      src: SAFE_WEBP,
+      scale: 185,
+      positionX: 23.5,
+      positionY: 74.25
+    });
+    assert.match(html, new RegExp(`data-template="${templateId}"`));
+    assert.match(html, /--hero-image-scale:1\.85/);
+    assert.match(html, /--hero-image-x:23\.5%/);
+    assert.match(html, /--hero-image-y:74\.25%/);
+    assert.match(html, new RegExp(`&lt;Birthday &amp; ${templateId}&gt;`));
+    assert.match(html, new RegExp(`&quot;${templateId}&quot; &lt;script&gt;alert\\(1\\)&lt;/script&gt;`));
+    assert.doesNotMatch(invitationBodyFrom(html), /<script>alert\(1\)<\/script>/);
+  }
+});
+
 test("core supplies escaped editable hero metadata to every canonical preset", () => {
   const input = {
     templateId: "midnight-cinema",

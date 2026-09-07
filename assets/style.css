@@ -394,7 +394,7 @@ textarea {
 }
 
 .maker-header {
-  padding: 36px 28px 32px;
+  padding: 22px 24px;
   color: var(--cream-50);
   background:
     radial-gradient(circle at 50% 24%, var(--hero-glow), transparent 32%),
@@ -422,7 +422,7 @@ textarea {
 
 .maker-header h1 {
   color: var(--rose-100);
-  font-size: 32px;
+  font-size: 28px;
 }
 
 .maker-header p:last-child {
@@ -483,7 +483,23 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  max-height: 338px;
+  grid-auto-rows: max-content;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+
+.template-list.is-expanded { max-height: none; }
+.template-picker-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.template-picker-heading .picker-label { margin:0; }
+.template-picker-heading button, .pending-preview-notice button {
+  min-height:44px; padding:8px 12px; border:1px solid var(--line); border-radius:8px;
+  background:var(--white); color:var(--wine-900); font-size:13px; font-weight:700; cursor:pointer;
+}
+.pending-preview-notice { margin-bottom:12px; padding:12px; background:var(--cream-100); border:1px solid var(--line); border-radius:8px; }
+.pending-preview-notice p { margin:0 0 8px; font-size:14px; line-height:1.5; }
+.action-row > [hidden], .pending-preview-notice[hidden] { display:none; }
+input, textarea, select { scroll-margin-block:120px 160px; }
 
 .template-card {
   position: relative;
@@ -510,7 +526,7 @@ textarea {
 .template-thumbnail-viewport .invitation-card[data-template-thumbnail] {
   position: absolute;
   top: 0;
-  left: 0;
+  left: var(--template-thumbnail-left, 0);
   width: 430px;
   max-width: none;
   margin: 0;
@@ -522,7 +538,7 @@ textarea {
 .template-card-copy {
   display: grid;
   gap: 5px;
-  min-height: 92px;
+  min-height: 72px;
   padding: 12px;
 }
 
@@ -545,7 +561,7 @@ textarea {
 .template-card-copy p {
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -618,7 +634,7 @@ textarea {
 }
 
 .template-apply-row button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 12px;
   color: var(--cream-50);
   border: 0;
@@ -1982,6 +1998,7 @@ a:focus-visible {
 
   .template-list {
     display: grid;
+    grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: minmax(154px, calc((100vw - 54px) / 2));
     gap: 8px;
@@ -1992,7 +2009,21 @@ a:focus-visible {
     scroll-snap-type: x mandatory;
     padding-bottom: 4px;
     -webkit-overflow-scrolling: touch;
+    max-height: none;
+    overflow-y: hidden;
   }
+
+  .template-list.is-expanded {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-auto-flow:row;
+    grid-auto-columns:auto;
+    overflow:visible;
+  }
+
+  .template-thumbnail-viewport { height:200px; }
+  .template-card-copy { padding:10px; }
+  .template-card-heading { flex-wrap:wrap; }
+  .occasion-chip { min-height:44px; }
 
   .template-card {
     scroll-snap-align: start;

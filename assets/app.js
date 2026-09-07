@@ -53,6 +53,12 @@ const dom = {
   templateSummary: document.querySelector("#template-summary"),
   applyTemplate: document.querySelector("#apply-template-button"),
   undoTemplate: document.querySelector("#undo-template-button"),
+  startTemplate: document.querySelector("#start-template-button"),
+  keepDraft: document.querySelector("#keep-draft-button"),
+  toggleTemplates: document.querySelector("#toggle-templates-button"),
+  pendingPreview: document.querySelector("#pending-preview-notice"),
+  pendingPreviewText: document.querySelector("#pending-preview-text"),
+  previewApply: document.querySelector("#preview-apply-button"),
   contentEditor: document.querySelector("#content-editor"),
   addCourse: document.querySelector("#add-course-button"),
   addPhoto: document.querySelector("#add-photo-button"),
@@ -388,6 +394,18 @@ const syncTemplateAvailability = () => {
   dom.templates.querySelectorAll("[data-template-id]").forEach((button) => { button.disabled = busy; });
   dom.applyTemplate.disabled = busy || !pending;
   dom.undoTemplate.disabled = busy || !state.undoSnapshot;
+  const needsApply = Boolean(pending && pending.id !== state.activeTemplate);
+  dom.startTemplate.hidden = !needsApply;
+  dom.keepDraft.hidden = !needsApply;
+  dom.download.hidden = needsApply;
+  dom.save.hidden = needsApply;
+  dom.startTemplate.disabled = busy;
+  dom.keepDraft.disabled = busy;
+  dom.previewApply.disabled = busy;
+  dom.startTemplate.textContent = pending ? `${pending.name}로 시작` : "이 디자인으로 시작";
+  dom.pendingPreview.hidden = !needsApply;
+  dom.pendingPreviewText.textContent = needsApply
+    ? `현재 초안 미리보기입니다. 선택한 ‘${pending.name}’ 디자인은 아직 적용 전입니다.` : "";
 };
 
 const syncAddItemAvailability = (items) => {
@@ -950,15 +968,19 @@ const syncTemplateThumbnailScales = () => {
     const hero = thumbnail?.querySelector(".invite-hero");
     const width = viewport.getBoundingClientRect().width;
     if (!thumbnail || !hero || width <= 0) return;
-    const scale = width / 430;
-    thumbnail.style.setProperty("--template-thumbnail-scale", String(scale));
     const heroHeight = Math.max(hero.scrollHeight || 0, hero.offsetHeight || 0);
-    if (heroHeight > 0) viewport.style.height = `${Math.ceil(heroHeight * scale)}px`;
+    const scale = Math.min(width / 430, viewport.clientHeight / (heroHeight || 1));
+    thumbnail.style.setProperty("--template-thumbnail-scale", String(scale));
+    thumbnail.style.setProperty("--template-thumbnail-left", `${(width - 430 * scale) / 2}px`);
   };
   viewports.forEach(resize);
   if (typeof ResizeObserver !== "function") return;
-  templateThumbnailObserver = new ResizeObserver((entries) => entries.forEach(({ target }) => resize(target)));
-  viewports.forEach((viewport) => templateThumbnailObserver.observe(viewport));
+  templateThumbnailObserver = new ResizeObserver((entries) => entries.forEach(({ target }) => resize(target.closest('[data-template-thumbnail-viewport]'))));
+  viewports.forEach((viewport) => {
+    templateThumbnailObserver.observe(viewport);
+    const hero = viewport.querySelector('.invite-hero');
+    if (hero) templateThumbnailObserver.observe(hero);
+  });
 };
 
 const renderTemplates = () => {
@@ -994,10 +1016,11 @@ const renderTemplates = () => {
   syncTemplateThumbnailScales();
 
   const pending = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId) || presets[0] || null;
-  const occasion = state.catalog.occasions.find((entry) => entry.id === state.activeOccasion);
   dom.templateSummary.textContent = pending
-    ? `${occasion?.name || "템플릿"} · ${pending.name}을 선택했습니다. 적용 버튼을 누르면 현재 초안이 교체됩니다.`
+    ? (pending.id === state.activeTemplate ? `적용된 디자인: ${pending.name}` : `선택: ${pending.name} · 적용 전까지 현재 초안은 유지됩니다.`)
     : "적용할 템플릿을 선택해 주세요.";
+  dom.toggleTemplates.textContent = dom.toggleTemplates.getAttribute('aria-expanded') === 'true'
+    ? '접기' : `${presets.length}개 전체 보기`;
   dom.undoTemplate.hidden = !state.undoSnapshot;
   syncTemplateAvailability();
 };
@@ -1042,6 +1065,7 @@ const applyPendingTemplate = () => {
     fillForm(next);
     renderTemplates();
     renderPreview();
+    return true;
   } catch {
     dom.saveStatus.textContent = "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다.";
   }
@@ -1178,8 +1202,26 @@ const validateForExport = () => {
 
   const card = invalidField.closest("[data-item-card]");
   if (card) setItemExpanded(card, true);
+  const group = invalidField.closest("details");
+  if (group) group.open = true;
   invalidField.reportValidity();
   invalidField.focus();
+  return false;
+};
+
+const confirmReplyContact = () => {
+  const item = getFormData().items.find((entry) => entry.type === 'link'
+    && /rsvp|회신|참석|연락/i.test(`${entry.label} ${entry.value}`)
+    && !entry.url && !/(?:\b0[1-9]\d?[ -]?\d{3,4}[ -]?\d{4}\b|\+[1-9][\d ()-]{7,}\d\b|[^\s@]+@[^\s@]+\.[^\s@]+)/.test(entry.value));
+  if (!item) return true;
+  if (window.confirm('회신을 요청하는 항목에 연락처나 링크가 없습니다. 연락 수단 없이 다운로드할까요?\n취소하면 연락처 입력으로 이동합니다.')) return true;
+  const card = findItemCard(item.id);
+  if (card) {
+    const group = card.closest('details');
+    if (group) group.open = true;
+    setItemExpanded(card, true);
+    card.querySelector('[data-link-field="url"]').focus();
+  }
   return false;
 };
 
@@ -1990,6 +2032,33 @@ dom.templates.addEventListener("click", (event) => {
 
 dom.applyTemplate.addEventListener("click", applyPendingTemplate);
 dom.undoTemplate.addEventListener("click", undoTemplateApplication);
+dom.startTemplate.addEventListener('click', () => {
+  if (!applyPendingTemplate()) return;
+  const title = dom.form.querySelector('[name="title"]');
+  const group = title.closest('details');
+  if (group) group.open = true;
+  title.focus();
+  title.scrollIntoView({ block: 'center' });
+});
+dom.keepDraft.addEventListener('click', () => {
+  if (hasPendingEditorOperation()) return;
+  state.pendingTemplateId = state.activeTemplate;
+  state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
+  renderTemplates();
+  dom.download.focus();
+});
+dom.previewApply.addEventListener('click', () => {
+  if (applyPendingTemplate()) dom.mobileTabs.find(button => button.dataset.mobileView === 'preview')?.focus();
+});
+dom.toggleTemplates.addEventListener('click', () => {
+  const expanded = dom.toggleTemplates.getAttribute('aria-expanded') !== 'true';
+  dom.toggleTemplates.setAttribute('aria-expanded', String(expanded));
+  dom.templates.classList.toggle('is-expanded', expanded);
+  dom.templates.scrollLeft = 0;
+  dom.templates.scrollTop = 0;
+  const count = TemplateCatalog.getPresetsForOccasion(state.catalog, state.activeOccasion).length;
+  dom.toggleTemplates.textContent = expanded ? '접기' : `${count}개 전체 보기`;
+});
 
 dom.preview.addEventListener("click", (event) => {
   const retryButton = event.target.closest("[data-retry-map]");
@@ -2011,6 +2080,7 @@ dom.replayIntro.addEventListener("click", playPreviewIntro);
 dom.download.addEventListener("click", () => {
   if (photoSelectionPending || heroImageSelectionPending) return;
   if (!validateForExport()) return;
+  if (!confirmReplyContact()) return;
   const invitation = getFormData();
   downloadHtml(InvitationCore.buildStandaloneHtml(invitation), invitation.title);
 });

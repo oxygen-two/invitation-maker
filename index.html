@@ -23,13 +23,13 @@
       <header class="maker-header">
         <p class="eyebrow">Invitation Maker</p>
         <h1>초대장 제작기</h1>
-        <p>템플릿을 고르고 내용을 입력하면, 독립 실행 가능한 초대장 HTML을 다운로드할 수 있습니다.</p>
+        <p>디자인을 고르고, 내 이야기를 담아 보내세요.</p>
       </header>
 
       <section class="template-picker" aria-label="초대장 템플릿 선택">
-        <span class="picker-label">Occasion</span>
+        <span class="picker-label">어떤 날인가요?</span>
         <div id="occasion-list" class="occasion-list" aria-label="행사 유형"></div>
-        <span class="picker-label">Template</span>
+        <div class="template-picker-heading"><span class="picker-label">디자인 선택</span><button id="toggle-templates-button" type="button" aria-controls="template-list" aria-expanded="false">전체 보기</button></div>
         <div id="template-list" class="template-list" aria-label="템플릿 디자인"></div>
         <div class="template-apply-row">
           <p id="template-summary" aria-live="polite"></p>
@@ -39,7 +39,33 @@
       </section>
 
       <form id="invitation-form" class="editor-form">
-        <details class="editor-group" data-editor-group="style" open>
+        <details class="editor-group" data-editor-group="details" open>
+          <summary><span>기본 정보</span><small>제목 · 일정 · 메시지</small></summary>
+          <div class="editor-group-body">
+            <label><span>제목</span><input name="title" type="text" autocomplete="off"></label>
+            <label><span>부제</span><input name="subtitle" type="text" autocomplete="off"></label>
+            <label><span>일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
+            <label><span>보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
+            <label class="full"><span>메시지</span><textarea name="message" rows="4"></textarea></label>
+          </div>
+        </details>
+
+        <details class="editor-group" data-editor-group="location" open>
+          <summary><span>대표 장소</span><small>장소 · 네이버 지도</small></summary>
+          <div class="editor-group-body">
+            <label><span>장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
+            <label><span>지도 링크</span><input name="mapUrl" type="url" autocomplete="off"></label>
+            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span>대표 동적 지도 표시</span></label>
+            <div class="full map-settings" data-map-settings hidden>
+              <input name="mapLatitude" type="hidden">
+              <input name="mapLongitude" type="hidden">
+              <input name="mapZoom" type="hidden" value="16">
+              <small class="map-message" data-map-message role="status" aria-live="polite"></small>
+            </div>
+          </div>
+        </details>
+
+        <details class="editor-group" data-editor-group="style">
           <summary><span>스타일과 효과</span><small>인트로 · 파티클 · 폰트</small></summary>
           <div class="editor-group-body">
             <div class="full intro-effect-field">
@@ -87,7 +113,7 @@
           </div>
         </details>
 
-        <details class="editor-group" data-editor-group="hero-image" open>
+        <details class="editor-group" data-editor-group="hero-image">
           <summary><span>첫 화면 배경</span><small>사진 · 위치 · 확대</small></summary>
           <div class="editor-group-body">
             <section id="hero-image-editor" class="full hero-image-editor" data-layout-family="romantic-story">
@@ -114,32 +140,6 @@
           </div>
         </details>
 
-        <details class="editor-group" data-editor-group="details" open>
-          <summary><span>기본 정보</span><small>제목 · 일정 · 메시지</small></summary>
-          <div class="editor-group-body">
-            <label><span>제목</span><input name="title" type="text" autocomplete="off"></label>
-            <label><span>부제</span><input name="subtitle" type="text" autocomplete="off"></label>
-            <label><span>일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
-            <label><span>보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
-            <label class="full"><span>메시지</span><textarea name="message" rows="4"></textarea></label>
-          </div>
-        </details>
-
-        <details class="editor-group" data-editor-group="location" open>
-          <summary><span>대표 장소</span><small>장소 · 네이버 지도</small></summary>
-          <div class="editor-group-body">
-            <label><span>장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
-            <label><span>지도 링크</span><input name="mapUrl" type="url" autocomplete="off"></label>
-            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span>대표 동적 지도 표시</span></label>
-            <div class="full map-settings" data-map-settings hidden>
-              <input name="mapLatitude" type="hidden">
-              <input name="mapLongitude" type="hidden">
-              <input name="mapZoom" type="hidden" value="16">
-              <small class="map-message" data-map-message role="status" aria-live="polite"></small>
-            </div>
-          </div>
-        </details>
-
         <details class="editor-group" data-editor-group="content" open>
           <summary><span>초대장 항목</span><small>드래그해서 순서 변경</small></summary>
           <div class="editor-group-body editor-content-body">
@@ -161,6 +161,8 @@
       </form>
 
       <div class="action-row">
+        <button id="start-template-button" class="primary-button" type="button" hidden>이 디자인으로 시작</button>
+        <button id="keep-draft-button" class="secondary-button" type="button" hidden>현재 초안 유지</button>
         <button id="download-button" class="primary-button" type="button">HTML 다운로드</button>
         <button id="save-button" class="secondary-button" type="button">목록에 등록</button>
       </div>
@@ -172,6 +174,10 @@
         <p class="eyebrow">Preview</p>
         <h2>미리보기</h2>
       </header>
+      <div id="pending-preview-notice" class="pending-preview-notice" hidden>
+        <p id="pending-preview-text" role="status"></p>
+        <button id="preview-apply-button" type="button">선택한 디자인 적용</button>
+      </div>
       <div id="preview" class="preview-frame"></div>
     </section>
 

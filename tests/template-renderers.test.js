@@ -24,7 +24,16 @@ const fullSlotMarkers = ["[[PARTICLES]]", "[[TITLE]]", "[[SUBTITLE]]", "[[MESSAG
 const presetIds = [
   "botanical", "midnight-cinema", "modern", "color-pop", "royal", "memory-film",
   "black-tie", "gallery-notice", "sunny-classroom", "little-forest", "wedding", "modern-vow",
-  "blue-porcelain", "peony-tribute", "red-silk", "golden-years", "first-chapter", "little-star"
+  "blue-porcelain", "peony-tribute", "red-silk", "golden-years", "first-chapter", "little-star",
+  "cherry-muse", "silver-afterglow", "peach-table", "midnight-toast", "bloom-portrait", "signature-birthday"
+];
+const birthdayPresets = [
+  { id: "cherry-muse", family: "celebration-poster", composition: "invite-cherry-motif" },
+  { id: "silver-afterglow", family: "celebration-poster", composition: "invite-hero-photo-strip" },
+  { id: "peach-table", family: "romantic-story", composition: "invite-hero-table-inset" },
+  { id: "midnight-toast", family: "celebration-poster", composition: "invite-toast-lines" },
+  { id: "bloom-portrait", family: "wedding-editorial", composition: "invite-hero-portrait-arch" },
+  { id: "signature-birthday", family: "wedding-editorial", composition: "invite-signature-line" }
 ];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const count = (html, value) => (html.match(new RegExp(escapeRegExp(value), "g")) || []).length;
@@ -58,7 +67,7 @@ test("unknown families fall back to romantic-story", () => {
   assert.match(TemplateRenderers.render("unknown", slots), /data-layout-family="romantic-story"/);
 });
 
-test("all 18 canonical presets render a unique trusted hero design", () => {
+test("all 24 canonical presets render a unique trusted hero design", () => {
   const designs = presetIds.map((templateId) => {
     const html = TemplateRenderers.render("romantic-story", { ...slots, templateId });
     const design = html.match(/data-design="([^"]+)"/)?.[1];
@@ -71,7 +80,126 @@ test("all 18 canonical presets render a unique trusted hero design", () => {
     return design;
   });
 
-  assert.equal(new Set(designs).size, 18);
+  assert.equal(new Set(designs).size, 24);
+});
+
+test("birthday presets keep their approved families and genuinely distinct hero compositions", () => {
+  for (const { id, family, composition } of birthdayPresets) {
+    const html = TemplateRenderers.render(family, { ...slots, templateId: id });
+
+    assert.match(html, new RegExp(`data-layout-family="${family}"`));
+    assert.match(html, new RegExp(`data-design="${id}"`));
+    assert.match(html, new RegExp(`class="[^"]*${composition}`));
+    for (const marker of fullSlotMarkers) {
+      assert.equal(count(html, marker), 1, `${id} renders ${marker} once`);
+    }
+  }
+});
+
+test("every birthday composition preserves custom hero crop attributes", () => {
+  for (const { id, family } of birthdayPresets) {
+    const html = TemplateRenderers.render(family, {
+      ...slots,
+      templateId: id,
+      artAttributes: 'data-custom-hero-image style="--hero-image-scale:1.75;--hero-image-x:18%;--hero-image-y:82%"'
+    });
+
+    assert.match(html, /<img class="invite-hero-art"[^>]+data-custom-hero-image[^>]+--hero-image-scale:1\.75/);
+    assert.equal(count(html, "data-custom-hero-image"), 1, `${id} renders one custom hero image`);
+  }
+});
+
+test("birthday palettes, growing heroes, and exact hero text colors stay article scoped", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const heroColors = {
+    "cherry-muse": "#a61f32",
+    "silver-afterglow": "#f7f2ff",
+    "peach-table": "#5b302d",
+    "midnight-toast": "#ead8a6",
+    "bloom-portrait": "#f8efe4",
+    "signature-birthday": "#651f2b"
+  };
+
+  for (const { id } of birthdayPresets) {
+    assert.match(css, new RegExp(`\\.invitation-card\\[data-template="${id}"\\]\\{[^}]*--paper:`));
+    const heroRule = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-hero`);
+    assert.match(heroRule, /height:auto/);
+    assert.match(heroRule, /min-height:/);
+    assert.match(heroRule, new RegExp(`color:${heroColors[id]}`));
+  }
+});
+
+test("birthday custom photos retain readable copy while typography-only art stays custom-only", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+
+  for (const { id } of birthdayPresets) {
+    const overlay = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-hero::after`);
+    assert.match(overlay, /background:/, `${id} supplies a custom-photo contrast layer`);
+  }
+  for (const id of ["cherry-muse", "midnight-toast", "signature-birthday"]) {
+    assert.match(css, new RegExp(`data-design="${id}"[^}]+invite-hero-art:not\\(\\[data-custom-hero-image\\]\\)\\{display:none\\}`));
+  }
+});
+
+test("silver and midnight default titles get a phone-safe measure without disabling long-copy wrapping", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const silverCopy = cssRule(css, '.invitation-card[data-layout-family][data-design="silver-afterglow"].invite-hero-copy');
+  const silverTitle = cssRule(css, '.invitation-card[data-layout-family][data-design="silver-afterglow"].invite-heroh1');
+  const midnightTitle = cssRule(css, '.invitation-card[data-layout-family][data-design="midnight-toast"].invite-heroh1');
+
+  assert.match(silverCopy, /width:100%/);
+  assert.match(silverTitle, /font-size:clamp\(40px,11vw,54px\)/);
+  assert.match(midnightTitle, /font-size:clamp\(38px,11vw,48px\)/);
+  assert.doesNotMatch(`${silverTitle}${midnightTitle}`, /white-space:nowrap/);
+});
+
+test("birthday hero details stay readable and long English title words stay intact on phones", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+
+  for (const { id } of birthdayPresets) {
+    const details = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-hero-details`);
+    assert.match(details, /font-size:15px/, `${id} keeps date, place, and host at 15px`);
+  }
+
+  for (const id of ["silver-afterglow", "midnight-toast"]) {
+    const title = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-heroh1`);
+    assert.match(title, /word-break:normal/);
+    assert.match(title, /overflow-wrap:normal/);
+  }
+});
+
+test("birthday information labels and peach and bloom map links use accessible scoped colors", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const darkMetaIds = ["cherry-muse", "silver-afterglow", "midnight-toast"];
+  const lightMetaIds = ["peach-table", "bloom-portrait", "signature-birthday"];
+
+  for (const id of darkMetaIds) {
+    assert.match(css, new RegExp(`data-template="${id}"[^}]+invite-metaspan[^}]+color:var\\(--cream-50\\)`));
+  }
+  for (const id of lightMetaIds) {
+    assert.match(css, new RegExp(`data-template="${id}"[^}]+invite-metaspan[^}]+color:var\\(--deep\\)`));
+  }
+  for (const id of ["peach-table", "bloom-portrait"]) {
+    assert.match(css, new RegExp(`data-template="${id}"[^}]+invite-stop-map-link[^}]+color:var\\(--deep\\)`));
+    assert.match(css, new RegExp(`data-template="${id}"[^}]+invite-map\\{[^}]*background:var\\(--deep\\)`));
+  }
+});
+
+test("bloom and signature use normal title styling only when the rendered title contains Hangul", () => {
+  for (const id of ["bloom-portrait", "signature-birthday"]) {
+    const family = birthdayPresets.find((preset) => preset.id === id).family;
+    const korean = TemplateRenderers.render(family, { ...slots, templateId: id, title: "하린의 생일" });
+    const english = TemplateRenderers.render(family, { ...slots, templateId: id, title: "BIRTHDAY PORTRAIT" });
+
+    assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/);
+    assert.match(english, /<h1>BIRTHDAY PORTRAIT<\/h1>/);
+  }
+
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  for (const id of ["bloom-portrait", "signature-birthday"]) {
+    const koreanTitle = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-heroh1[data-title-script="ko"]`);
+    assert.match(koreanTitle, /font-style:normal/);
+  }
 });
 
 test("unknown preset IDs retain the generic family hero without trusting the ID as a design marker", () => {

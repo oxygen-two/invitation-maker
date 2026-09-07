@@ -5,6 +5,9 @@ const path = require("node:path");
 const TemplateArt = require("../assets/template-art.js");
 
 const decorated = [
+  "silver-afterglow",
+  "peach-table",
+  "bloom-portrait",
   "botanical",
   "memory-film",
   "gallery-notice",
@@ -19,6 +22,9 @@ const decorated = [
   "little-star"
 ];
 const sourceFiles = [
+  "silver-afterglow.webp",
+  "peach-table.webp",
+  "bloom-portrait.webp",
   "blue-porcelain.webp",
   "color-pop.webp",
   "first-chapter-stars.webp",

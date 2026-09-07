@@ -142,6 +142,198 @@
       }
     },
     {
+      "id": "cherry-muse",
+      "occasionId": "birthday",
+      "familyId": "celebration-poster",
+      "name": "체리 뮤즈",
+      "note": "친구들과 함께하는 선명한 레드 생일 파티",
+      "defaults": {
+        "title": "CHERRY MUSE",
+        "subtitle": "좋아하는 것들로 채운 선명한 생일 저녁",
+        "dateLabel": "2026.09.26 SAT 18:30",
+        "host": "Birthday Host",
+        "location": "한남 프라이빗 다이닝",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "익숙한 얼굴들과 좋은 음악, 오래 기억할 한 끼를 나누고 싶어요. 편안한 마음으로 함께해 주세요.",
+        "introEffect": "none",
+        "particleEffect": "none",
+        "particleScale": 80,
+        "particleAmount": 50,
+        "englishFont": "playfair-display",
+        "koreanFont": "nanum-gothic",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "DRESS NOTE", "body": "체리 레드 포인트를 하나 더하면 오늘의 장면이 더욱 근사해집니다." },
+          { "id": "course-1", "type": "course", "time": "18:30", "label": "DINNER", "place": "한남 프라이빗 다이닝", "note": "웰컴 드링크와 함께 저녁을 시작합니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "20:30", "label": "CAKE", "place": "메인 테이블", "note": "케이크와 건배가 이어집니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "RSVP", "value": "참석 여부를 알려주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "silver-afterglow",
+      "occasionId": "birthday",
+      "familyId": "celebration-poster",
+      "name": "실버 애프터글로우",
+      "note": "사진으로 꾸미는 와인 바의 생일 저녁",
+      "defaults": {
+        "title": "SILVER AFTERGLOW",
+        "subtitle": "도시의 불빛이 낮아질 때 시작하는 축하",
+        "dateLabel": "2026.10.10 SAT 19:00",
+        "host": "Birthday Host",
+        "location": "을지로 와인 바",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "조용히 반짝이는 공간에서 와인과 대화, 좋은 플레이리스트를 함께 나누는 밤을 준비했어요.",
+        "introEffect": "none",
+        "particleEffect": "none",
+        "particleScale": 75,
+        "particleAmount": 50,
+        "englishFont": "cormorant-garamond",
+        "koreanFont": "nanum-myeongjo",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "EVENING NOTE", "body": "편안한 세미 포멀 차림을 권해요. 늦게 도착해도 부담 없이 들어오세요." },
+          { "id": "course-1", "type": "course", "time": "19:00", "label": "APERITIF", "place": "을지로 와인 바", "note": "가벼운 잔과 작은 접시로 시작합니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "21:00", "label": "TOAST", "place": "라운지 테이블", "note": "생일 건배와 디저트가 준비됩니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "RSVP", "value": "좌석 준비를 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "peach-table",
+      "occasionId": "birthday",
+      "familyId": "romantic-story",
+      "name": "피치 테이블",
+      "note": "햇살 아래 케이크와 함께하는 생일 브런치",
+      "defaults": {
+        "title": "Peach Table",
+        "subtitle": "햇살과 꽃, 다정한 대화를 곁들인 생일 점심",
+        "dateLabel": "2026.10.31 SAT 12:30",
+        "host": "초대하는 사람",
+        "location": "서촌 가든 키친",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "계절의 재료로 차린 테이블에서 좋아하는 사람들과 느긋한 점심을 보내고 싶어요.",
+        "introEffect": "none",
+        "particleEffect": "none",
+        "particleScale": 80,
+        "particleAmount": 50,
+        "englishFont": "dm-serif-display",
+        "koreanFont": "gowun-batang",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "TABLE NOTE", "body": "가벼운 브런치 코스와 생일 디저트가 준비됩니다." },
+          { "id": "course-1", "type": "course", "time": "12:30", "label": "LUNCH", "place": "서촌 가든 키친", "note": "정원 쪽 긴 테이블에서 만나요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "14:30", "label": "TEA", "place": "테라스", "note": "차와 케이크를 나누며 천천히 머물러요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "RSVP", "value": "식사 준비를 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "midnight-toast",
+      "occasionId": "birthday",
+      "familyId": "celebration-poster",
+      "name": "미드나잇 토스트",
+      "note": "블랙과 골드로 차려 입은 조용한 저녁 파티",
+      "defaults": {
+        "title": "MIDNIGHT TOAST",
+        "subtitle": "밤이 깊어질수록 선명해지는 우리의 축하",
+        "dateLabel": "2026.11.21 SAT 20:00",
+        "host": "Birthday Host",
+        "location": "청담 리스닝 라운지",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "좋아하는 음악이 흐르는 늦은 밤, 가까운 사람들과 한 잔을 들며 새로운 계절을 맞이하려 해요.",
+        "introEffect": "none",
+        "particleEffect": "none",
+        "particleScale": 75,
+        "particleAmount": 50,
+        "englishFont": "libre-baskerville",
+        "koreanFont": "nanum-gothic",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "MUSIC & BAR", "body": "웰컴 칵테일과 간단한 바이트가 준비됩니다. 좋아하는 곡도 남겨 주세요." },
+          { "id": "course-1", "type": "course", "time": "20:00", "label": "DOORS", "place": "청담 리스닝 라운지", "note": "바 좌석과 소파 좌석을 자유롭게 이용해 주세요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "22:00", "label": "TOAST", "place": "메인 바", "note": "샴페인과 케이크로 오늘을 축하합니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "RSVP", "value": "게스트 리스트를 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "bloom-portrait",
+      "occasionId": "birthday",
+      "familyId": "wedding-editorial",
+      "name": "블룸 포트레이트",
+      "note": "꽃이나 내 사진으로 남기는 특별한 생일",
+      "defaults": {
+        "title": "BLOOM PORTRAIT",
+        "subtitle": "나답게 피어난 오늘을 기록하는 자리",
+        "dateLabel": "2026.12.05 SAT 16:00",
+        "host": "Birthday Host",
+        "location": "성수 포토 스튜디오",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "꽃과 빛이 머무는 공간에서 지금의 모습을 사진으로 남기고, 소중한 사람들과 차분히 축하하고 싶어요.",
+        "introEffect": "none",
+        "particleEffect": "none",
+        "particleScale": 80,
+        "particleAmount": 50,
+        "englishFont": "playfair-display",
+        "koreanFont": "noto-serif-kr",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "PORTRAIT NOTE", "body": "자연스러운 사진을 위해 자신다운 색과 실루엣의 옷을 추천해요." },
+          { "id": "course-1", "type": "course", "time": "16:00", "label": "PORTRAIT", "place": "성수 포토 스튜디오", "note": "도착 순서대로 짧은 포트레이트 촬영을 진행합니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "18:00", "label": "DINNER", "place": "스튜디오 다이닝 룸", "note": "촬영 뒤 가벼운 저녁과 케이크를 나눕니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "RSVP", "value": "촬영 준비를 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "signature-birthday",
+      "occasionId": "birthday",
+      "familyId": "wedding-editorial",
+      "name": "시그니처 버스데이",
+      "note": "가까운 사람들에게 보내는 우아한 생일 편지",
+      "defaults": {
+        "title": "A SIGNATURE DAY",
+        "subtitle": "나만의 방식으로 완성하는 특별한 생일 저녁",
+        "dateLabel": "2027.01.16 SAT 18:00",
+        "host": "Birthday Host",
+        "location": "북촌 프라이빗 살롱",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "좋아하는 취향과 오래 곁에 있어 준 사람들을 한자리에 담아, 나다운 생일 저녁을 만들고 싶어요.",
+        "introEffect": "none",
+        "particleEffect": "none",
+        "particleScale": 75,
+        "particleAmount": 50,
+        "englishFont": "cormorant-garamond",
+        "koreanFont": "nanum-myeongjo",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "PRIVATE DINNER", "body": "예약제로 운영되는 작은 공간입니다. 정시에 함께 시작해요." },
+          { "id": "course-1", "type": "course", "time": "18:00", "label": "WELCOME", "place": "북촌 프라이빗 살롱", "note": "웰컴 티와 함께 자리를 안내합니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "18:30", "label": "DINNER", "place": "메인 살롱", "note": "계절 코스와 생일 디저트가 이어집니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "RSVP", "value": "좌석 확정을 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
       "id": "royal",
       "occasionId": "anniversary",
       "familyId": "romantic-story",
