@@ -100,6 +100,7 @@ const loadEditorHarness = ({
   compress,
   confirm = () => true,
   normalizeInvitation = (value) => value,
+  renderInvitationBody = () => "",
   put,
   reducedMotion = false,
   mobile = false
@@ -542,7 +543,7 @@ const loadEditorHarness = ({
       MAX_STOPS: maxItems,
       buildStandaloneHtml: (invitation) => JSON.stringify(invitation),
       normalizeInvitation,
-      renderInvitationBody: () => ""
+      renderInvitationBody
     },
     InvitationIntro: {
       normalizeEffect: (value) => value || "none",
@@ -1525,7 +1526,7 @@ test("current picker boot path exposes nine occasions with two presets and keeps
   assert.deepEqual(["royal", "wedding", "black-tie", "botanical", "modern"].filter((id) => !TemplateCatalog.getPreset(harness.api.state.catalog, id)), []);
 });
 
-test("occasion and preset browsing update pending selection without filling the draft", async () => {
+test("occasion and preset browsing update pending selection without filling the draft and preserve template focus", async () => {
   const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
 
   await harness.api.loadInitialData();
@@ -1539,12 +1540,75 @@ test("occasion and preset browsing update pending selection without filling the 
   assert.equal(harness.api.state.pendingTemplateId, "wedding");
   assert.equal(harness.api.getFillFormCalls(), fillCalls);
 
-  harness.node("#template-list").dispatch("click", {
-    target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId === "modern-vow")
-  });
+  const selectedTemplate = harness.node("#template-list").buttons
+    .find((button) => button.dataset.templateId === "modern-vow");
+  selectedTemplate.focus();
+  harness.node("#template-list").dispatch("click", { target: selectedTemplate });
   assert.equal(harness.api.state.pendingTemplateId, "modern-vow");
   assert.equal(harness.api.state.activeTemplate, "royal");
   assert.equal(harness.api.getFillFormCalls(), fillCalls);
+  assert.notEqual(harness.document.activeElement, selectedTemplate);
+  assert.equal(harness.document.activeElement, harness.node("#template-list").buttons
+    .find((button) => button.dataset.templateId === "modern-vow"));
+});
+
+test("preset cards render inert canonical heroes without changing the draft on selection", async () => {
+  const thumbnailCalls = [];
+  const harness = loadEditorHarness({
+    normalizeInvitation: InvitationCore.normalizeInvitation,
+    renderInvitationBody(invitation) {
+      thumbnailCalls.push(invitation);
+      return `
+        <article class="invitation-card" data-template="${invitation.templateId}" data-layout-family="romantic-story">
+          <header class="invite-hero"><h1>${invitation.title}</h1></header>
+          <a href="https://example.com">본문 링크</a>
+          <div data-map-key="unsafe-map"></div>
+        </article>
+      `;
+    }
+  });
+
+  await harness.api.loadInitialData();
+  harness.api.fillForm(harness.api.state.invitation);
+  harness.node("#invitation-form").elements.title.value = "지켜야 할 현재 초안";
+  harness.api.state.activeOccasion = "date";
+  harness.api.state.pendingTemplateId = "botanical";
+  harness.api.renderTemplates();
+
+  assert.equal(thumbnailCalls.length, 2);
+  assert.deepEqual(
+    thumbnailCalls.map(({ templateId, layoutFamily, particleEffect, introEffect, mapEnabled }) => ({
+      templateId,
+      layoutFamily,
+      particleEffect,
+      introEffect,
+      mapEnabled
+    })),
+    [
+      { templateId: "botanical", layoutFamily: "romantic-story", particleEffect: "none", introEffect: "none", mapEnabled: false },
+      { templateId: "midnight-cinema", layoutFamily: "romantic-story", particleEffect: "none", introEffect: "none", mapEnabled: false }
+    ]
+  );
+  assert.match(harness.node("#template-list").innerHTML, /data-template-thumbnail[^>]*aria-hidden="true"[^>]*inert/);
+  assert.match(harness.node("#template-list").innerHTML, /data-template="botanical"/);
+  assert.doesNotMatch(harness.node("#template-list").innerHTML, /<a\b|data-map-key/);
+
+  harness.node("#template-list").dispatch("click", {
+    target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId === "midnight-cinema")
+  });
+
+  assert.equal(harness.api.state.pendingTemplateId, "midnight-cinema");
+  assert.equal(harness.api.state.activeTemplate, "royal");
+  assert.equal(harness.node("#invitation-form").elements.title.value, "지켜야 할 현재 초안");
+});
+
+test("measured template thumbnails cannot feed intrinsic aspect sizing back into grid width", () => {
+  const css = read("assets/style.css");
+  const viewportRule = css.match(/\.template-thumbnail-viewport\s*\{([^}]*)\}/)?.[1] || "";
+
+  assert.match(viewportRule, /width:\s*100%/);
+  assert.match(viewportRule, /min-width:\s*0/);
+  assert.doesNotMatch(viewportRule, /aspect-ratio\s*:/);
 });
 
 test("cancelled template confirmation leaves draft markup and state unchanged", async () => {
@@ -1593,7 +1657,7 @@ test("successful template apply fills once and undo restores the previous normal
 
   assert.equal(harness.api.getFillFormCalls(), callsBeforeApply + 1);
   assert.equal(harness.api.state.activeTemplate, "modern-vow");
-  assert.equal(harness.node("#invitation-form").elements.title.value, "Together, We Begin");
+  assert.equal(harness.node("#invitation-form").elements.title.value, "Doyun & Harin");
   assert.equal(harness.api.getFormData().layoutFamily, "wedding-editorial");
   assert.equal(harness.node("#undo-template-button").hidden, false);
 
@@ -1965,7 +2029,7 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
   vm.runInNewContext(read("assets/invitation-core.js"), browser, { filename: "assets/invitation-core.js" });
 
   assert.equal(browser.InvitationCore.normalizeInvitation({ templateId: "wedding" }).layoutFamily, "wedding-editorial");
-  assert.match(browser.TemplateArt.getDataUrl("color-pop"), /^data:image\/webp;base64,/);
+  assert.match(browser.TemplateArt.getDataUrl("botanical"), /^data:image\/webp;base64,/);
   assert.match(browser.InvitationCore.renderInvitationBody({ layoutFamily: "wedding-editorial" }), /data-layout-family="wedding-editorial"/);
 });
 
@@ -2546,14 +2610,15 @@ test("ordered editor controls and thumbnails stay bounded on narrow screens", ()
   assert.match(css, /@media\s*\(max-width:\s*420px\)[\s\S]*?\.item-editor-actions\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
 });
 
-test("editor offers five English fonts and six Korean fonts", () => {
+test("editor offers six English fonts and six Korean fonts", () => {
   const index = read("index.html");
   const app = read("assets/app.js");
   const englishSelect = index.match(/<select name="englishFont"[\s\S]*?<\/select>/)?.[0] || "";
   const koreanSelect = index.match(/<select name="koreanFont"[\s\S]*?<\/select>/)?.[0] || "";
 
-  assert.equal((englishSelect.match(/<option /g) || []).length, 5);
+  assert.equal((englishSelect.match(/<option /g) || []).length, 6);
   assert.equal((koreanSelect.match(/<option /g) || []).length, 6);
+  assert.match(englishSelect, /value="gmarket-sans"/);
   assert.match(koreanSelect, /value="nanum-gothic"/);
   assert.match(koreanSelect, /value="gmarket-sans"/);
   assert.match(app, /data\.get\("englishFont"\)/);

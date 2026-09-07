@@ -24,6 +24,11 @@ const invitationCardOpeningTagFrom = (html) => {
   assert.ok(match);
   return match[0];
 };
+const invitationBodyFrom = (html) => {
+  const match = html.match(/(<article class="invitation-card"[\s\S]*?<\/article>)\s*<script id="invitation-data"/);
+  assert.ok(match);
+  return match[1];
+};
 const cssRule = (css, selector) => {
   const start = css.indexOf(`${selector}{`);
   assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
@@ -145,14 +150,21 @@ test("preview body and standalone HTML resolve the same layout family", () => {
 });
 
 test("standalone HTML embeds only the selected template art data URL", () => {
-  const colorPopArt = TemplateArt.getDataUrl("color-pop");
+  const botanicalArt = TemplateArt.getDataUrl("botanical");
   const bluePorcelainArt = TemplateArt.getDataUrl("blue-porcelain");
-  const html = buildStandaloneHtml({ templateId: "color-pop" });
+  const html = buildStandaloneHtml({ templateId: "botanical" });
 
-  assert.notEqual(colorPopArt, "");
+  assert.notEqual(botanicalArt, "");
   assert.notEqual(bluePorcelainArt, "");
-  assert.match(html, new RegExp(colorPopArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, new RegExp(botanicalArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(html, new RegExp(bluePorcelainArt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
+test("typographic ticket and poster presets export without unused built-in art", () => {
+  for (const templateId of ["midnight-cinema", "color-pop"]) {
+    assert.equal(TemplateArt.getDataUrl(templateId), "");
+    assert.doesNotMatch(buildStandaloneHtml({ templateId }), /class="invite-hero-art"/);
+  }
 });
 
 test("normalizes a safe hero image independently from ordered content photos", () => {
@@ -181,7 +193,7 @@ test("normalizes a safe hero image independently from ordered content photos", (
 
 test("rejects unsafe hero images and keeps legacy invitations on template art", () => {
   const unsafe = normalizeInvitation({
-    templateId: "color-pop",
+    templateId: "botanical",
     heroImage: {
       src: "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
       scale: 200,
@@ -189,16 +201,16 @@ test("rejects unsafe hero images and keeps legacy invitations on template art", 
       positionY: 90
     }
   });
-  const legacy = normalizeInvitation({ templateId: "color-pop" });
+  const legacy = normalizeInvitation({ templateId: "botanical" });
 
   assert.equal(unsafe.heroImage, null);
   assert.equal(legacy.heroImage, null);
-  assert.match(InvitationCore.renderInvitationBody(legacy), new RegExp(TemplateArt.getDataUrl("color-pop").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(InvitationCore.renderInvitationBody(legacy), new RegExp(TemplateArt.getDataUrl("botanical").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("custom hero image replaces template art in preview and standalone output", () => {
   const input = {
-    templateId: "color-pop",
+    templateId: "botanical",
     heroImage: {
       src: SAFE_WEBP,
       scale: 175,
@@ -206,7 +218,7 @@ test("custom hero image replaces template art in preview and standalone output",
       positionY: 72.25
     }
   };
-  const templateArt = TemplateArt.getDataUrl("color-pop");
+  const templateArt = TemplateArt.getDataUrl("botanical");
   const preview = InvitationCore.renderInvitationBody(input);
   const standalone = buildStandaloneHtml(input);
   const exported = invitationDataFrom(standalone);
@@ -241,6 +253,38 @@ test("every production preset normalizes and renders through the canonical outpu
     assert.match(InvitationCore.renderInvitationBody(invitation), new RegExp(`data-template="${preset.id}"`));
     assert.match(InvitationCore.buildStandaloneHtml(invitation), /<script id="invitation-data" type="application\/json">/);
   }
+});
+
+test("core supplies escaped editable hero metadata to every canonical preset", () => {
+  const input = {
+    templateId: "midnight-cinema",
+    dateLabel: '<time data-bad="1">오늘</time>',
+    location: '<img src=x onerror="bad">',
+    host: "A & B"
+  };
+  const preview = InvitationCore.renderInvitationBody(input);
+
+  assert.match(preview, /data-design="midnight-cinema"/);
+  assert.match(preview, /&lt;time data-bad=&quot;1&quot;&gt;오늘&lt;\/time&gt;/);
+  assert.match(preview, /&lt;img src=x onerror=&quot;bad&quot;&gt;/);
+  assert.match(preview, /A &amp; B/);
+  assert.doesNotMatch(preview, /<time data-bad|<img src=x/);
+});
+
+test("standalone export contains byte-identical canonical invitation body markup", () => {
+  const input = {
+    templateId: "golden-years",
+    title: "긴 제목 ".repeat(24),
+    dateLabel: "2026년 10월 24일",
+    location: "가족 정원",
+    host: "가족 드림",
+    items: [
+      { id: "notice", type: "notice", heading: "안내", body: "편안한 마음으로 오세요." },
+      { id: "course", type: "course", time: "12:00", place: "가족 정원" }
+    ]
+  };
+
+  assert.equal(invitationBodyFrom(InvitationCore.buildStandaloneHtml(input)), InvitationCore.renderInvitationBody(input).trim());
 });
 
 test("normalizeInvitation parses editable stop lines", () => {
@@ -592,6 +636,13 @@ test("normalizeInvitation preserves supported fonts and rejects unknown font val
   assert.equal(invitation.koreanFont, "gmarket-sans");
   assert.equal(normalizeInvitation({ englishFont: "comic-sans" }).englishFont, "cormorant-garamond");
   assert.equal(normalizeInvitation({ koreanFont: "unknown" }).koreanFont, "gowun-batang");
+});
+
+test("Gmarket Sans remains an editable English display-font choice", () => {
+  const invitation = normalizeInvitation({ englishFont: "gmarket-sans" });
+
+  assert.equal(invitation.englishFont, "gmarket-sans");
+  assert.equal(getInvitationStyle(invitation), "--font-en:'Gmarket Sans';--font-ko:'Gowun Batang'");
 });
 
 test("normalizeInvitation clamps particle scales and migrates legacy particle sizes", () => {

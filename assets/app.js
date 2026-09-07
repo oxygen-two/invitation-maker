@@ -44,6 +44,7 @@ const previewMapInstances = new WeakMap();
 const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
 let mobileViewScrollCaptured = false;
 const mapLookupVersions = new Map();
+let templateThumbnailObserver;
 
 const dom = {
   form: document.querySelector("#invitation-form"),
@@ -926,6 +927,40 @@ const updatePreviewMarkup = (html) => {
   if (activeIntroOverlay) dom.preview.append(activeIntroOverlay);
 };
 
+const renderTemplateThumbnail = (template) => {
+  const rendered = InvitationCore.renderInvitationBody({
+    ...template.defaults,
+    templateId: template.id,
+    layoutFamily: template.familyId,
+    particleEffect: "none",
+    introEffect: "none",
+    mapEnabled: false
+  });
+  const article = rendered.match(/<article\b[^>]*>/i)?.[0];
+  const hero = rendered.match(/<(header|section)\b[^>]*class=["'][^"']*\binvite-hero\b[^"']*["'][^>]*>[\s\S]*?<\/\1>/i)?.[0];
+  if (!article || !hero) return "";
+  return `${article.replace(/>$/, ' data-template-thumbnail aria-hidden="true" inert>')}${hero}</article>`;
+};
+
+const syncTemplateThumbnailScales = () => {
+  templateThumbnailObserver?.disconnect();
+  const viewports = [...dom.templates.querySelectorAll("[data-template-thumbnail-viewport]")];
+  const resize = (viewport) => {
+    const thumbnail = viewport.querySelector("[data-template-thumbnail]");
+    const hero = thumbnail?.querySelector(".invite-hero");
+    const width = viewport.getBoundingClientRect().width;
+    if (!thumbnail || !hero || width <= 0) return;
+    const scale = width / 430;
+    thumbnail.style.setProperty("--template-thumbnail-scale", String(scale));
+    const heroHeight = Math.max(hero.scrollHeight || 0, hero.offsetHeight || 0);
+    if (heroHeight > 0) viewport.style.height = `${Math.ceil(heroHeight * scale)}px`;
+  };
+  viewports.forEach(resize);
+  if (typeof ResizeObserver !== "function") return;
+  templateThumbnailObserver = new ResizeObserver((entries) => entries.forEach(({ target }) => resize(target)));
+  viewports.forEach((viewport) => templateThumbnailObserver.observe(viewport));
+};
+
 const renderTemplates = () => {
   dom.occasions.innerHTML = state.catalog.occasions.map((occasion) => {
     const isActive = occasion.id === state.activeOccasion;
@@ -941,13 +976,22 @@ const renderTemplates = () => {
     const isPending = template.id === state.pendingTemplateId;
     const isApplied = template.id === state.activeTemplate;
     return `
-      <button class="template-chip${isPending ? " is-active" : ""}" type="button" data-template-id="${escapeAttribute(template.id)}" aria-pressed="${isPending}">
-        <strong>${escapeAttribute(template.name)}</strong>
-        <span>${escapeAttribute(template.note)}</span>
-        ${isApplied ? '<small class="template-chip-status">적용됨</small>' : ""}
-      </button>
+      <article class="template-card${isPending ? " is-active" : ""}${isApplied ? " is-applied" : ""}">
+        <div class="template-thumbnail-viewport" data-template-thumbnail-viewport aria-hidden="true">
+          ${renderTemplateThumbnail(template)}
+        </div>
+        <div class="template-card-copy">
+          <div class="template-card-heading">
+            <strong>${escapeAttribute(template.name)}</strong>
+            ${isApplied ? '<small class="template-chip-status">적용됨</small>' : ""}
+          </div>
+          <p>${escapeAttribute(template.note)}</p>
+        </div>
+        <button class="template-chip" type="button" data-template-id="${escapeAttribute(template.id)}" aria-label="${escapeAttribute(template.name)} 템플릿 선택${isApplied ? ", 현재 적용됨" : ""}" aria-pressed="${isPending}"></button>
+      </article>
     `;
   }).join("");
+  syncTemplateThumbnailScales();
 
   const pending = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId) || presets[0] || null;
   const occasion = state.catalog.occasions.find((entry) => entry.id === state.activeOccasion);
@@ -1939,7 +1983,9 @@ dom.occasions.addEventListener("click", (event) => {
 dom.templates.addEventListener("click", (event) => {
   const button = event.target.closest("[data-template-id]");
   if (!button || hasPendingEditorOperation()) return;
-  if (setPendingTemplate(button.dataset.templateId)) renderTemplates();
+  if (!setPendingTemplate(button.dataset.templateId)) return;
+  renderTemplates();
+  focusPresetCard(state.pendingTemplateId);
 });
 
 dom.applyTemplate.addEventListener("click", applyPendingTemplate);

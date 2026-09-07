@@ -133,7 +133,8 @@
     "playfair-display": "Playfair Display",
     "dm-serif-display": "DM Serif Display",
     "libre-baskerville": "Libre Baskerville",
-    "great-vibes": "Great Vibes"
+    "great-vibes": "Great Vibes",
+    "gmarket-sans": "Gmarket Sans"
   });
   const koreanFonts = Object.freeze({
     "gowun-batang": "Gowun Batang",
@@ -506,6 +507,7 @@
       ? `data-custom-hero-image style="--hero-image-scale:${customHero.scale / 100};--hero-image-x:${customHero.positionX}%;--hero-image-y:${customHero.positionY}%"`
       : "";
     const slots = {
+      templateId: invitation.templateId,
       articleAttributes: `data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" data-english-font="${escapeHtml(invitation.englishFont)}" data-korean-font="${escapeHtml(invitation.koreanFont)}" style="${invitationStyleFrom(invitation)}"`,
       particles: renderParticles(invitation.particleEffect, invitation.particleScale, invitation.particleAmount),
       art: escapeHtml(art),
@@ -513,6 +515,9 @@
       kicker: "Invitation",
       title: escapeHtml(invitation.title),
       subtitle: escapeHtml(invitation.subtitle),
+      dateLabel: escapeHtml(invitation.dateLabel),
+      location: escapeHtml(invitation.location),
+      host: escapeHtml(invitation.host),
       message: escapeHtml(invitation.message),
       meta: `
           <div>

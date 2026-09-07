@@ -5,8 +5,7 @@ const path = require("node:path");
 const TemplateArt = require("../assets/template-art.js");
 
 const decorated = [
-  "midnight-cinema",
-  "color-pop",
+  "botanical",
   "memory-film",
   "gallery-notice",
   "sunny-classroom",
@@ -66,6 +65,18 @@ test("returns only allowlisted WebP data URLs", () => {
   }
 
   assert.equal(TemplateArt.getDataUrl("unknown"), "");
+});
+
+test("garden and photo wedding use the approved full-photo floral art", () => {
+  const expected = `data:image/webp;base64,${fs.readFileSync(path.join(artDir, "romantic-story-cover.webp")).toString("base64")}`;
+  assert.equal(TemplateArt.getDataUrl("botanical"), expected);
+  assert.equal(TemplateArt.getDataUrl("modern-vow"), expected);
+});
+
+test("typographic ticket and poster omit unused built-in image payloads", () => {
+  for (const id of ["midnight-cinema", "color-pop"]) {
+    assert.equal(TemplateArt.getDataUrl(id), "");
+  }
 });
 
 test("exposes exactly the decorated template ID allowlist", () => {
