@@ -6,7 +6,7 @@
   <meta name="description" content="하린이의 9월 12일을 위한 생일 초대장. From rojae.">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#42101f">
-  <title>너라는 가장 예쁜 날</title>
+  <title>Harin’s Birthday</title>
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -262,18 +262,48 @@
     .invitation-card[data-template="bloom-portrait"] .invite-map{background:var(--deep)}
     .invitation-card[data-layout-family][data-design] .invite-kicker,.invitation-card[data-layout-family][data-design] .invite-hero h1,.invitation-card[data-layout-family][data-design] .invite-subtitle,.invitation-card[data-layout-family][data-design] .invite-hero-details{color:inherit}
     @media(max-width:480px){.invitation-card[data-layout-family="wedding-editorial"] .invite-meta,.invitation-card[data-layout-family="kids-storybook"] .invite-meta,.invitation-card[data-layout-family="wedding-editorial"] .invite-profile{grid-template-columns:1fr}.invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{font-size:38px}.invitation-card[data-layout-family][data-design="memory-film"] .invite-hero,.invitation-card[data-layout-family][data-design="golden-years"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="cherry-muse"] .invite-hero{padding-inline:28px}.invitation-card[data-layout-family][data-design="silver-afterglow"] .invite-hero,.invitation-card[data-layout-family][data-design="peach-table"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-hero{padding-inline:22px}.invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero{padding-inline:32px}}
-  </style>
+
+.invitation-intro{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;overflow:hidden;padding:24px;background:var(--paper,var(--cream-50,#fffaf2));color:var(--ink,#2a1720);font-family:var(--font-ko,"Noto Sans KR",serif);isolation:isolate;cursor:pointer}
+body.is-intro-active{overflow:hidden}
+.invitation-intro[data-intro-preview]{position:absolute}
+.intro-copy{position:relative;z-index:3;width:min(100%,420px);text-align:center;overflow-wrap:anywhere;pointer-events:none}
+.intro-copy h1{margin:0;color:var(--deep,var(--wine-900,#42101f));font-family:var(--font-en,var(--font-ko,serif));font-size:clamp(32px,10vw,58px);font-style:italic;font-weight:500;line-height:1.1;letter-spacing:0}
+.intro-subtitle,.intro-date,.intro-host{margin:12px 0 0;color:var(--soft,var(--ink-soft,#65535a));font-size:14px;line-height:1.55}
+.intro-date{color:var(--mid,var(--wine-700,#7a243b));font-weight:700}.intro-host{font-family:var(--font-en,var(--font-ko,serif))}
+.intro-skip{position:absolute;z-index:5;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));min-height:40px;padding:0 14px;border:1px solid rgba(42,23,32,.18);border-radius:999px;background:rgba(255,250,242,.86);color:var(--ink,#2a1720);font:700 13px/1 var(--font-ko,"Noto Sans KR",sans-serif);cursor:pointer}
+    .intro-envelope,.intro-card-plane,.intro-dawn,.intro-curtain,.intro-petals,.intro-bursts,.intro-spotlight,.intro-photo,.intro-photo-fallback{position:absolute;z-index:1;inset:0;pointer-events:none}
+    .intro-envelope{display:grid;place-items:center}.intro-envelope-card,.intro-envelope-pocket,.intro-envelope-flap,.intro-envelope-seal{position:absolute;width:min(78vw,390px);aspect-ratio:1.48/1;left:50%;bottom:13%;border:1px solid rgba(122,36,59,.22);box-shadow:0 20px 58px rgba(45,11,22,.18);transform:translateX(-50%)}.intro-envelope-card{z-index:1;width:min(66vw,330px);bottom:27%;border-radius:2px;background:linear-gradient(145deg,rgba(255,255,255,.98),var(--paper,var(--cream-50,#fffaf2)));animation:intro-envelope-card 3.2s cubic-bezier(.22,1,.36,1) forwards}.intro-envelope-pocket{z-index:3;background:var(--paper,var(--cream-50,#fffaf2));clip-path:polygon(0 0,50% 49%,100% 0,100% 100%,0 100%)}.intro-envelope-flap{z-index:4;transform:translateX(-50%);transform-origin:50% 0;background:linear-gradient(145deg,var(--paper,var(--cream-50,#fffaf2)),rgba(246,221,166,.84));clip-path:polygon(0 0,100% 0,50% 58%);animation:intro-envelope-flap 3.2s cubic-bezier(.22,1,.36,1) forwards}.intro-envelope-seal{z-index:5;width:42px;aspect-ratio:1;bottom:calc(13% + min(24vw,120px));border-radius:50%;background:var(--gold,var(--gold-500,#d9ac54));box-shadow:0 4px 14px rgba(45,11,22,.18);animation:intro-envelope-seal 3.2s ease forwards}
+    .intro-card-plane{background:linear-gradient(180deg,var(--deep,var(--wine-900,#42101f)),var(--mid,var(--wine-700,#7a243b)));transform-origin:var(--intro-target-origin,center);animation:intro-card-shrink 3s ease forwards}
+.intro-dawn{background:radial-gradient(circle at 50% 32%,rgba(255,245,210,.9),transparent 34%),linear-gradient(180deg,#151015,var(--bg,var(--page-bg-a,#ead5ce)));animation:intro-dawn 2.6s ease forwards}
+.intro-curtain{display:grid;grid-template-columns:1fr 1fr}.intro-curtain span{background:linear-gradient(90deg,var(--deep,var(--wine-900,#42101f)),var(--mid,var(--wine-700,#7a243b)));animation:intro-curtain-left 3s ease forwards}.intro-curtain span+span{animation-name:intro-curtain-right}
+    .intro-bursts{background:radial-gradient(circle at 50% 48%,rgba(91,45,56,.38),transparent 42%),linear-gradient(160deg,#100d14,#21121c 54%,#0c0d13)}.intro-burst{position:absolute;left:var(--origin-x);top:var(--origin-y);width:5px;height:5px;border-radius:50%;color:var(--tone);background:currentColor;box-shadow:0 0 16px currentColor;animation:intro-burst-glow 1.9s ease var(--burst-delay) forwards}.intro-burst span{position:absolute;left:1px;top:1px;display:block;width:4px;height:4px;border-radius:50%;background:currentColor;box-shadow:0 0 13px currentColor;transform:rotate(var(--angle)) translateY(0);animation:intro-firework 1.8s cubic-bezier(.16,.84,.32,1) calc(var(--burst-delay) + var(--spark-delay)) forwards}.intro-petals span{position:absolute;left:var(--petal-x);top:var(--petal-y);display:block;width:10px;height:10px;border:1px solid var(--particle-edge,rgba(66,16,31,.48));border-radius:70% 0 70% 0;background:var(--particle-accent,var(--mid,#7a243b));filter:drop-shadow(0 2px 3px rgba(42,23,32,.18));opacity:.9;transform:scale(var(--petal-scale));animation:intro-float 3.2s ease var(--petal-delay) forwards}.intro-petals span:nth-child(3n){background:var(--particle-light,var(--gold,#d9ac54))}.intro-petals span:nth-child(4n){background:var(--particle-alt,var(--soft,#65535a))}.invitation-intro[data-intro-effect="fireworks"] .intro-copy h1{color:#fffdf9;text-shadow:0 2px 18px rgba(0,0,0,.48)}.invitation-intro[data-intro-effect="fireworks"] .intro-subtitle,.invitation-intro[data-intro-effect="fireworks"] .intro-date,.invitation-intro[data-intro-effect="fireworks"] .intro-host{color:rgba(255,250,242,.88)}.invitation-intro[data-intro-effect="fireworks"] .intro-skip{border-color:rgba(255,250,242,.32);background:rgba(16,13,20,.7);color:#fffdf9}
+.intro-spotlight{background:radial-gradient(circle at 50% 45%,rgba(255,250,242,.95),rgba(255,250,242,.42) 24%,rgba(42,23,32,.68) 70%);animation:intro-spotlight 2.8s ease forwards}
+.intro-photo,.intro-photo-fallback{display:grid;place-items:center;background:linear-gradient(145deg,var(--bg,var(--page-bg-a,#ead5ce)),var(--paper,var(--cream-50,#fffaf2)))}.intro-photo img{width:100%;height:100%;object-fit:cover;filter:blur(16px);transform:scale(1.08);animation:intro-photo-focus 3.6s ease forwards}.intro-photo-fallback{background:radial-gradient(circle at 50% 38%,rgba(217,172,84,.35),transparent 30%),linear-gradient(160deg,var(--paper,var(--cream-50,#fffaf2)),var(--bg,var(--page-bg-a,#ead5ce)))}
+    .is-intro-active .particle-layer,.is-intro-active .particle-layer span,.is-intro-active .particle-layer span::before{animation-play-state:paused}
+    @keyframes intro-card-shrink{0%{transform:translate3d(0,0,0) scale(1);opacity:1}100%{transform:translate3d(var(--intro-target-x,0px),var(--intro-target-y,0px),0) scale(var(--intro-target-scale,.72));opacity:0}}@keyframes intro-envelope-card{0%,32%{transform:translate(-50%,18%);opacity:0}58%{opacity:1}100%{transform:translate(-50%,-34%);opacity:.3}}@keyframes intro-envelope-flap{0%,24%{transform:translateX(-50%) rotateX(0)}100%{transform:translateX(-50%) rotateX(166deg);opacity:.3}}@keyframes intro-envelope-seal{0%,25%{opacity:1;transform:translateX(-50%) scale(1)}52%,100%{opacity:0;transform:translateX(-50%) scale(.35)}}@keyframes intro-burst-glow{0%,18%{opacity:0}28%{opacity:1}100%{opacity:0}}@keyframes intro-firework{0%,12%{opacity:0;transform:rotate(var(--angle)) translateY(0) scale(.3)}24%{opacity:1}80%{opacity:.78}100%{opacity:0;transform:rotate(var(--angle)) translateY(calc(var(--distance) * -1)) scale(.8)}}@keyframes intro-dawn{0%{filter:brightness(.35)}100%{filter:brightness(1.08);opacity:.26}}@keyframes intro-curtain-left{100%{transform:translateX(-104%)}}@keyframes intro-curtain-right{100%{transform:translateX(104%)}}@keyframes intro-float{100%{opacity:0;transform:translateY(-44px) rotate(140deg) scale(1.4)}}@keyframes intro-spotlight{0%{clip-path:circle(12% at 50% 45%)}100%{clip-path:circle(100% at 50% 45%);opacity:.18}}@keyframes intro-photo-focus{100%{filter:blur(0);transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.invitation-intro{display:none}}
+</style>
 <style>
+    .particle-layer { opacity: .45; }
+    .invitation-card .invite-message { font-family: var(--font-en), serif; font-size: 14px; letter-spacing: .14em; }
+    .invitation-card p:empty { display: none; }
     body .invitation-card[data-layout-family][data-design] .invite-hero h1 { line-height: 1.2; word-break: keep-all; overflow-wrap: anywhere; }
     @media (max-width: 480px) {
       body .invitation-card[data-layout-family][data-design] .invite-hero h1 { font-size: clamp(32px, 10vw, 46px); letter-spacing: -.035em; }
     }
   </style></head>
-<body data-template="bloom-portrait" data-particle="none" style="--font-en:'Playfair Display';--font-ko:'Noto Serif KR'">
+<body data-template="bloom-portrait" data-particle="petals" style="--font-en:'Playfair Display';--font-ko:'Noto Serif KR'">
+<div class="invitation-intro" data-intro-overlay data-intro-effect="dawn" data-intro-duration="2.6">
+  <div class="intro-dawn" aria-hidden="true"></div>
+  <div class="intro-copy">
+    <h1>Harin’s Birthday</h1>
+    <p class="intro-subtitle">September 12 · A day for two</p>
+  </div>
+  <button class="intro-skip" type="button" data-intro-skip aria-label="Skip intro">Skip</button>
+</div>
 
-
-      <article class="invitation-card" data-template="bloom-portrait" data-particle="none" data-english-font="playfair-display" data-korean-font="noto-serif-kr" style="--font-en:'Playfair Display';--font-ko:'Noto Serif KR'" data-layout-family="wedding-editorial" data-design="bloom-portrait">
-
+      <article class="invitation-card" data-template="bloom-portrait" data-particle="petals" data-english-font="playfair-display" data-korean-font="noto-serif-kr" style="--font-en:'Playfair Display';--font-ko:'Noto Serif KR'" data-layout-family="wedding-editorial" data-design="bloom-portrait">
+        <div class="particle-layer" data-effect="petals" data-scale="65" data-amount="25" style="--particle-scale:0.65" aria-hidden="true"><span style="--x:11.30%;--size:5px;--drift:-30px;--duration:8s;--delay:-0.0s;--turn:0deg;--tone:var(--particle-accent);--sway:-24px;--pulse-delay:-0.00s;--pulse-duration:2.40s"></span><span style="--x:37.50%;--size:7px;--drift:-15px;--duration:9s;--delay:-0.9s;--turn:47deg;--tone:var(--particle-alt);--sway:-16px;--pulse-delay:-0.37s;--pulse-duration:2.68s"></span><span style="--x:63.70%;--size:9px;--drift:0px;--duration:10s;--delay:-1.8s;--turn:94deg;--tone:var(--particle-light);--sway:-8px;--pulse-delay:-0.74s;--pulse-duration:2.96s"></span><span style="--x:86.30%;--size:11px;--drift:15px;--duration:11s;--delay:-2.7s;--turn:141deg;--tone:var(--particle-accent);--sway:0px;--pulse-delay:-1.11s;--pulse-duration:3.24s"></span></div>
 
 
         <header class="invite-hero invite-hero--bloom-portrait">
@@ -281,8 +311,8 @@
           <div class="invite-hero-copy">
             <p class="invite-kicker">Invitation</p>
 
-            <h1 data-title-script="ko">너라는 가장 예쁜 날</h1>
-            <p class="invite-subtitle">9월 12일, 하린이에게 보내는 초대장</p>
+            <h1>Harin’s Birthday</h1>
+            <p class="invite-subtitle">September 12 · A day for two</p>
 
             <div class="invite-hero-details">
               <span class="invite-hero-date">2026.09.12 SAT · 13:00</span>
@@ -313,30 +343,20 @@
 
 
         <section class="invite-section invite-message">
-          <p>사랑하는 하린이에게.
-네가 태어난 날을 너와 함께 보낼 수 있어서 참 좋아.
-맛있는 순간, 예쁜 골목, 나란히 걷는 발걸음까지.
-오늘은 우리 둘의 속도로 행복하자.</p>
+          <p>THE AFTERNOON &amp; EVENING</p>
         </section>
 
 
         <section class="invite-section invite-timeline">
-
-      <section class="invite-notice">
-        <p class="invite-item-eyebrow">안내</p>
-        <h3>TO. 오하린</h3>
-        <p>9월 12일, 오늘의 주인공은 너야.
-맛있는 한 끼부터 밤의 마지막 인사까지, 네 곁에서 함께할게.</p>
-      </section>
 
       <article class="invite-stop">
         <div class="invite-stop-number">01</div>
         <div class="invite-stop-content">
           <p class="invite-stop-time">13:00–14:30 · LUNCH</p>
           <h3>살롱순라</h3>
-          <p>오후 1시에 만나자. 채끝 등심 스테이크와 트러플 화이트 라구 파스타를 나눠 먹기. 점심에는 가벼운 음료를 곁들이고, 와인은 저녁에 함께 즐기자.</p>
+          <p>Steak &amp; truffle pasta</p>
 
-          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EC%82%B4%EB%A1%B1%EC%88%9C%EB%9D%BC" target="_blank" rel="noopener noreferrer">장소 지도 열기</a>
+          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EC%82%B4%EB%A1%B1%EC%88%9C%EB%9D%BC" target="_blank" rel="noopener noreferrer">Map ↗</a>
         </div>
       </article>
 
@@ -345,29 +365,29 @@
         <div class="invite-stop-content">
           <p class="invite-stop-time">14:30–14:50 · PHOTO WALK</p>
           <h3>서순라길</h3>
-          <p>예쁜 골목에서 서로의 사진을 남기고, 천천히 카페로 걸어가자.</p>
+          <p></p>
 
-          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EC%84%9C%EC%88%9C%EB%9D%BC%EA%B8%B8" target="_blank" rel="noopener noreferrer">장소 지도 열기</a>
+          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EC%84%9C%EC%88%9C%EB%9D%BC%EA%B8%B8" target="_blank" rel="noopener noreferrer">Map ↗</a>
         </div>
       </article>
 
       <article class="invite-stop">
         <div class="invite-stop-number">03</div>
         <div class="invite-stop-content">
-          <p class="invite-stop-time">14:50–15:50 · CAFE</p>
+          <p class="invite-stop-time">14:50–15:50 · COFFEE &amp; TEA</p>
           <h3>반쥴</h3>
-          <p>차나 커피를 마시며 편하게 이야기하자. 디저트는 가볍게, 대화는 느긋하게.</p>
+          <p></p>
 
-          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EB%B0%98%EC%A5%B4" target="_blank" rel="noopener noreferrer">장소 지도 열기</a>
+          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EB%B0%98%EC%A5%B4" target="_blank" rel="noopener noreferrer">Map ↗</a>
         </div>
       </article>
 
       <article class="invite-stop">
         <div class="invite-stop-number">04</div>
         <div class="invite-stop-content">
-          <p class="invite-stop-time">15:50–16:10 · A LITTLE PAUSE</p>
-          <h3>잠깐의 여유</h3>
-          <p>잠시 쉬어 가자. 음료가 더 마시고 싶고 시간 여유가 있을 때만 스타벅스 테이크아웃도 한 잔.</p>
+          <p class="invite-stop-time">15:50–16:10 · PAUSE</p>
+          <h3>A little break</h3>
+          <p></p>
 
 
         </div>
@@ -376,11 +396,11 @@
       <article class="invite-stop">
         <div class="invite-stop-number">05</div>
         <div class="invite-stop-content">
-          <p class="invite-stop-time">16:10–16:40 · BY THE STREAM</p>
+          <p class="invite-stop-time">16:10–16:40 · WALK</p>
           <h3>청계천</h3>
-          <p>천천히 걷다가 편하게 멈출 수 있는 곳에서 사진을 남기자. 산책을 마치면 호텔 방향으로 이동하기.</p>
+          <p></p>
 
-          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EC%B2%AD%EA%B3%84%EC%B2%9C" target="_blank" rel="noopener noreferrer">장소 지도 열기</a>
+          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EC%B2%AD%EA%B3%84%EC%B2%9C" target="_blank" rel="noopener noreferrer">Map ↗</a>
         </div>
       </article>
 
@@ -389,18 +409,18 @@
         <div class="invite-stop-content">
           <p class="invite-stop-time">17:00 · CHECK IN</p>
           <h3>부티크호텔 K 종로점</h3>
-          <p>오후 5시부터 밤 10시까지 함께 머무는 시간. 짐을 내려놓고 잠깐 정리하며 쉬어 가자.</p>
+          <p>Our stay · 17:00–22:00</p>
 
-          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EB%B6%80%ED%8B%B0%ED%81%AC%ED%98%B8%ED%85%94%20K%20%EC%A2%85%EB%A1%9C%EC%A0%90" target="_blank" rel="noopener noreferrer">장소 지도 열기</a>
+          <a class="invite-stop-map-link" href="https://map.naver.com/p/search/%EB%B6%80%ED%8B%B0%ED%81%AC%ED%98%B8%ED%85%94%20K%20%EC%A2%85%EB%A1%9C%EC%A0%90" target="_blank" rel="noopener noreferrer">Map ↗</a>
         </div>
       </article>
 
       <article class="invite-stop">
         <div class="invite-stop-number">07</div>
         <div class="invite-stop-content">
-          <p class="invite-stop-time">17:15–17:40 · MAKE A WISH</p>
-          <h3>생일을 축하하는 시간</h3>
-          <p>오늘의 주인공을 위한 달콤한 시간. 생일을 축하하고, 함께 사진도 남기자.</p>
+          <p class="invite-stop-time">17:15–17:40 · CELEBRATE</p>
+          <h3>Make a wish</h3>
+          <p></p>
 
 
         </div>
@@ -410,8 +430,8 @@
         <div class="invite-stop-number">08</div>
         <div class="invite-stop-content">
           <p class="invite-stop-time">17:40–19:00 · REST</p>
-          <h3>우리 둘의 쉼표</h3>
-          <p>음악을 듣거나 이야기하면서 둘이 편하게 쉬어 가자.</p>
+          <h3>Slow moments</h3>
+          <p></p>
 
 
         </div>
@@ -421,8 +441,8 @@
         <div class="invite-stop-number">09</div>
         <div class="invite-stop-content">
           <p class="invite-stop-time">19:00–20:00 · DINNER &amp; WINE</p>
-          <h3>저녁과 와인</h3>
-          <p>둘이 먹고 싶은 저녁 메뉴와 와인을 함께 즐기자. 음식과 와인을 즐길 장소는 호텔 반입 가능 여부에 맞춰 정할게.</p>
+          <h3>A table for two</h3>
+          <p></p>
 
 
         </div>
@@ -431,9 +451,9 @@
       <article class="invite-stop">
         <div class="invite-stop-number">10</div>
         <div class="invite-stop-content">
-          <p class="invite-stop-time">20:00–21:30 · JUST US</p>
-          <h3>우리 둘의 자유 시간</h3>
-          <p>영화나 예능을 보거나, 도란도란 대화하며 쉬기. 우리에게 편안한 방식으로 보내자.</p>
+          <p class="invite-stop-time">20:00–21:30 · UNWIND</p>
+          <h3>Just us</h3>
+          <p></p>
 
 
         </div>
@@ -442,43 +462,103 @@
       <article class="invite-stop">
         <div class="invite-stop-number">11</div>
         <div class="invite-stop-content">
-          <p class="invite-stop-time">21:30–22:00 · GOOD NIGHT</p>
-          <h3>하루를 마무리하며</h3>
-          <p>소지품을 챙기고 귀가 교통을 확인하자. 천천히 정리하고 밤 10시까지 퇴실하기.</p>
+          <p class="invite-stop-time">21:30–22:00 · CHECK OUT</p>
+          <h3>Good night</h3>
+          <p></p>
 
 
         </div>
       </article>
 
-      <section class="invite-notice">
-        <p class="invite-item-eyebrow">안내</p>
-        <h3>오늘의 약속</h3>
-        <p>걷기 편한 신발과 편안한 마음만 챙겨 와.
-시간이 밀리면 스타벅스와 산책을 줄이고, 식사와 대화는 여유롭게 즐기자.
-와인을 마시는 날이니 이동은 대중교통이나 택시로. 가장 중요한 건 네가 행복한 하루를 보내는 거니까.</p>
-      </section>
-
-      <section class="invite-notice">
-        <p class="invite-item-eyebrow">안내</p>
-        <h3>생일 축하해, 하린아</h3>
-        <p>네가 웃으면 평범한 하루도 특별해져.
-오늘은 내가 네 하루를 조금 더 다정하게 만들어 주고 싶어.
-태어나 줘서, 내 곁에 있어 줘서 고마워.
-앞으로도 네 생일을 가장 가까이에서 축하해 줄게.
-
-많이 좋아해.
-From rojae</p>
-      </section>
-
         </section>
 
 
-        <a class="invite-map" href="https://map.naver.com/p/search/%EC%82%B4%EB%A1%B1%EC%88%9C%EB%9D%BC" target="_blank" rel="noopener noreferrer">대표 지도 열기</a>
+        <a class="invite-map" href="https://map.naver.com/p/search/%EC%82%B4%EB%A1%B1%EC%88%9C%EB%9D%BC" target="_blank" rel="noopener noreferrer">Meeting point ↗</a>
 
       </article>
 
-<script id="invitation-data" type="application/json">{"templateId":"bloom-portrait","heroImage":null,"layoutFamily":"wedding-editorial","introEffect":"none","particleEffect":"none","particleScale":80,"particleAmount":50,"englishFont":"playfair-display","koreanFont":"noto-serif-kr","naverMapClientId":"","title":"너라는 가장 예쁜 날","subtitle":"9월 12일, 하린이에게 보내는 초대장","dateLabel":"2026.09.12 SAT · 13:00","host":"From rojae","location":"살롱순라","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16,"message":"사랑하는 하린이에게.\n네가 태어난 날을 너와 함께 보낼 수 있어서 참 좋아.\n맛있는 순간, 예쁜 골목, 나란히 걷는 발걸음까지.\n오늘은 우리 둘의 속도로 행복하자.","items":[{"id":"hello","type":"notice","heading":"TO. 오하린","body":"9월 12일, 오늘의 주인공은 너야.\n맛있는 한 끼부터 밤의 마지막 인사까지, 네 곁에서 함께할게."},{"id":"harin-lunch","type":"course","time":"13:00–14:30","label":"LUNCH","place":"살롱순라","note":"오후 1시에 만나자. 채끝 등심 스테이크와 트러플 화이트 라구 파스타를 나눠 먹기. 점심에는 가벼운 음료를 곁들이고, 와인은 저녁에 함께 즐기자.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-photo walk","type":"course","time":"14:30–14:50","label":"PHOTO WALK","place":"서순라길","note":"예쁜 골목에서 서로의 사진을 남기고, 천천히 카페로 걸어가자.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-cafe","type":"course","time":"14:50–15:50","label":"CAFE","place":"반쥴","note":"차나 커피를 마시며 편하게 이야기하자. 디저트는 가볍게, 대화는 느긋하게.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-a little pause","type":"course","time":"15:50–16:10","label":"A LITTLE PAUSE","place":"잠깐의 여유","note":"잠시 쉬어 가자. 음료가 더 마시고 싶고 시간 여유가 있을 때만 스타벅스 테이크아웃도 한 잔.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-by the stream","type":"course","time":"16:10–16:40","label":"BY THE STREAM","place":"청계천","note":"천천히 걷다가 편하게 멈출 수 있는 곳에서 사진을 남기자. 산책을 마치면 호텔 방향으로 이동하기.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-check in","type":"course","time":"17:00","label":"CHECK IN","place":"부티크호텔 K 종로점","note":"오후 5시부터 밤 10시까지 함께 머무는 시간. 짐을 내려놓고 잠깐 정리하며 쉬어 가자.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-make a wish","type":"course","time":"17:15–17:40","label":"MAKE A WISH","place":"생일을 축하하는 시간","note":"오늘의 주인공을 위한 달콤한 시간. 생일을 축하하고, 함께 사진도 남기자.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-rest","type":"course","time":"17:40–19:00","label":"REST","place":"우리 둘의 쉼표","note":"음악을 듣거나 이야기하면서 둘이 편하게 쉬어 가자.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-dinner \u0026 wine","type":"course","time":"19:00–20:00","label":"DINNER \u0026 WINE","place":"저녁과 와인","note":"둘이 먹고 싶은 저녁 메뉴와 와인을 함께 즐기자. 음식과 와인을 즐길 장소는 호텔 반입 가능 여부에 맞춰 정할게.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-just us","type":"course","time":"20:00–21:30","label":"JUST US","place":"우리 둘의 자유 시간","note":"영화나 예능을 보거나, 도란도란 대화하며 쉬기. 우리에게 편안한 방식으로 보내자.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-good night","type":"course","time":"21:30–22:00","label":"GOOD NIGHT","place":"하루를 마무리하며","note":"소지품을 챙기고 귀가 교통을 확인하자. 천천히 정리하고 밤 10시까지 퇴실하기.","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"comfort","type":"notice","heading":"오늘의 약속","body":"걷기 편한 신발과 편안한 마음만 챙겨 와.\n시간이 밀리면 스타벅스와 산책을 줄이고, 식사와 대화는 여유롭게 즐기자.\n와인을 마시는 날이니 이동은 대중교통이나 택시로. 가장 중요한 건 네가 행복한 하루를 보내는 거니까."},{"id":"letter","type":"notice","heading":"생일 축하해, 하린아","body":"네가 웃으면 평범한 하루도 특별해져.\n오늘은 내가 네 하루를 조금 더 다정하게 만들어 주고 싶어.\n태어나 줘서, 내 곁에 있어 줘서 고마워.\n앞으로도 네 생일을 가장 가까이에서 축하해 줄게.\n\n많이 좋아해.\nFrom rojae"}]}</script>
+<script id="invitation-data" type="application/json">{"templateId":"bloom-portrait","heroImage":null,"layoutFamily":"wedding-editorial","introEffect":"dawn","particleEffect":"petals","particleScale":65,"particleAmount":25,"englishFont":"playfair-display","koreanFont":"noto-serif-kr","naverMapClientId":"","title":"Harin’s Birthday","subtitle":"September 12 · A day for two","dateLabel":"2026.09.12 SAT · 13:00","host":"From rojae","location":"살롱순라","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16,"message":"THE AFTERNOON \u0026 EVENING","items":[{"id":"harin-lunch","type":"course","time":"13:00–14:30","label":"LUNCH","place":"살롱순라","note":"Steak \u0026 truffle pasta","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-photo walk","type":"course","time":"14:30–14:50","label":"PHOTO WALK","place":"서순라길","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-coffee \u0026 tea","type":"course","time":"14:50–15:50","label":"COFFEE \u0026 TEA","place":"반쥴","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-pause","type":"course","time":"15:50–16:10","label":"PAUSE","place":"A little break","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-walk","type":"course","time":"16:10–16:40","label":"WALK","place":"청계천","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-check in","type":"course","time":"17:00","label":"CHECK IN","place":"부티크호텔 K 종로점","note":"Our stay · 17:00–22:00","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-celebrate","type":"course","time":"17:15–17:40","label":"CELEBRATE","place":"Make a wish","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-rest","type":"course","time":"17:40–19:00","label":"REST","place":"Slow moments","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-dinner \u0026 wine","type":"course","time":"19:00–20:00","label":"DINNER \u0026 WINE","place":"A table for two","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-unwind","type":"course","time":"20:00–21:30","label":"UNWIND","place":"Just us","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16},{"id":"harin-check out","type":"course","time":"21:30–22:00","label":"CHECK OUT","place":"Good night","note":"","mapUrl":"","mapEnabled":false,"mapLatitude":null,"mapLongitude":null,"mapZoom":16}]}</script>
 
-
+<script data-intro-runtime>
+(() => {
+  const presets = {"envelope":{"duration":3.2},"card-shrink":{"duration":3},"dawn":{"duration":2.6},"fireworks":{"duration":3.4},"curtain":{"duration":3},"petals":{"duration":3.2},"spotlight":{"duration":2.8},"photo-focus":{"duration":3.6}};
+  const activeController = new WeakMap();
+  const normalizeEffect = (value) => Object.hasOwn(presets, value) ? value : "none";
+  const reducedMotion = () => Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const setCardTarget = (host, overlay) => {
+    const card = host.querySelector(".invitation-card");
+    const source = overlay.getBoundingClientRect ? overlay.getBoundingClientRect() : host.getBoundingClientRect();
+    const target = card && card.getBoundingClientRect && card.getBoundingClientRect();
+    if (!overlay.style || !source || !target || !(source.width > 0) || !(target.width > 0)) return false;
+    overlay.style.setProperty("--intro-target-scale", String(target.width / source.width));
+    overlay.style.setProperty("--intro-target-x", (target.left - source.left) + "px");
+    overlay.style.setProperty("--intro-target-y", (target.top - source.top) + "px");
+    overlay.style.setProperty("--intro-target-origin", "top left");
+    return true;
+  };
+  const InvitationIntro = {
+    play(host, invitation = {}) {
+      InvitationIntro.stop(host);
+      const effect = normalizeEffect(invitation.introEffect);
+      const overlay = host && host.querySelector("[data-intro-overlay]");
+      if (!host || effect === "none" || reducedMotion()) {
+        if (overlay) overlay.remove();
+        return null;
+      }
+      if (!overlay) {
+        host.classList.remove("is-intro-active");
+        return null;
+      }
+      let finished = false;
+      let timerId = null;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        if (timerId !== null) window.clearTimeout(timerId);
+        overlay.removeEventListener("click", finish);
+        document.removeEventListener("keydown", onKeyDown);
+        overlay.remove();
+        host.classList.remove("is-intro-active");
+        activeController.delete(host);
+      };
+      const onKeyDown = (event) => {
+        if (event.key === "Escape") finish();
+      };
+      try {
+        host.classList.add("is-intro-active");
+        if (effect === "card-shrink") setCardTarget(host, overlay);
+        overlay.addEventListener("click", finish);
+        document.addEventListener("keydown", onKeyDown);
+        timerId = window.setTimeout(finish, Math.round(presets[effect].duration * 1000));
+        const controller = { finish };
+        activeController.set(host, controller);
+        return controller;
+      } catch {
+        finish();
+        return null;
+      }
+    },
+    stop(host) {
+      const controller = activeController.get(host);
+      if (controller) controller.finish();
+    }
+  };
+  const start = () => {
+    try {
+      const payload = document.getElementById("invitation-data");
+      InvitationIntro.play(document.body, payload ? JSON.parse(payload.textContent || "{}") : {});
+    } catch {
+      InvitationIntro.stop(document.body);
+      const overlays = document.body && document.body.querySelectorAll
+        ? document.body.querySelectorAll("[data-intro-overlay]")
+        : [document.body && document.body.querySelector("[data-intro-overlay]")];
+      for (const overlay of overlays) if (overlay && overlay.remove) overlay.remove();
+      if (document.body && document.body.classList) document.body.classList.remove("is-intro-active");
+    }
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+  else start();
+})();
+</script>
 </body>
 </html>
