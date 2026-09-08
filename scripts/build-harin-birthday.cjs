@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const Core = require('../assets/invitation-core.js');
 const catalog = require('../invitation-data.json');
+const harinPhoto = `data:image/webp;base64,${fs.readFileSync(path.resolve(__dirname, '../assets/harin-0912.webp')).toString('base64')}`;
 
 const course = (time, label, place, note = '') => ({
   id: `harin-${label.toLowerCase()}`, type: 'course', time, label, place, note,
@@ -31,10 +32,13 @@ for (const [filename, templateId, title, subtitle] of variants) {
   const preset = catalog.templates.find(template => template.id === templateId);
   let html = Core.buildStandaloneHtml({
     ...preset.defaults, templateId, layoutFamily: preset.familyId,
+    heroImage: templateId === 'bloom-portrait'
+      ? { src: harinPhoto, scale: 100, positionX: 50, positionY: 50 }
+      : null,
     title, subtitle, dateLabel: '2026.09.12 SAT · 13:00',
     host: 'From rojae', location: '살롱순라',
     message: 'THE AFTERNOON & EVENING',
-    introEffect: 'dawn', particleEffect: 'petals', particleScale: 65, particleAmount: 25,
+    introEffect: 'dawn', particleEffect: 'petals', particleScale: 85, particleAmount: 200,
     mapEnabled: false, mapUrl: '', naverMapClientId: '', items
   }).replace('<meta name="viewport"', '<meta name="robots" content="noindex, nofollow, noarchive">\n  <meta name="description" content="하린이의 9월 12일을 위한 생일 초대장. From rojae.">\n  <meta name="viewport"');
   // The shared renderer supplies search links for all course headings. Keep
@@ -45,7 +49,7 @@ for (const [filename, templateId, title, subtitle] of variants) {
   html = html.replaceAll('인트로 건너뛰기', 'Skip intro').replaceAll('건너뛰기', 'Skip')
     .replaceAll('대표 지도 열기', 'Meeting point ↗').replaceAll('장소 지도 열기', 'Map ↗');
   html = html.replace('</head>', `<style>
-    .particle-layer { opacity: .45; }
+    .particle-layer { opacity: .85; }
     .invitation-card .invite-message { font-family: var(--font-en), serif; font-size: 14px; letter-spacing: .14em; }
     .invitation-card p:empty { display: none; }
     body .invitation-card[data-layout-family][data-design] .invite-hero h1 { line-height: 1.2; word-break: keep-all; overflow-wrap: anywhere; }
