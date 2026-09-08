@@ -21,7 +21,7 @@ const items = [
   course('17:40–21:30', 'JUST US', '우리 둘의 느긋한 저녁', '쉬기도 하고, 저녁도 먹고. 정해진 순서 없이 함께 보내는 시간.'),
   course('21:30–22:00', 'GOOD NIGHT', '하루를 마무리하며', '천천히 정리하고 퇴실하기. 오늘의 예쁜 장면들을 오래 기억하자.'),
   { id: 'comfort', type: 'notice', heading: '오늘의 약속', body: '걷기 편한 신발과 편안한 마음만 챙겨 와.\n시간은 네 컨디션에 맞춰 조금씩 바꿔도 좋아. 가장 중요한 건 네가 행복한 하루를 보내는 거니까.' },
-  { id: 'letter', type: 'notice', heading: '생일 축하해, 하린아', body: '네가 웃으면 평범한 하루도 특별해져.\n오늘은 내가 네 하루를 조금 더 다정하게 만들어 주고 싶어.\n태어나 줘서, 내 곁에 있어 줘서 고마워.\n앞으로도 네 생일을 가장 가까이에서 축하해 줄게.\n\n많이 좋아해.\nFrom rojae · 로재가' }
+  { id: 'letter', type: 'notice', heading: '생일 축하해, 하린아', body: '네가 웃으면 평범한 하루도 특별해져.\n오늘은 내가 네 하루를 조금 더 다정하게 만들어 주고 싶어.\n태어나 줘서, 내 곁에 있어 줘서 고마워.\n앞으로도 네 생일을 가장 가까이에서 축하해 줄게.\n\n많이 좋아해.\nFrom rojae' }
 ];
 const variants = [
   ['0912.html', 'cherry-muse', '하린아, 생일 축하해', '오늘은 온통 너를 위한 날'],
@@ -33,7 +33,7 @@ for (const [filename, templateId, title, subtitle] of variants) {
   let html = Core.buildStandaloneHtml({
     ...preset.defaults, templateId, layoutFamily: preset.familyId,
     title, subtitle, dateLabel: '2026.09.12 SAT · 13:00',
-    host: 'From rojae · 로재가', location: '살롱순라',
+    host: 'From rojae', location: '살롱순라',
     message: '사랑하는 하린이에게.\n네가 태어난 날을 너와 함께 보낼 수 있어서 참 좋아.\n맛있는 순간, 예쁜 골목, 나란히 걷는 발걸음까지.\n오늘은 우리 둘의 속도로 행복하자.',
     introEffect: 'none', particleEffect: 'none',
     mapEnabled: false, mapUrl: '', naverMapClientId: '', items
