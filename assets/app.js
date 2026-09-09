@@ -45,6 +45,38 @@ const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
 let mobileViewScrollCaptured = false;
 const mapLookupVersions = new Map();
 let templateThumbnailObserver;
+let draftReady = false;
+let draftWrite = Promise.resolve();
+let draftRevision = 0;
+let personalDraft = false;
+
+const saveDraft = () => {
+  if (!draftReady) return;
+  const invitation = PresetApplication.snapshot(state.invitation);
+  const revision = ++draftRevision;
+  const status = document.querySelector('#draft-status');
+  status.textContent = '초안 저장 중…';
+  draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation)).then(() => {
+    if (revision === draftRevision) status.textContent = '이 기기에 초안 저장됨';
+  }).catch(() => {
+    if (revision === draftRevision) status.textContent = '자동 저장 실패 · HTML로 다운로드해 주세요';
+  });
+};
+
+const setStudioStage = (stage) => {
+  if (hasPendingEditorOperation()) return;
+  document.body.dataset.studioStage = stage;
+  document.querySelectorAll('.studio-steps button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.studioStage === stage)));
+  document.querySelector('#studio-heading').textContent = stage === 'gallery' ? '어떤 날을 초대할까요?' : '나만의 초대장을 완성하세요';
+  if (stage !== 'gallery') {
+    state.pendingTemplateId = state.activeTemplate;
+    renderTemplates();
+    renderPreview();
+  }
+  setMobileView(stage === 'finish' ? 'preview' : stage === 'library' ? 'library' : 'editor');
+  window.scrollTo(0, 0);
+  if (stage === 'gallery') requestAnimationFrame(syncTemplateThumbnailScales);
+};
 
 const dom = {
   form: document.querySelector("#invitation-form"),
@@ -1033,6 +1065,19 @@ const setPendingTemplate = (templateId) => {
   return true;
 };
 
+const renderSamplePreview = () => {
+  const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
+  const sample = PresetApplication.prepare({ current: getFormData(), preset }).next;
+  dom.preview.dataset.template = sample.templateId;
+  dom.preview.setAttribute('style', InvitationCore.getInvitationStyle(sample));
+  updatePreviewMarkup(InvitationCore.renderInvitationBody(sample));
+  dom.pendingPreview.hidden = false;
+  dom.pendingPreviewText.textContent = '디자인 샘플 · 작성한 내용은 유지됩니다';
+  setMobileView('preview');
+  document.querySelector('.preview-panel').scrollIntoView({ block: 'start' });
+  dom.previewApply.focus({ preventScroll: true });
+};
+
 const focusPresetCard = (templateId) => {
   [...dom.templates.querySelectorAll("[data-template-id]")]
     .find((button) => button.dataset.templateId === templateId)
@@ -1045,15 +1090,12 @@ const applyPendingTemplate = () => {
   if (!preset) return;
 
   const current = getFormData();
-  if (PresetApplication.isDirty(current, state.appliedBaseline)
-    && !window.confirm("현재 편집 중인 초안이 템플릿 내용으로 교체됩니다. 계속할까요?")) {
-    return;
-  }
 
   try {
     const { previous, next } = PresetApplication.prepare({
       current,
       preset,
+      preserveContent: personalDraft || PresetApplication.isDirty(current, state.appliedBaseline),
       naverMapClientId: state.naverMapClientId
     });
     state.undoSnapshot = previous;
@@ -1065,6 +1107,8 @@ const applyPendingTemplate = () => {
     fillForm(next);
     renderTemplates();
     renderPreview();
+    personalDraft = true;
+    setStudioStage('edit');
     return true;
   } catch {
     dom.saveStatus.textContent = "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다.";
@@ -1089,6 +1133,7 @@ const undoTemplateApplication = () => {
 const renderPreview = () => {
   syncMapSettingsVisibility();
   state.invitation = getFormData();
+  saveDraft();
   document.body.dataset.template = state.activeTemplate;
   document.body.dataset.particle = state.invitation.particleEffect;
   dom.preview.dataset.template = state.activeTemplate;
@@ -1199,6 +1244,7 @@ const validateForExport = () => {
   syncMapSettingsVisibility();
   const invalidField = dom.form.querySelector(":invalid");
   if (!invalidField) return true;
+  setStudioStage('edit');
 
   const card = invalidField.closest("[data-item-card]");
   if (card) setItemExpanded(card, true);
@@ -1215,6 +1261,7 @@ const confirmReplyContact = () => {
     && !entry.url && !/(?:\b0[1-9]\d?[ -]?\d{3,4}[ -]?\d{4}\b|\+[1-9][\d ()-]{7,}\d\b|[^\s@]+@[^\s@]+\.[^\s@]+)/.test(entry.value));
   if (!item) return true;
   if (window.confirm('회신을 요청하는 항목에 연락처나 링크가 없습니다. 연락 수단 없이 다운로드할까요?\n취소하면 연락처 입력으로 이동합니다.')) return true;
+  setStudioStage('edit');
   const card = findItemCard(item.id);
   if (card) {
     const group = card.closest('details');
@@ -1791,9 +1838,25 @@ const init = async () => {
     InvitationIntro.ensureStyles(document);
     TemplateRenderers.ensureStyles(document);
     await loadInitialData();
+    try {
+      const draft = await InvitationStorage.getDraft();
+      if (draft?.invitation && TemplateCatalog.getPreset(state.catalog, draft.invitation.templateId)) {
+        state.invitation = PresetApplication.snapshot(draft.invitation);
+        state.activeTemplate = state.invitation.templateId;
+        state.pendingTemplateId = state.activeTemplate;
+        state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
+        state.appliedBaseline = state.invitation;
+        personalDraft = true;
+        document.querySelector('#draft-status').textContent = '이전 초안을 복구했습니다';
+      }
+    } catch {
+      document.querySelector('#draft-status').textContent = '자동 저장 사용 불가 · HTML로 다운로드해 주세요';
+    }
     renderTemplates();
     fillForm(state.invitation);
     renderPreview();
+    draftReady = true;
+    if (personalDraft) setStudioStage('edit');
     renderSaved();
 
     let database;
@@ -1828,6 +1891,7 @@ const init = async () => {
 };
 
 dom.form.addEventListener("input", (event) => {
+  personalDraft = true;
   if (event.target === dom.heroImageScale) {
     updateHeroImageScale(event.target.value);
     return;
@@ -2028,6 +2092,7 @@ dom.templates.addEventListener("click", (event) => {
   if (!setPendingTemplate(button.dataset.templateId)) return;
   renderTemplates();
   focusPresetCard(state.pendingTemplateId);
+  renderSamplePreview();
 });
 
 dom.applyTemplate.addEventListener("click", applyPendingTemplate);
@@ -2048,7 +2113,7 @@ dom.keepDraft.addEventListener('click', () => {
   dom.download.focus();
 });
 dom.previewApply.addEventListener('click', () => {
-  if (applyPendingTemplate()) dom.mobileTabs.find(button => button.dataset.mobileView === 'preview')?.focus();
+  if (applyPendingTemplate()) dom.form.querySelector('[name="title"]').focus();
 });
 dom.toggleTemplates.addEventListener('click', () => {
   const expanded = dom.toggleTemplates.getAttribute('aria-expanded') !== 'true';
@@ -2093,4 +2158,6 @@ dom.mobileTabs.forEach((button) => {
   button.addEventListener("click", () => setMobileView(button.dataset.mobileView));
 });
 
+document.querySelectorAll('.studio-steps button').forEach(button => button.addEventListener('click', () => setStudioStage(button.dataset.studioStage)));
+document.querySelector('#review-button').addEventListener('click', () => setStudioStage('finish'));
 init();

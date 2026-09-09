@@ -40,12 +40,15 @@
   const isDirty = (current, baseline) =>
     JSON.stringify(snapshot(current)) !== JSON.stringify(snapshot(baseline));
 
-  const prepare = ({ current, preset, naverMapClientId = "" } = {}) => {
+  const prepare = ({ current, preset, naverMapClientId = "", preserveContent = false } = {}) => {
     assertValidPreset(preset);
     const previous = snapshot(current);
     const defaults = clone(preset.defaults);
     const next = snapshot({
       ...defaults,
+      ...(preserveContent ? previous : {}),
+      englishFont: defaults.englishFont,
+      koreanFont: defaults.koreanFont,
       templateId: String(preset.id).trim(),
       layoutFamily: String(preset.familyId).trim(),
       naverMapClientId

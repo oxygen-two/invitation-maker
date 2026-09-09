@@ -10,7 +10,7 @@
   "use strict";
 
   const DB_NAME = "invitation-maker";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_NAME = "invitations";
 
   const requestToPromise = (request) => new Promise((resolve, reject) => {
@@ -56,6 +56,9 @@
           if (!database.objectStoreNames.contains(STORE_NAME)) {
             database.createObjectStore(STORE_NAME, { keyPath: "id" });
           }
+          if (!database.objectStoreNames.contains("drafts")) {
+            database.createObjectStore("drafts", { keyPath: "id" });
+          }
         } catch (error) {
           upgradeError = error;
           try {
@@ -84,11 +87,11 @@
     });
   }
 
-  const withStore = async (mode, operation) => {
+  const withStore = async (mode, operation, storeName = STORE_NAME) => {
     const database = await open();
     try {
-      const transaction = database.transaction(STORE_NAME, mode);
-      const request = operation(transaction.objectStore(STORE_NAME));
+      const transaction = database.transaction(storeName, mode);
+      const request = operation(transaction.objectStore(storeName));
       const [result] = await Promise.all([
         requestToPromise(request),
         transactionToPromise(transaction)
@@ -133,6 +136,8 @@
     list,
     get,
     put,
-    remove
+    remove,
+    getDraft: () => withStore("readonly", (store) => store.get("current"), "drafts"),
+    putDraft: (invitation) => withStore("readwrite", (store) => store.put({ id: "current", invitation, updatedAt: new Date().toISOString() }), "drafts")
   };
 });

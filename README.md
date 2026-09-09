@@ -78,6 +78,8 @@ Run the dependency-free checks with `node --test tests/*.test.js`.
 
 For the eight-card birthday picker regression, start the static server and run `node scripts/verify-birthday-picker.cjs` with an existing Playwright installation and Google Chrome. If Playwright is installed outside this project, set `PLAYWRIGHT_MODULE` to its module path. `INVITATION_BASE_URL` optionally overrides `http://localhost:4173`. The check covers 390/768/1440px, non-collapsed card widths, stable thumbnail sizing, selection versus Apply, focus preservation, and browser errors; it does not install dependencies.
 
-Run `node scripts/verify-maker-ux.cjs` with the same environment to verify the pending-design start action, draft cancellation/undo, essential-fields-first editor, expandable gallery, and missing reply-contact warning before HTML download. Effects and photo settings start collapsed. The UI/design acceptance baseline is recorded in `DESIGN.md`.
+Run `node scripts/verify-studio.cjs` with the same environment for the current Studio workflow: 320/390/768/1440px, draft restoration (including a photo at 390px), content-preserving design changes, sample preview, export, library save and horizontal overflow. The older `verify-maker-ux.cjs` and `verify-birthday-picker.cjs` describe the pre-Studio interaction model and are retained as historical checks, not current acceptance commands. Effects and photo settings start collapsed. The UI/design acceptance baseline is recorded in `DESIGN.md`.
+
+Drafts are saved automatically in this browser's IndexedDB, separately from the saved invitation library. Wait for the saved status before closing the tab. Browser data clearing/private browsing can remove drafts; download HTML for a durable copy. Accounts, cross-device sync and share URLs are not implemented.
 
 Birthday photo asset prompts and provenance are recorded in [birthday-art-prompts.md](assets/template-art/birthday-art-prompts.md).

@@ -482,6 +482,9 @@ const loadEditorHarness = ({
     selector === ".mobile-view-tabs button[data-mobile-view]" ? mobileTabs : [];
 
   let source = read("assets/app.js");
+  // Screen navigation and sample rendering are exercised in verify-studio.cjs.
+  source = source.replace(/const renderSamplePreview = \(\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
+  source = source.replace(/const setStudioStage = \(stage\) => \{[\s\S]*?\n\};/, 'const setStudioStage = () => {};');
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
   source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; };\nconst playPreviewIntro = () => {};${source.slice(previewEnd)}`;
@@ -1632,7 +1635,7 @@ test("measured template thumbnails cannot feed intrinsic aspect sizing back into
   assert.doesNotMatch(viewportRule, /aspect-ratio\s*:/);
 });
 
-test("cancelled template confirmation leaves draft markup and state unchanged", async () => {
+test("design changes preserve edited content without destructive confirmation", async () => {
   let confirmations = 0;
   const harness = loadEditorHarness({
     confirm: () => {
@@ -1650,12 +1653,12 @@ test("cancelled template confirmation leaves draft markup and state unchanged", 
     target: harness.node("#occasion-list").buttons.find((button) => button.dataset.occasionId === "wedding")
   });
   const previousMarkup = harness.contentEditor.innerHTML;
-  const previousState = JSON.stringify(harness.api.state);
   harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
 
-  assert.equal(confirmations, 1);
+  assert.equal(confirmations, 0);
   assert.equal(harness.contentEditor.innerHTML, previousMarkup);
-  assert.equal(JSON.stringify(harness.api.state), previousState);
+  assert.equal(harness.node("#invitation-form").elements.title.value, "수정 중인 초안");
+  assert.equal(harness.api.state.activeTemplate, "wedding");
 });
 
 test("successful template apply fills once and undo restores the previous normalized draft", async () => {
@@ -1678,7 +1681,7 @@ test("successful template apply fills once and undo restores the previous normal
 
   assert.equal(harness.api.getFillFormCalls(), callsBeforeApply + 1);
   assert.equal(harness.api.state.activeTemplate, "modern-vow");
-  assert.equal(harness.node("#invitation-form").elements.title.value, "Doyun & Harin");
+  assert.equal(harness.node("#invitation-form").elements.title.value, "직접 수정한 제목");
   assert.equal(harness.api.getFormData().layoutFamily, "wedding-editorial");
   assert.equal(harness.node("#undo-template-button").hidden, false);
 
@@ -1987,7 +1990,7 @@ test("template changes stay locked until a pending hero upload settles", async (
   assert.equal(node("#apply-template-button").disabled, false);
   node("#apply-template-button").dispatch("click", { target: node("#apply-template-button") });
   assert.equal(api.state.activeTemplate, pendingTemplateId);
-  assert.equal(api.state.heroImage, null);
+  assert.equal(api.state.heroImage.src, "data:image/png;base64,iVBORw0KGgo=");
 });
 
 test("template undo restores the custom hero image and crop", async () => {
@@ -2006,7 +2009,7 @@ test("template undo restores the custom hero image and crop", async () => {
     target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId !== harness.api.state.activeTemplate)
   });
   harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
-  assert.equal(harness.api.state.heroImage, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(harness.api.state.heroImage)), heroImage);
 
   harness.node("#undo-template-button").dispatch("click", { target: harness.node("#undo-template-button") });
   assert.deepEqual(JSON.parse(JSON.stringify(harness.api.state.heroImage)), heroImage);

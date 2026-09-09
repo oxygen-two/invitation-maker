@@ -103,7 +103,7 @@ const createFakeIndexedDB = ({ autoComplete = true } = {}) => {
 
 test("exports the fixed IndexedDB repository contract", () => {
   assert.equal(InvitationStorage.DB_NAME, "invitation-maker");
-  assert.equal(InvitationStorage.DB_VERSION, 1);
+  assert.equal(InvitationStorage.DB_VERSION, 2);
   assert.equal(InvitationStorage.STORE_NAME, "invitations");
   assert.equal(typeof InvitationStorage.open, "function");
   assert.equal(typeof InvitationStorage.list, "function");
@@ -158,9 +158,10 @@ test("open creates the versioned invitations store with id keyPath", async () =>
   const database = await InvitationStorage.open(indexedDB);
 
   assert.equal(typeof database.transaction, "function");
-  assert.deepEqual(indexedDB.calls.open, [{ name: "invitation-maker", version: 1 }]);
+  assert.deepEqual(indexedDB.calls.open, [{ name: "invitation-maker", version: 2 }]);
   assert.deepEqual(indexedDB.calls.createObjectStore, [
-    { name: "invitations", options: { keyPath: "id" } }
+    { name: "invitations", options: { keyPath: "id" } },
+    { name: "drafts", options: { keyPath: "id" } }
   ]);
 });
 

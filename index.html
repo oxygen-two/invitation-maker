@@ -5,14 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#42101f">
   <meta name="description" content="템플릿 기반 초대장 제작 및 HTML 다운로드 도구">
-  <title>Invitation Maker</title>
+  <title>Invitation Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/studio.css">
 </head>
-<body data-mobile-view="editor">
+<body data-mobile-view="editor" data-studio-stage="gallery">
+  <header class="studio-bar"><a href="./">Invitation Studio<span>작은 날도, 특별하게.</span></a><p id="draft-status" role="status">이 기기에 초안을 보관합니다</p></header>
+  <nav class="studio-steps" aria-label="제작 단계">
+    <button type="button" data-studio-stage="gallery" aria-pressed="true">01 디자인</button>
+    <button type="button" data-studio-stage="edit" aria-pressed="false">02 내용 편집</button>
+    <button type="button" data-studio-stage="finish" aria-pressed="false">03 완성</button>
+    <button type="button" data-studio-stage="library" aria-pressed="false">보관함</button>
+  </nav>
   <nav class="mobile-view-tabs" aria-label="화면 전환">
     <button type="button" data-mobile-view="editor" aria-pressed="true">제작</button>
     <button type="button" data-mobile-view="preview" aria-pressed="false">미리보기</button>
@@ -21,9 +29,9 @@
   <main class="app-shell">
     <section class="maker-panel">
       <header class="maker-header">
-        <p class="eyebrow">Invitation Maker</p>
-        <h1>초대장 제작기</h1>
-        <p>디자인을 고르고, 내 이야기를 담아 보내세요.</p>
+        <p class="eyebrow">Make it personal</p>
+        <h1 id="studio-heading">어떤 날을 초대할까요?</h1>
+        <p>마음에 드는 디자인에 나만의 이야기를 담아보세요.</p>
       </header>
 
       <section class="template-picker" aria-label="초대장 템플릿 선택">
@@ -33,7 +41,7 @@
         <div id="template-list" class="template-list" aria-label="템플릿 디자인"></div>
         <div class="template-apply-row">
           <p id="template-summary" aria-live="polite"></p>
-          <button id="apply-template-button" type="button">이 템플릿 적용</button>
+          <button id="apply-template-button" type="button">이 디자인으로 만들기</button>
           <button id="undo-template-button" type="button" hidden>되돌리기</button>
         </div>
       </section>
@@ -161,10 +169,11 @@
       </form>
 
       <div class="action-row">
+        <button id="review-button" class="primary-button" type="button">완성 미리보기</button>
         <button id="start-template-button" class="primary-button" type="button" hidden>이 디자인으로 시작</button>
         <button id="keep-draft-button" class="secondary-button" type="button" hidden>현재 초안 유지</button>
         <button id="download-button" class="primary-button" type="button">HTML 다운로드</button>
-        <button id="save-button" class="secondary-button" type="button">목록에 등록</button>
+        <button id="save-button" class="secondary-button" type="button">보관함에 저장</button>
       </div>
       <p id="save-status" class="save-status" role="status" aria-live="polite"></p>
     </section>
@@ -184,7 +193,7 @@
     <section class="library-panel">
       <header class="panel-title">
         <p class="eyebrow">Library</p>
-        <h2>등록된 초대장</h2>
+        <h2>나의 초대장</h2>
       </header>
       <div class="upload-box">
         <label for="html-upload">다운로드된 HTML 등록</label>

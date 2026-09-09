@@ -12,6 +12,16 @@ const preset = {
   }
 };
 
+test("changing only design preserves personal text and ordered content", () => {
+  const current = { title: "하린의 생일", dateLabel: "9월 12일", host: "rojae", items: [{ id: "n1", type: "notice", heading: "준비", body: "편하게 만나요" }] };
+  const { next } = PresetApplication.prepare({ current, preset, preserveContent: true });
+  assert.equal(next.title, "하린의 생일");
+  assert.equal(next.dateLabel, "9월 12일");
+  assert.equal(next.host, "rojae");
+  assert.equal(next.items[0].body, "편하게 만나요");
+  assert.equal(next.templateId, "modern-vow");
+});
+
 test("prepares a normalized replacement without mutating draft or preset", () => {
   const current = { templateId: "royal", title: "현재 초안", items: [{ id: "course-1", type: "course", place: "성수" }] };
   const originalPreset = JSON.stringify(preset);

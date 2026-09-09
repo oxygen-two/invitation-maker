@@ -1,7 +1,7 @@
 # Design
 
 ## Source of truth
-- Status: Active. Last refreshed: 2026-09-07.
+- Status: Active. Last refreshed: 2026-09-09.
 - Surfaces: maker, preview, library, standalone invitation.
 - Evidence: index.html, assets/app.js, assets/style.css, assets/template-renderers.js; approved UI/UX audit on 2026-09-07.
 
@@ -20,17 +20,21 @@
 - Choose a style, enter name/date/place, optionally add photos and contact, download or save.
 
 ## Information architecture
-- Maker / Preview / Library navigation remains.
+- Invitation Studio: Design / Edit / Finish / Library navigation.
+- Gallery: two columns on phones, four on desktop; selecting a card opens a full sample without changing the draft.
+- Edit: essential fields first, optional effects and photos collapsed; mobile editor/preview toggle.
+- Finish: invitation preview and HTML download / local library save. No simulated cloud publishing.
 - Template selection → basic information → place → optional photo/style/content.
 - Selecting a card does not overwrite the current draft. A visible primary action applies it.
 
 ## Design principles
-- Preserve drafts before optimizing clicks. Keep dirty confirmation and undo.
+- Preserve personal text, images and ordered content on design changes; use the new design's font defaults. First selection uses sample content.
+- Drafts live in a separate IndexedDB store and restore on startup. Show write failures; local storage is not cloud backup. Wait for saved status before closing.
 - Expose essential actions and progressively disclose decoration.
-- Prefer existing components over new frameworks or a new wizard.
+- Reuse the existing form and renderer across stages; no framework or dependency additions.
 
 ## Visual language
-- Retain invitation palettes and editorial imagery; editor uses restrained surfaces.
+- Retain invitation palettes and editorial imagery; maker-only studio.css uses warm white, charcoal and a muted green action color. It is not embedded in exports.
 - Korean titles must not inherit English decorative italics in the new birthday designs.
 - Important date/place/host text at least14px; normal information text contrast at least4.5:1.
 - Keep existing radii and spacing vocabulary; compact maker header, bounded template gallery.
