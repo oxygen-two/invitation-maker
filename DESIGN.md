@@ -89,3 +89,9 @@
 - Do not imply a missing invitation is deleted, a save succeeded, support has been notified, or an authentication service exists. No automatic retries, query-string rendering or arbitrary return URLs.
 - Mobile: stacked illustration/content at 700px, 48px minimum action targets, safe-area footer, test at 320/390/768/1440px.
 - Root 404.html is the static missing-route fallback. Other HTTP statuses need a server/platform error integration; on the current Hobby plan, Vercel platform errors cannot be replaced by these files. Direct HTML visits are previews, not HTTP error responses.
+
+## Social preview — 2026-09-10
+
+- Main-site link preview uses the user-approved error-page envelope mark and Invitation Studio wordmark, warm paper and green palette, and “작은 초대, 소중한 순간.” copy.
+- Static 1200×630 PNG with a centered safe composition; no private draft content or external fonts. Source: scripts/build-social-preview.cjs. Main HTML exposes Open Graph and large-image Twitter card tags before JavaScript runs.
+- This is the public service card, not per-invitation publishing. Local viewer IDs and standalone exports are unchanged; per-invitation metadata needs publicly accessible published HTML and images.
