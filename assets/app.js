@@ -49,14 +49,43 @@ let draftReady = false;
 let draftWrite = Promise.resolve();
 let draftRevision = 0;
 let personalDraft = false;
+let analyticsEditRevision = 0;
+const analyticsPageRevision = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+// Never pass form values or invitation objects to an analytics transport.
+const trackAnalytics = (event, properties = {}, dedupKey = event) => {
+  try {
+    window.InvitationAnalytics?.track(event, {
+      template_id: state.activeTemplate,
+      occasion: state.activeOccasion,
+      ...properties
+    }, { dedupKey });
+  } catch { /* Analytics must not interrupt authoring. */ }
+};
+const markAnalyticsEdit = () => {
+  analyticsEditRevision += 1;
+  trackAnalytics("editing_started", { field_group: "editor" }, "editing");
+};
+const trackAnalyticsCompletion = (invitation) => {
+  const items = invitation.items || [];
+  trackAnalytics("invitation_completed", {
+    item_count: items.length,
+    photo_count: items.filter(item => item.type === "photo").length,
+    has_map: Boolean(invitation.mapEnabled || items.some(item => item.mapEnabled)),
+    has_hero_image: Boolean(invitation.heroImage),
+    has_intro_effect: Boolean(invitation.introEffect && invitation.introEffect !== "none")
+  }, "completed");
+};
 
 const saveDraft = () => {
   if (!draftReady) return;
   const invitation = PresetApplication.snapshot(state.invitation);
   const revision = ++draftRevision;
+  const edited = analyticsEditRevision > 0;
   const status = document.querySelector('#draft-status');
   status.textContent = '초안 저장 중…';
   draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation)).then(() => {
+    if (edited) trackAnalytics("draft_saved", {}, "draft");
     if (revision === draftRevision) status.textContent = '이 기기에 초안 저장됨';
   }).catch(() => {
     if (revision === draftRevision) status.textContent = '자동 저장 실패 · HTML로 다운로드해 주세요';
@@ -858,7 +887,7 @@ const loadNaverMaps = () => {
   return naverMapsPromise;
 };
 
-const resolveMapFields = async ({ key, query, latitude, longitude, message, mapKey }) => {
+const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, message, mapKey }) => {
   const normalizedQuery = String(query || "").trim();
   const version = (mapLookupVersions.get(key) || 0) + 1;
   mapLookupVersions.set(key, version);
@@ -868,8 +897,9 @@ const resolveMapFields = async ({ key, query, latitude, longitude, message, mapK
   message.textContent = "지도 위치를 찾고 있습니다.";
 
   try {
-    const maps = await loadNaverMaps();
-    const coordinates = await MapLocation.resolve(maps, normalizedQuery);
+    const hasUrl = String(mapUrl || "").trim() || /^https?:\/\//i.test(normalizedQuery);
+    const maps = hasUrl ? null : await loadNaverMaps();
+    const coordinates = await MapLocation.resolve(maps, normalizedQuery, mapUrl);
     if (mapLookupVersions.get(key) !== version) return;
     latitude.value = String(coordinates.latitude);
     longitude.value = String(coordinates.longitude);
@@ -879,7 +909,9 @@ const resolveMapFields = async ({ key, query, latitude, longitude, message, mapK
   } catch (error) {
     if (mapLookupVersions.get(key) !== version) return;
     message.dataset.mapLookupState = "error";
-    if (error.code === "SERVICE_UNAVAILABLE") {
+    if (error.code === "URL_LOCATION_UNAVAILABLE" || error.code === "INVALID_MAP_URL") {
+      message.textContent = error.message;
+    } else if (error.code === "SERVICE_UNAVAILABLE") {
       message.textContent = "지도 위치 검색을 사용할 수 없습니다. NAVER Geocoding 설정을 확인해 주세요.";
     } else {
       message.textContent = normalizedQuery
@@ -893,6 +925,7 @@ const resolveMapFields = async ({ key, query, latitude, longitude, message, mapK
 const resolveRepresentativeMapLocation = () => resolveMapFields({
   key: "representative",
   query: dom.form.elements.location.value,
+  mapUrl: dom.form.elements.mapUrl.value,
   latitude: dom.form.elements.mapLatitude,
   longitude: dom.form.elements.mapLongitude,
   message: dom.form.querySelector("[data-map-message]"),
@@ -902,6 +935,7 @@ const resolveRepresentativeMapLocation = () => resolveMapFields({
 const resolveCourseMapLocation = (card) => resolveMapFields({
   key: card.dataset.itemId,
   query: card.querySelector('[data-course-field="place"]').value,
+  mapUrl: card.querySelector('[data-course-field="mapUrl"]').value,
   latitude: card.querySelector('[data-course-field="mapLatitude"]'),
   longitude: card.querySelector('[data-course-field="mapLongitude"]'),
   message: card.querySelector("[data-course-map-message]"),
@@ -1111,6 +1145,7 @@ const applyPendingTemplate = () => {
     renderTemplates();
     renderPreview();
     personalDraft = true;
+    trackAnalytics("template_selected", {}, `template:${state.activeTemplate}`);
     setStudioStage('edit');
     return true;
   } catch {
@@ -1371,6 +1406,7 @@ const saveCurrent = async () => {
   try {
     const invitation = getFormData();
     const html = InvitationCore.buildStandaloneHtml(invitation);
+    trackAnalyticsCompletion(invitation);
     const result = await saveRecord(makeSavedItem(html, invitation.title, "generated"));
     dom.saveStatus.textContent = result.synchronized
       ? "목록에 등록했습니다."
@@ -1396,7 +1432,11 @@ const handleSavedAction = async (event) => {
   if (!item) return;
 
   if (button.dataset.action === "open") openSaved(item);
-  if (button.dataset.action === "download") downloadHtml(item.html, item.title);
+  if (button.dataset.action === "download") {
+    downloadHtml(item.html, item.title);
+    // Record identity is only a local dedup key, never a transmitted property.
+    trackAnalytics("html_downloaded", { template_id: undefined, occasion: undefined }, `download:library:${item.id}`);
+  }
   if (button.dataset.action === "delete") {
     if (!window.confirm(`“${item.title}” 초대장을 목록에서 삭제할까요?`)) return;
     button.disabled = true;
@@ -1491,6 +1531,7 @@ const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]"
   const previousPositions = captureItemPositions();
   renderContentEditor(movedItems, openId, { preserveDrag });
   animateItemReorder(previousPositions, preserveDrag ? movedId : null);
+  markAnalyticsEdit();
   renderPreview();
   focusItemControl(movedId, focusSelector);
   return movedId;
@@ -1579,6 +1620,7 @@ const handlePhotoSelection = async () => {
     }
 
     if (result.committed.length) {
+      markAnalyticsEdit();
       const firstNewId = result.committed[0].item.id;
       renderContentEditor(result.items, openId || firstNewId);
       renderPreview();
@@ -1612,6 +1654,7 @@ const handleHeroImageSelection = async () => {
       src: image.src,
       ...HeroImage.normalizeCrop()
     };
+    markAnalyticsEdit();
     syncHeroImageEditor();
     renderPreview();
     dom.heroImageStatus.textContent = `${file.name}: 배경 사진을 추가했습니다.`;
@@ -1639,6 +1682,7 @@ const updateHeroImageScale = (value) => {
 
 const resetHeroImage = () => {
   if (!state.heroImage) return;
+  markAnalyticsEdit();
   state.heroImage = { src: state.heroImage.src, ...HeroImage.normalizeCrop() };
   syncHeroImageEditor();
   renderPreview();
@@ -1647,6 +1691,7 @@ const resetHeroImage = () => {
 
 const removeHeroImage = () => {
   if (!state.heroImage) return;
+  markAnalyticsEdit();
   state.heroImage = null;
   syncHeroImageEditor();
   renderPreview();
@@ -1681,6 +1726,7 @@ const moveHeroImageDrag = (event) => {
     frameHeight: bounds.height
   });
   state.heroImage = { src: state.heroImage.src, ...crop };
+  markAnalyticsEdit();
   syncHeroImageEditor();
   renderPreview();
 };
@@ -1704,6 +1750,7 @@ const moveHeroImageByKeyboard = (event) => {
     frameHeight: bounds.height
   });
   state.heroImage = { src: state.heroImage.src, ...crop };
+  markAnalyticsEdit();
   syncHeroImageEditor();
   renderPreview();
 };
@@ -1837,6 +1884,8 @@ const loadInitialData = async () => {
 };
 
 const init = async () => {
+  try { window.InvitationAnalytics?.init(); } catch { /* Optional analytics. */ }
+  trackAnalytics("landing_viewed", {}, "landing");
   try {
     InvitationIntro.ensureStyles(document);
     TemplateRenderers.ensureStyles(document);
@@ -1895,6 +1944,7 @@ const init = async () => {
 
 dom.form.addEventListener("input", (event) => {
   personalDraft = true;
+  if (event.target.type !== "file") markAnalyticsEdit();
   if (event.target === dom.heroImageScale) {
     updateHeroImageScale(event.target.value);
     return;
@@ -1911,14 +1961,17 @@ dom.form.addEventListener("input", (event) => {
     const index = courses.findIndex((item) => item.id === clickedItemId);
     pendingPreviewMapKey = index >= 0 && courses[index].mapEnabled ? `stop-${index}` : null;
   }
-  if (event.target.matches('[name="location"]') && dom.form.elements.mapEnabled.checked) {
+  if ((event.target.matches('[name="mapUrl"]') || (event.target.matches('[name="location"]') && !dom.form.elements.mapUrl.value.trim())) && dom.form.elements.mapEnabled.checked) {
+    mapLookupVersions.set("representative", (mapLookupVersions.get("representative") || 0) + 1);
     dom.form.elements.mapLatitude.value = "";
     dom.form.elements.mapLongitude.value = "";
     dom.form.querySelector("[data-map-message]").dataset.mapLookupState = "pending";
   }
-  if (event.target.matches('[data-course-field="place"]')) {
+  if (event.target.matches('[data-course-field="place"], [data-course-field="mapUrl"]')) {
     const card = event.target.closest("[data-item-card]");
-    if (card?.querySelector('[data-course-field="mapEnabled"]').checked) {
+    if (card?.querySelector('[data-course-field="mapEnabled"]').checked
+      && (event.target.matches('[data-course-field="mapUrl"]') || !card.querySelector('[data-course-field="mapUrl"]').value.trim())) {
+      mapLookupVersions.set(card.dataset.itemId, (mapLookupVersions.get(card.dataset.itemId) || 0) + 1);
       card.querySelector('[data-course-field="mapLatitude"]').value = "";
       card.querySelector('[data-course-field="mapLongitude"]').value = "";
       card.querySelector("[data-course-map-message]").dataset.mapLookupState = "pending";
@@ -1943,7 +1996,7 @@ dom.form.addEventListener("change", (event) => {
     else mapLookupVersions.set("representative", (mapLookupVersions.get("representative") || 0) + 1);
     return;
   }
-  if (event.target.matches('[name="location"]') && dom.form.elements.mapEnabled.checked) {
+  if ((event.target.matches('[name="mapUrl"]') || (event.target.matches('[name="location"]') && !dom.form.elements.mapUrl.value.trim())) && dom.form.elements.mapEnabled.checked) {
     resolveRepresentativeMapLocation();
     return;
   }
@@ -1953,8 +2006,9 @@ dom.form.addEventListener("change", (event) => {
   if (event.target.matches('[data-course-field="mapEnabled"]')) {
     if (event.target.checked) resolveCourseMapLocation(card);
     else mapLookupVersions.set(card.dataset.itemId, (mapLookupVersions.get(card.dataset.itemId) || 0) + 1);
-  } else if (event.target.matches('[data-course-field="place"]')
-    && card.querySelector('[data-course-field="mapEnabled"]').checked) {
+  } else if (event.target.matches('[data-course-field="place"], [data-course-field="mapUrl"]')
+    && card.querySelector('[data-course-field="mapEnabled"]').checked
+    && (event.target.matches('[data-course-field="mapUrl"]') || !card.querySelector('[data-course-field="mapUrl"]').value.trim())) {
     resolveCourseMapLocation(card);
   }
 });
@@ -1968,6 +2022,7 @@ const addEditableItem = (type) => {
   const item = createEmptyItem(type);
   if (!item) return;
   items.push(item);
+  markAnalyticsEdit();
   renderContentEditor(items, item.id);
   renderPreview();
   focusItemControl(item.id, ITEM_FOCUS_SELECTORS[type]);
@@ -2024,6 +2079,7 @@ dom.contentEditor.addEventListener("click", (event) => {
 
   const openId = getOpenItemId();
   items.splice(index, 1);
+  markAnalyticsEdit();
   const focusId = items[Math.min(index, items.length - 1)]?.id || null;
   const nextOpenId = openId === item.id
     ? focusId
@@ -2157,7 +2213,10 @@ dom.download.addEventListener("click", () => {
   if (!validateForExport()) return;
   if (!confirmReplyContact()) return;
   const invitation = getFormData();
-  downloadHtml(InvitationCore.buildStandaloneHtml(invitation), invitation.title);
+  const html = InvitationCore.buildStandaloneHtml(invitation);
+  trackAnalyticsCompletion(invitation);
+  downloadHtml(html, invitation.title);
+  trackAnalytics("html_downloaded", {}, `download:editor:${analyticsPageRevision}:${state.activeTemplate}:${analyticsEditRevision}`);
 });
 
 dom.save.addEventListener("click", saveCurrent);

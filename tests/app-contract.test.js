@@ -1263,6 +1263,21 @@ test("one preset per family survives upload registration and viewer rebuild with
   }
 });
 
+test("successful generation emits only aggregate analytics and transport failure cannot break saving", async () => {
+  const harness = loadEditorHarness();
+  const events = [];
+  harness.window.InvitationAnalytics = { track(name, props, options) {
+    events.push({ name, props, options });
+    throw new Error("analytics unavailable");
+  } };
+  await harness.api.saveCurrent();
+  assert.equal(events[0]?.name, "invitation_completed");
+  assert.equal(events[0].options.dedupKey, "completed");
+  assert.equal(Object.hasOwn(events[0].props, "title"), false);
+  assert.equal(Object.hasOwn(events[0].props, "items"), false);
+  assert.match(harness.node("#save-status").textContent, /목록에 등록했습니다/);
+});
+
 test("generated save waits for durability and restores the save button", async () => {
   const pending = deferred();
   const harness = loadLibraryHarness({ put: async () => pending.promise });
