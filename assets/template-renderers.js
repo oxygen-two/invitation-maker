@@ -66,7 +66,7 @@
   const hero = (slots, designId = "") => {
     const design = presetDesigns[designId];
     const title = slot(slots, "title");
-    const titleScriptAttribute = ["bloom-portrait", "signature-birthday"].includes(designId) && /[\u3131-\u318e\uac00-\ud7a3]/i.test(title)
+    const titleScriptAttribute = ["bloom-portrait", "signature-birthday", "cherry-muse", "peach-table"].includes(designId) && /[\u3131-\u318e\uac00-\ud7a3]/i.test(title)
       ? ' data-title-script="ko"'
       : "";
     const ornament = design?.ornament
@@ -405,6 +405,21 @@
     @media(max-width:480px){.invitation-card[data-layout-family="wedding-editorial"] .invite-meta,.invitation-card[data-layout-family="kids-storybook"] .invite-meta,.invitation-card[data-layout-family="wedding-editorial"] .invite-profile{grid-template-columns:1fr}.invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{font-size:38px}.invitation-card[data-layout-family][data-design="memory-film"] .invite-hero,.invitation-card[data-layout-family][data-design="golden-years"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="cherry-muse"] .invite-hero{padding-inline:28px}.invitation-card[data-layout-family][data-design="silver-afterglow"] .invite-hero,.invitation-card[data-layout-family][data-design="peach-table"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-hero{padding-inline:22px}.invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero{padding-inline:32px}}
   `;
 
+  const birthdayBodyStyles = `
+    .invitation-card[data-layout-family][data-design] .invite-hero h1{overflow-wrap:anywhere}
+    .invitation-card[data-layout-family][data-design] .invite-hero h1[data-title-script="ko"]{font-style:normal;letter-spacing:-.04em;line-height:1.2;word-break:keep-all}
+    .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-message{padding:44px 30px;line-height:1.9;text-align:center}
+    .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-timeline{padding:20px 30px 40px;gap:28px}
+    .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-stop{padding:20px 0;border:0;border-top:1px solid var(--line);background:transparent}
+    .invitation-card[data-layout-family][data-design="cherry-muse"] .invite-stop{border:0;border-top:2px solid var(--deep);padding:22px 0;background:transparent;grid-template-columns:44px minmax(0,1fr)}
+    .invitation-card[data-layout-family][data-design="cherry-muse"] .invite-stop-number{background:transparent;border:0;border-radius:0;color:var(--deep);font-size:30px;font-weight:800}
+    .invitation-card[data-layout-family][data-design="cherry-muse"] .invite-stop h3{font-size:22px;font-weight:800;letter-spacing:-.04em}
+    .invitation-card[data-layout-family][data-design="peach-table"] .invite-timeline{margin:16px 20px 32px;padding:24px 20px;border:1px solid var(--line);outline:1px solid var(--line);outline-offset:5px;background:#fffdf8;gap:0}
+    .invitation-card[data-layout-family][data-design="peach-table"] .invite-stop{grid-template-columns:1fr;padding:24px 0;border:0;border-bottom:1px dashed var(--line);background:transparent;text-align:center}
+    .invitation-card[data-layout-family][data-design="peach-table"] .invite-stop:last-child{border-bottom:0}
+    .invitation-card[data-layout-family][data-design="peach-table"] .invite-stop-number{margin-inline:auto;border:0;background:transparent;color:var(--deep);font-size:12px;letter-spacing:.12em}
+  `;
+
   const ensureStyles = (documentRef) => {
     if (!documentRef?.head || typeof documentRef.createElement !== "function") return null;
     const existing = documentRef.getElementById?.(STYLE_ID);
@@ -412,7 +427,7 @@
 
     const style = documentRef.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = getStyles();
+    style.textContent = getStyles() + birthdayBodyStyles;
     documentRef.head.append(style);
     return style;
   };
@@ -421,7 +436,7 @@
 
   return Object.freeze({
     ensureStyles,
-    getStyles,
+    getStyles: () => getStyles() + birthdayBodyStyles,
     render
   });
 });

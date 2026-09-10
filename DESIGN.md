@@ -74,3 +74,9 @@
 
 ## Open questions
 - Real novice completion time and real iOS/Android keyboard testing remain future validation work.
+# Mobile polish — 2026-09-10
+
+- Mobile gallery has a persistent selected-design label and create action, plus an explicit sample-to-gallery return action. Actions share the existing busy-state guard and template application path.
+- Mobile editing uses a compact heading and hides redundant introductory copy. Maker controls use neutral/green styling independently from invitation palettes.
+- Bloom body: spacious ruled sections. Cherry body: bold numbered rows. Peach body: inset stationery with centered schedule entries. Shared renderer styles also ship in standalone exports.
+- Verification: 242 Node tests; browser flows at 320/390/768/1440px; 320px standalone stress cases for the three designs with long Korean titles and ten course items. Native iOS/Android keyboard, safe-area and sharing behavior still require physical-device testing.

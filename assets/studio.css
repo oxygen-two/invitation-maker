@@ -90,4 +90,33 @@ body[data-studio-stage="library"] .app-shell { display: block; max-width: 820px;
   .template-apply-row { margin-block: 20px; }
   .pending-preview-notice { position: sticky; top: 62px; z-index: 10; background: #fff; }
 }
+/* Editor chrome never inherits the selected invitation's decorative palette. */
+.maker-panel .picker-label, .maker-panel .template-card-copy strong { color: #314e41; }
+.maker-panel .template-card-copy strong { font-family: 'Noto Sans KR', sans-serif; }
+.maker-panel .editor-group > summary { background: #f6f7f3; }
+.maker-panel .editor-group > summary::after { color: #314e41; }
+.maker-panel .editor-group > summary small { color: #647168; }
+.maker-panel .action-row button:not(.primary-button), .mobile-view-tabs button:not([aria-pressed="true"]) { color: #314e41; border-color: #cdd3cb; }
+.maker-panel .editor-group > summary::after { content: '+'; }
+.maker-panel .editor-group[open] > summary::after { content: '−'; transform: none; }
+#gallery-dock { display: none; }
+@media (max-width: 900px) {
+  body[data-studio-stage="gallery"] { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  body[data-studio-stage="gallery"] #gallery-dock { display: grid; gap: 8px; position: fixed; inset: auto 0 0; z-index: 40; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #dfe4dc; box-shadow: 0 -4px 20px #283d3210; }
+  #gallery-selection { color: #445249; font-size: 12px; overflow-wrap: anywhere; }
+  #gallery-dock > div { display: flex; gap: 8px; }
+  #gallery-dock button { min-height: 44px; padding: 10px 14px; border: 1px solid #cdd3cb; border-radius: 10px; background: white; color: #314e41; font: inherit; font-size: 13px; cursor: pointer; }
+  #gallery-dock #gallery-create { flex: 1; background: #314e41; color: white; }
+  #gallery-dock button:disabled { opacity: .5; cursor: wait; }
+  body[data-mobile-view="editor"] #gallery-back { display: none; }
+  body[data-studio-stage="gallery"] .template-apply-row { display: none; }
+  body[data-studio-stage="edit"] .studio-bar { padding-block: 10px; }
+  body[data-studio-stage="edit"] .studio-bar a span,
+  body[data-studio-stage="edit"] .maker-header .eyebrow,
+  body[data-studio-stage="edit"] .maker-header > p:last-child { display: none; }
+  body[data-studio-stage="edit"] .maker-header { padding: 16px 20px; }
+  body[data-studio-stage="edit"] .maker-header h1 { font-size: 21px; margin: 0; }
+  body[data-studio-stage="edit"] .app-shell { margin-block: 12px; }
+  body[data-studio-stage="edit"] .mobile-view-tabs { margin-block: 8px; }
+}
 @media (prefers-reduced-motion: reduce) { .studio-steps *, .maker-panel * { scroll-behavior: auto; } }

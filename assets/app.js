@@ -425,6 +425,9 @@ const syncTemplateAvailability = () => {
   dom.occasions.querySelectorAll("[data-occasion-id]").forEach((button) => { button.disabled = busy; });
   dom.templates.querySelectorAll("[data-template-id]").forEach((button) => { button.disabled = busy; });
   dom.applyTemplate.disabled = busy || !pending;
+  document.querySelector('#gallery-create').disabled = busy || !pending;
+  document.querySelector('#gallery-back').disabled = busy;
+  document.querySelector('#gallery-selection').textContent = pending ? `선택한 디자인 · ${pending.name}` : '디자인을 선택해 주세요';
   dom.undoTemplate.disabled = busy || !state.undoSnapshot;
   const needsApply = Boolean(pending && pending.id !== state.activeTemplate);
   dom.startTemplate.hidden = !needsApply;
@@ -2114,6 +2117,13 @@ dom.keepDraft.addEventListener('click', () => {
 });
 dom.previewApply.addEventListener('click', () => {
   if (applyPendingTemplate()) dom.form.querySelector('[name="title"]').focus();
+});
+document.querySelector('#gallery-create').addEventListener('click', () => {
+  applyPendingTemplate();
+});
+document.querySelector('#gallery-back').addEventListener('click', () => {
+  if (hasPendingEditorOperation()) return;
+  setMobileView('editor');
 });
 dom.toggleTemplates.addEventListener('click', () => {
   const expanded = dom.toggleTemplates.getAttribute('aria-expanded') !== 'true';
