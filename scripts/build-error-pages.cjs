@@ -1,0 +1,90 @@
+// Run manually after editing. Commit generated HTML; Vercel needs no build step.
+const fs = require('node:fs');
+const path = require('node:path');
+
+const pages = [
+  [400, 'CHECK THE LINK', '링크를 다시 확인해 주세요.', '요청을 이해하지 못했어요. 전달받은 링크가 빠짐없이 복사되었는지 확인해 주세요.', '링크 전체를 복사해 새 창에서 열어보세요.'],
+  [401, 'ACCESS REQUIRED', '접근 확인이 필요해요.', '이 페이지를 열려면 인증이 필요합니다.', '링크를 보내준 분에게 접근 방법을 확인해 주세요.'],
+  [403, 'PRIVATE INVITATION', '지금은 열 수 없는 페이지예요.', '이 요청으로는 페이지에 접근할 수 없습니다.', '링크를 보내준 분에게 공유 범위를 확인해 주세요.'],
+  [404, 'A LITTLE DETOUR', '찾으시는 페이지가 없어요.', '주소가 달라졌거나, 더 이상 사용할 수 없는 링크일 수 있어요.', '초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요.'],
+  [408, 'TAKE A MOMENT', '연결에 시간이 걸리고 있어요.', '요청을 제시간에 전달하지 못했어요. 네트워크 연결을 확인하고 다시 시도해 주세요.', 'Wi-Fi 또는 모바일 데이터 연결을 확인해 주세요.', true],
+  [410, 'THIS CHAPTER IS CLOSED', '이 링크는 더 이상 사용할 수 없어요.', '요청하신 페이지의 제공이 종료되었습니다.', '초대장을 보내준 분에게 새로운 링크를 요청해 주세요.'],
+  [429, 'ONE MOMENT, PLEASE', '잠시 쉬었다가 다시 만나요.', '짧은 시간에 요청이 많이 들어왔어요. 잠시 후 다시 시도해 주세요.', '반복해서 새로고침하지 말고 잠시 기다려 주세요.', true],
+  [500, 'A BRIEF PAUSE', '잠시 문제가 생겼어요.', '페이지를 준비하는 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.', '오류가 계속되면 시간을 두고 다시 방문해 주세요.', true],
+  [502, 'RECONNECTING', '연결이 잠시 끊겼어요.', '서버에서 정상적인 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.', '입력 내용을 바꿀 필요는 없어요. 잠시 기다려 주세요.', true],
+  [503, 'WE WILL BE RIGHT BACK', '잠시 후 다시 만나요.', '지금은 서비스를 이용하기 어려워요. 잠시 후 다시 방문해 주세요.', '오류가 계속되면 시간을 두고 다시 방문해 주세요.', true],
+  [504, 'A LITTLE MORE TIME', '응답이 늦어지고 있어요.', '서버의 응답을 기다리다 연결이 끝났어요. 잠시 후 다시 시도해 주세요.', '저장 작업 중이었다면 다시 저장하기 전에 결과를 확인해 주세요.', true],
+];
+
+const css = `
+:root{color-scheme:light;--paper:#f7f7f4;--ink:#282b29;--green:#314e41;--muted:#59645e;--line:#dce1d8}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;min-height:100vh;min-height:100svh;display:flex;flex-direction:column}
+a{color:inherit}a:focus-visible,button:focus-visible{outline:3px solid var(--green);outline-offset:5px}
+.skip{position:absolute;left:20px;top:-80px;background:white;padding:10px;z-index:5}.skip:focus{top:10px}
+header,footer{width:min(1200px,100%);margin-inline:auto;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:28px 40px}
+.brand{font-size:19px;font-weight:700;letter-spacing:-.6px;text-decoration:none;min-height:44px;display:inline-flex;align-items:center;gap:10px}.brand svg{width:25px;height:25px}.header-note,.footer-note{font-size:12px;color:var(--muted)}
+main{width:min(1100px,100%);margin:auto;display:grid;grid-template-columns:1fr 1.05fr;align-items:center;gap:70px;padding:56px 40px 80px}
+.art{position:relative;aspect-ratio:1;display:grid;place-items:center}.halo{position:absolute;inset:3%;border-radius:50%;background:#e9eee6;border:1px solid #e0e6dc}.halo:after{content:"";position:absolute;inset:19px;border:1px dashed #b7c3b5;border-radius:50%}
+.envelope{position:relative;width:82%;transform:rotate(-8deg);filter:drop-shadow(0 22px 22px #283d3217)}.envelope svg{display:block;width:100%;height:auto}
+.seal{position:absolute;right:4%;bottom:12%;border-radius:50%;background:var(--green);color:#fff;width:66px;height:66px;display:grid;place-items:center;font-size:25px;border:5px solid var(--paper)}
+.eyebrow{font-size:11px;letter-spacing:2.2px;font-weight:700;color:var(--green);margin:0 0 12px}.code{font-family:Georgia,"Times New Roman",serif;font-size:clamp(86px,9vw,126px);letter-spacing:-6px;line-height:1;font-weight:400;margin:0 0 24px;color:var(--green)}
+h1{font-size:clamp(25px,2.6vw,33px);line-height:1.45;letter-spacing:-1px;word-break:keep-all;margin:0 0 16px}.description{max-width:420px;color:var(--muted);font-size:16px;word-break:keep-all;overflow-wrap:anywhere;margin:0}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}.actions a,.actions button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;border-radius:9px;padding:11px 20px;font:inherit;font-size:14px;font-weight:650;text-decoration:none;border:1px solid #b9c4b9;background:transparent;color:var(--green);cursor:pointer}.actions .primary{background:var(--green);color:white;border-color:var(--green)}.actions a:hover,.actions button:hover{box-shadow:0 0 0 2px #314e4125}.actions button:disabled{opacity:.6;cursor:wait}
+.hint{border-top:1px solid var(--line);margin:30px 0 0;padding-top:19px;color:var(--muted);font-size:13px;max-width:420px;word-break:keep-all}.offline{border-left:3px solid var(--green);padding:10px 14px;background:#e9eee6;font-size:14px;margin:20px 0 0}.offline:empty{display:none}[hidden]{display:none!important}
+footer{border-top:1px solid var(--line);font-size:11px;letter-spacing:1px;color:var(--muted);padding-bottom:max(24px,env(safe-area-inset-bottom))}.footer-note{letter-spacing:0}
+@media(max-width:700px){header{padding:18px 24px}.header-note{display:none}main{grid-template-columns:1fr;gap:24px;padding:8px 24px 44px;max-width:470px}.art{width:210px;margin-inline:auto}.seal{width:46px;height:46px;font-size:19px;border-width:4px}.content{text-align:center}.eyebrow{font-size:10px;letter-spacing:1.6px}.code{font-size:80px;margin-bottom:18px}h1{font-size:25px}.description{font-size:15px}.actions{justify-content:center;margin-top:24px}.hint{text-align:left;margin-top:24px}.offline{text-align:left}footer{padding:20px 24px;flex-wrap:wrap;gap:4px}.brand{font-size:17px}}
+@media(max-width:350px){main{padding-inline:20px}.art{width:175px}h1{font-size:23px}.actions{flex-direction:column}.actions a,.actions button{width:100%}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+`;
+
+function renderPage([code, label, title, description, hint, retry]) {
+  return `<!doctype html>
+<!-- Generated by scripts/build-error-pages.cjs; edit the generator, then regenerate. -->
+<html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#f7f7f4">
+<title>${code} · ${title} | Invitation Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+<style>${css}</style></head><body>
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+<header><a class="brand" href="/" aria-label="Invitation Studio 홈"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a><span class="header-note">마음을 전하는 작은 시작</span></header>
+<main id="main" tabindex="-1"><div class="art" aria-hidden="true"><div class="halo"></div><div class="envelope"><svg viewBox="0 0 360 330" fill="none"><path d="M24 144 180 32l156 112v153H24Z" fill="#c6d1c1"/><rect x="61" y="62" width="238" height="222" rx="5" fill="#fffdf8" stroke="#d8ded1"/><rect x="75" y="76" width="210" height="194" rx="2" stroke="#e3e5da"/><path d="M180 153c-42-24-26-51-10-35l10 10 10-10c16-16 32 11-10 35Z" fill="#7e957b"/><path d="M133 180h94M152 195h56" stroke="#b6c1ad" stroke-width="2" stroke-linecap="round"/><path d="m24 144 156 96 156-96v153H24Z" fill="#d9e1d1" stroke="#b7c5b2"/><path d="m24 297 134-97c13-10 31-10 44 0l134 97" fill="#e5eadf" stroke="#b7c5b2"/></svg></div><span class="seal">✳</span></div>
+<section class="content" aria-labelledby="error-title"><p class="eyebrow">${label}</p><p class="code" data-error-code>${code}</p><h1 id="error-title">${title}</h1><p class="description">${description}</p>
+<p class="offline" data-offline role="status" hidden>인터넷 연결이 끊겨 있어요. 연결을 확인한 뒤 다시 시도해 주세요.</p>
+<div class="actions"><a class="primary" href="/">스튜디오로 돌아가기 <span aria-hidden="true">&nbsp;↗</span></a>${retry ? '<button type="button" data-retry hidden>다시 시도</button>' : ''}</div>
+<p class="hint">${hint}</p>${retry ? '<noscript><p class="hint">다시 시도하려면 브라우저의 새로고침을 이용해 주세요.</p></noscript>' : ''}</section></main>
+<footer><span>INVITATION STUDIO</span><span class="footer-note">작은 초대, 소중한 순간.</span></footer>
+<script>
+(() => {
+  // Do not read query strings, invitation data, referrers or storage on an error page.
+  const offline = document.querySelector('[data-offline]');
+  const update = () => { offline.hidden = navigator.onLine !== false; };
+  addEventListener('online', update); addEventListener('offline', update); update();
+  const retry = document.querySelector('[data-retry]');
+  if (retry) {
+    retry.hidden = false;
+    retry.addEventListener('click', () => {
+      if (navigator.onLine === false) { update(); return; }
+      retry.disabled = true;
+      location.reload();
+    });
+    addEventListener('pageshow', () => { retry.disabled = false; update(); });
+  }
+})();
+</script></body></html>\n`;
+}
+
+if (require.main === module) {
+  const check = process.argv.includes('--check');
+  for (const page of pages) {
+    const target = path.resolve(__dirname, '..', `${page[0]}.html`);
+    const html = renderPage(page);
+    if (check) {
+      if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8') !== html) {
+        throw new Error(`Outdated error page: ${page[0]}.html`);
+      }
+    } else fs.writeFileSync(target, html);
+  }
+  console.log(`${check ? 'Verified' : 'Generated'} ${pages.length} standalone error pages.`);
+}
+module.exports = { pages, renderPage };

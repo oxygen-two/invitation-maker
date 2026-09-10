@@ -80,3 +80,12 @@
 - Mobile editing uses a compact heading and hides redundant introductory copy. Maker controls use neutral/green styling independently from invitation palettes.
 - Bloom body: spacious ruled sections. Cherry body: bold numbered rows. Peach body: inset stationery with centered schedule entries. Shared renderer styles also ship in standalone exports.
 - Verification: 242 Node tests; browser flows at 320/390/768/1440px; 320px standalone stress cases for the three designs with long Korean titles and ten course items. Native iOS/Android keyboard, safe-area and sharing behavior still require physical-device testing.
+
+## Error pages — 2026-09-10
+
+- Scope: standalone 400/401/403/404/408/410/429/500/502/503/504 pages; no new server, authentication or paid platform configuration.
+- Extend the studio palette (#f7f7f4 paper, #282b29 ink, #314e41 green), not invitation-specific themes. Use a static envelope illustration, large serif status number, concise Korean heading and explicit recovery actions.
+- No motion, external fonts, image requests, analytics or storage reads. Inline SVG/CSS make the page independent of failing asset requests; primary navigation works without JavaScript.
+- Do not imply a missing invitation is deleted, a save succeeded, support has been notified, or an authentication service exists. No automatic retries, query-string rendering or arbitrary return URLs.
+- Mobile: stacked illustration/content at 700px, 48px minimum action targets, safe-area footer, test at 320/390/768/1440px.
+- Root 404.html is the static missing-route fallback. Other HTTP statuses need a server/platform error integration; on the current Hobby plan, Vercel platform errors cannot be replaced by these files. Direct HTML visits are previews, not HTTP error responses.
