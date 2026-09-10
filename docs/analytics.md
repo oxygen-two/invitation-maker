@@ -107,3 +107,18 @@ The first registered UTM touch is stored in `sessionStorage` and reused for late
 ## Privacy Boundary
 
 Analytics properties are allowlisted per known event. Do not send raw names, contact details, addresses, messages, photos, generated HTML, raw URLs, raw referrers, draft IDs, library record IDs, map URLs, addresses, place IDs, coordinates, or raw place labels. PostHog is initialized with autocapture, pageview/pageleave, session recording, exceptions, dead-clicks, rage-clicks, heatmaps, performance capture, feature flags, external dependency loading, recording console logs, and remote config refresh disabled. It also sets `logs: { captureConsoleLogs: false }`. Person profiles are disabled. Its `before_send` drops unknown events, strips automatic URL/referrer/session entry context, keeps only necessary anonymous SDK identifiers, and re-sanitizes event props.
+
+The providers still receive network requests, including transport-level IP information. PostHog's discard-IP setting prevents storing the client IP as an event property; it does not hide the connection IP from the provider. Vercel retains its built-in referrer measurement. The wrapper sanitizes the page URL, not every internal Vercel payload field.
+
+## Verification (2026-09-10)
+
+- Deployment commit `a02a7cc` succeeded on Vercel production.
+- All 263 Node tests passed; map URL browser checks passed at 390px and 1440px.
+- Simulated-production funnel checks passed with vendor requests intercepted, including duplicate suppression and exclusion of authored text.
+- The real PostHog SDK generated the expected sanitized ingestion payload. Its automation/bot filter was disabled only inside the QA browser, not in shipped configuration.
+- Production returned HTTP 200 for the Vercel SDK, Vercel pageview endpoint, and PostHog ingestion endpoint.
+- Vercel dashboard displayed one visitor and two pageviews, South Korea, Desktop/Mac at verification time. These are QA visits, not organic usage.
+- PostHog Activity displayed landing, editing, draft save, completion, and HTML download events from the production QA flow.
+- Share tracking remains API-only until an actual sharing feature exists. This deployment does not add account login, cloud storage, or link publishing.
+
+Re-run `node --test tests/*.test.js`. Browser checks use `PLAYWRIGHT_MODULE=/absolute/path/to/playwright node scripts/verify-analytics.cjs` and `scripts/verify-map-url.cjs` with localhost:4173 running. Production dashboard verification requires an authenticated provider session. Do not disable the production bot filter to make automated test traffic look like organic visits.
