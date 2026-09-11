@@ -1,0 +1,34 @@
+flowchart LR
+  subgraph Browser[브라우저 제품 영역]
+    Studio[index.html\n초대장 제작기]
+    StudioJS[assets/app.js\n제작 상태/미리보기]
+    Core[assets/invitation-core.js\n정규화/렌더링]
+    Local[(IndexedDB\n초안/로컬 라이브러리)]
+    PublishClient[assets/publishing.js\n발행 클라이언트]
+    Shared[shared.html\n공개 초대장 뷰어]
+  end
+
+  subgraph Public[공개 발행 영역]
+    Vercel[api/invitations.js\nVercel 어댑터]
+    PublicHTTP[server/http.cjs\n공개 HTTP 계약]
+    Validation[server/validation.cjs\n입력 검증/ID 생성]
+    Repository[server/mongo-repository.cjs\n저장소 인터페이스]
+  end
+
+  subgraph Admin[로컬 운영 영역]
+    AdminUI[admin/public\n관리 화면]
+    AdminHTTP[admin/http.cjs\n인증/목록/폐기 API]
+    Session[admin/session-store.cjs\n메모리 세션/CSRF]
+  end
+
+  Mongo[(MongoDB\n발행 스냅샷)]
+
+  Studio --> StudioJS --> Core
+  StudioJS --> Local
+  StudioJS --> PublishClient --> Vercel --> PublicHTTP
+  Shared --> Vercel --> PublicHTTP
+  PublicHTTP --> Validation
+  PublicHTTP --> Repository --> Mongo
+  AdminUI --> AdminHTTP
+  AdminHTTP --> Session
+  AdminHTTP --> Repository

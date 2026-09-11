@@ -1,0 +1,32 @@
+sequenceDiagram
+  actor User as 제작자
+  participant Maker as 제작기 브라우저
+  participant Client as publishing.js
+  participant API as Vercel API 어댑터
+  participant HTTP as server/http.cjs
+  participant Validator as validation.cjs
+  participant Repo as Mongo 저장소
+  participant DB as MongoDB
+  participant Viewer as 공개 링크 수신자
+
+  User->>Maker: 초대장 작성 후 발행
+  Maker->>Client: 정규화된 초대장 + idempotency key
+  Client->>API: POST /api/invitations
+  API->>HTTP: 공통 핸들러 호출
+  HTTP->>Validator: payload/origin/token 검증
+  Validator-->>HTTP: 정규화 결과
+  HTTP->>Repo: publish(snapshot, hashes, expiry)
+  Repo->>DB: quota 예약 + 문서 저장
+  DB-->>Repo: id, expiresAt
+  Repo-->>HTTP: 발행 결과
+  HTTP-->>API: 201 + /i/{id}
+  API-->>Client: 공유 링크
+  Client-->>Maker: 발행 완료
+  Viewer->>API: GET /api/invitations/{id}
+  API->>HTTP: 공개 조회
+  HTTP->>Repo: get(id)
+  Repo->>DB: snapshot 조회
+  DB-->>Repo: invitation snapshot
+  Repo-->>HTTP: invitation + expiry
+  HTTP-->>API: 200
+  API-->>Viewer: 공개 초대장 데이터

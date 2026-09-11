@@ -1,89 +1,126 @@
-# Invitation Maker
+# 초대장 메이커
 
-HTML invitation maker with occasion-first template presets, live preview, standalone HTML download, local invitation registration, and an optional Node.js + MongoDB anonymous publishing service.
+브라우저에서 초대장을 만들고, 독립 HTML로 저장하거나 공개 링크로 발행할 수 있는 정적 우선 초대장 제작기입니다. 제작 데이터는 브라우저에 보관하고, 공개 발행을 선택한 경우에만 정규화된 초대장 스냅샷을 MongoDB에 저장합니다.
 
-## Files
+## 제공 기능
 
-- `index.html`: maker UI.
-- `viewer.html`: same-origin viewer for invitations saved in the local library.
-- `invitation-data.json`: template presets and the default invitation content.
-- `assets/app.js`: editor, preview, download, upload, and local registration logic.
-- `assets/template-catalog.js`: occasion and preset validation for the nine-category catalog.
-- `assets/template-renderers.js`: five shared layout-family renderers used by preview, download, upload, and viewer paths.
-- `assets/template-art.js`: built-in original WebP decoration data for selected presets.
-- `assets/image-tools.js`: JPEG, PNG, and WebP validation, resizing, and compression.
-- `assets/invitation-storage.js`: IndexedDB repository for registered invitations.
-- `assets/invitation-core.js`: shared standalone HTML renderer.
-- `assets/map-location.js`: NAVER Geocoding response normalization and place lookup.
-- `assets/viewer.js`: validates and rebuilds a saved invitation before opening it.
-- `assets/style.css`: maker UI and preview styles.
-- `assets/publishing.js`: anonymous publication requests and this browser's private publication management.
-- `shared.html` / `assets/shared-invitation.js`: public link viewer using the existing renderer.
-- `server/`: Node.js API, validation, configuration, and MongoDB persistence.
-- `api/` / `vercel.json`: Vercel adapter and same-origin routes.
+- 생일, 결혼, 기념일, 행사 등 행사별 템플릿 선택
+- 실시간 미리보기와 독립 실행형 HTML 다운로드
+- 사진을 Base64/WebP로 포함한 단일 HTML export
+- 브라우저 IndexedDB 기반 초안 및 로컬 초대장 보관
+- Base62 공개 ID를 사용하는 익명 초대장 발행
+- 발행 초대장 조회 및 제작자 토큰 기반 삭제
+- 로컬 관리자 서비스의 목록, 검색, 페이지네이션, 상세, 강제 폐기
+- GA4/PostHog 선택적 분석 설정
 
-## Preview
+## 서비스 구조
 
-The app loads `invitation-data.json`, so open it through a local static server or a deployed static host. A static server previews local authoring; public publication additionally requires the Node.js API and MongoDB described in [Anonymous publishing](docs/publishing.md).
+```text
+초대장 메이커
+├── 제작기        index.html + assets/
+├── 공개 뷰어      shared.html
+├── 공개 API       api/ + server/
+├── 로컬 관리자    admin/
+├── 공개 산출물    public/
+└── 문서/설계      docs/
+```
 
-```sh
+자세한 경계와 리팩토링 검토는 [`docs/architecture/README.md`](docs/architecture/README.md)를 참고하세요. 원본 Mermaid 다이어그램은 [`docs/architecture/diagrams/`](docs/architecture/diagrams/)에 있습니다.
+
+## 빠른 시작
+
+Node.js 22 이상을 사용합니다.
+
+```bash
+npm ci
+cp .env.example .env
+npm start
+```
+
+제작 화면은 [http://127.0.0.1:4173](http://127.0.0.1:4173)에서 엽니다. 정적 제작 화면만 확인할 때는 다음 명령도 사용할 수 있습니다.
+
+```bash
 python3 -m http.server 4173
 ```
 
-Then open:
+## 공개 발행 서버
+
+공개 발행 API는 MongoDB 연결이 필요합니다. `.env`에 다음 값을 설정합니다.
+
+```dotenv
+MONGODB_URI=mongodb://...
+MONGODB_DB=invitation_publish
+PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
+```
+
+주요 공개 API는 다음과 같습니다.
+
+| 메서드 | 경로 | 설명 |
+| --- | --- | --- |
+| `POST` | `/api/invitations` | 정규화된 초대장 발행 |
+| `GET` | `/api/invitations/:id` | 공개 초대장 조회 |
+| `DELETE` | `/api/invitations/:id` | 제작자 토큰으로 발행 취소 |
+
+발행 성공 시 `/i/{base62-id}` 링크를 반환합니다. 발행 문서에는 TTL, 시간당/IP별 제한, 일일 제한, 누적 제한이 적용됩니다.
+
+상세 운영 규칙은 [`docs/publishing.md`](docs/publishing.md)에 있습니다.
+
+## 로컬 관리자
+
+관리자 서비스는 공개 서버와 별도 프로세스로 실행하며 Vercel 공개 산출물에 포함되지 않습니다.
+
+```bash
+ADMIN_PASSWORD='change-me' npm run admin
+```
+
+관리자 화면:
 
 ```text
-http://localhost:4173
+http://127.0.0.1:4174/admin
 ```
 
-## Workflow
+관리자 기능:
 
-1. Choose one of nine occasions: date, birthday, anniversary, event, kindergarten, wedding, 70th birthday, 60th birthday, or first birthday.
-2. Pick a visual preset: birthday offers eight designs, and each other occasion offers two. The catalog has 24 presets total, including all original 18 and the preserved `royal`, `wedding`, `black-tie`, `botanical`, and `modern` IDs. Birthday styles range from cherry-red editorial and silver party photography to peach dinner, champagne evening, floral portrait and burgundy stationery; ages are never required or fixed in the designs.
-3. Selecting a preset card only changes the pending selection. Press **이 템플릿 적용** to replace the current draft; cancelling the confirmation keeps the draft untouched, and **되돌리기** restores the previous draft once.
-4. Choose none, petals, hearts, sparkle, fireflies, bubbles, snow, leaves, or confetti, then adjust particle size from 50% to 200% in 5% steps and amount from 25% to 500% in 25% steps.
-5. Choose separate display fonts for English and Korean text.
-6. Edit title, date, location, and message, then add course, photo, notice, profile, and link cards in one ordered list.
-7. Reorder content cards with the drag handle or the accessible move buttons, and delete cards without changing the remaining order.
-8. Place names automatically create NAVER Map search links. Optionally enable Dynamic Map for the representative place or each course card; the maker resolves coordinates from the entered place or address.
-9. Check the live preview.
-10. Download a standalone `.html` invitation.
-11. Register the current invitation or upload a downloaded HTML file into the local library.
+- 비밀번호 로그인 및 메모리 세션
+- 발행 ID/제목 검색
+- 페이지 크기 1~100 범위의 서버 페이지네이션
+- 발행 상세 확인
+- 공개 링크 열기
+- 관리자 강제 폐기
 
-On mobile, use the Maker, Preview, and Library tabs to switch between each workspace. Registered invitations are stored in the browser's IndexedDB and open through `viewer.html`, so Dynamic Maps keep the static site's registered origin.
+`ADMIN_HOST` 기본값은 `0.0.0.0`이며, 다른 기기에서 접근하는 경우 HTTPS를 제공하는 프록시 뒤에서 사용해야 합니다. 세션은 관리자 프로세스가 재시작되면 만료됩니다.
 
-Photos must be JPEG, PNG, or WebP. Each invitation accepts up to 8 photos and 50 total content items. Source images are limited to 15 MiB, resized to a maximum 1600-pixel edge, and compressed to at most 600 KiB before being embedded. Downloaded invitations include those images as Base64 data, so the standalone HTML does not depend on IndexedDB or the maker site.
+## 분석 설정
 
-The five layout families are Romantic Story, Celebration Poster, Kids Storybook, Wedding Editorial, and Korean Heritage. Preview, downloaded HTML, uploaded registrations, reloads, and `viewer.html` all rebuild from the same normalized invitation payload. Built-in template decoration is original local WebP art embedded only for the selected preset, so viewed invitations do not depend on remote image URLs or copied third-party artwork.
+GA4는 `assets/analytics-config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다. 분석 이벤트와 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
 
-Only HTML downloaded by the current maker can be imported. HTML imports are limited to 10 MiB. Existing localStorage registrations are migrated to IndexedDB one record at a time after a successful durable write.
+## 테스트와 빌드
 
-## NAVER Dynamic Map
-
-Set the public Web Dynamic Map Client ID in `invitation-data.json`:
-
-```json
-{
-  "site": {
-    "naverMapClientId": "YOUR_CLIENT_ID"
-  }
-}
+```bash
+npm test
+npm run build:public
+git diff --check
 ```
 
-Enable both **Dynamic Map** and **Geocoding** for the NAVER Maps application. Register the exact local and deployed HTTP or HTTPS origins as Web service URLs, for example `http://localhost:4173` and the production Vercel origin.
+실제 MongoDB 저장소 검증:
 
-The downloaded invitation keeps the `지도 열기` link as a fallback because a file opened directly with `file://` cannot use an origin-registered Dynamic Map. Dynamic Maps render when the invitation is served from a registered origin, including invitations opened from the local library.
+```bash
+npm run verify:publishing-mongo
+```
 
-Never place a NAVER Maps Client Secret in this repository or generated HTML. Browser-based Dynamic Map rendering uses only the public Client ID.
+`build:public`은 루트의 공개 HTML과 `assets/`만 `public/`으로 복사합니다. 관리자 코드는 이 산출물에 들어가지 않습니다.
 
-## Validation
+## 문서 안내
 
-Run the dependency-free checks with `node --test tests/*.test.js`.
+- [`docs/architecture/README.md`](docs/architecture/README.md): 현재 구조, Graphify 분석, 리팩토링 방향
+- [`docs/publishing.md`](docs/publishing.md): 공개 발행 API와 MongoDB 운영
+- [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정과 이벤트 경계
+- [`DESIGN.md`](DESIGN.md): 제작기 UI와 템플릿 기준
 
-For the eight-card birthday picker regression, start the static server and run `node scripts/verify-birthday-picker.cjs` with an existing Playwright installation and Google Chrome. If Playwright is installed outside this project, set `PLAYWRIGHT_MODULE` to its module path. `INVITATION_BASE_URL` optionally overrides `http://localhost:4173`. The check covers 390/768/1440px, non-collapsed card widths, stable thumbnail sizing, selection versus Apply, focus preservation, and browser errors; it does not install dependencies.
+## 유지보수 원칙
 
-Run `node scripts/verify-studio.cjs` with the same environment for the current Studio workflow: 320/390/768/1440px, draft restoration (including a photo at 390px), content-preserving design changes, sample preview, export, library save and horizontal overflow. The older `verify-maker-ux.cjs` and `verify-birthday-picker.cjs` describe the pre-Studio interaction model and are retained as historical checks, not current acceptance commands. Effects and photo settings start collapsed. The UI/design acceptance baseline is recorded in `DESIGN.md`.
-
-Drafts are saved automatically in this browser's IndexedDB, separately from the saved invitation library. Wait for the saved status before closing the tab. Browser data clearing/private browsing can remove drafts; download HTML for a durable copy. Accounts and cross-device draft sync are not implemented. Anonymous publication stores a separate snapshot in MongoDB and returns a public `/i/` link when the publishing backend is configured. Browser-local `viewer.html?id=...` links remain local-only.
-
-Birthday photo asset prompts and provenance are recorded in [birthday-art-prompts.md](assets/template-art/birthday-art-prompts.md).
+- 초대장 정규화와 렌더링 규칙은 `assets/invitation-core.js`를 기준으로 유지합니다.
+- 공개 API와 관리자 API를 하나의 인증 흐름으로 합치지 않습니다.
+- 저장소 문서를 HTTP 응답으로 직접 노출하지 않고 DTO 경계를 둡니다.
+- 새 샘플 파일은 제작기 루트에 두지 않고 `docs/` 또는 별도 fixture 경로에 둡니다.
+- 구조 변경은 공개 발행, 관리자, 정적 빌드 테스트를 함께 실행한 뒤 반영합니다.
