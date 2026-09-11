@@ -21,11 +21,11 @@
 
     <section id="app-view" hidden>
       <header class="topbar"><div><p class="eyebrow">INVITATION MAKER</p><h1>발행 목록</h1></div><button id="logout" class="secondary">로그아웃</button></header>
-      <div class="toolbar"><input id="search" type="search" placeholder="발행 ID 검색"><select id="page-size"><option>20</option><option>50</option><option>100</option></select><button id="refresh" class="secondary">새로고침</button></div>
-      <p id="status" class="muted"></p>
+      <div class="toolbar"><label for="search" class="sr-only">발행 검색 (ID 또는 제목)</label><input id="search" type="search" placeholder="ID 또는 제목으로 검색"><select id="page-size"><option>20</option><option>50</option><option>100</option></select><button id="refresh" class="secondary">새로고침</button></div>
+      <p id="status" class="muted" role="status"></p>
       <div class="table-wrap"><table><thead><tr><th>제목</th><th>ID</th><th>발행일</th><th>만료</th><th>관리</th></tr></thead><tbody id="rows"></tbody></table></div>
       <nav class="pagination" aria-label="발행 목록 페이지"><button id="prev" class="secondary">이전</button><span id="page-label"></span><button id="next" class="secondary">다음</button></nav>
-      <aside id="detail" class="panel detail" hidden><div class="detail-head"><h2>상세</h2><button id="close-detail" class="secondary">닫기</button></div><pre id="detail-json"></pre></aside>
+      <aside id="detail" class="panel detail" hidden tabindex="-1" aria-labelledby="detail-heading"><div class="detail-head"><h2 id="detail-heading">상세</h2><button id="close-detail" class="secondary">닫기</button></div><div id="detail-body"></div></aside>
     </section>
   </main>
   <script src="/admin/admin.js" defer></script>
