@@ -81,6 +81,7 @@ test("public config exposes configured public analytics endpoints and preserves 
       apiHost: "https://us.i.posthog.com",
       token: "phc_sGYr45steRy4nEUdioFcaPkueKdebqBBbxbUPrk5rMZ8"
     },
+    ga4: { measurementId: "" },
     vercel: { analyticsScriptSrc: "/_vercel/insights/script.js" }
   }));
 

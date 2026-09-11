@@ -1,9 +1,10 @@
 # Invitation Analytics
 
-This project ships analytics as an optional, no-build browser layer with remote provider SDKs. `index.html` loads `assets/analytics-config.js` and `assets/analytics.js` before `assets/app.js`. If `assets/analytics-config.js` is not loaded before `assets/analytics.js`, analytics stays off.
+This project ships analytics as an optional, no-build browser layer with remote provider SDKs. `index.html` loads `assets/analytics-config.js`, `assets/analytics-ga4.js`, and `assets/analytics.js` before `assets/app.js`. If `assets/analytics-config.js` is not loaded before provider modules, analytics stays off.
 
 ```html
 <script src="assets/analytics-config.js"></script>
+<script type="module" src="assets/analytics-ga4.js"></script>
 <script src="assets/analytics.js"></script>
 <script>
   InvitationAnalytics.init();
@@ -34,6 +35,9 @@ window.InvitationAnalyticsConfig = {
   },
   vercel: {
     analyticsScriptSrc: ""
+  },
+  ga4: {
+    measurementId: ""
   }
 };
 ```
@@ -43,6 +47,28 @@ No npm installation or build is required. The production gate loads the PostHog 
 Dashboard configuration (2026-09-10): Vercel Web Analytics enabled on the existing Hobby plan; PostHog autocapture disabled, session recording disabled, and Discard client IP data enabled. No paid upgrade or payment method was added.
 
 Vercel is base analytics only. Hobby-safe builds never dispatch custom Vercel events from this wrapper. The optional Vercel script loader sets up the official `window.va` queue and queues `window.va("beforeSend", sanitizer)` before appending the configured SDK script. The sanitizer reduces any event URL to `origin + "/"` and drops malformed URLs.
+
+## GA4 Visitor Count
+
+GA4 support is present but inactive until a public web stream measurement ID is added to `assets/analytics-config.js`:
+
+```js
+ga4: {
+  measurementId: "G-XXXXXXXXXX"
+}
+```
+
+Create a Google Analytics 4 property, create a Web data stream, then copy the stream's public Measurement ID. Google documents that ID as the value beginning with `G-`. After adding it, disable Enhanced measurement in the GA4 web stream before production activation; Enhanced measurement can automatically collect extra outbound-click, form, scroll, video, file-download, and site-search events outside this project's manual privacy boundary.
+
+The GA4 module loads only on `invitation-maker-one.vercel.app`, only when `InvitationAnalyticsConfig.enabled !== false`, and only for IDs matching `G-` plus 6-20 uppercase letters or digits. The default empty ID means no GA4 script, `dataLayer`, or `gtag` queue is installed.
+
+The maker page reports one manual `page_view` with `page_location` reduced to `https://invitation-maker-one.vercel.app/`, `page_title` set to `Invitation Studio`, and `page_referrer` set to an empty string. Shared invitation pages report `page_location` as `https://invitation-maker-one.vercel.app/i/shared` and `page_title` as `Shared Invitation`. Query strings, hashes, raw referrers, share IDs, management keys, and invitation content are not sent by this module.
+
+The loader uses Google's official `https://www.googletagmanager.com/gtag/js?id=...` script with `referrerPolicy="no-referrer"`, queues `send_page_view: false`, and disables Google signals plus ad personalization signals. Repeated initialization or module reloads in the same document do not queue a second page view.
+
+Reference docs used for this setup: Google Analytics manual page view control (`developers.google.com/analytics/devguides/collection/ga4/views`), Google tag privacy parameters (`developers.google.com/tag-platform/security/guides/privacy`), Enhanced measurement behavior (`support.google.com/analytics/answer/9216061`), and where to find a GA4 Measurement ID (`support.google.com/analytics/answer/12270356`).
+
+Realtime verification is pending because the project still has an empty measurement ID and no real GA4 traffic has been sent from this change.
 
 ## Events
 
@@ -90,7 +116,7 @@ Actual editor wiring:
 - `draft_saved`: after `putDraft` succeeds and only if the user has edited.
 - `invitation_completed`: only after validation and successful `buildStandaloneHtml` generation.
 - `html_downloaded`: after the download anchor click is triggered.
-- `share_clicked`: not currently wired because there is no actual share feature.
+- `share_clicked`: the legacy funnel event remains API-only here; publishing link behavior lives in the separate publishing module.
 
 Map fields should stay coarse. It is acceptable to send booleans such as `hasMap`; do not send map URLs, addresses, place ids, coordinates, or raw place labels.
 
