@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const TemplateCatalog = require("../assets/template-catalog.js");
+const TemplateCatalog = require("../assets/invitation/template-catalog.js");
 
 const fixture = {
   occasions: [

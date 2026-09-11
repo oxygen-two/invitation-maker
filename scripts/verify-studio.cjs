@@ -28,7 +28,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await page.locator('[name="title"]').fill('하린의 생일 · 오래 기억하고 싶은 하루');
       await page.locator('[name="dateLabel"]').fill('September 12 · 13:00');
       if (width === 390) {
-        await page.locator('#hero-image-input').setInputFiles('assets/template-art/wedding-paper.webp');
+        await page.locator('#hero-image-input').setInputFiles('assets/invitation/template-art/wedding-paper.webp');
         await page.waitForFunction(() => !document.querySelector('#hero-image-preview').hidden);
       }
       await page.waitForFunction(() => document.querySelector('#draft-status').textContent.includes('저장됨'));
@@ -59,7 +59,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       console.log(`PASS ${width}: restore, preserve, sample, export, library, four-stage layout`);
       await page.close();
     }
-    const core = require('../assets/invitation-core.js');
+    const core = require('../assets/invitation/core.js');
     for (const template of ['bloom-portrait', 'cherry-muse', 'peach-table']) {
       const page = await browser.newPage({ viewport: { width: 320, height: 844 } });
       await page.setContent(core.buildStandaloneHtml({

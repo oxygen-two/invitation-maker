@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const InvitationStorage = require("../assets/invitation-storage.js");
+const InvitationStorage = require("../assets/storage/invitation-storage.js");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -186,10 +186,10 @@ test("browser pages load storage before their consumers", () => {
   const viewerScripts = [...read("viewer.html").matchAll(/<script src="([^"]+)"(?: defer)?><\/script>/g)]
     .map((match) => match[1]);
 
-  assert.ok(indexScripts.indexOf("assets/invitation-storage.js") >= 0);
-  assert.ok(indexScripts.indexOf("assets/invitation-storage.js") < indexScripts.indexOf("assets/app.js"));
-  assert.ok(viewerScripts.indexOf("assets/invitation-storage.js") >= 0);
-  assert.ok(viewerScripts.indexOf("assets/invitation-storage.js") < viewerScripts.indexOf("assets/viewer.js"));
+  assert.ok(indexScripts.indexOf("assets/storage/invitation-storage.js") >= 0);
+  assert.ok(indexScripts.indexOf("assets/storage/invitation-storage.js") < indexScripts.indexOf("assets/studio/app.js"));
+  assert.ok(viewerScripts.indexOf("assets/storage/invitation-storage.js") >= 0);
+  assert.ok(viewerScripts.indexOf("assets/storage/invitation-storage.js") < viewerScripts.indexOf("assets/invitation/viewer.js"));
 });
 
 test("CRUD uses the invitations store and lists newest records with deterministic ties", async (t) => {

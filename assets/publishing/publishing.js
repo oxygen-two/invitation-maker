@@ -19,7 +19,7 @@
 
   const InvitationCore = (() => {
     if (typeof module !== "undefined" && module.exports) {
-      try { return require("./invitation-core.js"); } catch { return null; }
+      try { return require("../invitation/core.js"); } catch { return null; }
     }
     return root.InvitationCore || null;
   })();

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const TemplateArt = require("../assets/template-art.js");
+const TemplateArt = require("../assets/invitation/template-art.js");
 
 const decorated = [
   "silver-afterglow",
@@ -37,7 +37,7 @@ const sourceFiles = [
   "sunny-classroom.webp",
   "wedding-paper.webp"
 ];
-const artDir = path.resolve(__dirname, "../assets/template-art");
+const artDir = path.resolve(__dirname, "../assets/invitation/template-art");
 const readWebpDimensions = (buffer) => {
   assert.equal(buffer.toString("ascii", 0, 4), "RIFF");
   assert.equal(buffer.toString("ascii", 8, 12), "WEBP");

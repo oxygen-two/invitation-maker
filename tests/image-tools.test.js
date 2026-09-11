@@ -12,9 +12,9 @@ const {
   buildResizePlan,
   compress,
   validateFile
-} = require("../assets/image-tools.js");
+} = require("../assets/media/image-tools.js");
 
-const imageToolsPath = path.resolve(__dirname, "..", "assets", "image-tools.js");
+const imageToolsPath = path.resolve(__dirname, "..", "assets", "media", "image-tools.js");
 const imageToolsSource = fs.readFileSync(imageToolsPath, "utf8");
 
 const createBrowserHarness = ({
@@ -291,8 +291,8 @@ test("image tools expose the encoded limit and browser compression boundary", ()
 
 test("the browser loads ImageTools before app.js", () => {
   const index = fs.readFileSync(path.resolve(__dirname, "..", "index.html"), "utf8");
-  const imageToolsIndex = index.indexOf('<script src="assets/image-tools.js"></script>');
-  const appIndex = index.indexOf('<script src="assets/app.js"></script>');
+  const imageToolsIndex = index.indexOf('<script src="assets/media/image-tools.js"></script>');
+  const appIndex = index.indexOf('<script src="assets/studio/app.js"></script>');
 
   assert.notEqual(imageToolsIndex, -1);
   assert.ok(imageToolsIndex < appIndex);

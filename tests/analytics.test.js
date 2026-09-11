@@ -39,7 +39,7 @@ const loadAnalytics = ({
   TemplateCatalog,
   va
 } = {}) => {
-  const script = read("assets/analytics.js");
+  const script = read("assets/analytics/analytics.js");
   const rootObject = {
     InvitationAnalyticsConfig: config,
     URLSearchParams,
@@ -62,7 +62,7 @@ const loadAnalytics = ({
     globalThis: rootObject,
     module: { exports: {} },
     window: rootObject
-  }, { filename: "assets/analytics.js" });
+  }, { filename: "assets/analytics/analytics.js" });
   return { analytics: rootObject.InvitationAnalytics, rootObject, sessionStorage };
 };
 
@@ -70,10 +70,10 @@ test("public config exposes configured public analytics endpoints and preserves 
   const rootObject = { window: null };
   rootObject.window = rootObject;
 
-  vm.runInNewContext(read("assets/analytics-config.js"), {
+  vm.runInNewContext(read("assets/analytics/config.js"), {
     globalThis: rootObject,
     window: rootObject
-  }, { filename: "assets/analytics-config.js" });
+  }, { filename: "assets/analytics/config.js" });
 
   assert.equal(JSON.stringify(rootObject.InvitationAnalyticsConfig), JSON.stringify({
     enabled: true,
@@ -93,10 +93,10 @@ test("public config exposes configured public analytics endpoints and preserves 
   const overrideRoot = { InvitationAnalyticsConfig: override, window: null };
   overrideRoot.window = overrideRoot;
 
-  vm.runInNewContext(read("assets/analytics-config.js"), {
+  vm.runInNewContext(read("assets/analytics/config.js"), {
     globalThis: overrideRoot,
     window: overrideRoot
-  }, { filename: "assets/analytics-config.js" });
+  }, { filename: "assets/analytics/config.js" });
 
   assert.equal(overrideRoot.InvitationAnalyticsConfig, override);
 });

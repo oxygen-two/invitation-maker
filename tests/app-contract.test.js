@@ -4,10 +4,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const ContentOrder = require("../assets/content-order.js");
-const HeroImage = require("../assets/hero-image.js");
-const InvitationCore = require("../assets/invitation-core.js");
-const PresetApplication = require("../assets/preset-application.js");
+const ContentOrder = require("../assets/studio/content-order.js");
+const HeroImage = require("../assets/media/hero-image.js");
+const InvitationCore = require("../assets/invitation/core.js");
+const PresetApplication = require("../assets/studio/preset-application.js");
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -481,7 +481,7 @@ const loadEditorHarness = ({
   document.querySelectorAll = (selector) =>
     selector === ".mobile-view-tabs button[data-mobile-view]" ? mobileTabs : [];
 
-  let source = read("assets/app.js");
+  let source = read("assets/studio/app.js");
   // Screen navigation and sample rendering are exercised in verify-studio.cjs.
   source = source.replace(/const renderSamplePreview = \(\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
   source = source.replace(/const setStudioStage = \(stage\) => \{[\s\S]*?\n\};/, 'const setStudioStage = () => {};');
@@ -576,7 +576,7 @@ const loadEditorHarness = ({
     setTimeout,
     window
   };
-  vm.runInNewContext(source, context, { filename: "assets/app.js" });
+  vm.runInNewContext(source, context, { filename: "assets/studio/app.js" });
 
   return {
     api: context.__editorTest,
@@ -755,7 +755,7 @@ const loadIntroLifecycleHarness = () => {
   };
   document.defaultView = window;
 
-  let source = read("assets/app.js").replace(/\ninit\(\);\s*$/, "");
+  let source = read("assets/studio/app.js").replace(/\ninit\(\);\s*$/, "");
   source += "\n;globalThis.__introLifecycleTest = { renderPreview };";
   const context = {
     Blob,
@@ -778,7 +778,7 @@ const loadIntroLifecycleHarness = () => {
     setTimeout: () => 1,
     window
   };
-  vm.runInNewContext(source, context, { filename: "assets/app.js" });
+  vm.runInNewContext(source, context, { filename: "assets/studio/app.js" });
 
   return { calls, elements, form, preview, replay, stops, api: context.__introLifecycleTest };
 };
@@ -893,7 +893,7 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
     scrollTo() {}
   };
 
-  let source = read("assets/app.js").replace(/\ninit\(\);\s*$/, "");
+  let source = read("assets/studio/app.js").replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__libraryTest = {
     enforceSavedLimit,
     handleSavedAction,
@@ -941,7 +941,7 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
     setTimeout,
     window
   };
-  vm.runInNewContext(source, context, { filename: "assets/app.js" });
+  vm.runInNewContext(source, context, { filename: "assets/studio/app.js" });
 
   return {
     api: context.__libraryTest,
@@ -964,12 +964,12 @@ const invitationDataFrom = (html) => {
 };
 
 test("saved invitations open through a same-origin viewer", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
   const viewer = read("viewer.html");
 
   assert.match(app, /viewer\.html\?id=/);
   assert.doesNotMatch(app, /const openSaved = \(item\) => \{[\s\S]*?URL\.createObjectURL/);
-  assert.match(viewer, /assets\/viewer\.js/);
+  assert.match(viewer, /assets\/invitation\/viewer\.js/);
 });
 
 test("maker and viewer each use exactly one inline favicon", () => {
@@ -1186,7 +1186,7 @@ test("active intro survives download import storage and viewer rebuild", async (
   assert.match(stored.html, /data-intro-effect="fireworks"/);
   assert.match(stored.html, /data-intro-runtime/);
 
-  const viewerSource = read("assets/viewer.js");
+  const viewerSource = read("assets/invitation/viewer.js");
   const written = [];
   const result = vm.runInNewContext(viewerSource, {
     DOMParser: invitationParser,
@@ -1200,7 +1200,7 @@ test("active intro survives download import storage and viewer rebuild", async (
       write(html) { written.push(html); }
     },
     window: { location: { search: `?id=${stored.id}` } }
-  }, { filename: "assets/viewer.js" });
+  }, { filename: "assets/invitation/viewer.js" });
   await result;
 
   assert.equal(written.length, 1);
@@ -1218,7 +1218,7 @@ test("one preset per family survives upload registration and viewer rebuild with
   for (const preset of catalog.templates) {
     if (!presetsByFamily.has(preset.familyId)) presetsByFamily.set(preset.familyId, preset);
   }
-  const viewerSource = read("assets/viewer.js");
+  const viewerSource = read("assets/invitation/viewer.js");
 
   for (const familyId of TemplateCatalog.FAMILY_IDS) {
     const preset = presetsByFamily.get(familyId);
@@ -1249,7 +1249,7 @@ test("one preset per family survives upload registration and viewer rebuild with
         write(html) { written.push(html); }
       },
       window: { location: { search: `?id=${stored.id}` } }
-    }, { filename: "assets/viewer.js" });
+    }, { filename: "assets/invitation/viewer.js" });
     await result;
 
     const standaloneInvitation = invitationDataFrom(standaloneHtml);
@@ -1397,7 +1397,7 @@ test("durable deletion updates local state when repository refresh fails", async
 });
 
 test("library implementation uses IndexedDB outside resumable migration and accepts exactly 10 MiB", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
   const migration = app.match(/const migrateLegacySaved = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
   const appWithoutMigration = app.replace(migration, "");
 
@@ -1409,7 +1409,7 @@ test("library implementation uses IndexedDB outside resumable migration and acce
 });
 
 test("library initialization distinguishes open failure from later sync failure", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
   const init = app.match(/const init = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
   const statusMessages = [...init.matchAll(/dom\.uploadStatus\.textContent = "([^"]+)"/g)]
     .map((match) => match[1]);
@@ -1420,7 +1420,7 @@ test("library initialization distinguishes open failure from later sync failure"
 });
 
 test("viewer awaits IndexedDB and rebuilds only a typed JSON invitation payload", async () => {
-  const viewerSource = read("assets/viewer.js");
+  const viewerSource = read("assets/invitation/viewer.js");
   const written = [];
   const main = { innerHTML: "" };
   const document = {
@@ -1444,7 +1444,7 @@ test("viewer awaits IndexedDB and rebuilds only a typed JSON invitation payload"
     window: { location: { search: "?id=saved-1" } }
   };
 
-  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/viewer.js" });
+  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/invitation/viewer.js" });
   await result;
 
   assert.equal(requestedId, "saved-1");
@@ -1466,7 +1466,7 @@ test("app rejects imported HTML containing duplicate invitation payloads", async
 });
 
 test("viewer rejects stored HTML containing duplicate invitation payloads", async () => {
-  const viewerSource = read("assets/viewer.js");
+  const viewerSource = read("assets/invitation/viewer.js");
   const main = { innerHTML: "" };
   const written = [];
   const duplicated = `${validInvitationHtml("First payload")}${validInvitationHtml("Second payload")}`;
@@ -1484,7 +1484,7 @@ test("viewer rejects stored HTML containing duplicate invitation payloads", asyn
     window: { location: { search: "?id=duplicate" } }
   };
 
-  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/viewer.js" });
+  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/invitation/viewer.js" });
   await result;
 
   assert.equal(written.length, 0);
@@ -1492,7 +1492,7 @@ test("viewer rejects stored HTML containing duplicate invitation payloads", asyn
 });
 
 test("viewer preserves the missing invitation message for invalid stored HTML", async () => {
-  const viewerSource = read("assets/viewer.js");
+  const viewerSource = read("assets/invitation/viewer.js");
   const main = { innerHTML: "" };
   const written = [];
   const context = {
@@ -1513,7 +1513,7 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
     window: { location: { search: "?id=bad" } }
   };
 
-  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/viewer.js" });
+  const result = vm.runInNewContext(viewerSource, context, { filename: "assets/invitation/viewer.js" });
   await result;
 
   assert.equal(written.length, 0);
@@ -1522,7 +1522,7 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
 
 test("editor exposes mobile view tabs and selected template state", () => {
   const index = read("index.html");
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
 
   assert.match(index, /class="mobile-view-tabs"/);
   assert.match(index, /data-mobile-view="editor"/);
@@ -1642,7 +1642,7 @@ test("preset cards render inert canonical heroes without changing the draft on s
 });
 
 test("measured template thumbnails cannot feed intrinsic aspect sizing back into grid width", () => {
-  const css = read("assets/style.css");
+  const css = read("assets/studio/style.css");
   const viewportRule = css.match(/\.template-thumbnail-viewport\s*\{([^}]*)\}/)?.[1] || "";
 
   assert.match(viewportRule, /width:\s*100%/);
@@ -1780,7 +1780,7 @@ test("mobile tab pointer capture preserves scroll before browser focus moves the
 
 test("editor groups related controls and keeps mobile export actions reachable", () => {
   const index = read("index.html");
-  const css = read("assets/style.css");
+  const css = read("assets/studio/style.css");
 
   for (const group of ["style", "details", "location", "content"]) {
     assert.match(index, new RegExp(`data-editor-group="${group}"`));
@@ -1794,7 +1794,7 @@ test("editor groups related controls and keeps mobile export actions reachable",
 
 test("map controls use place geocoding without exposing coordinates or zoom", () => {
   const index = read("index.html");
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
 
   assert.doesNotMatch(index, /<span>위도<\/span>|<span>경도<\/span>|<span>지도 줌<\/span>/);
   assert.doesNotMatch(app, /<span>위도<\/span>|<span>경도<\/span>|<span>지도 줌<\/span>/);
@@ -1803,12 +1803,12 @@ test("map controls use place geocoding without exposing coordinates or zoom", ()
   assert.match(app, /data-course-field="mapLatitude" type="hidden"/);
   assert.match(app, /data-course-field="mapLongitude" type="hidden"/);
   assert.match(app, /submodules=geocoder/);
-  assert.match(index, /src="assets\/map-location\.js"/);
+  assert.match(index, /src="assets\/integrations\/map-location\.js"/);
   assert.match(app, /error\.code === "SERVICE_UNAVAILABLE"[\s\S]*?NAVER Geocoding 설정을 확인해 주세요/);
 });
 
 test("mobile preview frame remains viewport-bounded and scrollable", () => {
-  const css = read("assets/style.css");
+  const css = read("assets/studio/style.css");
 
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*height: calc\(100dvh - 158px\);\s*max-height: calc\(100dvh - 158px\);\s*overflow: auto;/);
   assert.doesNotMatch(css, /@media \(max-width: 900px\)[\s\S]*?\.preview-frame\s*\{\s*max-height: none;\s*overflow: visible;/);
@@ -1832,7 +1832,7 @@ test("saved invitation cards render friendly dates and source labels", async () 
 });
 
 test("editor template palettes define the intro text colors used by standalone output", () => {
-  const css = read("assets/style.css");
+  const css = read("assets/studio/style.css");
   const expected = {
     wedding: ["#33241a", "#705d4c"],
     "black-tie": ["#17191f", "#5f6876"],
@@ -1848,7 +1848,7 @@ test("editor template palettes define the intro text colors used by standalone o
 });
 
 test("course map settings span the full card width", () => {
-  const css = read("assets/style.css");
+  const css = read("assets/studio/style.css");
 
   assert.match(css, /\.editor-form\s*>\s*\.full\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
   assert.match(css, /\.course-editor-grid\s*>\s*\.full,\s*[\s\S]*?\.link-editor-grid\s*>\s*\.full\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
@@ -1859,10 +1859,10 @@ test("editor exposes one ordered content shell and constrained photo picker", ()
   const index = read("index.html");
   const photoInput = index.match(/<input[^>]+id="photo-input"[^>]*>/)?.[0] || "";
   const scriptOrder = [
-    "assets/invitation-core.js",
-    "assets/image-tools.js",
-    "assets/content-order.js",
-    "assets/app.js"
+    "assets/invitation/core.js",
+    "assets/media/image-tools.js",
+    "assets/studio/content-order.js",
+    "assets/studio/app.js"
   ].map((source) => index.indexOf(`<script src="${source}"></script>`));
 
   assert.equal((index.match(/id="content-editor"/g) || []).length, 1);
@@ -1881,8 +1881,8 @@ test("editor exposes a separate single-file hero background tool before invitati
   const index = read("index.html");
   const heroInput = index.match(/<input[^>]+id="hero-image-input"[^>]*>/)?.[0] || "";
   const bodyPhotoInput = index.match(/<input[^>]+id="photo-input"[^>]*>/)?.[0] || "";
-  const heroModuleIndex = index.indexOf('src="assets/hero-image.js"');
-  const coreIndex = index.indexOf('src="assets/invitation-core.js"');
+  const heroModuleIndex = index.indexOf('src="assets/media/hero-image.js"');
+  const coreIndex = index.indexOf('src="assets/invitation/core.js"');
 
   assert.match(index, /data-editor-group="hero-image"/);
   assert.match(index, /id="hero-image-frame"/);
@@ -1895,8 +1895,8 @@ test("editor exposes a separate single-file hero background tool before invitati
   assert.ok(heroModuleIndex >= 0 && heroModuleIndex < coreIndex);
 
   const viewer = read("viewer.html");
-  const viewerHeroModuleIndex = viewer.indexOf('src="assets/hero-image.js"');
-  const viewerCoreIndex = viewer.indexOf('src="assets/invitation-core.js"');
+  const viewerHeroModuleIndex = viewer.indexOf('src="assets/media/hero-image.js"');
+  const viewerCoreIndex = viewer.indexOf('src="assets/invitation/core.js"');
   assert.ok(viewerHeroModuleIndex >= 0 && viewerHeroModuleIndex < viewerCoreIndex);
 });
 
@@ -2033,8 +2033,8 @@ test("template undo restores the custom hero image and crop", async () => {
 test("editor and viewer load intro effects before invitation core", () => {
   for (const page of ["index.html", "viewer.html"]) {
     const html = read(page);
-    const introIndex = html.indexOf('src="assets/intro-effects.js"');
-    const coreIndex = html.indexOf('src="assets/invitation-core.js"');
+    const introIndex = html.indexOf('src="assets/invitation/intro-effects.js"');
+    const coreIndex = html.indexOf('src="assets/invitation/core.js"');
 
     assert.notEqual(introIndex, -1, `${page} must load intro effects`);
     assert.notEqual(coreIndex, -1, `${page} must load invitation core`);
@@ -2045,10 +2045,10 @@ test("editor and viewer load intro effects before invitation core", () => {
 test("maker and viewer load TemplateCatalog and TemplateRenderers before InvitationCore for browser family rendering", () => {
   for (const page of ["index.html", "viewer.html"]) {
     const html = read(page);
-    const catalogIndex = html.indexOf('src="assets/template-catalog.js"');
-    const artIndex = html.indexOf('src="assets/template-art.js"');
-    const renderersIndex = html.indexOf('src="assets/template-renderers.js"');
-    const coreIndex = html.indexOf('src="assets/invitation-core.js"');
+    const catalogIndex = html.indexOf('src="assets/invitation/template-catalog.js"');
+    const artIndex = html.indexOf('src="assets/invitation/template-art.js"');
+    const renderersIndex = html.indexOf('src="assets/invitation/template-renderers.js"');
+    const coreIndex = html.indexOf('src="assets/invitation/core.js"');
 
     assert.ok(catalogIndex >= 0, `${page} loads TemplateCatalog`);
     assert.ok(artIndex >= 0, `${page} loads TemplateArt`);
@@ -2062,10 +2062,10 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
 
   const browser = { URL };
   browser.globalThis = browser;
-  vm.runInNewContext(read("assets/template-catalog.js"), browser, { filename: "assets/template-catalog.js" });
-  vm.runInNewContext(read("assets/template-art.js"), browser, { filename: "assets/template-art.js" });
-  vm.runInNewContext(read("assets/template-renderers.js"), browser, { filename: "assets/template-renderers.js" });
-  vm.runInNewContext(read("assets/invitation-core.js"), browser, { filename: "assets/invitation-core.js" });
+  vm.runInNewContext(read("assets/invitation/template-catalog.js"), browser, { filename: "assets/invitation/template-catalog.js" });
+  vm.runInNewContext(read("assets/invitation/template-art.js"), browser, { filename: "assets/invitation/template-art.js" });
+  vm.runInNewContext(read("assets/invitation/template-renderers.js"), browser, { filename: "assets/invitation/template-renderers.js" });
+  vm.runInNewContext(read("assets/invitation/core.js"), browser, { filename: "assets/invitation/core.js" });
 
   assert.equal(browser.InvitationCore.normalizeInvitation({ templateId: "wedding" }).layoutFamily, "wedding-editorial");
   assert.match(browser.TemplateArt.getDataUrl("botanical"), /^data:image\/webp;base64,/);
@@ -2073,7 +2073,7 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
 });
 
 test("mixed editor cards preserve identity and expose type-specific fields", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
 
   assert.match(app, /const getItemsData = \(\) => \[\.\.\.dom\.contentEditor\.querySelectorAll\("\[data-item-card\]"\)\]/);
   assert.match(app, /const id = card\.dataset\.itemId/);
@@ -2098,7 +2098,7 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
 });
 
 test("course labels use presets and reveal text entry only for a custom label", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
 
   assert.match(app, /data-course-label-preset/);
   for (const label of ["MEET", "CAFE", "WALK", "DINNER"]) {
@@ -2111,8 +2111,8 @@ test("course labels use presets and reveal text entry only for a custom label", 
 });
 
 test("editor card headings omit redundant number badges", () => {
-  const app = read("assets/app.js");
-  const css = read("assets/style.css");
+  const app = read("assets/studio/app.js");
+  const css = read("assets/studio/style.css");
 
   assert.doesNotMatch(app, /content-item-number/);
   assert.doesNotMatch(css, /content-item-number/);
@@ -2166,7 +2166,7 @@ test("dropped empty course map toggle leaves no pending preview key", () => {
 });
 
 test("photo selection processes files sequentially and retains partial success", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
   const handler = app.match(/const handlePhotoSelection = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
   const merge = app.match(/const mergeCompressedPhotos = \(currentItems, compressedPhotos\) => \{[\s\S]*?\n\};/)?.[0] || "";
 
@@ -2572,7 +2572,7 @@ test("pointer reorder animates displaced cards without animating the dragged car
 });
 
 test("buttons and pointer drag share the immutable move commit", () => {
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
   const commit = app.match(/const commitItemMove = \(fromIndex, toIndex[\s\S]*?\n\};/)?.[0] || "";
   const beginDrag = app.match(/const beginItemDrag = \(event\) => \{[\s\S]*?\n\};/)?.[0] || "";
   const moveDrag = app.match(/const moveItemDrag = \(event\) => \{[\s\S]*?\n\};/)?.[0] || "";
@@ -2634,7 +2634,7 @@ test("reorder motion respects reduced-motion preferences", () => {
 });
 
 test("ordered editor controls and thumbnails stay bounded on narrow screens", () => {
-  const css = read("assets/style.css");
+  const css = read("assets/studio/style.css");
 
   assert.match(css, /\.item-icon-button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
   assert.match(css, /\.item-drag-handle\s*\{[^}]*touch-action:\s*none/s);
@@ -2651,7 +2651,7 @@ test("ordered editor controls and thumbnails stay bounded on narrow screens", ()
 
 test("editor offers six English fonts and six Korean fonts", () => {
   const index = read("index.html");
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
   const englishSelect = index.match(/<select name="englishFont"[\s\S]*?<\/select>/)?.[0] || "";
   const koreanSelect = index.match(/<select name="koreanFont"[\s\S]*?<\/select>/)?.[0] || "";
 
@@ -2666,7 +2666,7 @@ test("editor offers six English fonts and six Korean fonts", () => {
 
 test("editor exposes particle size and amount as percentage scales", () => {
   const index = read("index.html");
-  const app = read("assets/app.js");
+  const app = read("assets/studio/app.js");
 
   assert.match(index, /<input[^>]+name="particleScale"[^>]+type="range"[^>]+min="50"[^>]+max="200"[^>]+step="5"/);
   assert.match(index, /<output[^>]+data-particle-scale-output[^>]*>100%<\/output>/);
@@ -2708,7 +2708,7 @@ test("editor exposes grouped intro choices and replay control", () => {
 });
 
 test("ordinary preview rendering does not start intro playback", () => {
-  const source = read("assets/app.js");
+  const source = read("assets/studio/app.js");
   const renderPreviewBody = functionBody(source, "renderPreview");
   assert.doesNotMatch(renderPreviewBody, /InvitationIntro\.play/);
   assert.match(source, /const playPreviewIntro/);

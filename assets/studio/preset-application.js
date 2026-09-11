@@ -10,7 +10,7 @@
   const InvitationCore = (() => {
     if (browserInvitationCore) return browserInvitationCore;
     if (typeof module === "object" && module.exports) {
-      return require("./invitation-core.js");
+      return require("../invitation/core.js");
     }
     return null;
   })();

@@ -1,8 +1,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const ART_DIR = path.resolve(__dirname, "..", "assets", "template-art");
-const OUTPUT_FILE = path.resolve(__dirname, "..", "assets", "template-art.js");
+const ART_DIR = path.resolve(__dirname, "..", "assets", "invitation", "template-art");
+const OUTPUT_FILE = path.resolve(__dirname, "..", "assets", "invitation", "template-art.js");
 const MAX_BYTES = 80 * 1024;
 
 const sourceToTemplates = Object.freeze({

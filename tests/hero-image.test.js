@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const HeroImage = require("../assets/hero-image.js");
+const HeroImage = require("../assets/media/hero-image.js");
 
 test("normalizes hero crop values to stable editor bounds", () => {
   assert.deepEqual(HeroImage.normalizeCrop(), {
