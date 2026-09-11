@@ -322,11 +322,15 @@ html {
   background: var(--page-bg-b);
 }
 
+/* `overflow-x` stays on <html> only. Repeating it on <body> turned the body
+   into a scroll container, and `position: sticky` resolves against the nearest
+   scroll container — which is why the preview column scrolled away with the
+   editor instead of staying put. <html>'s value still propagates to the
+   viewport, so horizontal overflow is clipped exactly as before. */
 body {
   margin: 0;
   min-height: 100%;
   max-width: 100%;
-  overflow-x: hidden;
   color: var(--ink);
   background:
     radial-gradient(circle at 12% 15%, rgba(255, 255, 255, .7) 0 1px, transparent 2px),
@@ -385,6 +389,12 @@ textarea {
   position: sticky;
   top: 24px;
   align-self: start;
+  /* Bounded to the viewport and laid out as a column so the frame takes the
+     leftover height: an invitation taller than the screen then scrolls inside
+     its own document instead of pushing the panel past the bottom edge. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
   padding: 18px;
 }
 
@@ -459,8 +469,9 @@ textarea {
 
 .occasion-chip {
   flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 10px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
   color: var(--ink-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -942,15 +953,24 @@ input, textarea, select { scroll-margin-block:120px 160px; }
   line-height: 1.55;
 }
 
+/* The whole row is the target, not the 22px box: the input sits inside its
+   label, so a 44px-tall row means finger and pointer both get a full-size hit
+   area without blowing the checkbox glyph up to thumb size. */
 .checkbox-field {
-  grid-template-columns: 18px 1fr;
+  grid-template-columns: 22px 1fr;
   align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
   cursor: pointer;
 }
 
 .editor-form .checkbox-field input {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   margin: 0;
   padding: 0;
   accent-color: var(--wine-800);
@@ -1031,28 +1051,32 @@ input, textarea, select { scroll-margin-block:120px 160px; }
   box-shadow: 0 8px 24px rgba(45, 11, 22, .08);
 }
 
-.content-item-card.is-dragging {
-  z-index: 2;
-  border-color: var(--gold-500);
-  box-shadow: 0 14px 30px rgba(45, 11, 22, .18);
-  transform: translateY(-2px);
-}
-
-.content-item-card.is-drop-before {
-  box-shadow: inset 0 4px 0 var(--gold-500);
-}
-
-.content-item-card.is-drop-after {
-  box-shadow: inset 0 -4px 0 var(--gold-500);
-}
-
+/* One reorder mechanism, not two. The drag handle and the ↑ ↓ buttons did the
+   same job, and only the buttons were operable from a keyboard, announced their
+   boundary state, or behaved predictably under a thumb on a scrolling page —
+   so the handle went and its 44px column became the item's position number. */
 .content-item-header {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-height: 66px;
   padding: 8px;
+}
+
+.content-item-position {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  margin-inline-start: 4px;
+  color: var(--wine-700);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--cream-100);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 
 .content-item-card.is-open .content-item-header {
@@ -1079,34 +1103,6 @@ input, textarea, select { scroll-margin-block:120px 160px; }
 .item-icon-button[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: .38;
-}
-
-.item-drag-handle {
-  touch-action: none;
-  cursor: grab;
-}
-
-.drag-grip-bars {
-  display: grid;
-  gap: 4px;
-  place-content: center;
-  place-items: center;
-  width: 18px;
-}
-
-.drag-grip-bar {
-  width: 14px;
-  height: 2px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.drag-grip-bar:nth-child(2) {
-  width: 18px;
-}
-
-.item-drag-handle:active {
-  cursor: grabbing;
 }
 
 .content-item-toggle {
@@ -1353,25 +1349,21 @@ a:focus-visible {
   font-size: 24px;
 }
 
+/* #preview is an <iframe>; the card styling it used to need from here now
+   comes from the standalone stylesheet inside the frame, which is the point —
+   the author sees the guest's document, not a studio-tinted copy of it. */
 .preview-frame {
   position: relative;
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 280px;
   max-height: calc(100vh - 116px);
   overflow: auto;
+  border: 0;
   border-radius: 8px;
   background: var(--page-bg-a);
-}
-
-.preview-frame .invitation-card {
-  position: relative;
-  isolation: isolate;
-  width: min(430px, 100%);
-  max-width: 430px;
-  margin: 0 auto;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  background: var(--cream-50);
-  box-shadow: 0 24px 72px rgba(45, 11, 22, .2);
-  font-family: var(--font-ko), "Noto Sans KR", sans-serif;
+  color-scheme: light;
 }
 
 .particle-layer {
@@ -1770,9 +1762,14 @@ a:focus-visible {
   font-weight: 800;
 }
 
+/* `min-width: 0` on the grid and the input: a file input carries an intrinsic
+   minimum width wider than a 320px phone, and a grid item refuses to shrink
+   below its content unless told to — which is what pushed the library stage
+   past the viewport once body stopped clipping horizontal overflow. */
 .upload-box {
   display: grid;
   gap: 8px;
+  min-width: 0;
   max-width: 440px;
   margin-bottom: 16px;
 }
@@ -1784,6 +1781,8 @@ a:focus-visible {
 }
 
 .upload-box input {
+  min-width: 0;
+  max-width: 100%;
   padding: 12px;
   border: 1px dashed var(--wine-600);
   border-radius: 8px;
