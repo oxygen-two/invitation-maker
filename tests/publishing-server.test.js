@@ -11,6 +11,7 @@ const { MongoClient } = require("mongodb");
 const { normalizeInvitation } = require("../assets/invitation-core.js");
 const { createHandler } = require("../server/http.cjs");
 const { createMongoPublicationsRepository } = require("../server/storage/mongo-publications.cjs");
+const { createAdminMongoPublications } = require("../admin/storage/mongo-publications.cjs");
 
 const TOKEN = Buffer.from("0123456789abcdef0123456789abcdef").toString("base64url");
 const OTHER_TOKEN = Buffer.from("abcdef0123456789abcdef0123456789").toString("base64url");
@@ -81,7 +82,9 @@ class FakeRepository {
   constructor() {
     this.records = new Map();
     this.publishes = [];
+    this.refreshes = [];
     this.nextError = null;
+    this.refreshError = null;
   }
 
   async publish(input) {
@@ -99,6 +102,7 @@ class FakeRepository {
       tokenHash: input.tokenHash,
       idempotencyKeyHash: input.idempotencyKeyHash,
       contentHash: input.contentHash,
+      createdAt: input.now || new Date(),
       expiresAt: input.expiresAt
     };
     this.records.set(record.id, record);
@@ -107,6 +111,19 @@ class FakeRepository {
 
   async get(id) {
     return this.records.get(id) || null;
+  }
+
+  // Mirrors the Mongo repository's monotonic guard: an expiry never moves back.
+  async refreshExpiry({ id, expiresAt }) {
+    this.refreshes.push({ id, expiresAt });
+    if (this.refreshError) throw this.refreshError;
+    const record = this.records.get(id);
+    if (!record) return false;
+    const next = new Date(expiresAt);
+    const current = record.expiresAt ? new Date(record.expiresAt) : null;
+    if (current && current.getTime() >= next.getTime()) return false;
+    record.expiresAt = next.toISOString();
+    return true;
   }
 
   async remove({ id, tokenHash }) {
@@ -148,11 +165,10 @@ test("POST stores only a validated normalized invitation and returns a public UR
   });
 
   assert.equal(result.status, 201);
-  assert.deepEqual(result.body, {
-    id: "AbCdEfGhIjKlMnOpQrStUv",
-    url: "/i/AbCdEfGhIjKlMnOpQrStUv",
-    expiresAt: null
-  });
+  assert.equal(result.body.id, "AbCdEfGhIjKlMnOpQrStUv");
+  assert.equal(result.body.url, "/i/AbCdEfGhIjKlMnOpQrStUv");
+  assert.equal(typeof result.body.expiresAt, "string");
+  assert.deepEqual(Object.keys(result.body).sort(), ["expiresAt", "id", "url"]);
   assert.equal(repository.publishes.length, 1);
   assert.equal(repository.publishes[0].invitation.title, "서버 발행 초대장");
   assert.equal(repository.publishes[0].invitation.heroImage.scale, 150);
@@ -367,7 +383,7 @@ test("GET never exposes secret hashes and denies expired records immediately", a
   const live = await request(liveHandler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv");
   assert.equal(live.status, 200);
   assert.equal(live.body.invitation.title, "공개 초대장");
-  assert.equal(live.body.expiresAt, null);
+  assert.equal(typeof live.body.expiresAt, "string");
   assert.equal(JSON.stringify(live.body).includes("tokenHash"), false);
   assert.equal(JSON.stringify(live.body).includes(TOKEN), false);
   assert.equal(live.headers.get("cache-control"), "no-store");
@@ -377,6 +393,169 @@ test("GET never exposes secret hashes and denies expired records immediately", a
   repository.records.get("AbCdEfGhIjKlMnOpQrStUv").expiresAt = new Date(Date.now() - 1000).toISOString();
   const expired = await request(liveHandler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv");
   assert.equal(expired.status, 410);
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const PUBLISHED_AT = new Date("2026-01-01T00:00:00.000Z");
+const at = (days, hours = 0) => new Date(PUBLISHED_AT.getTime() + days * DAY_MS + hours * HOUR_MS);
+
+// Expiry behaviour is time dependent; inject a clock instead of sleeping.
+const createClockedHandler = (repository, config = {}) => {
+  const clock = { now: PUBLISHED_AT };
+  return {
+    clock,
+    handler: createTestHandler(repository, { clock: () => clock.now, ...config })
+  };
+};
+
+const publishOnce = (handler, title = "만료 정책") => request(handler, "/api/invitations", {
+  method: "POST",
+  headers: bearerHeaders(),
+  body: JSON.stringify({ invitation: { title } })
+});
+
+test("publishing stamps an expiry one idle window ahead of the publish time", async () => {
+  const repository = new FakeRepository();
+  const { handler } = createClockedHandler(repository);
+
+  const result = await publishOnce(handler);
+
+  assert.equal(result.status, 201);
+  assert.equal(result.body.expiresAt, at(7).toISOString());
+  assert.equal(repository.publishes[0].expiresAt, at(7).toISOString());
+  assert.equal(repository.records.get(result.body.id).expiresAt, at(7).toISOString());
+});
+
+test("a public read slides the expiry forward and throttles repeated writes", async () => {
+  const repository = new FakeRepository();
+  const { clock, handler } = createClockedHandler(repository);
+  const published = await publishOnce(handler);
+  const publicPath = `/api/invitations/${published.body.id}`;
+
+  clock.now = at(5);
+  const viewed = await request(handler, publicPath);
+  assert.equal(viewed.status, 200);
+  assert.equal(viewed.body.invitation.title, "만료 정책");
+  assert.equal(viewed.body.expiresAt, at(12).toISOString());
+  assert.equal(repository.records.get(published.body.id).expiresAt, at(12).toISOString());
+  assert.equal(repository.refreshes.length, 1);
+
+  // Same instant, and again three hours later: inside the refresh throttle, so
+  // the read never reaches the database with a write.
+  await request(handler, publicPath);
+  clock.now = at(5, 3);
+  const throttled = await request(handler, publicPath);
+  assert.equal(throttled.body.expiresAt, at(12).toISOString());
+  assert.equal(repository.refreshes.length, 1);
+
+  clock.now = at(5, 7);
+  const slid = await request(handler, publicPath);
+  assert.equal(slid.body.expiresAt, at(12, 7).toISOString());
+  assert.equal(repository.refreshes.length, 2);
+});
+
+test("the sliding expiry never exceeds the publication's hard lifetime ceiling", async () => {
+  const repository = new FakeRepository();
+  const { clock, handler } = createClockedHandler(repository);
+  const published = await publishOnce(handler);
+  const publicPath = `/api/invitations/${published.body.id}`;
+  const stored = repository.records.get(published.body.id);
+
+  // Kept alive by steady viewing: each read slides the window, until the hard
+  // ceiling at createdAt + 30 days stops it.
+  for (const [day, expected] of [[5, 12], [11, 18], [17, 24], [23, 30]]) {
+    clock.now = at(day);
+    const viewed = await request(handler, publicPath);
+    assert.equal(viewed.status, 200, `day ${day}`);
+    assert.equal(viewed.body.expiresAt, at(expected).toISOString(), `day ${day}`);
+  }
+  assert.equal(repository.refreshes.length, 4);
+
+  clock.now = at(26);
+  const capped = await request(handler, publicPath);
+  assert.equal(capped.status, 200);
+  assert.equal(capped.body.expiresAt, at(30).toISOString());
+
+  clock.now = at(29);
+  const stillCapped = await request(handler, publicPath);
+  assert.equal(stillCapped.body.expiresAt, at(30).toISOString());
+  assert.equal(repository.refreshes.length, 4, "a capped record stops generating writes");
+  assert.equal(stored.createdAt.toISOString(), PUBLISHED_AT.toISOString());
+
+  // Day 30 is the end of the line no matter how often it was viewed.
+  clock.now = at(30, 1);
+  assert.equal((await request(handler, publicPath)).status, 410);
+
+  // The ceiling comes from the stored createdAt. A record already past it is
+  // still served, and the read never shortens it.
+  const legacy = new FakeRepository();
+  const legacyHandler = createClockedHandler(legacy);
+  const legacyPublished = await publishOnce(legacyHandler.handler);
+  const legacyRecord = legacy.records.get(legacyPublished.body.id);
+  legacyRecord.createdAt = new Date(PUBLISHED_AT.getTime() - 100 * DAY_MS);
+  legacyRecord.expiresAt = at(5).toISOString();
+  legacy.refreshes.length = 0;
+
+  const served = await request(legacyHandler.handler, `/api/invitations/${legacyPublished.body.id}`);
+  assert.equal(served.status, 200);
+  assert.equal(served.body.expiresAt, at(5).toISOString());
+  assert.equal(legacy.refreshes.length, 0);
+});
+
+test("an admin read never extends a publication's expiry", async () => {
+  const calls = [];
+  const record = {
+    id: "AbCdEfGhIjKlMnOpQrStUv",
+    invitation: { title: "관리자 열람" },
+    createdAt: PUBLISHED_AT,
+    expiresAt: at(7).toISOString(),
+    expiresAtDate: at(7)
+  };
+  const collection = {
+    async createIndex() {},
+    async findOne(filter) {
+      calls.push({ findOne: filter });
+      return record;
+    },
+    async updateOne(...args) {
+      calls.push({ updateOne: args });
+      throw new Error("admin reads must not write");
+    },
+    async findOneAndUpdate(...args) {
+      calls.push({ findOneAndUpdate: args });
+      throw new Error("admin reads must not write");
+    }
+  };
+  const repository = createAdminMongoPublications({
+    uri: "mongodb://unused",
+    dbName: "admin-expiry-test",
+    collectionFactory: async () => collection
+  });
+
+  const viewed = await repository.getAdmin(record.id);
+
+  assert.equal(viewed.expiresAt, at(7).toISOString());
+  assert.equal(record.expiresAt, at(7).toISOString());
+  assert.equal(record.expiresAtDate.toISOString(), at(7).toISOString());
+  assert.equal(typeof repository.refreshExpiry, "undefined");
+  assert.equal(calls.filter((call) => call.updateOne || call.findOneAndUpdate).length, 0);
+});
+
+test("a failed expiry refresh still serves the invitation", async () => {
+  const repository = new FakeRepository();
+  const { clock, handler } = createClockedHandler(repository);
+  const published = await publishOnce(handler);
+
+  repository.refreshError = Object.assign(new Error("write failed"), { code: "REPOSITORY_UNAVAILABLE" });
+  clock.now = at(5);
+  const viewed = await request(handler, `/api/invitations/${published.body.id}`);
+
+  assert.equal(viewed.status, 200);
+  assert.equal(viewed.body.invitation.title, "만료 정책");
+  assert.equal(viewed.body.expiresAt, at(7).toISOString());
+  assert.equal(repository.refreshes.length, 1);
+  assert.equal(repository.records.get(published.body.id).expiresAt, at(7).toISOString());
 });
 
 test("DELETE requires the management token and removes only matching records", async () => {
@@ -429,6 +608,31 @@ test("static server allowlist serves public files and blocks traversal plus envi
   assert.equal((await request(handler, "/docs/superpowers/specs/2026-09-10-anonymous-publishing-design.md")).status, 404);
 });
 
+test("unmatched GET paths render the designed 404 page while API 404s stay JSON", async () => {
+  const repoRoot = path.resolve(__dirname, "..");
+  const handler = createTestHandler(new FakeRepository(), { staticRoot: repoRoot });
+
+  const page = await request(handler, "/4asd");
+  assert.equal(page.status, 404);
+  assert.match(page.headers.get("content-type") || "", /text\/html/);
+  assert.match(page.body, /<!doctype html>/i);
+  assert.match(page.body, /404/);
+
+  const apiMiss = await request(handler, "/api/invitations/nonexistentnonexisten1");
+  assert.equal(apiMiss.status, 404);
+  assert.match(apiMiss.headers.get("content-type") || "", /application\/json/);
+  assert.equal(apiMiss.body.error.code, "NOT_FOUND");
+
+  const apiUnknown = await request(handler, "/api/does-not-exist");
+  assert.equal(apiUnknown.status, 404);
+  assert.match(apiUnknown.headers.get("content-type") || "", /application\/json/);
+  assert.equal(apiUnknown.body.error.code, "NOT_FOUND");
+
+  const posted = await request(handler, "/4asd", { method: "POST" });
+  assert.equal(posted.status, 404);
+  assert.match(posted.headers.get("content-type") || "", /application\/json/);
+});
+
 test("Mongo repository publishes, replays idempotently, enforces quotas, and deletes by token", {
   skip: !process.env.MONGODB_URI && "Set MONGODB_URI for real Mongo integration"
 }, async () => {
@@ -436,7 +640,6 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
   const repository = createMongoPublicationsRepository({
     uri: process.env.MONGODB_URI,
     dbName: databaseName,
-    ttlDays: 1,
     rateLimitPerHour: 20,
     totalDailyLimit: 20,
     lifetimeLimit: 20
@@ -515,7 +718,6 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
     const restartedRepository = createMongoPublicationsRepository({
       uri: process.env.MONGODB_URI,
       dbName: databaseName,
-      ttlDays: 1,
       rateLimitPerHour: 20,
       totalDailyLimit: 20,
       lifetimeLimit: 20
@@ -539,7 +741,6 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
       dbName: databaseName,
       collectionName: "quota_invitations",
       countersCollectionName: "quota_counters",
-      ttlDays: 1,
       rateLimitPerHour: 10,
       totalDailyLimit: 2,
       lifetimeLimit: 2
@@ -561,7 +762,6 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
     const expiredRepository = createMongoPublicationsRepository({
       uri: process.env.MONGODB_URI,
       dbName: databaseName,
-      ttlDays: 0,
       rateLimitPerHour: 10,
       totalDailyLimit: 10,
       lifetimeLimit: 10
@@ -583,6 +783,61 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
     assert.equal(await repository.remove({ id: first.id, tokenHash: "token-a" }), true);
     assert.equal(await repository.get(first.id), null);
   } finally {
+    await repository.dropDatabase();
+    await repository.close();
+  }
+});
+
+test("Mongo repository stores a TTL date and refreshes it forward only, once per read", {
+  skip: !process.env.MONGODB_URI && "Set MONGODB_URI for real Mongo integration"
+}, async () => {
+  const databaseName = `publishing_expiry_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const repository = createMongoPublicationsRepository({
+    uri: process.env.MONGODB_URI,
+    dbName: databaseName,
+    rateLimitPerHour: 20,
+    totalDailyLimit: 20,
+    lifetimeLimit: 20
+  });
+  const client = new MongoClient(process.env.MONGODB_URI);
+
+  try {
+    const createdAt = new Date("2026-01-01T00:00:00.000Z");
+    await repository.publish({
+      id: "7777777777777777777777",
+      invitation: { title: "TTL invite" },
+      tokenHash: "ttl-token",
+      idempotencyKeyHash: "ttl-idem",
+      contentHash: "ttl-content",
+      clientKeyHash: "ttl-client",
+      now: createdAt,
+      expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    });
+
+    await client.connect();
+    const raw = () => client.db(databaseName).collection("published_invitations").findOne({ id: "7777777777777777777777" });
+
+    const stored = await raw();
+    assert.ok(stored.expiresAtDate instanceof Date, "TTL index needs a real Date");
+    assert.equal(stored.expiresAtDate.toISOString(), stored.expiresAt);
+    assert.equal((await repository.get("7777777777777777777777")).createdAt.toISOString(), createdAt.toISOString());
+
+    const forward = new Date(createdAt.getTime() + 12 * 24 * 60 * 60 * 1000).toISOString();
+    assert.equal(await repository.refreshExpiry({ id: "7777777777777777777777", expiresAt: forward }), true);
+    assert.equal((await raw()).expiresAt, forward);
+    assert.equal((await raw()).expiresAtDate.toISOString(), forward);
+
+    // Monotonic: a slower concurrent read can never pull the expiry backwards.
+    const backward = new Date(createdAt.getTime() + 9 * 24 * 60 * 60 * 1000).toISOString();
+    assert.equal(await repository.refreshExpiry({ id: "7777777777777777777777", expiresAt: backward }), false);
+    assert.equal((await raw()).expiresAt, forward);
+
+    assert.equal(await repository.refreshExpiry({ id: "missing", expiresAt: forward }), false);
+
+    const ttlIndexes = await client.db(databaseName).collection("published_invitations").indexes();
+    assert.ok(ttlIndexes.some((index) => index.key.expiresAtDate === 1 && index.expireAfterSeconds === 0));
+  } finally {
+    await client.close();
     await repository.dropDatabase();
     await repository.close();
   }

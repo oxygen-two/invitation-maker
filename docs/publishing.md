@@ -36,7 +36,35 @@ The request body and stored normalized invitation are each limited to **2,000,00
 
 The initial server defaults allow 10 successful publications per IP per hour, 100 per service per day, and 1,000 cumulative successful publications. Limits are enforced by MongoDB atomic operations, not process-local memory. The cumulative cap is deliberately conservative: cancellation and expiry do not refund it. An operator must review usage before increasing it. This bounds published payload storage conservatively; database indexes, operational records, backups, and traffic are additional usage.
 
-TTL has not been chosen as a product policy. The configurable default is no automatic expiry, displayed as such. Setting a positive TTL affects newly published snapshots. Existing records retain their recorded expiry. A MongoDB TTL index cleans up expired records in the background; immediate access expiry is enforced by the API and does not depend on that cleanup task.
+### Sliding expiry
+
+A publication expires on a sliding window with a hard ceiling:
+
+- Publishing stamps an expiry `PUBLISH_IDLE_WINDOW_DAYS` (default 7) ahead.
+- Every successful public read of `GET /api/invitations/:id` pushes the expiry to `now + idle window`.
+- The expiry is never pushed past `createdAt + PUBLISH_MAX_LIFETIME_DAYS` (default 30). The ceiling is computed from the stored publication time, never from a client-supplied value.
+
+```
+D+0   published            expires D+7
+D+5   viewed               expires D+12
+D+25  viewed               expires D+30   (capped by the 30-day ceiling)
+D+30  deleted
+never viewed again         deleted one idle window after the last view
+```
+
+An invitation that keeps getting opened stays alive for up to a month; one nobody opens disappears a week after its last view. `PUBLISH_MAX_LIFETIME_DAYS=0` disables expiry entirely. `PUBLISH_IDLE_WINDOW_DAYS=0` disables the sliding behaviour and leaves a plain `createdAt + max lifetime` TTL, which is how the retired `PUBLISH_TTL_DAYS` setting used to behave.
+
+Reads refresh the expiry with a single atomic, monotonic update, and only when the new value is more than `PUBLISH_EXPIRY_REFRESH_HOURS` (default 6) beyond the stored one. A busy invitation therefore costs at most a few writes per day, not one per view. A read that is already past its expiry returns `410` and is never revived; a record already past its ceiling is served as-is and never shortened by a read. The refresh is bookkeeping: if the write fails, the read still returns the invitation with its stored expiry.
+
+Administrator reads never extend anything. The admin service uses a separate read-only repository (`admin/storage/mongo-publications.cjs`), so an operator opening a record in the publication manager cannot keep it alive.
+
+A MongoDB TTL index on `expiresAtDate` cleans up expired records in the background; immediate access expiry is enforced by the API and does not depend on that cleanup task.
+
+### Backfilling records published before this policy
+
+Publications created earlier have `expiresAtDate: null` and would live forever. `node scripts/backfill-expiry.cjs` gives them an expiry. It defaults to a dry run, refuses non-loopback MongoDB hosts unless `PUBLISH_BACKFILL_ALLOW_REMOTE=1` is set, and requires `--apply` to write. It never deletes: it only sets `expiresAt`/`expiresAtDate` and lets the TTL index do the removal.
+
+Records whose `createdAt` is already older than the ceiling would be deleted the instant their honest expiry was written. Those get `now + idle window` instead, so a link shared today still works for a week; the dry-run summary reports that grace bucket separately, along with the total scanned, the records that already had an expiry, and the records newly given one. Records with no usable `createdAt` are treated the same way. Re-running the script is safe: records that already have an expiry are left untouched.
 
 Do not trust arbitrary client-supplied forwarded-IP headers. Configure trusted proxy behavior only for a deployment that overwrites those headers and prevents direct bypass of that proxy.
 
@@ -57,7 +85,7 @@ The publication manager is a separate local Node service and is not included in 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `MONGODB_URI` | unset | Server-only MongoDB connection string; missing means publication is unavailable. |
-| `MONGODB_DB` | `invitation_publish` | Dedicated invitation database. |
+| `MONGODB_DB` | `invitation_maker` | Dedicated invitation database. |
 | `PUBLISH_MAX_BYTES` | `2000000` | Server byte cap; the browser also enforces the 2MB product limit. |
 | `PUBLISH_TTL_DAYS` | `0` | No automatic expiry when zero; otherwise expiry after this many days. |
 | `PUBLISH_RATE_LIMIT_PER_HOUR` | `10` | Per-client publication rate ceiling. |

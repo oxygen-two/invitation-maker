@@ -8,6 +8,8 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.cjs",
     "admin": "node --env-file-if-exists=.env admin/index.cjs",
+    "dev": "node --env-file-if-exists=.env.dev server/index.cjs",
+    "dev:admin": "node --env-file-if-exists=.env.dev admin/index.cjs",
     "test": "node --test tests/*.test.js",
     "test:publishing": "node --test tests/publishing-server.test.js",
     "verify:publishing-mongo": "node scripts/verify-publishing-mongo.cjs",

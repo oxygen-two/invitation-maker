@@ -1,8 +1,8 @@
 const { URL } = require("node:url");
 const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
 const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
-const { serveStatic, staticFileFor } = require("./http/static.cjs");
-const { mapRepositoryError, publishInvitation } = require("./publishing/use-case.cjs");
+const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
+const { mapRepositoryError, publishInvitation, refreshPublicationExpiry } = require("./publishing/use-case.cjs");
 const {
   isValidPublicId,
   sha256,
@@ -100,6 +100,9 @@ const clientIpFrom = (req, config) => {
 
 const isExpired = (expiresAt, now = new Date()) => expiresAt && new Date(expiresAt).getTime() <= now.getTime();
 
+// Tests inject a clock through the config; production always reads the wall clock.
+const nowFrom = (config) => (typeof config?.clock === "function" ? config.clock() : new Date());
+
 const handlePost = async (req, res, repository, config) => {
   if (!isAllowedOrigin(req, config)) return sendError(res, 403, "FORBIDDEN_ORIGIN");
   const tokenHash = tokenHashFromHeader(req.headers.authorization);
@@ -127,6 +130,7 @@ const handlePost = async (req, res, repository, config) => {
       clientKeyHash: sha256(`client:${clientIpFrom(req, config)}`),
       config,
       idempotencyKey,
+      now: nowFrom(config),
       repository,
       tokenHash,
     });
@@ -140,16 +144,19 @@ const handlePost = async (req, res, repository, config) => {
   }
 };
 
-const handleGet = async (res, repository, id) => {
+const handleGet = async (res, repository, id, config = {}) => {
   if (!repository) return sendError(res, 503, "REPOSITORY_UNAVAILABLE");
   if (!isValidPublicId(id)) return sendError(res, 404, "NOT_FOUND");
   try {
+    const now = nowFrom(config);
     const record = await repository.get(id);
     if (!record) return sendError(res, 404, "NOT_FOUND");
-    if (isExpired(record.expiresAt)) return sendError(res, 410, "EXPIRED");
+    // Already dead records are never revived by the refresh below.
+    if (isExpired(record.expiresAt, now)) return sendError(res, 410, "EXPIRED");
+    const expiresAt = await refreshPublicationExpiry({ record, repository, config, now });
     return json(res, 200, {
       invitation: record.invitation,
-      expiresAt: record.expiresAt || null
+      expiresAt: expiresAt || null
     });
   } catch {
     return sendError(res, 503, "REPOSITORY_UNAVAILABLE");
@@ -186,7 +193,7 @@ const createHandler = ({ repository, config = {} } = {}) => {
     const invitationId = req.query?.id || parsed.searchParams.get("id");
     if (parsed.pathname === "/api/invitations" || parsed.pathname === "/api/invitations.js") {
       if (invitationId) {
-        if (req.method === "GET") return handleGet(res, repository, invitationId);
+        if (req.method === "GET") return handleGet(res, repository, invitationId, mergedConfig);
         if (req.method === "DELETE") return handleDelete(req, res, repository, invitationId);
         return sendError(res, 405, "METHOD_NOT_ALLOWED");
       }
@@ -196,7 +203,7 @@ const createHandler = ({ repository, config = {} } = {}) => {
 
     const invitationMatch = parsed.pathname.match(/^\/api\/invitations\/([^/]+)$/);
     if (invitationMatch) {
-      if (req.method === "GET") return handleGet(res, repository, invitationMatch[1]);
+      if (req.method === "GET") return handleGet(res, repository, invitationMatch[1], mergedConfig);
       if (req.method === "DELETE") return handleDelete(req, res, repository, invitationMatch[1]);
       return sendError(res, 405, "METHOD_NOT_ALLOWED");
     }
@@ -204,6 +211,21 @@ const createHandler = ({ repository, config = {} } = {}) => {
     if (req.method === "GET" || req.method === "HEAD") {
       const served = await serveStatic(req, res, mergedConfig, parsed.pathname);
       if (served) return;
+
+      // Match production (Vercel filesystem + static 404 handler): an
+      // unmatched, non-API GET/HEAD gets the designed 404 page instead of
+      // the publishing API's JSON error. API clients (/api/...) always keep
+      // getting JSON below, and non-GET/HEAD requests never render HTML.
+      if (!parsed.pathname.startsWith("/api/")) {
+        const servedNotFound = await serveErrorPage(req, res, mergedConfig, "404.html", 404);
+        if (servedNotFound) return;
+        res.writeHead(404, {
+          "content-type": "text/plain; charset=utf-8",
+          "cache-control": "no-store"
+        });
+        res.end(req.method === "HEAD" ? undefined : "Not Found");
+        return;
+      }
     }
     return sendError(res, 404, "NOT_FOUND");
   };

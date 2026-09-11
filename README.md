@@ -50,13 +50,15 @@ Open [http://127.0.0.1:4173](http://127.0.0.1:4173). To preview only the static 
 python3 -m http.server 4173
 ```
 
+For local experiments, copy `.env.example` to `.env.dev` instead and run `npm run dev` (or `npm run dev:admin` for the admin service). This keeps local testing off the production database — `npm start`/`npm run admin` keep loading `.env` unchanged.
+
 ## Public publishing
 
 Set your MongoDB connection in the ignored `.env` file:
 
 ```dotenv
 MONGODB_URI=mongodb://...
-MONGODB_DB=invitation_publish
+MONGODB_DB=invitation_maker
 PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 ```
 
@@ -80,7 +82,7 @@ Set `ADMIN_PASSWORD` in your ignored `.env`, then run:
 npm run admin
 ```
 
-Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin).
+Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin). Use `npm run dev:admin` with an `.env.dev` file to manage a local/dev database instead of production.
 
 - Password login with an in-memory session
 - Search by publication ID or title

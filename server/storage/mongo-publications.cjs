@@ -15,7 +15,6 @@ const createMongoPublicationsRepository = ({
   dbName,
   collectionName = "published_invitations",
   countersCollectionName = "publishing_counters",
-  ttlDays = 0,
   rateLimitPerHour = 10,
   totalDailyLimit = 100,
   lifetimeLimit = 1000
@@ -113,7 +112,7 @@ const createMongoPublicationsRepository = ({
           clientKeyHash: input.clientKeyHash,
           createdAt: now,
           expiresAt: input.expiresAt || null,
-          expiresAtDate: ttlDays > 0 && input.expiresAt ? new Date(input.expiresAt) : null
+          expiresAtDate: input.expiresAt ? new Date(input.expiresAt) : null
         });
         return { id, expiresAt: input.expiresAt || null };
       } catch (error) {
@@ -143,8 +142,32 @@ const createMongoPublicationsRepository = ({
     return {
       id: record.id,
       invitation: record.invitation,
+      // Stored publication time; the sliding-expiry ceiling is derived from it
+      // and never from anything the client sends. Not part of the API response.
+      createdAt: record.createdAt || null,
       expiresAt: record.expiresAt || null
     };
+  };
+
+  // One atomic, monotonic update: the guard only matches when the stored expiry
+  // is missing or older than the new one, so concurrent reads can never move an
+  // expiry backwards and a lost race is simply a no-op.
+  const refreshExpiry = async ({ id, expiresAt }) => {
+    if (!id || !expiresAt) return false;
+    const next = new Date(expiresAt);
+    if (Number.isNaN(next.getTime())) return false;
+    const result = await (await collection()).updateOne(
+      {
+        id,
+        $or: [
+          { expiresAtDate: null },
+          { expiresAtDate: { $exists: false } },
+          { expiresAtDate: { $lt: next } }
+        ]
+      },
+      { $set: { expiresAt: next.toISOString(), expiresAtDate: next } }
+    );
+    return result.modifiedCount === 1;
   };
 
   const remove = async ({ id, tokenHash }) => {
@@ -166,6 +189,7 @@ const createMongoPublicationsRepository = ({
   return {
     publish,
     get,
+    refreshExpiry,
     remove,
     close,
     dropDatabase

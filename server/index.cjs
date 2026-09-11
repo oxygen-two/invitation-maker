@@ -17,7 +17,6 @@ const repository = config.mongoUri
   ? createMongoPublicationsRepository({
     uri: config.mongoUri,
     dbName: config.mongoDbName,
-    ttlDays: config.ttlDays,
     rateLimitPerHour: config.rateLimitPerHour,
     totalDailyLimit: config.totalDailyLimit,
     lifetimeLimit: config.lifetimeLimit
