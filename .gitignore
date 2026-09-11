@@ -2,3 +2,10 @@
 .worktrees/
 .playwright-cli/
 output/
+.gstack/
+node_modules/
+.env
+.env.*
+!.env.example
+.vercel/
+public/

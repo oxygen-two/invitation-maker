@@ -1,0 +1,17 @@
+{
+  "buildCommand": "node scripts/build-public.cjs",
+  "outputDirectory": "public",
+  "routes": [
+    { "src": "/api/invitations", "dest": "/api/invitations.js" },
+    { "src": "/api/invitations/([0-9A-Za-z]{22})", "dest": "/api/invitations/[id].js?id=$1" },
+    { "src": "/i/([0-9A-Za-z]{22})", "dest": "/shared.html" },
+    { "src": "/(server|api|docs|tests|scripts)(/.*)?", "status": 404 },
+    { "src": "/\\.env.*", "status": 404 },
+    { "handle": "filesystem" }
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "excludeFiles": "{docs/**,tests/**,public/**,.env,.env.*,output/**,.git/**}"
+    }
+  }
+}

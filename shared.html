@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f7f7f4">
+  <title>초대장</title>
+  <link rel="icon" href="data:,">
+  <style>
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; background: #f7f7f4; color: #282b29; font-family: system-ui, sans-serif; }
+    main { min-height: 100vh; }
+    #shared-invitation-status { margin: 0; padding: 16px; text-align: center; color: #59645e; font-size: 14px; }
+    #shared-invitation-status:empty { display: none; }
+    #shared-invitation-frame { display: block; width: 100%; min-height: 100vh; border: 0; background: #f7f7f4; }
+    #shared-invitation-frame[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <main id="shared-invitation-root">
+    <p id="shared-invitation-status" role="status" aria-live="polite">초대장을 불러오는 중입니다.</p>
+    <iframe id="shared-invitation-frame" title="공개 초대장" hidden></iframe>
+  </main>
+  <script src="/assets/analytics-config.js"></script>
+  <script type="module" src="/assets/analytics-ga4.js"></script>
+  <script src="/assets/intro-effects.js"></script>
+  <script src="/assets/template-catalog.js"></script>
+  <script src="/assets/template-art.js"></script>
+  <script src="/assets/template-renderers.js"></script>
+  <script src="/assets/hero-image.js"></script>
+  <script src="/assets/invitation-core.js"></script>
+  <script src="/assets/shared-invitation.js"></script>
+</body>
+</html>

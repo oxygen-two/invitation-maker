@@ -448,6 +448,14 @@ const renderItemFields = (item, bodyId, isOpen) => {
 const hasPendingEditorOperation = () =>
   photoSelectionPending || heroImageSelectionPending || saveWritePending;
 
+const mountPublishing = () => {
+  globalThis.InvitationPublishing?.mount?.({
+    getValue: getFormData,
+    validate: () => validateForExport() && confirmReplyContact(),
+    isBusy: hasPendingEditorOperation
+  });
+};
+
 const syncTemplateAvailability = () => {
   const busy = hasPendingEditorOperation();
   const pending = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.pendingTemplateId);
@@ -1906,6 +1914,7 @@ const init = async () => {
     }
     renderTemplates();
     fillForm(state.invitation);
+    mountPublishing();
     renderPreview();
     draftReady = true;
     if (personalDraft) setStudioStage('edit');

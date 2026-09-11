@@ -1,6 +1,6 @@
 # Invitation Maker
 
-Static HTML invitation maker with occasion-first template presets, live preview, standalone HTML download, and local invitation registration.
+HTML invitation maker with occasion-first template presets, live preview, standalone HTML download, local invitation registration, and an optional Node.js + MongoDB anonymous publishing service.
 
 ## Files
 
@@ -17,10 +17,14 @@ Static HTML invitation maker with occasion-first template presets, live preview,
 - `assets/map-location.js`: NAVER Geocoding response normalization and place lookup.
 - `assets/viewer.js`: validates and rebuilds a saved invitation before opening it.
 - `assets/style.css`: maker UI and preview styles.
+- `assets/publishing.js`: anonymous publication requests and this browser's private publication management.
+- `shared.html` / `assets/shared-invitation.js`: public link viewer using the existing renderer.
+- `server/`: Node.js API, validation, configuration, and MongoDB persistence.
+- `api/` / `vercel.json`: Vercel adapter and same-origin routes.
 
 ## Preview
 
-The app loads `invitation-data.json`, so open it through a local static server or a deployed static host.
+The app loads `invitation-data.json`, so open it through a local static server or a deployed static host. A static server previews local authoring; public publication additionally requires the Node.js API and MongoDB described in [Anonymous publishing](docs/publishing.md).
 
 ```sh
 python3 -m http.server 4173
@@ -80,6 +84,6 @@ For the eight-card birthday picker regression, start the static server and run `
 
 Run `node scripts/verify-studio.cjs` with the same environment for the current Studio workflow: 320/390/768/1440px, draft restoration (including a photo at 390px), content-preserving design changes, sample preview, export, library save and horizontal overflow. The older `verify-maker-ux.cjs` and `verify-birthday-picker.cjs` describe the pre-Studio interaction model and are retained as historical checks, not current acceptance commands. Effects and photo settings start collapsed. The UI/design acceptance baseline is recorded in `DESIGN.md`.
 
-Drafts are saved automatically in this browser's IndexedDB, separately from the saved invitation library. Wait for the saved status before closing the tab. Browser data clearing/private browsing can remove drafts; download HTML for a durable copy. Accounts, cross-device sync and share URLs are not implemented.
+Drafts are saved automatically in this browser's IndexedDB, separately from the saved invitation library. Wait for the saved status before closing the tab. Browser data clearing/private browsing can remove drafts; download HTML for a durable copy. Accounts and cross-device draft sync are not implemented. Anonymous publication stores a separate snapshot in MongoDB and returns a public `/i/` link when the publishing backend is configured. Browser-local `viewer.html?id=...` links remain local-only.
 
 Birthday photo asset prompts and provenance are recorded in [birthday-art-prompts.md](assets/template-art/birthday-art-prompts.md).
