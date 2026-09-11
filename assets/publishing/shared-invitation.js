@@ -16,8 +16,10 @@
         hint: "초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요."
       }),
       // The record carried a set viewing window and that window has passed
-      // (HTTP 410). A manual revoke deletes the record outright, so that
-      // case surfaces through the 404 branch above instead.
+      // (HTTP 410). A manual revoke deletes the record outright, so that case
+      // surfaces through the 404 branch above instead - and so does an expired
+      // publication on the MongoDB-backed API, whose read hides it entirely.
+      // This branch stays for any deployment that answers 410 instead.
       gone: Object.freeze({
         eyebrow: "THIS CHAPTER IS CLOSED",
         title: "초대장이 만료되었습니다.",

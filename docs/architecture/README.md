@@ -32,7 +32,7 @@ flowchart TB
 | 분석/연동/미디어 | `assets/analytics/` (`analytics.js`, `ga4.js`, `config.js`), `assets/integrations/map-location.js`, `assets/media/` (`hero-image.js`, `image-tools.js`, `social-preview-v1.png`) | GA4 연동, 지도, 이미지 처리 | 도메인별 디렉토리로 이동 완료 |
 | 공개 API (HTTP 어댑터) | `api/`, `server/http.cjs`, `server/http/static.cjs` | Vercel 어댑터, HTTP 계약, 정적 파일 응답 | `static.cjs` 분리 완료 (`server/http.cjs`가 require) |
 | 발행 유스케이스 | `server/publishing/use-case.cjs`, `server/validation.cjs` | 발행 유스케이스, 오류 매핑, 입력 검증 | 추출 완료 (`server/http.cjs`가 `publishInvitation`/`mapRepositoryError`를 require) |
-| 저장소 (공개) | `server/storage/mongo-publications.cjs` | Mongo 연결, quota, TTL, `publish/get/remove/close/dropDatabase` | 계약 분리 완료. `server/index.cjs`, `api/invitations.js`, `scripts/verify-publishing-mongo.cjs`, `tests/publishing-server.test.js` 네 곳 모두 이 모듈을 require |
+| 저장소 (공개) | `server/storage/mongo-publications.cjs` | Mongo 연결, quota, 읽기 쿼리에서의 만료 강제, `publish/get/refreshExpiry/remove/close/dropDatabase` | 계약 분리 완료. `server/index.cjs`, `api/invitations.js`, `scripts/verify-publishing-mongo.cjs`, `tests/publishing-server.test.js` 네 곳 모두 이 모듈을 require |
 | 저장소 (관리자) | `admin/storage/mongo-publications.cjs` | 목록/조회/폐기, injectable `collectionFactory` | 계약 분리 완료. `admin/index.cjs`가 이 모듈만 사용 |
 | 설정 | `server/config/database.cjs`, `server/config/http.cjs`, `server/config/publishing.cjs`, `admin/config.cjs` | 환경변수 읽기, HTTP/발행/DB 설정값 | 이동 완료. `server/index.cjs`·`api/invitations.js`는 세 리더를 조합해서 쓰고, `admin/index.cjs`는 `readDatabaseConfigFromEnv`만 사용. `server/validation.cjs`는 `DEFAULT_PUBLISHING_CONFIG`를 `config/publishing.cjs`에서 가져옴 |
 | 관리자 | `admin/` | 로그인, 세션, 목록, 페이지, 폐기 | 공개 배포와 분리된 로컬 서비스 |
@@ -80,7 +80,7 @@ config/
 - 요청 본문 읽기
 - origin/token/idempotency 검증
 - 초대장 정규화
-- TTL 계산
+- 만료 계산 (`server/publishing/expiry.cjs` 위임)
 - repository 호출
 - HTTP 오류 매핑
 - 정적 파일 응답

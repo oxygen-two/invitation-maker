@@ -67,7 +67,7 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 | `GET` | `/api/invitations/:id` | 공개 초대장 조회 |
 | `DELETE` | `/api/invitations/:id` | 제작자 토큰으로 발행 취소 |
 
-발행 성공 시 `/i/{base62-id}` 링크를 반환합니다. 발행 문서에는 TTL, 시간당/IP별 제한, 일일 제한, 누적 제한이 적용됩니다.
+발행 성공 시 `/i/{base62-id}` 링크를 반환합니다. 시간당/IP별 제한, 일일 제한, 누적 제한이 적용됩니다. 만료는 슬라이딩 방식입니다. 마지막 조회로부터 `PUBLISH_IDLE_WINDOW_DAYS`(기본 7일) 동안 유지되며, 발행 시점으로부터 `PUBLISH_MAX_LIFETIME_DAYS`(기본 30일)를 넘지 않습니다. 데이터베이스는 더 이상 자동으로 삭제하지 않습니다. 만료 시각은 표시일 뿐이며 조회 경로가 이를 강제하므로, 만료된 링크는 `404`를 반환하지만 레코드 자체는 관리자나 별도 일괄 삭제 작업을 위해 그대로 남아 있습니다.
 
 상세 운영 규칙은 [`docs/publishing.md`](docs/publishing.md)에 있습니다.
 

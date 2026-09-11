@@ -29,7 +29,10 @@ const refreshPublicationExpiry = async ({ record, repository, config = {}, now =
   if (!target) return storedExpiresAt;
 
   try {
-    const applied = await repository.refreshExpiry({ id: record.id, expiresAt: target });
+    // `now` travels with the write: the repository refuses to extend a record
+    // that is already past its expiry, and it must judge that against the same
+    // clock this read used.
+    const applied = await repository.refreshExpiry({ id: record.id, expiresAt: target, now });
     return applied ? target : storedExpiresAt;
   } catch {
     return storedExpiresAt;

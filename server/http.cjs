@@ -149,9 +149,13 @@ const handleGet = async (res, repository, id, config = {}) => {
   if (!isValidPublicId(id)) return sendError(res, 404, "NOT_FOUND");
   try {
     const now = nowFrom(config);
-    const record = await repository.get(id);
+    // The repository enforces expiry in its read (the Mongo one filters the
+    // query), so an expired publication arrives here as a plain miss: the same
+    // 404 it produced back when a TTL index deleted it.
+    const record = await repository.get(id, { now });
     if (!record) return sendError(res, 404, "NOT_FOUND");
-    // Already dead records are never revived by the refresh below.
+    // Second layer, for a repository that hands back expired records anyway:
+    // deny before the refresh below, so a dead record is never revived.
     if (isExpired(record.expiresAt, now)) return sendError(res, 410, "EXPIRED");
     const expiresAt = await refreshPublicationExpiry({ record, repository, config, now });
     return json(res, 200, {
