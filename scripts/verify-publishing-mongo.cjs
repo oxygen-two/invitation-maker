@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { createMongoRepository } = require("../server/mongo-repository.cjs");
+const { createMongoPublicationsRepository } = require("../server/storage/mongo-publications.cjs");
 
 const uri = process.env.MONGODB_URI;
 if (!uri) {
@@ -16,7 +16,7 @@ if (!loopbackHosts.has(parsed.hostname) && process.env.PUBLISH_VERIFY_ALLOW_REMO
 
 // Atlas limits database names to 38 bytes; keep the disposable verifier name below that limit.
 const dbName = `inv_pub_test_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-const repository = createMongoRepository({
+const repository = createMongoPublicationsRepository({
   uri,
   dbName,
   ttlDays: 1,
@@ -52,7 +52,7 @@ const repository = createMongoRepository({
     assert.equal((await repository.get(first.id)).invitation.title, "Mongo verification");
     await repository.close();
 
-    const restarted = createMongoRepository({
+    const restarted = createMongoPublicationsRepository({
       uri,
       dbName,
       ttlDays: 1,

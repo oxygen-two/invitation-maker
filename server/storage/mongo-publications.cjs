@@ -10,7 +10,7 @@ const counterExpiry = (key, now) => {
   return null;
 };
 
-const createMongoRepository = ({
+const createMongoPublicationsRepository = ({
   uri,
   dbName,
   collectionName = "published_invitations",
@@ -34,8 +34,6 @@ const createMongoRepository = ({
     const db = await connect();
     await Promise.all([
       db.collection(collectionName).createIndex({ id: 1 }, { unique: true }),
-      db.collection(collectionName).createIndex({ createdAt: -1, _id: -1 }),
-      db.collection(collectionName).createIndex({ "invitation.title": 1 }),
       db.collection(collectionName).createIndex({ tokenHash: 1, idempotencyKeyHash: 1 }, { unique: true }),
       db.collection(collectionName).createIndex({ expiresAtDate: 1 }, { expireAfterSeconds: 0 }),
       db.collection(countersCollectionName).createIndex({ key: 1 }, { unique: true }),
@@ -149,58 +147,6 @@ const createMongoRepository = ({
     };
   };
 
-  const toAdminRecord = (record) => ({
-    id: record.id,
-    invitation: record.invitation,
-    title: typeof record.invitation?.title === "string" && record.invitation.title.trim()
-      ? record.invitation.title.trim()
-      : "(제목 없음)",
-    createdAt: record.createdAt?.toISOString?.() || record.createdAt || null,
-    expiresAt: record.expiresAt || null,
-    publicPath: `/i/${record.id}`
-  });
-
-  const list = async ({ page = 1, pageSize = 20, query = "" } = {}) => {
-    const normalizedPage = Math.max(1, Number.parseInt(page, 10) || 1);
-    const normalizedPageSize = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10) || 20));
-    const search = String(query || "").trim();
-    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const filter = search ? {
-      $or: [
-        { id: { $regex: escapedSearch, $options: "i" } },
-        { "invitation.title": { $regex: escapedSearch, $options: "i" } }
-      ]
-    } : {};
-    const invitations = await collection();
-    const [totalItems, records] = await Promise.all([
-      invitations.countDocuments(filter),
-      invitations.find(filter)
-        .sort({ createdAt: -1, _id: -1 })
-        .skip((normalizedPage - 1) * normalizedPageSize)
-        .limit(normalizedPageSize)
-        .toArray()
-    ]);
-    return {
-      items: records.map(toAdminRecord),
-      pagination: {
-        page: normalizedPage,
-        pageSize: normalizedPageSize,
-        totalItems,
-        totalPages: Math.ceil(totalItems / normalizedPageSize)
-      }
-    };
-  };
-
-  const getAdmin = async (id) => {
-    const record = await (await collection()).findOne({ id });
-    return record ? toAdminRecord(record) : null;
-  };
-
-  const revoke = async (id) => {
-    const result = await (await collection()).deleteOne({ id });
-    return result.deletedCount === 1;
-  };
-
   const remove = async ({ id, tokenHash }) => {
     const result = await (await collection()).deleteOne({ id, tokenHash });
     return result.deletedCount === 1;
@@ -220,9 +166,6 @@ const createMongoRepository = ({
   return {
     publish,
     get,
-    list,
-    getAdmin,
-    revoke,
     remove,
     close,
     dropDatabase
@@ -230,5 +173,5 @@ const createMongoRepository = ({
 };
 
 module.exports = {
-  createMongoRepository
+  createMongoPublicationsRepository
 };

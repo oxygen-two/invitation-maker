@@ -1,16 +1,20 @@
 const http = require("node:http");
 const path = require("node:path");
-const { readConfigFromEnv } = require("./config.cjs");
+const { readDatabaseConfigFromEnv } = require("./config/database.cjs");
+const { readHttpConfigFromEnv } = require("./config/http.cjs");
+const { readPublishingConfigFromEnv } = require("./config/publishing.cjs");
 const { createHandler } = require("./http.cjs");
-const { createMongoRepository } = require("./mongo-repository.cjs");
+const { createMongoPublicationsRepository } = require("./storage/mongo-publications.cjs");
 
 const config = {
-  ...readConfigFromEnv(),
+  ...readDatabaseConfigFromEnv(),
+  ...readHttpConfigFromEnv(),
+  ...readPublishingConfigFromEnv(),
   staticRoot: path.resolve(__dirname, "..")
 };
 
 const repository = config.mongoUri
-  ? createMongoRepository({
+  ? createMongoPublicationsRepository({
     uri: config.mongoUri,
     dbName: config.mongoDbName,
     ttlDays: config.ttlDays,

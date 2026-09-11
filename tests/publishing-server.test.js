@@ -10,7 +10,7 @@ const { MongoClient } = require("mongodb");
 
 const { normalizeInvitation } = require("../assets/invitation-core.js");
 const { createHandler } = require("../server/http.cjs");
-const { createMongoRepository } = require("../server/mongo-repository.cjs");
+const { createMongoPublicationsRepository } = require("../server/storage/mongo-publications.cjs");
 
 const TOKEN = Buffer.from("0123456789abcdef0123456789abcdef").toString("base64url");
 const OTHER_TOKEN = Buffer.from("abcdef0123456789abcdef0123456789").toString("base64url");
@@ -433,7 +433,7 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
   skip: !process.env.MONGODB_URI && "Set MONGODB_URI for real Mongo integration"
 }, async () => {
   const databaseName = `publishing_test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-  const repository = createMongoRepository({
+  const repository = createMongoPublicationsRepository({
     uri: process.env.MONGODB_URI,
     dbName: databaseName,
     ttlDays: 1,
@@ -512,7 +512,7 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
     assert.equal((await repository.get(first.id)).invitation.title, "Mongo invite");
 
     await repository.close();
-    const restartedRepository = createMongoRepository({
+    const restartedRepository = createMongoPublicationsRepository({
       uri: process.env.MONGODB_URI,
       dbName: databaseName,
       ttlDays: 1,
@@ -534,7 +534,7 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
       expiresAt: "2026-09-11T00:02:00.000Z"
     }), /IDEMPOTENCY_CONFLICT/);
 
-    const quotaRepository = createMongoRepository({
+    const quotaRepository = createMongoPublicationsRepository({
       uri: process.env.MONGODB_URI,
       dbName: databaseName,
       collectionName: "quota_invitations",
@@ -558,7 +558,7 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
     assert.equal(concurrent.filter((result) => result.status === "rejected").length, 1);
     await quotaRepository.close();
 
-    const expiredRepository = createMongoRepository({
+    const expiredRepository = createMongoPublicationsRepository({
       uri: process.env.MONGODB_URI,
       dbName: databaseName,
       ttlDays: 0,

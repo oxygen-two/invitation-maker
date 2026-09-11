@@ -1,7 +1,7 @@
 const { createHash, randomInt } = require("node:crypto");
 const { Buffer } = require("node:buffer");
 const { normalizeInvitation } = require("../assets/invitation-core.js");
-const { DEFAULT_LIMITS } = require("./config.cjs");
+const { DEFAULT_PUBLISHING_CONFIG } = require("./config/publishing.cjs");
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -35,7 +35,7 @@ const stableStringify = (value) => {
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
-const createPublicId = (length = DEFAULT_LIMITS.publicIdLength) => {
+const createPublicId = (length = DEFAULT_PUBLISHING_CONFIG.publicIdLength) => {
   let id = "";
   for (let index = 0; index < length; index += 1) {
     id += BASE62[randomInt(BASE62.length)];
@@ -219,7 +219,7 @@ const validateKnownInvitationFields = (invitation) => {
   }
 };
 
-const normalizeForPublishing = ({ body, maxPayloadBytes = DEFAULT_LIMITS.maxPayloadBytes }) => {
+const normalizeForPublishing = ({ body, maxPayloadBytes = DEFAULT_PUBLISHING_CONFIG.maxPayloadBytes }) => {
   if (!isPlainObject(body) || !isPlainObject(body.invitation)) throw badRequest("Missing invitation object");
   inspectJsonShape(body.invitation, "$.invitation");
   validateKnownInvitationFields(body.invitation);
