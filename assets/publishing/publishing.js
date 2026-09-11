@@ -212,9 +212,10 @@
       </header>
       <p class="publishing-consent">공개 링크를 만들면 주소를 아는 누구나 링크로 볼 수 있습니다. 발행 후 만료일을 확인할 수 있습니다.</p>
       <div class="publishing-actions">
-        <button id="publish-button" class="primary-button" type="button">공개 링크 만들기</button>
+        <button id="publish-button" class="primary-button" type="button" autofocus>공개 링크 만들기</button>
         <a id="publish-result-link" class="publication-link" href="#" target="_blank" rel="noopener noreferrer" hidden>링크 열기</a>
         <button id="copy-publication-link" class="secondary-button" type="button" hidden>링크 복사</button>
+        <button id="revoke-publication-link" class="secondary-button" type="button" hidden>취소</button>
       </div>
       <p id="publish-status" class="publishing-status" role="status" aria-live="polite"></p>
       <div>
@@ -242,8 +243,10 @@
     const status = rootNode.querySelector("#publish-status");
     const link = rootNode.querySelector("#publish-result-link");
     const copyButton = rootNode.querySelector("#copy-publication-link");
+    const revokeButton = rootNode.querySelector("#revoke-publication-link");
     const listNode = rootNode.querySelector("#published-list");
     let latestUrl = "";
+    let latestId = "";
     let pending = false;
     const setStatus = (message) => { status.textContent = message; };
     const absoluteUrl = (url) => {
@@ -256,6 +259,24 @@
         setStatus("링크를 복사했습니다.");
       } catch {
         setStatus(strings.copyFailed);
+      }
+    };
+    const hideResult = () => {
+      link.hidden = true;
+      copyButton.hidden = true;
+      if (revokeButton) revokeButton.hidden = true;
+      latestUrl = "";
+      latestId = "";
+    };
+    const revokePublication = async (id, onSuccess) => {
+      setStatus(strings.deleting);
+      try {
+        await client.remove(id);
+        setStatus("공개 링크를 취소했습니다.");
+        renderList();
+        onSuccess?.();
+      } catch {
+        setStatus(strings.deleteFailed);
       }
     };
     const renderList = () => {
@@ -296,9 +317,11 @@
       try {
         const result = await client.publish(getValue());
         latestUrl = result.url;
+        latestId = result.id;
         link.href = result.url;
         link.hidden = false;
         copyButton.hidden = false;
+        if (revokeButton) revokeButton.hidden = false;
         setStatus(`${recovering ? strings.recovered : strings.published} ${formatExpiry(result.expiresAt)}.`);
         renderList();
       } catch (error) {
@@ -311,6 +334,9 @@
     copyButton.addEventListener("click", () => {
       if (latestUrl) copyUrl(latestUrl);
     });
+    revokeButton?.addEventListener("click", () => {
+      if (latestId) revokePublication(latestId, hideResult);
+    });
     listNode.addEventListener("click", async (event) => {
       const copy = event.target.closest?.('[data-publish-action="copy"]');
       if (copy) {
@@ -319,14 +345,10 @@
       }
       const revoke = event.target.closest?.('[data-publish-action="revoke"]');
       if (!revoke) return;
-      setStatus(strings.deleting);
-      try {
-        await client.remove(revoke.dataset.publicationId);
-        setStatus("공개 링크를 취소했습니다.");
-        renderList();
-      } catch {
-        setStatus(strings.deleteFailed);
-      }
+      const revokedId = revoke.dataset.publicationId;
+      await revokePublication(revokedId, () => {
+        if (revokedId === latestId) hideResult();
+      });
     });
     renderList();
     syncBusy();

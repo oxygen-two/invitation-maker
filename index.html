@@ -189,11 +189,54 @@
         <button id="review-button" class="primary-button" type="button">완성 미리보기</button>
         <button id="start-template-button" class="primary-button" type="button" hidden>이 디자인으로 시작</button>
         <button id="keep-draft-button" class="secondary-button" type="button" hidden>현재 초안 유지</button>
-        <button id="download-button" class="primary-button" type="button">HTML 다운로드</button>
         <button id="save-button" class="secondary-button" type="button">보관함에 저장</button>
       </div>
       <p id="save-status" class="save-status" role="status" aria-live="polite"></p>
-      <section id="publishing-panel" class="publishing-panel" aria-label="공개 링크 발행"></section>
+
+      <div class="finish-actions">
+        <p class="finish-persistence-note">
+          <strong>보관함은 이 브라우저에만 저장돼요.</strong>
+          브라우저 데이터를 지우거나 시크릿(프라이빗) 모드를 쓰면 보관함의 초안이 함께 사라져요. 오래 보관하고 싶다면 아래에서 파일로 저장하거나 링크를 만들어 두세요.
+        </p>
+        <div class="finish-choice-row">
+          <button id="open-download-dialog-button" class="finish-choice-card" type="button" aria-haspopup="dialog" aria-controls="download-dialog">
+            <span class="finish-choice-icon" aria-hidden="true">⬇</span>
+            <span class="finish-choice-copy">
+              <span class="finish-choice-title">파일로 저장</span>
+              <span class="finish-choice-desc">사진이 담긴 HTML 파일 하나로 내려받아요.</span>
+            </span>
+          </button>
+          <button id="open-share-dialog-button" class="finish-choice-card" type="button" aria-haspopup="dialog" aria-controls="share-dialog">
+            <span class="finish-choice-icon" aria-hidden="true">🔗</span>
+            <span class="finish-choice-copy">
+              <span class="finish-choice-title">링크로 공유</span>
+              <span class="finish-choice-desc">누구나 열어볼 수 있는 공개 페이지를 만들어요.</span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <dialog id="download-dialog" class="studio-dialog" aria-labelledby="download-dialog-title">
+        <header class="studio-dialog-header">
+          <h2 id="download-dialog-title">파일로 저장</h2>
+          <button type="button" class="studio-dialog-close" data-dialog-close aria-label="닫기">✕</button>
+        </header>
+        <div class="studio-dialog-body">
+          <p>사진까지 하나로 묶은 HTML 파일을 내려받아요. <strong>이 파일이 끝까지 남는 사본</strong>이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.</p>
+          <button id="download-button" class="primary-button studio-dialog-primary" type="button">HTML 다운로드</button>
+        </div>
+      </dialog>
+
+      <dialog id="share-dialog" class="studio-dialog" aria-labelledby="share-dialog-title">
+        <header class="studio-dialog-header">
+          <h2 id="share-dialog-title">링크로 공유</h2>
+          <button type="button" class="studio-dialog-close" data-dialog-close aria-label="닫기">✕</button>
+        </header>
+        <div class="studio-dialog-body">
+          <p>공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만 <strong>링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만</strong> 저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</p>
+          <section id="publishing-panel" class="publishing-panel" aria-label="공개 링크 발행"></section>
+        </div>
+      </dialog>
     </section>
 
     <section class="preview-panel">

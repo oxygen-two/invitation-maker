@@ -1279,10 +1279,14 @@ input, textarea, select { scroll-margin-block:120px 160px; }
 }
 
 .action-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   padding-top: 0;
+}
+
+.action-row > * {
+  flex: 1 1 160px;
 }
 
 .save-status {
