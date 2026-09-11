@@ -95,6 +95,10 @@ const saveDraft = () => {
 const setStudioStage = (stage) => {
   if (hasPendingEditorOperation()) return;
   document.body.dataset.studioStage = stage;
+  if (stage !== 'finish') {
+    dom.downloadDialog?.close?.();
+    dom.shareDialog?.close?.();
+  }
   document.querySelectorAll('.studio-steps button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.studioStage === stage)));
   document.querySelector('#studio-heading').textContent = stage === 'gallery' ? '어떤 날을 초대할까요?' : '나만의 초대장을 완성하세요';
   if (stage !== 'gallery') {
@@ -143,6 +147,10 @@ const dom = {
   download: document.querySelector("#download-button"),
   save: document.querySelector("#save-button"),
   saveStatus: document.querySelector("#save-status"),
+  openDownloadDialog: document.querySelector("#open-download-dialog-button"),
+  openShareDialog: document.querySelector("#open-share-dialog-button"),
+  downloadDialog: document.querySelector("#download-dialog"),
+  shareDialog: document.querySelector("#share-dialog"),
   upload: document.querySelector("#html-upload"),
   uploadStatus: document.querySelector("#upload-status"),
   savedList: document.querySelector("#saved-list"),
@@ -471,6 +479,7 @@ const syncTemplateAvailability = () => {
   dom.keepDraft.hidden = !needsApply;
   dom.download.hidden = needsApply;
   dom.save.hidden = needsApply;
+  dom.openDownloadDialog.hidden = needsApply;
   dom.startTemplate.disabled = busy;
   dom.keepDraft.disabled = busy;
   dom.previewApply.disabled = busy;
@@ -492,6 +501,7 @@ const syncAddItemAvailability = (items) => {
     || photoCount >= InvitationCore.MAX_PHOTOS;
   dom.download.disabled = photoSelectionPending || heroImageSelectionPending;
   dom.save.disabled = photoSelectionPending || heroImageSelectionPending || saveWritePending;
+  dom.openDownloadDialog.disabled = photoSelectionPending || heroImageSelectionPending;
   syncHeroImageAvailability();
   syncTemplateAvailability();
 };
@@ -2178,7 +2188,7 @@ dom.keepDraft.addEventListener('click', () => {
   state.pendingTemplateId = state.activeTemplate;
   state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
   renderTemplates();
-  dom.download.focus();
+  dom.openDownloadDialog.focus();
 });
 dom.previewApply.addEventListener('click', () => {
   if (applyPendingTemplate()) dom.form.querySelector('[name="title"]').focus();
@@ -2216,6 +2226,20 @@ dom.preview.addEventListener("click", (event) => {
 });
 
 dom.replayIntro.addEventListener("click", playPreviewIntro);
+
+const bindDialog = (dialog, trigger) => {
+  if (!dialog || !trigger) return;
+  trigger.addEventListener("click", () => { dialog.showModal?.(); });
+  dialog.querySelectorAll?.("[data-dialog-close]")?.forEach((button) => {
+    button.addEventListener("click", () => dialog.close?.());
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close?.();
+  });
+  dialog.addEventListener("close", () => { trigger.focus?.(); });
+};
+bindDialog(dom.downloadDialog, dom.openDownloadDialog);
+bindDialog(dom.shareDialog, dom.openShareDialog);
 
 dom.download.addEventListener("click", () => {
   if (photoSelectionPending || heroImageSelectionPending) return;
