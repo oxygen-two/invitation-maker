@@ -498,11 +498,9 @@ const loadEditorHarness = ({
   );
   source = source.replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__editorTest = {
-    beginItemDrag,
     beginHeroImageDrag: typeof beginHeroImageDrag === "function" ? beginHeroImageDrag : undefined,
     commitItemMove,
     fillForm,
-    getDragState: () => dragState,
     getHeroImageDragState: () => typeof heroImageDragState === "undefined" ? null : heroImageDragState,
     getFillFormCalls: () => globalThis.__fillFormCalls,
     getFormData,
@@ -511,7 +509,6 @@ const loadEditorHarness = ({
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handleHeroImageSelection: typeof handleHeroImageSelection === "function" ? handleHeroImageSelection : undefined,
     handlePhotoSelection,
-    moveItemDrag,
     loadInitialData,
     renderContentEditor,
     renderTemplates,
@@ -2088,7 +2085,8 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   assert.match(app, /data-notice-field="heading"/);
   assert.match(app, /data-profile-field="name"/);
   assert.match(app, /data-link-field="url" type="url"/);
-  assert.match(app, /data-drag-handle/);
+  assert.doesNotMatch(app, /data-drag-handle/);
+  assert.match(app, /class="content-item-position" aria-hidden="true"/);
   for (const action of ["up", "down", "delete"]) {
     assert.match(app, new RegExp(`data-item-action="${action}"[^>]+aria-label="[^"]+"[^>]+title="[^"]+"`));
   }
@@ -2408,7 +2406,7 @@ test("editor renders and re-collects every optional information card", () => {
   assert.match(harness.contentEditor.html, /data-link-field="url"/);
 });
 
-test("new information cards use the existing drag and move controls", () => {
+test("new information cards use the existing move controls", () => {
   const harness = loadEditorHarness({ maxItems: 10 });
   harness.api.renderContentEditor([
     { id: "notice-1", type: "notice", heading: "안내", body: "내용" },
@@ -2466,116 +2464,9 @@ test("deletion focuses the adjacent surviving card and then the add control", ()
   assert.equal(document.activeElement, node("#add-course-button"));
 });
 
-test("an unrelated rerender tears down drag state before replacing cards", () => {
-  const harness = loadEditorHarness();
-  const { api, contentEditor } = harness;
-  const items = [course("course-a"), course("course-b")];
-  api.renderContentEditor(items, "course-a");
-  const oldCard = contentEditor.cards[0];
-  const oldHandle = oldCard.querySelector("[data-drag-handle]");
-  contentEditor.dispatch("pointerdown", {
-    button: 0,
-    pointerId: 11,
-    preventDefault() {},
-    target: oldHandle
-  });
-  assert.equal(api.getDragState().itemId, "course-a");
-
-  api.renderContentEditor(items, "course-a");
-
-  assert.equal(api.getDragState(), null);
-  assert.equal(oldCard.classList.contains("is-dragging"), false);
-  assert.equal(oldHandle.hasPointerCapture(11), false);
-
-  const nextHandle = contentEditor.cards[1].querySelector("[data-drag-handle]");
-  contentEditor.dispatch("pointerdown", {
-    button: 0,
-    pointerId: 12,
-    preventDefault() {},
-    target: nextHandle
-  });
-  assert.equal(api.getDragState().itemId, "course-b");
-  harness.terminal("pointerup", { pointerId: 12, target: nextHandle });
-  assert.equal(api.getDragState(), null);
-});
-
-test("midpoint capture transfer survives detach and global cancel permits a second drag", () => {
-  const harness = loadEditorHarness();
-  const { api, contentEditor, document } = harness;
-  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
-  const oldHandle = contentEditor.cards[0].querySelector("[data-drag-handle]");
-  contentEditor.dispatch("pointerdown", {
-    button: 0,
-    pointerId: 21,
-    preventDefault() {},
-    target: oldHandle
-  });
-  document.hitTarget = contentEditor.cards[1];
-
-  contentEditor.dispatch("pointermove", {
-    clientX: 10,
-    clientY: 100,
-    pointerId: 21,
-    preventDefault() {},
-    target: oldHandle
-  });
-
-  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
-  assert.equal(api.getDragState().itemId, "course-a");
-  assert.equal(api.getDragState().handle.hasPointerCapture(21), true);
-
-  harness.terminal("pointercancel", { pointerId: 21, target: oldHandle });
-  assert.equal(api.getDragState(), null);
-
-  const secondHandle = contentEditor.cards[0].querySelector("[data-drag-handle]");
-  contentEditor.dispatch("pointerdown", {
-    button: 0,
-    pointerId: 22,
-    preventDefault() {},
-    target: secondHandle
-  });
-  assert.equal(api.getDragState().itemId, "course-b");
-  harness.terminal("pointerup", { pointerId: 22, target: secondHandle });
-  assert.equal(api.getDragState(), null);
-});
-
-test("pointer reorder animates displaced cards without animating the dragged card", () => {
-  const harness = loadEditorHarness();
-  const { api, contentEditor, document } = harness;
-  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
-
-  const draggedHandle = contentEditor.cards[0].querySelector("[data-drag-handle]");
-  contentEditor.dispatch("pointerdown", {
-    button: 0,
-    pointerId: 31,
-    preventDefault() {},
-    target: draggedHandle
-  });
-  document.hitTarget = contentEditor.cards[1];
-  contentEditor.dispatch("pointermove", {
-    clientX: 10,
-    clientY: 100,
-    pointerId: 31,
-    preventDefault() {},
-    target: draggedHandle
-  });
-
-  const draggedCard = contentEditor.cards.find((card) => card.dataset.itemId === "course-a");
-  const displacedCard = contentEditor.cards.find((card) => card.dataset.itemId === "course-b");
-  assert.deepEqual(draggedCard.animations, []);
-  assert.equal(displacedCard.animations[0].frames[0].transform, "translateY(50px)");
-  assert.equal(displacedCard.animations[0].frames[1].transform, "translateY(0)");
-  assert.equal(displacedCard.animations[0].options.duration, 400);
-
-  harness.terminal("pointerup", { pointerId: 31, target: api.getDragState().handle });
-  assert.equal(api.getDragState(), null);
-});
-
-test("buttons and pointer drag share the immutable move commit", () => {
+test("move buttons share the immutable move commit", () => {
   const app = read("assets/studio/app.js");
   const commit = app.match(/const commitItemMove = \(fromIndex, toIndex[\s\S]*?\n\};/)?.[0] || "";
-  const beginDrag = app.match(/const beginItemDrag = \(event\) => \{[\s\S]*?\n\};/)?.[0] || "";
-  const moveDrag = app.match(/const moveItemDrag = \(event\) => \{[\s\S]*?\n\};/)?.[0] || "";
 
   assert.match(commit, /ContentOrder\.move\(items, fromIndex, toIndex\)/);
   assert.match(commit, /renderContentEditor\(/);
@@ -2584,25 +2475,6 @@ test("buttons and pointer drag share the immutable move commit", () => {
   assert.match(app, /data-item-action="up"[\s\S]*?data-item-action="down"/);
   assert.match(app, /const toIndex = action === "up" \? index - 1 : index \+ 1/);
   assert.match(app, /commitItemMove\(index, toIndex/);
-  assert.match(app, /addEventListener\("pointerdown", beginItemDrag\)/);
-  assert.match(beginDrag, /closest\("\[data-drag-handle\]"\)[\s\S]*?setPointerCapture/);
-  assert.match(app, /addEventListener\("pointermove", moveItemDrag\)/);
-  assert.match(moveDrag, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/);
-  assert.match(moveDrag, /getBoundingClientRect\(\)[\s\S]*?height \/ 2[\s\S]*?commitItemMove/);
-  assert.match(app, /window\.addEventListener\("pointerup", finishItemDrag\)/);
-  assert.match(app, /window\.addEventListener\("pointercancel", finishItemDrag\)/);
-  assert.match(app, /document\.addEventListener\("lostpointercapture", finishItemDrag, true\)/);
-});
-
-test("editor renders a three-bar drag handle instead of dot glyphs", () => {
-  const { api, contentEditor } = loadEditorHarness();
-  api.renderContentEditor([course("course-a")], "course-a");
-
-  const handle = contentEditor.html.match(/<button[^>]+data-drag-handle[^>]*>([\s\S]*?)<\/button>/)?.[1] || "";
-  assert.equal((handle.match(/class="drag-grip-bar"/g) || []).length, 3);
-  assert.doesNotMatch(handle, /drag-grip-dot/);
-  assert.doesNotMatch(handle, /⋮|\.\.\./);
-  assert.match(handle, /class="drag-grip-bars" aria-hidden="true"/);
 });
 
 test("move controls animate cards from their previous positions", () => {
@@ -2637,15 +2509,16 @@ test("ordered editor controls and thumbnails stay bounded on narrow screens", ()
   const css = read("assets/studio/style.css");
 
   assert.match(css, /\.item-icon-button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
-  assert.match(css, /\.item-drag-handle\s*\{[^}]*touch-action:\s*none/s);
-  assert.match(css, /\.drag-grip-bars\s*\{[^}]*gap:\s*4px/s);
-  assert.match(css, /\.drag-grip-bar\s*\{[^}]*height:\s*2px[^}]*border-radius:\s*999px/s);
-  assert.match(css, /\.drag-grip-bar:nth-child\(2\)\s*\{[^}]*width:\s*18px/s);
-  assert.doesNotMatch(css, /\.drag-grip-dot\s*\{/s);
+  // Reordering is the ↑ ↓ buttons only: pointer drag was the one mechanism
+  // with no keyboard equivalent, and `touch-action: none` on a 44px handle
+  // stole vertical scroll from the thumb on exactly the screens that matter.
+  assert.doesNotMatch(css, /\.item-drag-handle/);
+  assert.doesNotMatch(css, /\.drag-grip-bar/);
+  assert.doesNotMatch(css, /\.content-item-card\.is-dragging/);
+  assert.doesNotMatch(css, /\.content-item-card\.is-drop-(?:before|after)/);
   assert.doesNotMatch(css, /\.content-item-card\s*\{[^}]*touch-action:\s*none/s);
+  assert.match(css, /\.content-item-position\s*\{[^}]*width:\s*26px[^}]*height:\s*26px/s);
   assert.match(css, /\.photo-editor-thumbnail\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3[^}]*object-fit:\s*cover/s);
-  assert.match(css, /\.content-item-card\.is-dragging/);
-  assert.match(css, /\.content-item-card\.is-drop-(?:before|after)/);
   assert.match(css, /@media\s*\(max-width:\s*420px\)[\s\S]*?\.item-editor-actions\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
 });
 

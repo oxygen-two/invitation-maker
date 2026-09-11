@@ -2,6 +2,7 @@ const STORAGE_KEY = "invitation-maker.saved";
 const MAX_SAVED = 20;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAP_LOAD_TIMEOUT_MS = 10000;
+const PREVIEW_FRAME_TIMEOUT_MS = 5000;
 const COURSE_LABEL_PRESETS = ["MEET", "CAFE", "WALK", "DINNER", "DRINK", "ACTIVITY"];
 const ITEM_LABELS = Object.freeze({
   course: "코스",
@@ -32,10 +33,11 @@ const state = {
 };
 
 let naverMapsPromise;
+let previewMapsPromise;
+let previewMapsNamespace;
 let previewRenderId = 0;
 let previewMapTimer;
 let pendingPreviewMapKey = null;
-let dragState = null;
 let photoSelectionPending = false;
 let heroImageSelectionPending = false;
 let heroImageDragState = null;
@@ -158,6 +160,81 @@ const dom = {
   particleAmountOutput: document.querySelector("[data-particle-amount-output]"),
   mobileTabs: [...document.querySelectorAll(".mobile-view-tabs button[data-mobile-view]")]
 };
+
+/* Preview isolation -------------------------------------------------------
+   #preview is an <iframe>. Rendering the invitation into the studio document
+   put four <h1>s and fourteen <header>s on one screen (the invitation brings
+   its own) and let studio CSS leak into what the author believed was the
+   finished card. The frame is seeded ONCE with the real standalone document —
+   the same InvitationCore.buildStandaloneHtml a guest receives and the export
+   writes — and every later render patches only the body inside it. Nothing
+   reloads on a keystroke, so there is no flash and no scroll reset.
+
+   `previewFrame` is null when #preview is not an iframe (the fake-DOM contract
+   harness), and every reference below then falls back to the element itself,
+   which is exactly the pre-iframe behaviour. */
+const previewFrame = dom.preview?.tagName === "IFRAME" ? dom.preview : null;
+let previewDoc = null;
+let previewHost = previewFrame ? null : dom.preview;
+let previewStyleTarget = previewFrame ? null : dom.preview;
+let previewScroller = previewFrame ? null : dom.preview;
+
+const handlePreviewClick = (event) => {
+  const retryButton = event.target.closest?.("[data-retry-map]");
+  if (!retryButton) return;
+  const panel = retryButton.closest("[data-map-key]");
+  const canvas = panel?.querySelector("[data-dynamic-map]");
+  const status = panel?.querySelector("[data-map-status]");
+  if (!canvas || !status) return;
+
+  delete canvas.dataset.mapState;
+  status.textContent = "지도를 불러오는 중입니다.";
+  naverMapsPromise = undefined;
+  previewMapsPromise = undefined;
+  previewRenderId += 1;
+  mountPreviewMaps(previewRenderId);
+};
+
+const mountPreviewFrame = () => new Promise((resolve) => {
+  if (!previewFrame) {
+    dom.preview.addEventListener("click", handlePreviewClick);
+    resolve(false);
+    return;
+  }
+  // init() awaits this before its first render, so a frame that never loads
+  // must not take the whole editor down with it — time out and carry on with a
+  // blank preview rather than a blank studio.
+  const settle = (value) => { clearTimeout(timeoutId); resolve(value); };
+  const timeoutId = setTimeout(() => settle(false), PREVIEW_FRAME_TIMEOUT_MS);
+  previewFrame.addEventListener("load", () => {
+    const frameDocument = previewFrame.contentDocument;
+    if (!frameDocument?.body) {
+      settle(false);
+      return;
+    }
+    // The seeded body only existed to make buildStandaloneHtml produce a
+    // complete <head> (fonts, palette, template and particle CSS). Swap it for
+    // an empty render root so patches never touch the head again.
+    const root = frameDocument.createElement("div");
+    root.id = "preview-root";
+    frameDocument.body.replaceChildren(root);
+    // Intro overlays are played on demand rather than baked into the seed, so
+    // their stylesheet has to be added the same way the studio document gets it.
+    InvitationIntro.ensureStyles(frameDocument);
+    frameDocument.addEventListener("click", handlePreviewClick);
+    previewDoc = frameDocument;
+    previewHost = root;
+    previewStyleTarget = frameDocument.body;
+    previewScroller = frameDocument.scrollingElement || frameDocument.documentElement;
+    settle(true);
+  }, { once: true });
+  previewFrame.srcdoc = InvitationCore.buildStandaloneHtml({
+    introEffect: "none",
+    particleEffect: "none",
+    mapEnabled: false,
+    items: []
+  });
+});
 
 const sanitizeFilename = (value) =>
   String(value || "invitation")
@@ -484,6 +561,12 @@ const syncTemplateAvailability = () => {
   dom.keepDraft.disabled = busy;
   dom.previewApply.disabled = busy;
   dom.startTemplate.textContent = pending ? `${pending.name}로 시작` : "이 디자인으로 시작";
+  // A card already badged 적용됨 sitting next to a button offering to apply it
+  // reads as a contradiction. When the selection IS the applied design the same
+  // button becomes the next step instead — go write the invitation.
+  const applyLabel = needsApply ? "이 디자인으로 만들기" : "내용 편집하기";
+  dom.applyTemplate.textContent = applyLabel;
+  document.querySelector('#gallery-create').textContent = applyLabel;
   dom.pendingPreview.hidden = !needsApply;
   dom.pendingPreviewText.textContent = needsApply
     ? `현재 초안 미리보기입니다. 선택한 ‘${pending.name}’ 디자인은 아직 적용 전입니다.` : "";
@@ -559,11 +642,11 @@ const captureItemPositions = () => new Map(
     .map((card) => [card.dataset.itemId, card.getBoundingClientRect().top])
 );
 
-const animateItemReorder = (previousPositions, skippedId = null) => {
+const animateItemReorder = (previousPositions) => {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
   dom.contentEditor.querySelectorAll("[data-item-card]").forEach((card) => {
-    if (card.dataset.itemId === skippedId || typeof card.animate !== "function") return;
+    if (typeof card.animate !== "function") return;
     const previousTop = previousPositions.get(card.dataset.itemId);
     if (!Number.isFinite(previousTop)) return;
 
@@ -583,8 +666,7 @@ const animateItemReorder = (previousPositions, skippedId = null) => {
   });
 };
 
-const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag = false } = {}) => {
-  if (dragState && !preserveDrag) cancelActiveDrag();
+const renderContentEditor = (items = [], openId = items[0]?.id) => {
   syncAddItemAvailability(items);
 
   if (!items.length) {
@@ -600,14 +682,8 @@ const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag =
     const secondarySummary = getItemSecondarySummary(item);
     return `
       <article class="content-item-card ${escapeAttribute(item.type)}-editor-card${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
-        <header class="content-item-header">
-          <button class="item-icon-button item-drag-handle" type="button" data-drag-handle aria-label="${typeLabel} 순서 드래그" title="순서 드래그">
-            <span class="drag-grip-bars" aria-hidden="true">
-              <span class="drag-grip-bar"></span>
-              <span class="drag-grip-bar"></span>
-              <span class="drag-grip-bar"></span>
-            </span>
-          </button>
+        <div class="content-item-header">
+          <span class="content-item-position" aria-hidden="true">${index + 1}</span>
           <button class="content-item-toggle" type="button" data-toggle-item aria-expanded="${isOpen}" aria-controls="${bodyId}">
             <span class="content-item-heading">
               <strong>${escapeAttribute(typeLabel)} · <span data-item-secondary-summary>${escapeAttribute(secondarySummary)}</span></strong>
@@ -615,7 +691,7 @@ const renderContentEditor = (items = [], openId = items[0]?.id, { preserveDrag =
             </span>
           </button>
           ${renderItemActions(item, index, items.length)}
-        </header>
+        </div>
         ${renderItemFields(item, bodyId, isOpen)}
       </article>
     `;
@@ -840,13 +916,26 @@ const syncMapSettingsVisibility = () => {
 };
 
 const revealPendingPreviewMap = () => {
-  if (!pendingPreviewMapKey) return;
-  const panel = dom.preview.querySelector(`[data-map-key="${pendingPreviewMapKey}"]`);
+  if (!pendingPreviewMapKey || !previewHost) return;
+  const panel = previewHost.querySelector(`[data-map-key="${pendingPreviewMapKey}"]`);
   if (!panel) return;
 
-  const centeredTop = panel.offsetTop - Math.max(20, (dom.preview.clientHeight - panel.offsetHeight) / 2);
+  // offsetTop is relative to the nearest positioned ancestor (the invitation
+  // card), so measure against the scroll port itself — the frame's scrolling
+  // element once the preview lives in its own document. A document scroller's
+  // own rect is already offset by the scroll, so only an element port needs its
+  // top subtracted; doing it for both would count the scroll twice.
+  const port = previewScroller || previewHost;
+  const isDocumentPort = Boolean(previewDoc)
+    && (port === previewDoc.scrollingElement || port === previewDoc.documentElement);
+  const portTop = isDocumentPort || typeof port.getBoundingClientRect !== "function"
+    ? 0
+    : port.getBoundingClientRect().top;
+  const panelRect = panel.getBoundingClientRect();
+  const offsetWithinPort = panelRect.top - portTop + (port.scrollTop || 0);
+  const centeredTop = offsetWithinPort - Math.max(20, (port.clientHeight - panelRect.height) / 2);
   const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
-  dom.preview.scrollTo({ top: Math.max(0, centeredTop), behavior });
+  port.scrollTo({ top: Math.max(0, centeredTop), behavior });
   pendingPreviewMapKey = null;
 };
 
@@ -867,7 +956,7 @@ const setMapFallback = (canvas, status, canRetry = false) => {
 };
 
 window.navermap_authFailure = () => {
-  dom.preview.querySelectorAll("[data-dynamic-map]").forEach((canvas) => setMapFallback(canvas));
+  previewHost?.querySelectorAll("[data-dynamic-map]").forEach((canvas) => setMapFallback(canvas));
 };
 
 const loadNaverMaps = () => {
@@ -903,6 +992,56 @@ const loadNaverMaps = () => {
   });
 
   return naverMapsPromise;
+};
+
+/* Preview maps load their SDK inside the frame rather than borrowing the
+   studio's. The studio copy stays for address lookup (it is the one carrying
+   the geocoder submodule), but a map is an interactive surface: driving one
+   from the parent window would leave its drag and wheel handlers bound to the
+   parent document while the pointer events happen in the frame. Loading it in
+   the frame is also what the standalone export does, so the preview and the
+   guest's invitation run the same code. */
+const loadPreviewNaverMaps = () => {
+  if (!previewDoc) return loadNaverMaps().then((maps) => { previewMapsNamespace = maps; return maps; });
+
+  const frameWindow = previewDoc.defaultView;
+  if (frameWindow?.naver?.maps) {
+    previewMapsNamespace = frameWindow.naver.maps;
+    return Promise.resolve(previewMapsNamespace);
+  }
+  if (!state.naverMapClientId) return Promise.reject(new Error("NAVER Maps Client ID is missing"));
+  if (previewMapsPromise) return previewMapsPromise;
+
+  previewMapsPromise = new Promise((resolve, reject) => {
+    if (!frameWindow) {
+      reject(new Error("Preview frame is unavailable"));
+      return;
+    }
+    frameWindow.navermap_authFailure = window.navermap_authFailure;
+    const script = previewDoc.createElement("script");
+    let timeoutId;
+    const finish = (callback, value) => {
+      clearTimeout(timeoutId);
+      script.onload = null;
+      script.onerror = null;
+      script.remove();
+      callback(value);
+    };
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}`;
+    script.async = true;
+    script.onload = () => frameWindow.naver?.maps
+      ? finish(resolve, frameWindow.naver.maps)
+      : finish(reject, new Error("NAVER Maps failed to initialize"));
+    script.onerror = () => finish(reject, new Error("NAVER Maps failed to load"));
+    timeoutId = setTimeout(() => finish(reject, new Error("NAVER Maps timed out")), MAP_LOAD_TIMEOUT_MS);
+    previewDoc.head.append(script);
+  });
+
+  previewMapsPromise.then((maps) => { previewMapsNamespace = maps; }).catch(() => {
+    previewMapsPromise = undefined;
+  });
+
+  return previewMapsPromise;
 };
 
 const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, message, mapKey }) => {
@@ -965,26 +1104,27 @@ const resolveCourseMapLocation = (card) => resolveMapFields({
 });
 
 const mountPreviewMaps = async (renderId) => {
-  const canvases = [...dom.preview.querySelectorAll("[data-dynamic-map]:not([data-map-state])")];
+  if (!previewHost) return;
+  const canvases = [...previewHost.querySelectorAll("[data-dynamic-map]:not([data-map-state])")];
   if (!canvases.length) {
     revealPendingPreviewMap();
     return;
   }
 
   try {
-    await loadNaverMaps();
+    const maps = await loadPreviewNaverMaps();
     if (renderId !== previewRenderId) return;
     canvases.forEach((canvas) => {
       if (!canvas.isConnected) return;
-      const position = new window.naver.maps.LatLng(
+      const position = new maps.LatLng(
         Number(canvas.dataset.latitude),
         Number(canvas.dataset.longitude)
       );
-      const map = new window.naver.maps.Map(canvas, {
+      const map = new maps.Map(canvas, {
         center: position,
         zoom: Number(canvas.dataset.zoom)
       });
-      const marker = new window.naver.maps.Marker({ map, position });
+      const marker = new maps.Marker({ map, position });
       previewMapInstances.set(canvas, { map, marker });
       canvas.dataset.mapState = "ready";
     });
@@ -1003,17 +1143,20 @@ const cleanupPreviewMap = (canvas) => {
   const instance = previewMapInstances.get(canvas);
   if (!instance) return;
   instance.marker.setMap?.(null);
-  window.naver?.maps?.Event?.clearInstanceListeners?.(instance.marker);
-  window.naver?.maps?.Event?.clearInstanceListeners?.(instance.map);
+  previewMapsNamespace?.Event?.clearInstanceListeners?.(instance.marker);
+  previewMapsNamespace?.Event?.clearInstanceListeners?.(instance.map);
   previewMapInstances.delete(canvas);
 };
 
 const updatePreviewMarkup = (html) => {
-  const next = document.createElement("div");
+  if (!previewHost) return;
+  // Build in the target document so adopted nodes (and any live map panel
+  // handed back to it) never cross a document boundary mid-render.
+  const next = (previewDoc || document).createElement("div");
   next.innerHTML = html;
-  const activeIntroOverlay = dom.preview.querySelector("[data-intro-overlay]");
+  const activeIntroOverlay = previewHost.querySelector("[data-intro-overlay]");
   const currentPanels = new Map(
-    [...dom.preview.querySelectorAll("[data-map-key]")].map((panel) => [mapSignature(panel), panel])
+    [...previewHost.querySelectorAll("[data-map-key]")].map((panel) => [mapSignature(panel), panel])
   );
   const preservedCanvases = new Set();
 
@@ -1024,12 +1167,58 @@ const updatePreviewMarkup = (html) => {
     panel.replaceWith(current);
   });
 
-  dom.preview.querySelectorAll("[data-dynamic-map]").forEach((canvas) => {
+  previewHost.querySelectorAll("[data-dynamic-map]").forEach((canvas) => {
     if (!preservedCanvases.has(canvas)) cleanupPreviewMap(canvas);
   });
   activeIntroOverlay?.remove();
-  dom.preview.replaceChildren(...next.childNodes);
-  if (activeIntroOverlay) dom.preview.append(activeIntroOverlay);
+  previewHost.replaceChildren(...next.childNodes);
+  if (activeIntroOverlay) previewHost.append(activeIntroOverlay);
+};
+
+/* Template cards inject real invitation markup, and there are up to a dozen of
+   them on the gallery at once — far too many to give each its own document the
+   way #preview gets one. Their hero is decorative (aria-hidden + inert), so the
+   cheap fix is to stop it contributing headings and landmarks to the studio
+   outline: <header> becomes a plain <div> (.invite-hero does the styling) and
+   every heading drops to h3 or below. */
+const demoteThumbnailOutline = (markup) => markup
+  .replace(/<(\/?)header\b/gi, "<$1div")
+  .replace(/<(\/?)h([12])\b/gi, (_match, slash, level) => `<${slash}h${Number(level) + 2}`);
+
+/* Every hero type rule — in style.css and in the renderer stylesheet the export
+   also ships — is written `.invite-hero h1`, so demoting the tag would strip the
+   thumbnails bare. Mirror those rules onto h3 in the studio document instead of
+   forking a stylesheet the guest's invitation depends on. */
+const HERO_HEADING_SELECTOR = /\.invite-hero(\s+)h1\b/g;
+
+const mirrorThumbnailHeadingRules = (documentRef) => {
+  const mirrorGroup = (group) => {
+    const additions = [];
+    for (const rule of [...group.cssRules]) {
+      if (rule.selectorText === undefined) {
+        if (rule.cssRules) mirrorGroup(rule);
+        continue;
+      }
+      if (!HERO_HEADING_SELECTOR.test(rule.selectorText)) continue;
+      HERO_HEADING_SELECTOR.lastIndex = 0;
+      additions.push(`${rule.selectorText.replace(HERO_HEADING_SELECTOR, ".invite-hero$1h3")}{${rule.style.cssText}}`);
+    }
+    for (const text of additions) {
+      try {
+        group.insertRule(text, group.cssRules.length);
+      } catch {
+        // A rule the engine will not re-parse is not worth failing the gallery for.
+      }
+    }
+  };
+
+  for (const sheet of [...(documentRef.styleSheets || [])]) {
+    try {
+      if (sheet.cssRules) mirrorGroup(sheet);
+    } catch {
+      // Cross-origin sheets (the web font CSS) carry no hero rules to mirror.
+    }
+  }
 };
 
 const renderTemplateThumbnail = (template) => {
@@ -1044,7 +1233,7 @@ const renderTemplateThumbnail = (template) => {
   const article = rendered.match(/<article\b[^>]*>/i)?.[0];
   const hero = rendered.match(/<(header|section)\b[^>]*class=["'][^"']*\binvite-hero\b[^"']*["'][^>]*>[\s\S]*?<\/\1>/i)?.[0];
   if (!article || !hero) return "";
-  return `${article.replace(/>$/, ' data-template-thumbnail aria-hidden="true" inert>')}${hero}</article>`;
+  return `${article.replace(/>$/, ' data-template-thumbnail aria-hidden="true" inert>')}${demoteThumbnailOutline(hero)}</article>`;
 };
 
 const syncTemplateThumbnailScales = () => {
@@ -1120,11 +1309,21 @@ const setPendingTemplate = (templateId) => {
   return true;
 };
 
+/* The standalone stylesheet keys its palette off body[data-template] and its
+   font variables off inline custom properties, so both land on the frame's
+   <body>. Without a frame they land on #preview, exactly as before. */
+const applyPreviewPalette = (invitation) => {
+  const target = previewStyleTarget;
+  if (!target) return;
+  target.dataset.template = invitation.templateId;
+  target.dataset.particle = invitation.particleEffect;
+  target.setAttribute("style", InvitationCore.getInvitationStyle(invitation));
+};
+
 const renderSamplePreview = () => {
   const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
   const sample = PresetApplication.prepare({ current: getFormData(), preset }).next;
-  dom.preview.dataset.template = sample.templateId;
-  dom.preview.setAttribute('style', InvitationCore.getInvitationStyle(sample));
+  applyPreviewPalette(sample);
   updatePreviewMarkup(InvitationCore.renderInvitationBody(sample));
   dom.pendingPreview.hidden = false;
   dom.pendingPreviewText.textContent = '디자인 샘플 · 작성한 내용은 유지됩니다';
@@ -1192,8 +1391,7 @@ const renderPreview = () => {
   saveDraft();
   document.body.dataset.template = state.activeTemplate;
   document.body.dataset.particle = state.invitation.particleEffect;
-  dom.preview.dataset.template = state.activeTemplate;
-  dom.preview.setAttribute("style", InvitationCore.getInvitationStyle(state.invitation));
+  applyPreviewPalette(state.invitation);
   updatePreviewMarkup(InvitationCore.renderInvitationBody(state.invitation));
   previewRenderId += 1;
   clearTimeout(previewMapTimer);
@@ -1201,8 +1399,9 @@ const renderPreview = () => {
 };
 
 const playPreviewIntro = () => {
+  if (!previewHost) return;
   const invitation = getFormData();
-  InvitationIntro.play(dom.preview, invitation, { preview: true });
+  InvitationIntro.play(previewHost, invitation, { preview: true });
 };
 
 const renderSaved = () => {
@@ -1519,7 +1718,6 @@ const getFocusedItemContext = () => {
   if (!card || !dom.contentEditor.contains(card)) return null;
 
   let selector = null;
-  if (activeElement.matches("[data-drag-handle]")) selector = "[data-drag-handle]";
   if (activeElement.matches("[data-toggle-item]")) selector = "[data-toggle-item]";
   if (activeElement.dataset.itemAction) selector = `[data-item-action="${activeElement.dataset.itemAction}"]`;
   if (activeElement.dataset.courseField) selector = `[data-course-field="${activeElement.dataset.courseField}"]`;
@@ -1537,7 +1735,7 @@ const focusItemControl = (itemId, selector = "[data-toggle-item]") => {
   return true;
 };
 
-const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]", { preserveDrag = false } = {}) => {
+const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-toggle-item]") => {
   const items = getItemsData();
   if (fromIndex < 0 || toIndex < 0 || fromIndex >= items.length || toIndex >= items.length || fromIndex === toIndex) {
     return null;
@@ -1547,8 +1745,8 @@ const commitItemMove = (fromIndex, toIndex, focusSelector = "[data-drag-handle]"
   const movedId = items[fromIndex].id;
   const movedItems = ContentOrder.move(items, fromIndex, toIndex);
   const previousPositions = captureItemPositions();
-  renderContentEditor(movedItems, openId, { preserveDrag });
-  animateItemReorder(previousPositions, preserveDrag ? movedId : null);
+  renderContentEditor(movedItems, openId);
+  animateItemReorder(previousPositions);
   markAnalyticsEdit();
   renderPreview();
   focusItemControl(movedId, focusSelector);
@@ -1785,95 +1983,6 @@ const finishHeroImageDrag = (event) => {
   }
 };
 
-const clearDropIndicators = () => {
-  dom.contentEditor.querySelectorAll(".is-drop-before, .is-drop-after").forEach((card) => {
-    card.classList.remove("is-drop-before", "is-drop-after");
-  });
-};
-
-const cancelActiveDrag = () => {
-  if (!dragState) return;
-  const { handle, card, pointerId } = dragState;
-  dragState = null;
-  clearDropIndicators();
-  card?.classList.remove("is-dragging");
-  try {
-    if (handle?.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-  } catch {
-    // A detached capture target is already released by the browser.
-  }
-};
-
-const finishItemDrag = (event) => {
-  if (!dragState || event.pointerId !== dragState.pointerId) return;
-  if (event.type === "lostpointercapture" && dragState.transferring) return;
-  if (event.type === "lostpointercapture" && event.target !== dragState.handle) return;
-  cancelActiveDrag();
-};
-
-const beginItemDrag = (event) => {
-  const handle = event.target.closest("[data-drag-handle]");
-  if (!handle || dragState || (event.button !== undefined && event.button !== 0)) return;
-
-  const card = handle.closest("[data-item-card]");
-  if (!card) return;
-  event.preventDefault();
-  handle.setPointerCapture(event.pointerId);
-  card.classList.add("is-dragging");
-  dragState = { pointerId: event.pointerId, itemId: card.dataset.itemId, handle, card, transferring: false };
-};
-
-const moveItemDrag = (event) => {
-  if (!dragState || event.pointerId !== dragState.pointerId) return;
-  event.preventDefault();
-
-  const hit = document.elementFromPoint(event.clientX, event.clientY);
-  const targetCard = hit?.closest("[data-item-card]");
-  if (!targetCard || !dom.contentEditor.contains(targetCard)) {
-    clearDropIndicators();
-    return;
-  }
-
-  const cards = [...dom.contentEditor.querySelectorAll("[data-item-card]")];
-  const draggedCard = findItemCard(dragState.itemId);
-  const fromIndex = cards.indexOf(draggedCard);
-  const toIndex = cards.indexOf(targetCard);
-  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
-    clearDropIndicators();
-    return;
-  }
-
-  const targetRect = targetCard.getBoundingClientRect();
-  const targetMidpoint = targetRect.top + targetRect.height / 2;
-  const movingUp = toIndex < fromIndex;
-  clearDropIndicators();
-  targetCard.classList.add(movingUp ? "is-drop-before" : "is-drop-after");
-  if ((movingUp && event.clientY >= targetMidpoint) || (!movingUp && event.clientY <= targetMidpoint)) return;
-
-  dragState.transferring = true;
-  const movedId = commitItemMove(fromIndex, toIndex, "[data-drag-handle]", { preserveDrag: true });
-  const movedCard = movedId ? findItemCard(movedId) : null;
-  const movedHandle = movedCard?.querySelector("[data-drag-handle]");
-  if (!movedCard || !movedHandle) {
-    cancelActiveDrag();
-    return;
-  }
-
-  movedCard.classList.add("is-dragging");
-  try {
-    movedHandle.setPointerCapture(event.pointerId);
-    dragState = {
-      pointerId: event.pointerId,
-      itemId: movedId,
-      handle: movedHandle,
-      card: movedCard,
-      transferring: false
-    };
-  } catch {
-    cancelActiveDrag();
-  }
-};
-
 const loadInitialData = async () => {
   const response = await fetch("invitation-data.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1907,6 +2016,8 @@ const init = async () => {
   try {
     InvitationIntro.ensureStyles(document);
     TemplateRenderers.ensureStyles(document);
+    mirrorThumbnailHeadingRules(document);
+    await mountPreviewFrame();
     await loadInitialData();
     try {
       const draft = await InvitationStorage.getDraft();
@@ -1951,13 +2062,15 @@ const init = async () => {
       dom.uploadStatus.textContent = "등록 목록 동기화에 실패했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
     }
   } catch {
-    dom.preview.innerHTML = `
+    if (previewHost) {
+      previewHost.innerHTML = `
       <div class="error-panel">
         <strong>초기 데이터를 불러오지 못했습니다.</strong>
         <p>별도 JSON 파일을 읽기 때문에 로컬 서버나 배포 환경에서 열어야 합니다.</p>
         <code>python3 -m http.server 4173</code>
       </div>
     `;
+    }
   }
 };
 
@@ -1999,7 +2112,7 @@ dom.form.addEventListener("input", (event) => {
   renderPreview();
   if (event.target.name === "introEffect") {
     syncIntroReplayAvailability();
-    if (state.invitation.introEffect === "none") InvitationIntro.stop(dom.preview);
+    if (state.invitation.introEffect === "none") { if (previewHost) InvitationIntro.stop(previewHost); }
     else playPreviewIntro();
   }
 });
@@ -2148,11 +2261,6 @@ dom.contentEditor.addEventListener("input", (event) => {
   }
 });
 
-dom.contentEditor.addEventListener("pointerdown", beginItemDrag);
-dom.contentEditor.addEventListener("pointermove", moveItemDrag);
-window.addEventListener("pointerup", finishItemDrag);
-window.addEventListener("pointercancel", finishItemDrag);
-document.addEventListener("lostpointercapture", finishItemDrag, true);
 
 dom.occasions.addEventListener("click", (event) => {
   const button = event.target.closest("[data-occasion-id]");
@@ -2173,7 +2281,20 @@ dom.templates.addEventListener("click", (event) => {
   renderSamplePreview();
 });
 
-dom.applyTemplate.addEventListener("click", applyPendingTemplate);
+// Matches the 내용 편집하기 / 이 디자인으로 만들기 label swap in
+// syncTemplateAvailability: re-applying the design you are already on is a
+// no-op the author never asked for, so it advances to the editor instead.
+const applyOrContinue = () => {
+  const pending = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.pendingTemplateId);
+  if (pending && pending.id === state.activeTemplate) {
+    if (hasPendingEditorOperation()) return undefined;
+    setStudioStage('edit');
+    return true;
+  }
+  return applyPendingTemplate();
+};
+
+dom.applyTemplate.addEventListener("click", applyOrContinue);
 dom.undoTemplate.addEventListener("click", undoTemplateApplication);
 dom.startTemplate.addEventListener('click', () => {
   if (!applyPendingTemplate()) return;
@@ -2194,7 +2315,7 @@ dom.previewApply.addEventListener('click', () => {
   if (applyPendingTemplate()) dom.form.querySelector('[name="title"]').focus();
 });
 document.querySelector('#gallery-create').addEventListener('click', () => {
-  applyPendingTemplate();
+  applyOrContinue();
 });
 document.querySelector('#gallery-back').addEventListener('click', () => {
   if (hasPendingEditorOperation()) return;
@@ -2208,21 +2329,6 @@ dom.toggleTemplates.addEventListener('click', () => {
   dom.templates.scrollTop = 0;
   const count = TemplateCatalog.getPresetsForOccasion(state.catalog, state.activeOccasion).length;
   dom.toggleTemplates.textContent = expanded ? '접기' : `${count}개 전체 보기`;
-});
-
-dom.preview.addEventListener("click", (event) => {
-  const retryButton = event.target.closest("[data-retry-map]");
-  if (!retryButton) return;
-  const panel = retryButton.closest("[data-map-key]");
-  const canvas = panel?.querySelector("[data-dynamic-map]");
-  const status = panel?.querySelector("[data-map-status]");
-  if (!canvas || !status) return;
-
-  delete canvas.dataset.mapState;
-  status.textContent = "지도를 불러오는 중입니다.";
-  naverMapsPromise = undefined;
-  previewRenderId += 1;
-  mountPreviewMaps(previewRenderId);
 });
 
 dom.replayIntro.addEventListener("click", playPreviewIntro);

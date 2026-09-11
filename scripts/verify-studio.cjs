@@ -40,7 +40,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await page.locator('[data-template-id="cherry-muse"]').click();
       await page.locator('#preview-apply-button').click();
       assert.equal(await page.locator('[name="dateLabel"]').inputValue(), 'September 12 · 13:00');
-      assert.equal(await page.locator('#preview .invitation-card').getAttribute('data-template'), 'cherry-muse');
+      // #preview is an iframe running the standalone invitation document, so
+      // reach the card through the frame. Doing so also proves the isolation:
+      // if the invitation ever rendered back into the studio document this
+      // locator would find nothing.
+      assert.equal(await page.frameLocator('#preview').locator('.invitation-card').getAttribute('data-template'), 'cherry-muse');
+      assert.equal(await page.locator('#preview .invitation-card').count(), 0);
       if (width === 390) assert.match(await page.locator('#hero-image-preview').getAttribute('src'), /^data:image\//);
       await page.locator('.studio-steps [data-studio-stage="finish"]').click();
       assert.equal(await page.locator('#preview').isVisible(), true);

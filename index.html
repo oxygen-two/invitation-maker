@@ -45,11 +45,11 @@
   </nav>
   <main class="app-shell">
     <section class="maker-panel">
-      <header class="maker-header">
+      <div class="maker-header">
         <p class="eyebrow">Make it personal</p>
         <h1 id="studio-heading">어떤 날을 초대할까요?</h1>
         <p>마음에 드는 디자인에 나만의 이야기를 담아보세요.</p>
-      </header>
+      </div>
 
       <section class="template-picker" aria-label="초대장 템플릿 선택">
         <span class="picker-label">어떤 날인가요?</span>
@@ -67,8 +67,8 @@
         <details class="editor-group" data-editor-group="details" open>
           <summary><span>기본 정보</span><small>제목 · 일정 · 메시지</small></summary>
           <div class="editor-group-body">
-            <label><span>제목</span><input name="title" type="text" autocomplete="off"></label>
-            <label><span>부제</span><input name="subtitle" type="text" autocomplete="off"></label>
+            <label class="full"><span>제목</span><input name="title" type="text" autocomplete="off"></label>
+            <label class="full"><span>부제</span><input name="subtitle" type="text" autocomplete="off"></label>
             <label><span>일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
             <label><span>보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
             <label class="full"><span>메시지</span><textarea name="message" rows="4"></textarea></label>
@@ -159,26 +159,26 @@
                   </div>
                 </div>
               </div>
-              <input id="hero-image-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+              <input id="hero-image-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="첫 화면 배경 사진 파일 선택" hidden>
               <p id="hero-image-status" class="hero-image-status" role="status" aria-live="polite"></p>
             </section>
           </div>
         </details>
 
         <details class="editor-group" data-editor-group="content" open>
-          <summary><span>초대장 항목</span><small>드래그해서 순서 변경</small></summary>
+          <summary><span>초대장 항목</span><small>↑ ↓ 로 순서 변경</small></summary>
           <div class="editor-group-body editor-content-body">
             <section class="full content-editor-section" aria-label="초대장 항목">
-              <header class="content-editor-header">
+              <div class="content-editor-header">
                 <div class="content-editor-commands">
                   <button id="add-course-button" class="add-item-button" type="button">+ 코스</button>
                   <button id="add-photo-button" class="add-item-button" type="button">+ 사진</button>
                   <button class="add-item-button" type="button" data-add-item="notice">+ 안내</button>
                   <button class="add-item-button" type="button" data-add-item="profile">+ 인물 소개</button>
                   <button class="add-item-button" type="button" data-add-item="link">+ 연락처·링크</button>
-                  <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                  <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="초대장 사진 파일 선택" hidden>
                 </div>
-              </header>
+              </div>
               <div id="content-editor" class="content-editor"></div>
             </section>
           </div>
@@ -223,10 +223,10 @@
       </div>
 
       <dialog id="download-dialog" class="studio-dialog" aria-labelledby="download-dialog-title">
-        <header class="studio-dialog-header">
+        <div class="studio-dialog-header">
           <h2 id="download-dialog-title">파일로 저장</h2>
           <button type="button" class="studio-dialog-close" data-dialog-close aria-label="닫기">✕</button>
-        </header>
+        </div>
         <div class="studio-dialog-body">
           <p>사진까지 하나로 묶은 HTML 파일을 내려받아요. <strong>이 파일이 끝까지 남는 사본</strong>이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.</p>
           <button id="download-button" class="primary-button studio-dialog-primary" type="button">HTML 다운로드</button>
@@ -234,10 +234,10 @@
       </dialog>
 
       <dialog id="share-dialog" class="studio-dialog" aria-labelledby="share-dialog-title">
-        <header class="studio-dialog-header">
+        <div class="studio-dialog-header">
           <h2 id="share-dialog-title">링크로 공유</h2>
           <button type="button" class="studio-dialog-close" data-dialog-close aria-label="닫기">✕</button>
-        </header>
+        </div>
         <div class="studio-dialog-body">
           <p>공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만 <strong>링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만</strong> 저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</p>
           <section id="publishing-panel" class="publishing-panel" aria-label="공개 링크 발행"></section>
@@ -246,22 +246,27 @@
     </section>
 
     <section class="preview-panel">
-      <header class="panel-title">
+      <div class="panel-title">
         <p class="eyebrow">Preview</p>
         <h2>미리보기</h2>
-      </header>
+      </div>
       <div id="pending-preview-notice" class="pending-preview-notice" hidden>
         <p id="pending-preview-text" role="status"></p>
         <button id="preview-apply-button" type="button">선택한 디자인 적용</button>
       </div>
-      <div id="preview" class="preview-frame"></div>
+      <!-- The invitation renders inside its own document (see mountPreviewFrame
+           in assets/studio/app.js). Two reasons: the invitation's own <h1> and
+           <header> stay out of the studio's page outline, and the frame runs the
+           exact standalone document a guest receives, so the preview can no
+           longer drift from the export by inheriting studio CSS. -->
+      <iframe id="preview" class="preview-frame" title="초대장 미리보기" referrerpolicy="no-referrer"></iframe>
     </section>
 
     <section class="library-panel">
-      <header class="panel-title">
+      <div class="panel-title">
         <p class="eyebrow">Library</p>
         <h2>나의 초대장</h2>
-      </header>
+      </div>
       <div class="upload-box">
         <label for="html-upload">다운로드된 HTML 등록</label>
         <input id="html-upload" type="file" accept=".html,text/html">

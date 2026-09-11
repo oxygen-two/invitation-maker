@@ -203,13 +203,13 @@
 
   const renderShell = (rootNode) => {
     rootNode.innerHTML = `
-      <header class="publishing-header">
+      <div class="publishing-header">
         <div>
           <p class="eyebrow">Share</p>
           <h2>공개 링크</h2>
         </div>
         <span class="publishing-limit">2MB 이하</span>
-      </header>
+      </div>
       <p class="publishing-consent">공개 링크를 만들면 주소를 아는 누구나 링크로 볼 수 있습니다. 발행 후 만료일을 확인할 수 있습니다.</p>
       <div class="publishing-actions">
         <button id="publish-button" class="primary-button" type="button" autofocus>공개 링크 만들기</button>
