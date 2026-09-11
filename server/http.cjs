@@ -1,28 +1,14 @@
-const fs = require("node:fs");
-const path = require("node:path");
 const { URL } = require("node:url");
-const { DEFAULT_LIMITS, ERROR_MESSAGES } = require("./config.cjs");
+const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
+const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
+const { serveStatic, staticFileFor } = require("./http/static.cjs");
+const { mapRepositoryError, publishInvitation } = require("./publishing/use-case.cjs");
 const {
-  createPublicId,
   isValidPublicId,
-  normalizeForPublishing,
   sha256,
   tokenHashFromHeader,
   validateIdempotencyKey
 } = require("./validation.cjs");
-
-const MIME_TYPES = Object.freeze({
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
-});
 
 const json = (res, status, body, extraHeaders = {}) => {
   res.writeHead(status, {
@@ -48,7 +34,7 @@ const empty = (res, status, extraHeaders = {}) => {
 const errorBody = (code) => ({
   error: {
     code,
-    message: ERROR_MESSAGES[code] || ERROR_MESSAGES.BAD_REQUEST
+    message: PUBLISHING_ERROR_MESSAGES[code] || PUBLISHING_ERROR_MESSAGES.BAD_REQUEST
   }
 });
 
@@ -112,62 +98,9 @@ const clientIpFrom = (req, config) => {
   return req.socket.remoteAddress || "unknown";
 };
 
-const calculateExpiresAt = (ttlDays, now) => {
-  if (!Number.isFinite(ttlDays) || ttlDays <= 0) return null;
-  return new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
-};
-
-const mapRepositoryError = (error) => {
-  const code = error?.code || "REPOSITORY_UNAVAILABLE";
-  if (code === "IDEMPOTENCY_CONFLICT") return [409, code];
-  if (["RATE_LIMIT", "TOTAL_DAILY_LIMIT", "LIFETIME_LIMIT"].includes(code)) return [429, code];
-  return [503, "REPOSITORY_UNAVAILABLE"];
-};
-
 const isExpired = (expiresAt, now = new Date()) => expiresAt && new Date(expiresAt).getTime() <= now.getTime();
 
-const staticFileFor = (staticRoot, requestPath) => {
-  let decoded;
-  try {
-    decoded = decodeURIComponent(requestPath);
-  } catch {
-    return null;
-  }
-  if (decoded === "/" || decoded === "") decoded = "/index.html";
-  if (decoded === "/i" || decoded.startsWith("/i/")) decoded = "/shared.html";
-  if (decoded.includes("\0") || decoded.split("/").includes("..")) return null;
-  if (/\/\./.test(decoded)) return null;
-  if (!(
-    /^\/[0-9A-Za-z_-][0-9A-Za-z_.-]*\.html$/.test(decoded)
-    || /^\/assets\/[0-9A-Za-z_./-]+\.(?:css|js|json|png|webp|jpe?g|svg|ico)$/.test(decoded)
-    || decoded === "/invitation-data.json"
-  )) return null;
-  const fullPath = path.resolve(staticRoot, `.${decoded}`);
-  const rootWithSep = path.resolve(staticRoot) + path.sep;
-  if (!fullPath.startsWith(rootWithSep)) return null;
-  return fullPath;
-};
-
-const serveStatic = async (req, res, config, requestPath) => {
-  if (!config.staticRoot) return false;
-  const file = staticFileFor(config.staticRoot, requestPath);
-  if (!file) return false;
-  try {
-    const stat = await fs.promises.stat(file);
-    if (!stat.isFile()) return false;
-    res.writeHead(200, {
-      "content-type": MIME_TYPES[path.extname(file)] || "application/octet-stream",
-      "cache-control": "no-store"
-    });
-    fs.createReadStream(file).pipe(res);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 const handlePost = async (req, res, repository, config) => {
-  if (!repository) return sendError(res, 503, "REPOSITORY_UNAVAILABLE");
   if (!isAllowedOrigin(req, config)) return sendError(res, 403, "FORBIDDEN_ORIGIN");
   const tokenHash = tokenHashFromHeader(req.headers.authorization);
   if (!tokenHash) return sendError(res, 401, "TOKEN_REQUIRED");
@@ -188,33 +121,20 @@ const handlePost = async (req, res, repository, config) => {
     return sendError(res, 400, "BAD_JSON");
   }
 
-  let publishing;
   try {
-    publishing = normalizeForPublishing({ body: parsed, maxPayloadBytes: config.maxPayloadBytes });
-  } catch (error) {
-    const code = error.code || "BAD_REQUEST";
-    return sendError(res, code === "BODY_TOO_LARGE" ? 413 : 400, code);
-  }
-
-  const now = new Date();
-  try {
-    const result = await repository.publish({
-      id: createPublicId(),
-      createId: createPublicId,
-      invitation: publishing.invitation,
-      tokenHash,
-      idempotencyKeyHash: sha256(`idempotency:${tokenHash}:${idempotencyKey}`),
-      contentHash: publishing.contentHash,
+    const result = await publishInvitation({
+      body: parsed,
       clientKeyHash: sha256(`client:${clientIpFrom(req, config)}`),
-      now,
-      expiresAt: calculateExpiresAt(config.ttlDays, now)
+      config,
+      idempotencyKey,
+      repository,
+      tokenHash,
     });
-    return json(res, 201, {
-      id: result.id,
-      url: `/i/${result.id}`,
-      expiresAt: result.expiresAt || null
-    });
+    return json(res, 201, result);
   } catch (error) {
+    if (["BAD_REQUEST", "BODY_TOO_LARGE"].includes(error.code)) {
+      return sendError(res, error.code === "BODY_TOO_LARGE" ? 413 : 400, error.code);
+    }
     const [status, code] = mapRepositoryError(error);
     return sendError(res, status, code);
   }
@@ -256,9 +176,8 @@ const handleDelete = async (req, res, repository, id) => {
 
 const createHandler = ({ repository, config = {} } = {}) => {
   const mergedConfig = {
-    ...DEFAULT_LIMITS,
-    staticRoot: "",
-    allowedOrigin: "",
+    ...DEFAULT_PUBLISHING_CONFIG,
+    ...DEFAULT_HTTP_CONFIG,
     ...config
   };
 
