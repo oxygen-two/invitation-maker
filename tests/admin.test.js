@@ -1,10 +1,18 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { Readable } = require("node:stream");
+const fs = require("node:fs");
+const path = require("node:path");
 const { readAdminConfigFromEnv, passwordMatches } = require("../admin/config.cjs");
 const { createHandler, COOKIE } = require("../admin/http.cjs");
 const { createAdminMongoPublications } = require("../admin/storage/mongo-publications.cjs");
 const { createSessionStore } = require("../admin/session-store.cjs");
+
+const root = path.resolve(__dirname, "..");
+const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const adminClientSource = read("admin/public/admin.js");
+const adminCssSource = read("admin/public/admin.css");
+const adminServerSource = read("admin/http.cjs");
 
 const call = async (handler, { method = "GET", url = "/", headers = {}, body } = {}) => {
   const req = new Readable({ read() { this.push(null); } });
@@ -199,4 +207,57 @@ test("admin mongo publication list counts, clamps, sorts, searches safely, and e
       { "invitation.title": { $regex: "초대장\\.\\*", $options: "i" } }
     ]
   });
+});
+
+test("admin client sends x-admin-csrf on logout and only shows login on success", () => {
+  const start = adminClientSource.indexOf('$("#logout")');
+  const end = adminClientSource.indexOf('$("#refresh")');
+  assert.ok(start >= 0 && end > start, "logout handler not found");
+  const handler = adminClientSource.slice(start, end);
+  assert.match(handler, /\/admin\/api\/logout/);
+  assert.match(handler, /"x-admin-csrf":\s*state\.csrfToken/);
+  assert.match(handler, /catch\s*\(error\)/, "logout failure must be handled, not thrown as an unhandled rejection");
+});
+
+test("admin client assigns csrfToken from the session-restore response", () => {
+  const start = adminClientSource.indexOf('request("/admin/api/session")');
+  assert.ok(start >= 0, "session restore call not found");
+  const handler = adminClientSource.slice(start);
+  assert.match(handler, /\.then\(\s*\(?body\)?\s*=>\s*\{[^}]*state\.csrfToken\s*=\s*body\.csrfToken/, "session restore must assign the returned csrfToken, not merely receive it");
+});
+
+test("admin client sends x-admin-csrf on revoke and reports row-action failures", () => {
+  const start = adminClientSource.indexOf('$("#rows").addEventListener');
+  const end = adminClientSource.indexOf('request("/admin/api/session")');
+  assert.ok(start >= 0 && end > start, "rows click handler not found");
+  const handler = adminClientSource.slice(start, end);
+  assert.match(handler, /\/revoke/);
+  assert.match(handler, /"x-admin-csrf":\s*state\.csrfToken/);
+  assert.match(handler, /catch\s*\(error\)/, "detail/revoke failures must not be silently ignored");
+});
+
+test("admin client never silently swallows a request failure with an empty catch", () => {
+  assert.doesNotMatch(adminClientSource, /\.catch\(\(\)\s*=>\s*\{\s*\}\)/, "an empty .catch(() => {}) drops errors without telling the user");
+});
+
+test("admin client maps every server error code to a Korean message instead of showing the raw code", () => {
+  const codes = [...new Set([...adminServerSource.matchAll(/error\(res,\s*[^,]+,\s*"([A-Z_]+)"\)/g)].map((match) => match[1]))];
+  assert.ok(codes.length > 0, "no error codes found in admin/http.cjs to cross-check against");
+  for (const code of codes) {
+    const mapping = new RegExp(`${code}:\\s*"[^"]*[가-힣][^"]*"`);
+    assert.match(adminClientSource, mapping, `admin.js should map ${code} to a Korean-language message`);
+  }
+  assert.doesNotMatch(adminClientSource, /throw new Error\(body\?\.error/, "request() must not surface the raw server error code directly");
+});
+
+test("admin client's rate-limit message tells the user to wait rather than blaming the password", () => {
+  const match = adminClientSource.match(/LOGIN_RATE_LIMITED:\s*"([^"]*)"/);
+  assert.ok(match, "LOGIN_RATE_LIMITED mapping not found");
+  assert.match(match[1], /(잠시|기다|후\s*다시)/, "message should tell the user to wait");
+  assert.doesNotMatch(match[1], /비밀번호/, "message should not suggest the password was wrong");
+});
+
+test("admin client marks the revoke action as visually destructive", () => {
+  assert.match(adminClientSource, /class="danger"[^>]*data-revoke=/, "revoke button should carry a dedicated destructive class");
+  assert.match(adminCssSource, /\.danger/, "admin.css should style the destructive action");
 });
