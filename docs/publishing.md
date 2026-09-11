@@ -52,6 +52,8 @@ Do not interpret a local MongoDB test as verification of Atlas credentials, prod
 
 Use Node.js 22 or newer. Install the lockfile dependencies with `npm ci`. Copy `.env.example` to a local `.env`, supply a development `MONGODB_URI`, then run `npm start`. The default address is `http://127.0.0.1:4173`.
 
+The publication manager is a separate local Node service and is not included in the Vercel/public build. Set `ADMIN_PASSWORD` in the ignored `.env`, then run `npm run admin`. Open `http://127.0.0.1:4174/admin` (or the configured host and port). The manager supports login, paginated publication listing, ID search, details, public links, and administrator revocation. Sessions are held in memory and end when the process restarts. If the service is reachable from another device, put it behind HTTPS before using a real password.
+
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `MONGODB_URI` | unset | Server-only MongoDB connection string; missing means publication is unavailable. |
@@ -64,6 +66,11 @@ Use Node.js 22 or newer. Install the lockfile dependencies with `npm ci`. Copy `
 | `PUBLISH_ALLOWED_ORIGIN` | unset | Set the exact HTTPS maker origin in production, especially behind a TLS-terminating proxy. |
 | `PUBLISH_TRUST_PROXY` | `false` | Only enable behind a trusted proxy that controls forwarded client-IP headers. |
 | `HOST` / `PORT` | `127.0.0.1` / `4173` | Standalone listener. |
+| `ADMIN_PASSWORD` | unset | Required for `npm run admin`; never commit it. |
+| `ADMIN_HOST` / `ADMIN_PORT` | `0.0.0.0` / `4174` | Admin listener. |
+| `ADMIN_SESSION_TTL_MS` | `28800000` | In-memory session lifetime (8 hours). |
+| `ADMIN_PAGE_SIZE` | `20` | Default admin list page size; requests are capped at 100. |
+| `PUBLIC_BASE_URL` | unset | Optional base URL used for links shown in the admin screen. |
 
 Run `npm test` for unit and HTTP checks. `node scripts/verify-publishing-mongo.cjs` tests actual MongoDB persistence using a separate disposable test database; use a local development MongoDB connection. Run the browser scripts with a running API and an existing Playwright installation:
 
