@@ -1,8 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const InvitationPublishing = require("../assets/publishing.js");
-const SharedInvitation = require("../assets/shared-invitation.js");
+const InvitationPublishing = require("../assets/publishing/publishing.js");
+const SharedInvitation = require("../assets/publishing/shared-invitation.js");
 
 const makeCrypto = () => {
   let uuid = 0;

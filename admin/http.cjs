@@ -42,7 +42,13 @@ const readBody = (req) => new Promise((resolve, reject) => {
 
 const cookies = (req) => Object.fromEntries(String(req.headers.cookie || "").split(";").map((part) => {
   const index = part.indexOf("=");
-  return index < 0 ? ["", ""] : [part.slice(0, index).trim(), decodeURIComponent(part.slice(index + 1).trim())];
+  if (index < 0) return ["", ""];
+  const key = part.slice(0, index).trim();
+  try {
+    return [key, decodeURIComponent(part.slice(index + 1).trim())];
+  } catch {
+    return ["", ""];
+  }
 }).filter(([key]) => key));
 
 const sessionCookie = (token, maxAge) => `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
@@ -55,6 +61,8 @@ const parsePage = (parsed, defaultPageSize) => {
 };
 
 const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
+  const loginAttempts = new Map();
+
   const requireSession = (req, res) => {
     const sessionToken = cookies(req)[COOKIE];
     const session = sessionStore.get(sessionToken);
@@ -63,6 +71,26 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
       return null;
     }
     return { sessionToken, session };
+  };
+
+  const requireCsrf = (req, res, auth) => {
+    if (!sessionStore.validCsrf(auth.sessionToken, req.headers["x-admin-csrf"])) {
+      error(res, 403, "CSRF_INVALID");
+      return false;
+    }
+    return true;
+  };
+
+  const allowLoginAttempt = (clientKey) => {
+    const now = Date.now();
+    const entry = loginAttempts.get(clientKey);
+    if (!entry || entry.resetAt <= now) {
+      loginAttempts.set(clientKey, { count: 1, resetAt: now + config.loginRateLimit.windowMs });
+      return true;
+    }
+    if (entry.count >= config.loginRateLimit.maxAttempts) return false;
+    entry.count += 1;
+    return true;
   };
 
   const publicUrl = (req, id) => {
@@ -89,6 +117,8 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
     if (!parsed.pathname.startsWith("/admin/api/")) return error(res, 404, "NOT_FOUND");
 
     if (parsed.pathname === "/admin/api/login" && req.method === "POST") {
+      const clientKey = req.socket?.remoteAddress || "unknown";
+      if (!allowLoginAttempt(clientKey)) return error(res, 429, "LOGIN_RATE_LIMITED");
       try {
         const body = JSON.parse(await readBody(req));
         if (!passwordMatches(body.password, config.adminPassword)) return error(res, 401, "INVALID_ADMIN_PASSWORD");
@@ -100,14 +130,19 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
     }
 
     if (parsed.pathname === "/admin/api/logout" && req.method === "POST") {
-      const sessionToken = cookies(req)[COOKIE];
-      sessionStore.remove(sessionToken);
+      const logoutAuth = requireSession(req, res);
+      if (!logoutAuth) return;
+      if (!requireCsrf(req, res, logoutAuth)) return;
+      sessionStore.remove(logoutAuth.sessionToken);
       return empty(res, 204, { "set-cookie": clearCookie });
     }
 
     const auth = requireSession(req, res);
     if (!auth) return;
-    if (parsed.pathname === "/admin/api/session" && req.method === "GET") return json(res, 200, { authenticated: true, expiresAt: new Date(auth.session.expiresAt).toISOString() });
+    if (parsed.pathname === "/admin/api/session" && req.method === "GET") {
+      const csrfToken = sessionStore.issueCsrf(auth.sessionToken);
+      return json(res, 200, { authenticated: true, expiresAt: new Date(auth.session.expiresAt).toISOString(), csrfToken });
+    }
 
     if (parsed.pathname === "/admin/api/publications" && req.method === "GET") {
       try {
@@ -129,7 +164,7 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
       } catch { return error(res, 503, "REPOSITORY_UNAVAILABLE"); }
     }
     if (revoke && req.method === "POST") {
-      if (!sessionStore.validCsrf(auth.sessionToken, req.headers["x-admin-csrf"])) return error(res, 403, "CSRF_INVALID");
+      if (!requireCsrf(req, res, auth)) return;
       try {
         const removed = await repository.revoke(revoke[1]);
         return removed ? empty(res, 204) : error(res, 404, "NOT_FOUND");

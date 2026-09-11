@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {"title": "초대장 메이커 · 실행 구조", "quality_profile": "showcase", "viewBox": [1200, 650]},
+  "components": [
+    {"id":"studio","type":"frontend","label":"초대장 제작기","sublabel":"index.html · assets/","pos":[40,270],"size":[190,80]},
+    {"id":"public-api","type":"backend","label":"공개 발행 API","sublabel":"api/ → server/http.cjs","pos":[350,270],"size":[210,80]},
+    {"id":"store","type":"backend","label":"발행 저장소","sublabel":"mongo-repository.cjs","pos":[690,270],"size":[190,80]},
+    {"id":"mongo","type":"database","label":"MongoDB","sublabel":"스냅샷 · 할당량 · TTL","pos":[1000,270],"size":[180,80]},
+    {"id":"local","type":"database","label":"브라우저 저장소","sublabel":"IndexedDB · 초안/보관함","pos":[40,70],"size":[190,80]},
+    {"id":"viewer","type":"frontend","label":"공개 초대장 뷰어","sublabel":"shared.html · /i/:id","pos":[350,70],"size":[210,80]},
+    {"id":"admin","type":"backend","label":"로컬 관리자 서비스","sublabel":"admin/ · 별도 프로세스","pos":[690,490],"size":[190,80]},
+    {"id":"session","type":"security","label":"관리자 인증","sublabel":"환경 비밀번호 · 세션/CSRF","pos":[350,490],"size":[210,80]}
+  ],
+  "connections": [
+    {"from":"studio","to":"public-api","label":"발행 / 취소","variant":"emphasis"},
+    {"from":"public-api","to":"store","label":"검증 후 저장"},
+    {"from":"store","to":"mongo","label":"문서 CRUD"},
+    {"from":"studio","to":"local","label":"로컬 저장"},
+    {"from":"viewer","to":"public-api","label":"공개 조회","labelAt":[455,210]},
+    {"from":"admin","to":"store","label":"목록 / 폐기"},
+    {"from":"admin","to":"session","label":"인증 확인","variant":"security"}
+  ]
+}

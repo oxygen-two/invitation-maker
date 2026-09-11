@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const PresetApplication = require("../assets/preset-application.js");
+const PresetApplication = require("../assets/studio/preset-application.js");
 
 const preset = {
   id: "modern-vow",

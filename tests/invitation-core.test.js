@@ -3,11 +3,11 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, getInvitationStyle, normalizeInvitation } = require("../assets/invitation-core.js");
-const InvitationIntro = require("../assets/intro-effects.js");
-const InvitationCore = require("../assets/invitation-core.js");
-const TemplateCatalog = require("../assets/template-catalog.js");
-const TemplateArt = require("../assets/template-art.js");
+const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, getInvitationStyle, normalizeInvitation } = require("../assets/invitation/core.js");
+const InvitationIntro = require("../assets/invitation/intro-effects.js");
+const InvitationCore = require("../assets/invitation/core.js");
+const TemplateCatalog = require("../assets/invitation/template-catalog.js");
+const TemplateArt = require("../assets/invitation/template-art.js");
 
 const root = path.resolve(__dirname, "..");
 const SAFE_JPEG = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
@@ -42,11 +42,11 @@ const loadCoreWithoutIntro = () => {
     throw error;
   };
 
-  vm.runInNewContext(read("assets/invitation-core.js"), {
+  vm.runInNewContext(read("assets/invitation/core.js"), {
     globalThis: {},
     module,
     require: missingIntro
-  }, { filename: "assets/invitation-core.js" });
+  }, { filename: "assets/invitation/core.js" });
 
   return module.exports;
 };
@@ -589,7 +589,7 @@ test("mixed canonical item maps use one shared NAVER loader", () => {
 });
 
 test("mixed photo styles share a natural aspect ratio and overflow contract", () => {
-  const previewCss = read("assets/style.css").replace(/\s+/g, "");
+  const previewCss = read("assets/studio/style.css").replace(/\s+/g, "");
   const standaloneCss = buildStandaloneHtml({
     items: [{ id: "photo-style", type: "photo", src: SAFE_WEBP }]
   }).match(/<style>([\s\S]*?)<\/style>/)?.[1].replace(/\s+/g, "") || "";
@@ -810,7 +810,7 @@ test("standalone particle profiles include effect markers and transform-only ani
 });
 
 test("preview and standalone keep the full selected particle amount on mobile", () => {
-  const previewCss = read("assets/style.css");
+  const previewCss = read("assets/studio/style.css");
   const standaloneCss = buildStandaloneHtml({ particleEffect: "fireflies" }).match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
 
   assert.doesNotMatch(previewCss, /\.particle-layer span:nth-child\(n\+/);
@@ -819,7 +819,7 @@ test("preview and standalone keep the full selected particle amount on mobile", 
 });
 
 test("particle palettes adapt to each template and render above all invitation content", () => {
-  const previewCss = read("assets/style.css");
+  const previewCss = read("assets/studio/style.css");
   const standaloneCss = buildStandaloneHtml({ particleEffect: "sparkle" }).match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
 
   for (const css of [previewCss, standaloneCss]) {

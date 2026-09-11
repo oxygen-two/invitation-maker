@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const { move } = require(path.join(root, "assets/content-order.js"));
+const { move } = require(path.join(root, "assets/studio/content-order.js"));
 
 test("moves an item to an earlier exact index", () => {
   assert.deepEqual(move(["course", "photo", "dinner"], 1, 0), ["photo", "course", "dinner"]);
@@ -59,8 +59,8 @@ test("does not mutate input and preserves unaffected item identities", () => {
 
 test("loads before app.js and exposes the browser global", () => {
   const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
-  const contentOrderScript = index.indexOf('src="assets/content-order.js"');
-  const appScript = index.indexOf('src="assets/app.js"');
+  const contentOrderScript = index.indexOf('src="assets/studio/content-order.js"');
+  const appScript = index.indexOf('src="assets/studio/app.js"');
 
   assert.ok(contentOrderScript >= 0);
   assert.ok(contentOrderScript < appScript);

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const TemplateRenderers = require("../assets/template-renderers.js");
-const InvitationCore = require("../assets/invitation-core.js");
+const TemplateRenderers = require("../assets/invitation/template-renderers.js");
+const InvitationCore = require("../assets/invitation/core.js");
 
 const slots = {
   templateId: "sample",

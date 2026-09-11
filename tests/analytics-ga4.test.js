@@ -62,10 +62,10 @@ const loadGA4 = ({
   rootObject.InvitationAnalyticsConfig = config;
   rootObject.navigator = navigator;
 
-  vm.runInNewContext(read("assets/analytics-ga4.js"), {
+  vm.runInNewContext(read("assets/analytics/ga4.js"), {
     globalThis: rootObject,
     window: rootObject
-  }, { filename: "assets/analytics-ga4.js" });
+  }, { filename: "assets/analytics/ga4.js" });
 
   return rootObject;
 };

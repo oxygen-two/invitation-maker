@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const MapLocation = require("../assets/map-location.js");
+const MapLocation = require("../assets/integrations/map-location.js");
 
 test("a NAVER coordinate URL wins over the display name without geocoding", async () => {
   const coordinates = await MapLocation.resolve(null, "unrelated name", "https://map.naver.com/?lat=37.5741694&lng=126.9916905");
