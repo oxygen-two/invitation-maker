@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # package.json requires >=22, so verify against that floor rather than
+      # whatever newer runtime happens to be installed locally.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run build:public
+
+      # build:public writes into the ignored public/ directory. If it ever
+      # touches a tracked file instead, fail here rather than in a deploy.
+      - name: Verify the build left tracked files unchanged
+        run: git diff --exit-code
+
+      - name: Check the diff for whitespace errors
+        if: github.event_name == 'pull_request'
+        run: git diff --check ${{ github.event.pull_request.base.sha }}...HEAD
+
+  # The unit suite drives the publication store through fakes. This job is the
+  # only place the real Mongo queries, quota counters, and TTL indexes run.
+  publishing-mongo:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The script refuses non-loopback hosts because it drops its database
+      # when it finishes. The service container is reachable on 127.0.0.1.
+      - run: npm run verify:publishing-mongo
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017
