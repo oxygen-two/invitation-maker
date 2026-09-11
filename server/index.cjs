@@ -3,6 +3,7 @@ const path = require("node:path");
 const { readDatabaseConfigFromEnv } = require("./config/database.cjs");
 const { readHttpConfigFromEnv } = require("./config/http.cjs");
 const { readPublishingConfigFromEnv } = require("./config/publishing.cjs");
+const { logConnectionTarget } = require("./config/connection-info.cjs");
 const { createHandler } = require("./http.cjs");
 const { createMongoPublicationsRepository } = require("./storage/mongo-publications.cjs");
 
@@ -27,6 +28,7 @@ const server = http.createServer(createHandler({ repository, config }));
 
 server.listen(config.port, config.host, () => {
   console.log(`Invitation maker listening at http://${config.host}:${config.port}`);
+  logConnectionTarget(console, config);
 });
 
 const shutdown = async () => {

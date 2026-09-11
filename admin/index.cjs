@@ -1,6 +1,7 @@
 const http = require("node:http");
 const path = require("node:path");
 const { readDatabaseConfigFromEnv } = require("../server/config/database.cjs");
+const { logConnectionTarget } = require("../server/config/connection-info.cjs");
 const { createAdminMongoPublications } = require("./storage/mongo-publications.cjs");
 const { readAdminConfigFromEnv } = require("./config.cjs");
 const { createSessionStore } = require("./session-store.cjs");
@@ -31,6 +32,7 @@ const server = http.createServer(createHandler({
 
 server.listen(config.port, config.host, () => {
   console.log(`Invitation admin listening at http://${config.host}:${config.port}/admin`);
+  logConnectionTarget(console, databaseConfig);
 });
 
 const shutdown = async () => {

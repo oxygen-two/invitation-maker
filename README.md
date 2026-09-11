@@ -50,7 +50,7 @@ Open [http://127.0.0.1:4173](http://127.0.0.1:4173). To preview only the static 
 python3 -m http.server 4173
 ```
 
-For local experiments, copy `.env.example` to `.env.dev` instead and run `npm run dev` (or `npm run dev:admin` for the admin service). This keeps local testing off the production database — `npm start`/`npm run admin` keep loading `.env` unchanged.
+`npm start`, `npm run admin`, `npm run dev`, and `npm run dev:admin` are all local-developer commands — none of them run in production. Production never runs `server/index.cjs`; it deploys through `api/*.js` serverless functions and `scripts/build-public.cjs`, configured entirely from Vercel's environment variables. For a second local config (e.g. a different local database), copy `.env.example` to `.env.dev` and run `npm run dev` (or `npm run dev:admin`) — `npm start`/`npm run admin` keep loading `.env` unchanged. Both `.env` and `.env.dev` should point at your own machine; both entry points print the database name and host they connect to at startup, and warn loudly if that host isn't loopback.
 
 ## Public publishing
 
@@ -82,7 +82,7 @@ Set `ADMIN_PASSWORD` in your ignored `.env`, then run:
 npm run admin
 ```
 
-Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin). Use `npm run dev:admin` with an `.env.dev` file to manage a local/dev database instead of production.
+Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin). `npm run dev:admin` reads `.env.dev` instead, for a separate local config. Either file can be pointed at a remote database when you deliberately need to operate on one — the admin service prints a loud warning at startup when `MONGODB_URI` isn't loopback, since revocations there affect real data.
 
 - Password login with an in-memory session
 - Search by publication ID or title

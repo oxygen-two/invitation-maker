@@ -47,7 +47,7 @@ npm start
 python3 -m http.server 4173
 ```
 
-로컬에서 실험할 때는 `.env.example`을 `.env.dev`로 복사하고 `npm run dev`(관리자 서비스는 `npm run dev:admin`)를 사용하세요. 운영 데이터베이스와 분리된 상태로 로컬 테스트를 진행할 수 있습니다. `npm start`/`npm run admin`은 기존대로 `.env`를 사용합니다.
+`npm start`, `npm run admin`, `npm run dev`, `npm run dev:admin`은 모두 로컬 개발자용 명령이며, 그중 어느 것도 운영 환경에서 실행되지 않습니다. 운영 환경은 `server/index.cjs`를 전혀 실행하지 않고, `api/*.js` 서버리스 함수와 `scripts/build-public.cjs`를 통해 배포되며, 설정은 전적으로 Vercel의 환경 변수에서 옵니다. 별도의 로컬 설정(예: 다른 로컬 데이터베이스)이 필요하면 `.env.example`을 `.env.dev`로 복사하고 `npm run dev`(관리자 서비스는 `npm run dev:admin`)를 사용하세요. `npm start`/`npm run admin`은 기존대로 `.env`를 사용합니다. `.env`와 `.env.dev` 모두 자신의 로컬 환경을 가리켜야 하며, 두 진입점 모두 시작 시 연결할 데이터베이스 이름과 호스트를 출력하고, 호스트가 로컬(loopback)이 아니면 눈에 띄게 경고합니다.
 
 ## 공개 발행 서버
 
@@ -79,7 +79,7 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 ADMIN_PASSWORD='change-me' npm run admin
 ```
 
-운영 데이터베이스 대신 로컬/개발 데이터베이스를 관리하려면 `.env.dev` 파일을 준비하고 `npm run dev:admin`을 사용하세요.
+`npm run dev:admin`은 별도의 로컬 설정을 위해 `.env` 대신 `.env.dev` 파일을 읽습니다. 두 파일 중 어느 쪽이든 의도적으로 원격 데이터베이스를 가리킬 수 있습니다 — 이 경우 `MONGODB_URI`가 로컬(loopback)이 아니면 관리자 서비스가 시작 시 눈에 띄는 경고를 출력합니다. 관리자 서비스의 폐기 작업은 실제 데이터에 영향을 주기 때문입니다.
 
 관리자 화면:
 
