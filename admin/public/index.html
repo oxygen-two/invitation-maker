@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>초대장 발행 관리</title>
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="login-view" class="panel">
+      <p class="eyebrow">INVITATION MAKER</p>
+      <h1>발행 관리</h1>
+      <form id="login-form">
+        <label for="password">관리자 비밀번호</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">로그인</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="app-view" hidden>
+      <header class="topbar"><div><p class="eyebrow">INVITATION MAKER</p><h1>발행 목록</h1></div><button id="logout" class="secondary">로그아웃</button></header>
+      <div class="toolbar"><input id="search" type="search" placeholder="발행 ID 검색"><select id="page-size"><option>20</option><option>50</option><option>100</option></select><button id="refresh" class="secondary">새로고침</button></div>
+      <p id="status" class="muted"></p>
+      <div class="table-wrap"><table><thead><tr><th>제목</th><th>ID</th><th>발행일</th><th>만료</th><th>관리</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <nav class="pagination" aria-label="발행 목록 페이지"><button id="prev" class="secondary">이전</button><span id="page-label"></span><button id="next" class="secondary">다음</button></nav>
+      <aside id="detail" class="panel detail" hidden><div class="detail-head"><h2>상세</h2><button id="close-detail" class="secondary">닫기</button></div><pre id="detail-json"></pre></aside>
+    </section>
+  </main>
+  <script src="/admin/admin.js" defer></script>
+</body>
+</html>

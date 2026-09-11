@@ -1,0 +1,25 @@
+:root { color-scheme: light; font-family: ui-sans-serif, system-ui, sans-serif; background: #f6f3ee; color: #29251f; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; }
+.shell { width: min(1120px, calc(100% - 32px)); margin: 48px auto; }
+.panel, .table-wrap { background: #fffdf9; border: 1px solid #e4ddd3; border-radius: 18px; box-shadow: 0 12px 30px #6f5d4312; }
+.panel { max-width: 440px; padding: 28px; margin: 12vh auto; }
+.topbar, .toolbar, .detail-head, .pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.topbar { margin-bottom: 24px; }
+.toolbar { margin-bottom: 12px; }
+h1, h2, p { margin-top: 0; } h1 { margin-bottom: 0; } h2 { margin-bottom: 0; }
+.eyebrow { color: #9a6d43; font-size: 12px; letter-spacing: .14em; font-weight: 700; margin-bottom: 8px; }
+label { display: block; font-size: 14px; margin: 20px 0 8px; }
+input, select, button { font: inherit; border-radius: 10px; border: 1px solid #d9d0c4; padding: 10px 12px; }
+input { width: 100%; background: #fff; } .toolbar input { max-width: 420px; }
+button { cursor: pointer; background: #8d5e39; color: #fff; border-color: #8d5e39; font-weight: 650; }
+button.secondary { background: transparent; color: #6d513b; }
+form button { width: 100%; margin-top: 18px; }
+.error { min-height: 20px; color: #b43b32; margin: 10px 0 0; }
+.muted { color: #766f67; min-height: 20px; }
+table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid #eee7dd; font-size: 14px; vertical-align: top; } th { color: #766f67; font-size: 12px; }
+td.actions { white-space: nowrap; } td.actions button { margin-right: 6px; padding: 7px 9px; font-size: 12px; }
+button.danger { background: #b43b32; border-color: #b43b32; } button.danger:hover { background: #9c322a; border-color: #9c322a; }
+.pagination { justify-content: center; margin: 18px 0 0; } #page-label { min-width: 100px; text-align: center; }
+.detail { max-width: none; margin: 24px 0; } .detail pre { overflow: auto; white-space: pre-wrap; word-break: break-word; background: #f8f5f0; padding: 16px; border-radius: 10px; }
+@media (max-width: 720px) { .shell { width: min(100% - 20px, 1120px); margin: 20px auto; } .toolbar { flex-wrap: wrap; } .toolbar input { max-width: none; flex: 1 1 100%; } .table-wrap { overflow-x: auto; } table { min-width: 740px; } }
