@@ -1,35 +1,42 @@
-# 초대장 메이커
+# Invitation Maker
 
-브라우저에서 초대장을 만들고, 독립 HTML로 저장하거나 공개 링크로 발행할 수 있는 정적 우선 초대장 제작기입니다. 제작 데이터는 브라우저에 보관하고, 공개 발행을 선택한 경우에만 정규화된 초대장 스냅샷을 MongoDB에 저장합니다.
+[English](README.md) | [한국어](README.ko.md)
 
-## 제공 기능
+A static-first invitation editor with live previews, standalone HTML downloads, and optional public sharing. Drafts stay in the browser; publishing stores a normalized invitation snapshot in MongoDB.
 
-- 생일, 결혼, 기념일, 행사 등 행사별 템플릿 선택
-- 실시간 미리보기와 독립 실행형 HTML 다운로드
-- 사진을 Base64/WebP로 포함한 단일 HTML export
-- 브라우저 IndexedDB 기반 초안 및 로컬 초대장 보관
-- Base62 공개 ID를 사용하는 익명 초대장 발행
-- 발행 초대장 조회 및 제작자 토큰 기반 삭제
-- 로컬 관리자 서비스의 목록, 검색, 페이지네이션, 상세, 강제 폐기
-- GA4/PostHog 선택적 분석 설정
+## Features
 
-## 서비스 구조
+- Occasion-based templates for birthdays, weddings, anniversaries, and events
+- Live preview and standalone HTML downloads with embedded photos
+- IndexedDB storage for drafts and the local invitation library
+- Anonymous publishing with random Base62 public IDs
+- Public invitation viewing and owner-token deletion
+- A separate local admin service for search, pagination, details, and revocation
+- Optional GA4 and PostHog analytics
+
+## Architecture
+
+![Invitation Maker architecture — Korean labels](docs/architecture/archify/system.visual-check.2048x1320.light.png)
+
+[Interactive Archify diagram](docs/architecture/archify/system.html) · [JSON source and regeneration instructions (Korean)](docs/architecture/archify/README.md)
+
+The diagram currently uses Korean labels. Download the HTML and open it in a browser to use the interactive viewer.
 
 ```text
-초대장 메이커
-├── 제작기        index.html + assets/
-├── 공개 뷰어      shared.html
-├── 공개 API       api/ + server/
-├── 로컬 관리자    admin/
-├── 공개 산출물    public/
-└── 문서/설계      docs/
+invitation-maker/
+├── index.html + assets/   # Editor
+├── shared.html           # Public invitation viewer
+├── api/ + server/        # Publishing API
+├── admin/                # Local admin service
+├── public/               # Generated deployment assets
+└── docs/                 # Documentation and diagram sources
 ```
 
-자세한 경계와 리팩토링 검토는 [`docs/architecture/README.md`](docs/architecture/README.md)를 참고하세요. 원본 Mermaid 다이어그램은 [`docs/architecture/diagrams/`](docs/architecture/diagrams/)에 있습니다.
+See the [architecture review (Korean)](docs/architecture/README.md) for current boundaries and refactoring progress. The planned refactor has fully landed — all five steps are complete. [Mermaid sources](docs/architecture/diagrams/) and [Archify JSON](docs/architecture/archify/system.architecture.json) are kept under `docs/`.
 
-## 빠른 시작
+## Quick start
 
-Node.js 22 이상을 사용합니다.
+Requires Node.js 22 or later.
 
 ```bash
 npm ci
@@ -37,15 +44,15 @@ cp .env.example .env
 npm start
 ```
 
-제작 화면은 [http://127.0.0.1:4173](http://127.0.0.1:4173)에서 엽니다. 정적 제작 화면만 확인할 때는 다음 명령도 사용할 수 있습니다.
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173). To preview only the static editor:
 
 ```bash
 python3 -m http.server 4173
 ```
 
-## 공개 발행 서버
+## Public publishing
 
-공개 발행 API는 MongoDB 연결이 필요합니다. `.env`에 다음 값을 설정합니다.
+Set your MongoDB connection in the ignored `.env` file:
 
 ```dotenv
 MONGODB_URI=mongodb://...
@@ -53,48 +60,40 @@ MONGODB_DB=invitation_publish
 PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 ```
 
-주요 공개 API는 다음과 같습니다.
-
-| 메서드 | 경로 | 설명 |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/invitations` | 정규화된 초대장 발행 |
-| `GET` | `/api/invitations/:id` | 공개 초대장 조회 |
-| `DELETE` | `/api/invitations/:id` | 제작자 토큰으로 발행 취소 |
+| `POST` | `/api/invitations` | Publish a normalized snapshot |
+| `GET` | `/api/invitations/:id` | Read a public invitation |
+| `DELETE` | `/api/invitations/:id` | Revoke with the owner's management token |
 
-발행 성공 시 `/i/{base62-id}` 링크를 반환합니다. 발행 문서에는 TTL, 시간당/IP별 제한, 일일 제한, 누적 제한이 적용됩니다.
+Publishing returns `/i/{base62-id}`. Per-IP hourly, daily, and lifetime quotas limit publication volume. Automatic expiry is disabled by default; a positive `PUBLISH_TTL_DAYS` applies to new publications.
 
-상세 운영 규칙은 [`docs/publishing.md`](docs/publishing.md)에 있습니다.
+See [publishing documentation](docs/publishing.md) for authentication headers, limits, retry rules, and deployment configuration.
 
-## 로컬 관리자
+## Local administration
 
-관리자 서비스는 공개 서버와 별도 프로세스로 실행하며 Vercel 공개 산출물에 포함되지 않습니다.
+The admin service runs separately from the public server and is excluded from the public static build. It also requires `MONGODB_URI` and `MONGODB_DB` for the database you want to manage.
+
+Set `ADMIN_PASSWORD` in your ignored `.env`, then run:
 
 ```bash
-ADMIN_PASSWORD='change-me' npm run admin
+npm run admin
 ```
 
-관리자 화면:
+Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin).
 
-```text
-http://127.0.0.1:4174/admin
-```
+- Password login with an in-memory session
+- Search by publication ID or title
+- Server pagination with a page size of 1–100
+- Publication details, public links, and administrator revocation
 
-관리자 기능:
+`ADMIN_HOST` defaults to `0.0.0.0`. Use HTTPS when accessing the service across a network. Restarting the process clears sessions. Set `PUBLIC_BASE_URL` to the public site's origin when managing a remote deployment.
 
-- 비밀번호 로그인 및 메모리 세션
-- 발행 ID/제목 검색
-- 페이지 크기 1~100 범위의 서버 페이지네이션
-- 발행 상세 확인
-- 공개 링크 열기
-- 관리자 강제 폐기
+## Analytics
 
-`ADMIN_HOST` 기본값은 `0.0.0.0`이며, 다른 기기에서 접근하는 경우 HTTPS를 제공하는 프록시 뒤에서 사용해야 합니다. 세션은 관리자 프로세스가 재시작되면 만료됩니다.
+GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics-config.js`. Local and preview hosts do not send events by default. See [analytics documentation](docs/analytics.md) for configuration and privacy boundaries.
 
-## 분석 설정
-
-GA4는 `assets/analytics-config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다. 분석 이벤트와 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
-
-## 테스트와 빌드
+## Tests and build
 
 ```bash
 npm test
@@ -102,25 +101,27 @@ npm run build:public
 git diff --check
 ```
 
-실제 MongoDB 저장소 검증:
+For integration checks against a disposable MongoDB test database:
 
 ```bash
 npm run verify:publishing-mongo
 ```
 
-`build:public`은 루트의 공개 HTML과 `assets/`만 `public/`으로 복사합니다. 관리자 코드는 이 산출물에 들어가지 않습니다.
+`build:public` copies public root HTML and `assets/` into `public/`. Admin files and architecture documentation are excluded.
 
-## 문서 안내
+## Documentation
 
-- [`docs/architecture/README.md`](docs/architecture/README.md): 현재 구조, Graphify 분석, 리팩토링 방향
-- [`docs/publishing.md`](docs/publishing.md): 공개 발행 API와 MongoDB 운영
-- [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정과 이벤트 경계
-- [`DESIGN.md`](DESIGN.md): 제작기 UI와 템플릿 기준
+- [Architecture review (Korean)](docs/architecture/README.md): boundaries and refactoring progress
+- [Archify diagram guide (Korean)](docs/architecture/archify/README.md): installation, source, regeneration, and validation
+- [Publishing](docs/publishing.md): API and MongoDB operations
+- [Analytics](docs/analytics.md): GA4/PostHog configuration
+- [Design](DESIGN.md): editor and template conventions
 
-## 유지보수 원칙
+## Maintenance
 
-- 초대장 정규화와 렌더링 규칙은 `assets/invitation-core.js`를 기준으로 유지합니다.
-- 공개 API와 관리자 API를 하나의 인증 흐름으로 합치지 않습니다.
-- 저장소 문서를 HTTP 응답으로 직접 노출하지 않고 DTO 경계를 둡니다.
-- 새 샘플 파일은 제작기 루트에 두지 않고 `docs/` 또는 별도 fixture 경로에 둡니다.
-- 구조 변경은 공개 발행, 관리자, 정적 빌드 테스트를 함께 실행한 뒤 반영합니다.
+- Keep normalization and rendering rules centered on `assets/invitation-core.js`.
+- Preserve separate authentication flows for public publishing and administration.
+- Use response DTOs instead of returning raw database documents.
+- Keep examples in documentation or isolated fixtures, outside the public root.
+- Validate public publishing, administration, and packaging after structural changes.
+- Update both READMEs together when commands, configuration, or supported features change. Keep diagram sources shared under `docs/` to avoid duplicate maintenance.

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/jaeseoh/Documents/workspace/happy-rin/docs/architecture/archify/system.architecture.json",
+  "output": "/Users/jaeseoh/Documents/workspace/happy-rin/docs/architecture/archify/system.html",
+  "specification": {
+    "sha256": "6d4e19cedc644d60c2e3ee6027f68fe4dc4e7438d4e430c3bbc6eecee3f60ba1",
+    "bytes": 1838
+  },
+  "artifact": {
+    "sha256": "c79e47cd8c4226a9eff88f3ebea470b4a8caf8ba601905c721042d0551b48055",
+    "bytes": 804377
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}
