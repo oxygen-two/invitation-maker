@@ -135,6 +135,27 @@ class FakeRepository {
   }
 }
 
+// The Mongo repository enforces expiry inside the read query itself, so an
+// expired publication is never returned and never extended. This fake mirrors
+// that contract. `FakeRepository` above deliberately does not, which keeps the
+// handler's own expiry guard covered for any store that hands one back anyway.
+class ExpiryEnforcingRepository extends FakeRepository {
+  async get(id, { now = new Date() } = {}) {
+    const record = await super.get(id);
+    if (!record) return null;
+    return record.expiresAt && new Date(record.expiresAt).getTime() <= now.getTime() ? null : record;
+  }
+
+  async refreshExpiry({ id, expiresAt, now = new Date() }) {
+    const record = this.records.get(id);
+    if (record?.expiresAt && new Date(record.expiresAt).getTime() <= now.getTime()) {
+      this.refreshes.push({ id, expiresAt, rejected: true });
+      return false;
+    }
+    return super.refreshExpiry({ id, expiresAt });
+  }
+}
+
 const createTestHandler = (repository = new FakeRepository(), config = {}) => createHandler({
   repository,
   config: {
@@ -542,6 +563,39 @@ test("an admin read never extends a publication's expiry", async () => {
   assert.equal(calls.filter((call) => call.updateOne || call.findOneAndUpdate).length, 0);
 });
 
+test("a store that hides expired publications turns the public read into a plain miss", async () => {
+  const repository = new ExpiryEnforcingRepository();
+  const { clock, handler } = createClockedHandler(repository);
+  const published = await publishOnce(handler, "만료 후 조회");
+  const publicPath = `/api/invitations/${published.body.id}`;
+  const stored = repository.records.get(published.body.id);
+
+  clock.now = at(5);
+  const live = await request(handler, publicPath);
+  assert.equal(live.status, 200);
+  assert.equal(live.body.invitation.title, "만료 후 조회");
+  assert.equal(live.body.expiresAt, at(12).toISOString());
+  assert.equal(repository.refreshes.length, 1, "a live read still slides the window");
+
+  // Nothing deletes the record any more, so an expired read must be denied by
+  // the read itself - and must not push the expiry forward on its way out.
+  clock.now = at(12, 1);
+  const expired = await request(handler, publicPath);
+  assert.equal(expired.status, 404);
+  assert.equal(expired.body.error.code, "NOT_FOUND");
+  assert.ok(repository.records.has(published.body.id), "the record is hidden, not deleted");
+  assert.equal(stored.expiresAt, at(12).toISOString());
+  assert.equal(repository.refreshes.length, 1, "an expired read never reaches the refresh path");
+
+  // Even called directly, the refresh refuses to resurrect a dead record.
+  assert.equal(await repository.refreshExpiry({
+    id: published.body.id,
+    expiresAt: at(19).toISOString(),
+    now: clock.now
+  }), false);
+  assert.equal(stored.expiresAt, at(12).toISOString());
+});
+
 test("a failed expiry refresh still serves the invitation", async () => {
   const repository = new FakeRepository();
   const { clock, handler } = createClockedHandler(repository);
@@ -644,6 +698,9 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
     totalDailyLimit: 20,
     lifetimeLimit: 20
   });
+  // These fixtures publish at a fixed instant, so reads have to be judged
+  // against that instant too: the repository hides records past their expiry.
+  const whilePublished = { now: new Date("2026-09-10T12:00:00.000Z") };
 
   try {
     const first = await repository.publish({
@@ -712,7 +769,7 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
 
     assert.equal(first.id, "1111111111111111111111");
     assert.equal(replay.id, first.id);
-    assert.equal((await repository.get(first.id)).invitation.title, "Mongo invite");
+    assert.equal((await repository.get(first.id, whilePublished)).invitation.title, "Mongo invite");
 
     await repository.close();
     const restartedRepository = createMongoPublicationsRepository({
@@ -722,7 +779,7 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
       totalDailyLimit: 20,
       lifetimeLimit: 20
     });
-    assert.equal((await restartedRepository.get(first.id)).invitation.title, "Mongo invite");
+    assert.equal((await restartedRepository.get(first.id, whilePublished)).invitation.title, "Mongo invite");
     await restartedRepository.close();
 
     await assert.rejects(() => repository.publish({
@@ -776,19 +833,29 @@ test("Mongo repository publishes, replays idempotently, enforces quotas, and del
       now: new Date("2026-09-10T00:04:00.000Z"),
       expiresAt: "2026-09-09T00:00:00.000Z"
     });
-    assert.equal((await request(createTestHandler(expiredRepository), "/api/invitations/4444444444444444444444")).status, 410);
+    const expiredResponse = await request(createTestHandler(expiredRepository), "/api/invitations/4444444444444444444444");
+    assert.equal(expiredResponse.status, 404);
+    assert.equal(expiredResponse.body.error.code, "NOT_FOUND");
+    assert.equal(await expiredRepository.get("4444444444444444444444"), null);
+    const survivorClient = new MongoClient(process.env.MONGODB_URI);
+    await survivorClient.connect();
+    const survivor = await survivorClient.db(databaseName)
+      .collection("published_invitations")
+      .findOne({ id: "4444444444444444444444" });
+    await survivorClient.close();
+    assert.ok(survivor, "the expired record is hidden by the read, not deleted by the database");
     await expiredRepository.close();
 
     assert.equal(await repository.remove({ id: first.id, tokenHash: "wrong" }), false);
     assert.equal(await repository.remove({ id: first.id, tokenHash: "token-a" }), true);
-    assert.equal(await repository.get(first.id), null);
+    assert.equal(await repository.get(first.id, whilePublished), null);
   } finally {
     await repository.dropDatabase();
     await repository.close();
   }
 });
 
-test("Mongo repository stores a TTL date and refreshes it forward only, once per read", {
+test("Mongo hides expired publications from the public read, keeps them for the operator, and never revives them", {
   skip: !process.env.MONGODB_URI && "Set MONGODB_URI for real Mongo integration"
 }, async () => {
   const databaseName = `publishing_expiry_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -799,45 +866,113 @@ test("Mongo repository stores a TTL date and refreshes it forward only, once per
     totalDailyLimit: 20,
     lifetimeLimit: 20
   });
+  const admin = createAdminMongoPublications({
+    uri: process.env.MONGODB_URI,
+    dbName: databaseName
+  });
   const client = new MongoClient(process.env.MONGODB_URI);
+  const id = "7777777777777777777777";
 
   try {
-    const createdAt = new Date("2026-01-01T00:00:00.000Z");
     await repository.publish({
-      id: "7777777777777777777777",
-      invitation: { title: "TTL invite" },
+      id,
+      invitation: { title: "만료 정책" },
       tokenHash: "ttl-token",
       idempotencyKeyHash: "ttl-idem",
       contentHash: "ttl-content",
       clientKeyHash: "ttl-client",
-      now: createdAt,
-      expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      now: PUBLISHED_AT,
+      expiresAt: at(7).toISOString()
     });
 
     await client.connect();
-    const raw = () => client.db(databaseName).collection("published_invitations").findOne({ id: "7777777777777777777777" });
+    const publications = () => client.db(databaseName).collection("published_invitations");
+    const raw = () => publications().findOne({ id });
 
     const stored = await raw();
-    assert.ok(stored.expiresAtDate instanceof Date, "TTL index needs a real Date");
+    assert.ok(stored.expiresAtDate instanceof Date, "the expiry marker has to be a real Date to be queryable");
     assert.equal(stored.expiresAtDate.toISOString(), stored.expiresAt);
-    assert.equal((await repository.get("7777777777777777777777")).createdAt.toISOString(), createdAt.toISOString());
 
-    const forward = new Date(createdAt.getTime() + 12 * 24 * 60 * 60 * 1000).toISOString();
-    assert.equal(await repository.refreshExpiry({ id: "7777777777777777777777", expiresAt: forward }), true);
-    assert.equal((await raw()).expiresAt, forward);
-    assert.equal((await raw()).expiresAtDate.toISOString(), forward);
+    // `expiresAtDate` is a marker the batch job scans, not a deletion trigger.
+    const expiryIndex = (await publications().indexes())
+      .find((index) => index.key.expiresAtDate === 1 && Object.keys(index.key).length === 1);
+    assert.ok(expiryIndex, "the future batch job needs an index on expiresAtDate");
+    assert.equal(expiryIndex.expireAfterSeconds, undefined, "MongoDB must not delete publications");
+
+    // Quota buckets are ephemeral bookkeeping and keep expiring on their own.
+    const counterIndexes = await client.db(databaseName).collection("publishing_counters").indexes();
+    assert.ok(counterIndexes.some((index) => index.key.expiresAt === 1 && index.expireAfterSeconds === 0));
+
+    // Live: reads normally, and the read still slides the window forward.
+    const live = await repository.get(id, { now: at(5) });
+    assert.equal(live.invitation.title, "만료 정책");
+    assert.equal(live.createdAt.toISOString(), PUBLISHED_AT.toISOString());
+    assert.equal(await repository.refreshExpiry({ id, expiresAt: at(12).toISOString(), now: at(5) }), true);
+    assert.equal((await raw()).expiresAt, at(12).toISOString());
+    assert.equal((await raw()).expiresAtDate.toISOString(), at(12).toISOString());
 
     // Monotonic: a slower concurrent read can never pull the expiry backwards.
-    const backward = new Date(createdAt.getTime() + 9 * 24 * 60 * 60 * 1000).toISOString();
-    assert.equal(await repository.refreshExpiry({ id: "7777777777777777777777", expiresAt: backward }), false);
-    assert.equal((await raw()).expiresAt, forward);
+    assert.equal(await repository.refreshExpiry({ id, expiresAt: at(9).toISOString(), now: at(5) }), false);
+    assert.equal((await raw()).expiresAt, at(12).toISOString());
+    assert.equal(await repository.refreshExpiry({ id: "missing", expiresAt: at(12).toISOString(), now: at(5) }), false);
 
-    assert.equal(await repository.refreshExpiry({ id: "missing", expiresAt: forward }), false);
+    // Past its expiry: gone from the public read, and not extended by it.
+    assert.equal(await repository.get(id, { now: at(12, 1) }), null);
+    assert.equal(await repository.refreshExpiry({ id, expiresAt: at(19).toISOString(), now: at(12, 1) }), false);
+    assert.equal((await raw()).expiresAt, at(12).toISOString());
 
-    const ttlIndexes = await client.db(databaseName).collection("published_invitations").indexes();
-    assert.ok(ttlIndexes.some((index) => index.key.expiresAtDate === 1 && index.expireAfterSeconds === 0));
+    // End to end, the public API answers exactly as it did when a TTL index had
+    // already removed the document.
+    const { clock, handler } = createClockedHandler(repository);
+    clock.now = at(12, 1);
+    const expired = await request(handler, `/api/invitations/${id}`);
+    assert.equal(expired.status, 404);
+    assert.equal(expired.body.error.code, "NOT_FOUND");
+    assert.equal((await raw()).expiresAt, at(12).toISOString(), "the public read left the expiry alone");
+
+    // The record is still there: the operator can see it and clean it up.
+    assert.ok(await raw());
+    const viewed = await admin.getAdmin(id);
+    assert.equal(viewed.invitation.title, "만료 정책");
+    assert.equal(viewed.expiresAt, at(12).toISOString());
+    assert.equal((await admin.list({ query: id })).items.length, 1);
   } finally {
     await client.close();
+    await admin.close();
+    await repository.dropDatabase();
+    await repository.close();
+  }
+});
+
+test("Mongo keeps a legacy record without an expiry marker readable and refreshable", {
+  skip: !process.env.MONGODB_URI && "Set MONGODB_URI for real Mongo integration"
+}, async () => {
+  const databaseName = `publishing_legacy_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const repository = createMongoPublicationsRepository({
+    uri: process.env.MONGODB_URI,
+    dbName: databaseName,
+    rateLimitPerHour: 20,
+    totalDailyLimit: 20,
+    lifetimeLimit: 20
+  });
+  const id = "8888888888888888888888";
+
+  try {
+    await repository.publish({
+      id,
+      invitation: { title: "정책 이전 발행" },
+      tokenHash: "legacy-token",
+      idempotencyKeyHash: "legacy-idem",
+      contentHash: "legacy-content",
+      clientKeyHash: "legacy-client",
+      now: PUBLISHED_AT,
+      expiresAt: null
+    });
+
+    assert.equal((await repository.get(id, { now: at(400) })).invitation.title, "정책 이전 발행");
+    assert.equal(await repository.refreshExpiry({ id, expiresAt: at(407).toISOString(), now: at(400) }), true);
+    assert.equal((await repository.get(id, { now: at(400) })).expiresAt, at(407).toISOString());
+  } finally {
     await repository.dropDatabase();
     await repository.close();
   }

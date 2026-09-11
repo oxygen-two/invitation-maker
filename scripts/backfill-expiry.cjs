@@ -3,8 +3,9 @@
 // policy existed. Those records have `expiresAtDate: null` and would otherwise
 // live forever.
 //
-// This script never deletes anything. It only writes an expiry; MongoDB's TTL
-// index on `expiresAtDate` performs the actual removal later.
+// This script never deletes anything, and neither does MongoDB: it only writes
+// the marker. Once a record carries an expiry the public read stops serving it,
+// and the external batch deletion service removes it later.
 //
 // Usage:
 //   node scripts/backfill-expiry.cjs              # dry run (default)
@@ -61,8 +62,8 @@ const asDate = (value) => {
 };
 
 // Grace decision: a record whose `createdAt` is already older than the hard
-// ceiling would be deleted by the TTL index the moment this migration wrote its
-// honest expiry. Killing a live invitation on the spot is unacceptable
+// ceiling would stop being readable the moment this migration wrote its honest
+// expiry. Killing a live invitation on the spot is unacceptable
 // collateral, so those records get `now + idleWindow` instead: anyone sharing
 // that link today still has a full idle window, and normal reads take over from
 // there (a link nobody opens then expires on schedule).
@@ -146,7 +147,7 @@ const run = async () => {
   console.log(`  already had expiry: ${summary.alreadyExpiring} (untouched)`);
   console.log(`  newly set:          ${summary.newlySet}`);
   console.log(`    within ceiling:   ${summary.normal}`);
-  console.log(`    grace bucket:     ${summary.grace} (older than ${maxLifetimeDays}d; would be deleted immediately, given now + ${idleWindowDays}d instead)`);
+  console.log(`    grace bucket:     ${summary.grace} (older than ${maxLifetimeDays}d; would stop being readable immediately, given now + ${idleWindowDays}d instead)`);
   console.log(`    no createdAt:     ${summary.missingCreatedAt} (given now + ${idleWindowDays}d)`);
   if (samples.length) {
     console.log("  sample:");

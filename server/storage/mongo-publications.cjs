@@ -2,6 +2,22 @@ const { MongoClient } = require("mongodb");
 
 const errorWithCode = (code) => Object.assign(new Error(code), { code });
 
+// MongoDB refuses to redefine an existing index with different options.
+// IndexOptionsConflict (85) / IndexKeySpecsConflict (86) are what a deployment
+// still carrying the retired TTL index reports for the plain expiry index.
+const INDEX_CONFLICT_CODES = new Set([85, 86]);
+
+// A record is live while its expiry is strictly in the future, matching the
+// boundary the retired TTL index used (it removed documents at expiresAtDate).
+// A missing or null expiry means "no expiry set" and stays live.
+const liveExpiryFilter = (now) => ({
+  $or: [
+    { expiresAtDate: null },
+    { expiresAtDate: { $exists: false } },
+    { expiresAtDate: { $gt: now } }
+  ]
+});
+
 const hourBucket = (date) => date.toISOString().slice(0, 13);
 const dayBucket = (date) => date.toISOString().slice(0, 10);
 const counterExpiry = (key, now) => {
@@ -29,13 +45,33 @@ const createMongoPublicationsRepository = ({
     return client.db(dbName);
   };
 
+  // A plain, non-TTL index on `expiresAtDate`. MongoDB must not delete
+  // publications: `expiresAtDate` is only a marker that the public read below
+  // enforces and an external batch job acts on. The index keeps both that read
+  // filter and the job's "find expired records" scan cheap.
+  //
+  // Deployments created before this change still carry the retired TTL index
+  // (`expiresAtDate_1` with `expireAfterSeconds: 0`), and MongoDB rejects the
+  // redefinition. Serving is unaffected either way, so warn instead of taking
+  // the API down until an operator runs the drop script.
+  const createExpiryScanIndex = async (invitations) => {
+    try {
+      await invitations.createIndex({ expiresAtDate: 1 });
+    } catch (error) {
+      if (!INDEX_CONFLICT_CODES.has(error?.code)) throw error;
+      console.warn(`[publications] ${collectionName}.expiresAtDate still carries the retired TTL index, so MongoDB keeps deleting expired publications. Drop it with: node scripts/drop-expiry-ttl-index.cjs --apply`);
+    }
+  };
+
   const setupIndexes = async () => {
     const db = await connect();
     await Promise.all([
       db.collection(collectionName).createIndex({ id: 1 }, { unique: true }),
       db.collection(collectionName).createIndex({ tokenHash: 1, idempotencyKeyHash: 1 }, { unique: true }),
-      db.collection(collectionName).createIndex({ expiresAtDate: 1 }, { expireAfterSeconds: 0 }),
+      createExpiryScanIndex(db.collection(collectionName)),
       db.collection(countersCollectionName).createIndex({ key: 1 }, { unique: true }),
+      // Counters keep their TTL index on purpose: rate-limit quota buckets are
+      // ephemeral bookkeeping, not user content, and must expire on their own.
       db.collection(countersCollectionName).createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 })
     ]);
     return db;
@@ -136,8 +172,15 @@ const createMongoPublicationsRepository = ({
     throw errorWithCode("PUBLIC_ID_COLLISION");
   };
 
-  const get = async (id) => {
-    const record = await (await collection()).findOne({ id });
+  // The public read owns expiry enforcement. Nothing deletes expired documents
+  // any more, so an expired record is still on disk and must never be served:
+  // it behaves exactly as it did when the TTL index had removed it.
+  //
+  // The expiry is part of the query, not a check after `findOne`, so an expired
+  // invitation's content never leaves the database. `now` comes from the caller
+  // (the request's single clock) and falls back to the wall clock.
+  const get = async (id, { now = new Date() } = {}) => {
+    const record = await (await collection()).findOne({ id, ...liveExpiryFilter(now) });
     if (!record) return null;
     return {
       id: record.id,
@@ -149,20 +192,29 @@ const createMongoPublicationsRepository = ({
     };
   };
 
-  // One atomic, monotonic update: the guard only matches when the stored expiry
-  // is missing or older than the new one, so concurrent reads can never move an
-  // expiry backwards and a lost race is simply a no-op.
-  const refreshExpiry = async ({ id, expiresAt }) => {
+  // One atomic, monotonic update guarded twice:
+  //   - the record must still be live, so a read can never resurrect a record
+  //     that is already past its expiry (the document still exists now that
+  //     nothing deletes it, so this guard is what keeps it dead);
+  //   - the stored expiry must be missing or older than the new one, so
+  //     concurrent reads can never move an expiry backwards and a lost race is
+  //     simply a no-op.
+  const refreshExpiry = async ({ id, expiresAt, now = new Date() }) => {
     if (!id || !expiresAt) return false;
     const next = new Date(expiresAt);
     if (Number.isNaN(next.getTime())) return false;
     const result = await (await collection()).updateOne(
       {
         id,
-        $or: [
-          { expiresAtDate: null },
-          { expiresAtDate: { $exists: false } },
-          { expiresAtDate: { $lt: next } }
+        $and: [
+          liveExpiryFilter(now),
+          {
+            $or: [
+              { expiresAtDate: null },
+              { expiresAtDate: { $exists: false } },
+              { expiresAtDate: { $lt: next } }
+            ]
+          }
         ]
       },
       { $set: { expiresAt: next.toISOString(), expiresAtDate: next } }

@@ -26,7 +26,7 @@ Publishing creates a snapshot. Editing a local draft does not change a previousl
 
 A retry must reuse the same content, management token, and idempotency key. Do not generate a new key simply because a response was lost. A reused identity with different content is rejected.
 
-`GET /api/invitations/:id` returns only `{ "invitation": { ... }, "expiresAt": null }`. Reads check expiry before returning content. No public listing endpoint is provided.
+`GET /api/invitations/:id` returns only `{ "invitation": { ... }, "expiresAt": null }`. The read enforces expiry itself: an expired publication is excluded by the database query, so it answers `404 NOT_FOUND` and `/i/{id}` shows the missing-invitation page. No public listing endpoint is provided.
 
 `DELETE /api/invitations/:id` requires the management token and returns HTTP 204 on success. Cancellation removes the remotely stored snapshot; a recipient's already downloaded HTML cannot be recalled.
 
@@ -48,23 +48,45 @@ A publication expires on a sliding window with a hard ceiling:
 D+0   published            expires D+7
 D+5   viewed               expires D+12
 D+25  viewed               expires D+30   (capped by the 30-day ceiling)
-D+30  deleted
-never viewed again         deleted one idle window after the last view
+D+30  expired              no longer readable; the record still exists
+never viewed again         expires one idle window after the last view
 ```
 
-An invitation that keeps getting opened stays alive for up to a month; one nobody opens disappears a week after its last view. `PUBLISH_MAX_LIFETIME_DAYS=0` disables expiry entirely. `PUBLISH_IDLE_WINDOW_DAYS=0` disables the sliding behaviour and leaves a plain `createdAt + max lifetime` TTL, which is how the retired `PUBLISH_TTL_DAYS` setting used to behave.
+An invitation that keeps getting opened stays readable for up to a month; one nobody opens stops being readable a week after its last view. `PUBLISH_MAX_LIFETIME_DAYS=0` disables expiry entirely. `PUBLISH_IDLE_WINDOW_DAYS=0` disables the sliding behaviour and leaves a plain `createdAt + max lifetime` expiry, which is how the retired `PUBLISH_TTL_DAYS` setting used to behave.
 
-Reads refresh the expiry with a single atomic, monotonic update, and only when the new value is more than `PUBLISH_EXPIRY_REFRESH_HOURS` (default 6) beyond the stored one. A busy invitation therefore costs at most a few writes per day, not one per view. A read that is already past its expiry returns `410` and is never revived; a record already past its ceiling is served as-is and never shortened by a read. The refresh is bookkeeping: if the write fails, the read still returns the invitation with its stored expiry.
+Reads refresh the expiry with a single atomic, monotonic update, and only when the new value is more than `PUBLISH_EXPIRY_REFRESH_HOURS` (default 6) beyond the stored one. A busy invitation therefore costs at most a few writes per day, not one per view. Expiry is enforced before that refresh, so a request for an expired invitation can never push its expiry forward; a record already past its ceiling is still served as-is and never shortened by a read. The refresh is bookkeeping: if the write fails, the read still returns the invitation with its stored expiry.
 
-Administrator reads never extend anything. The admin service uses a separate read-only repository (`admin/storage/mongo-publications.cjs`), so an operator opening a record in the publication manager cannot keep it alive.
+Administrator reads never extend anything, and they deliberately still show expired records so an operator can inspect and revoke them. The admin service uses a separate read-only repository (`admin/storage/mongo-publications.cjs`), so an operator opening a record in the publication manager cannot keep it alive.
 
-A MongoDB TTL index on `expiresAtDate` cleans up expired records in the background; immediate access expiry is enforced by the API and does not depend on that cleanup task.
+### MongoDB does not delete publications
+
+`expiresAtDate` is a marker, not a deletion trigger. There is no TTL index on it: the publications collection carries a plain index on `expiresAtDate` so a read can filter on it and a future batch deletion service can scan for expired records cheaply. Deleting expired content is that service's job, and it does not exist yet — assume an expired record is still stored.
+
+Enforcement therefore lives in the read path (`server/storage/mongo-publications.cjs`). `get` filters expired records inside the `findOne` query rather than after fetching, so an expired invitation's content never leaves the database, and `refreshExpiry` refuses to write to a record that is already past its expiry. `GET /api/invitations/:id` still answers `410 EXPIRED` if some other store hands back an expired record, but the MongoDB-backed deployment answers `404 NOT_FOUND`, exactly as it did when a TTL index had already removed the document.
+
+The `publishing_counters` collection keeps its TTL index on `expiresAt`. Those documents are rate-limit quota buckets — ephemeral bookkeeping, not user content — and must keep expiring on their own.
+
+#### Dropping the retired TTL index
+
+Removing the index from the application code does not drop it from a database that already has it: every earlier connect created `expiresAtDate_1` with `expireAfterSeconds: 0`, and MongoDB keeps deleting until the index itself is gone. Until it is dropped, the server logs a warning on connect (MongoDB rejects redefining that index with different options; the API keeps serving).
+
+```sh
+# Dry run first: prints the index it would drop, changes nothing.
+MONGODB_URI='mongodb://127.0.0.1:27017' MONGODB_DB='invitation_maker' \
+  node scripts/drop-expiry-ttl-index.cjs
+
+# Then perform the drop and recreate the plain scan index.
+MONGODB_URI='mongodb://127.0.0.1:27017' MONGODB_DB='invitation_maker' \
+  node scripts/drop-expiry-ttl-index.cjs --apply
+```
+
+The script drops one index, never a document, and never touches the counters collection. It refuses a non-loopback MongoDB host unless `PUBLISH_INDEX_DROP_ALLOW_REMOTE=1` is set — a separate opt-in from the backfill's, so an environment exported for a backfill cannot silently authorize a schema change. Deploy the expiry-enforcing API before dropping the index against production; dropping it first leaves expired invitations publicly readable until the deployment lands. Re-running the script is safe: it reports and exits when the index is already a plain one.
 
 ### Backfilling records published before this policy
 
-Publications created earlier have `expiresAtDate: null` and would live forever. `node scripts/backfill-expiry.cjs` gives them an expiry. It defaults to a dry run, refuses non-loopback MongoDB hosts unless `PUBLISH_BACKFILL_ALLOW_REMOTE=1` is set, and requires `--apply` to write. It never deletes: it only sets `expiresAt`/`expiresAtDate` and lets the TTL index do the removal.
+Publications created earlier have `expiresAtDate: null`, which reads as "no expiry set" and stays readable forever. `node scripts/backfill-expiry.cjs` gives them an expiry. It defaults to a dry run, refuses non-loopback MongoDB hosts unless `PUBLISH_BACKFILL_ALLOW_REMOTE=1` is set, and requires `--apply` to write. It never deletes: it only sets `expiresAt`/`expiresAtDate`, after which the read path stops serving those records and the future batch deletion service removes them.
 
-Records whose `createdAt` is already older than the ceiling would be deleted the instant their honest expiry was written. Those get `now + idle window` instead, so a link shared today still works for a week; the dry-run summary reports that grace bucket separately, along with the total scanned, the records that already had an expiry, and the records newly given one. Records with no usable `createdAt` are treated the same way. Re-running the script is safe: records that already have an expiry are left untouched.
+Records whose `createdAt` is already older than the ceiling would stop being readable the instant their honest expiry was written. Those get `now + idle window` instead, so a link shared today still works for a week; the dry-run summary reports that grace bucket separately, along with the total scanned, the records that already had an expiry, and the records newly given one. Records with no usable `createdAt` are treated the same way. Re-running the script is safe: records that already have an expiry are left untouched.
 
 Do not trust arbitrary client-supplied forwarded-IP headers. Configure trusted proxy behavior only for a deployment that overwrites those headers and prevents direct bypass of that proxy.
 
@@ -87,7 +109,9 @@ The publication manager is a separate local Node service and is not included in 
 | `MONGODB_URI` | unset | Server-only MongoDB connection string; missing means publication is unavailable. |
 | `MONGODB_DB` | `invitation_maker` | Dedicated invitation database. |
 | `PUBLISH_MAX_BYTES` | `2000000` | Server byte cap; the browser also enforces the 2MB product limit. |
-| `PUBLISH_TTL_DAYS` | `0` | No automatic expiry when zero; otherwise expiry after this many days. |
+| `PUBLISH_IDLE_WINDOW_DAYS` | `7` | Sliding window: how long a publication stays readable after its last view. `0` disables sliding. |
+| `PUBLISH_MAX_LIFETIME_DAYS` | `30` | Hard ceiling measured from the publication time. `0` disables expiry entirely. |
+| `PUBLISH_EXPIRY_REFRESH_HOURS` | `6` | Minimum expiry movement before a read is allowed to write. |
 | `PUBLISH_RATE_LIMIT_PER_HOUR` | `10` | Per-client publication rate ceiling. |
 | `PUBLISH_TOTAL_DAILY_LIMIT` | `100` | Service-wide daily publication ceiling. |
 | `PUBLISH_LIFETIME_LIMIT` | `1000` | Cumulative publication ceiling, not restored on deletion. |
@@ -111,4 +135,4 @@ PLAYWRIGHT_MODULE=/absolute/path/to/playwright node scripts/verify-studio.cjs
 
 The API's 2MB JSON read response avoids sending duplicated standalone HTML through a serverless function. Rendering the standalone document happens in the recipient browser. Actual expiry and cancellation checks still happen on the server.
 
-Reference: [MongoDB TTL indexes](https://www.mongodb.com/docs/manual/core/index-ttl/) explains delayed background cleanup; [Vercel function limits](https://vercel.com/docs/functions/limitations#request-body-size) documents the 4.5MB request/response ceiling.
+Reference: [MongoDB TTL indexes](https://www.mongodb.com/docs/manual/core/index-ttl/) describes the automatic deletion this collection deliberately no longer uses, and still applies to `publishing_counters`; [Vercel function limits](https://vercel.com/docs/functions/limitations#request-body-size) documents the 4.5MB request/response ceiling.

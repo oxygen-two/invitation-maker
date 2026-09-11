@@ -68,7 +68,7 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 | `GET` | `/api/invitations/:id` | Read a public invitation |
 | `DELETE` | `/api/invitations/:id` | Revoke with the owner's management token |
 
-Publishing returns `/i/{base62-id}`. Per-IP hourly, daily, and lifetime quotas limit publication volume. Automatic expiry is disabled by default; a positive `PUBLISH_TTL_DAYS` applies to new publications.
+Publishing returns `/i/{base62-id}`. Per-IP hourly, daily, and lifetime quotas limit publication volume. A publication expires on a sliding window: `PUBLISH_IDLE_WINDOW_DAYS` (default 7) after its last view, never later than `PUBLISH_MAX_LIFETIME_DAYS` (default 30) after publication. The database never deletes anything on its own — expiry is a marker the read path enforces, so an expired link answers `404` while the record stays stored for an operator or a batch deletion job.
 
 See [publishing documentation](docs/publishing.md) for authentication headers, limits, retry rules, and deployment configuration.
 

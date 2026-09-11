@@ -106,6 +106,9 @@ const createAdminMongoPublications = ({
     };
   };
 
+  // Deliberately unfiltered by expiry, unlike the public read: nothing deletes
+  // expired publications any more, so an operator must still be able to see and
+  // revoke one. Admin reads never write, so this cannot revive anything.
   const getAdmin = async (id) => {
     const record = await (await collection()).findOne({ id });
     return record ? toAdminRecord(record) : null;
