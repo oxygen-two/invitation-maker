@@ -47,13 +47,15 @@ npm start
 python3 -m http.server 4173
 ```
 
+로컬에서 실험할 때는 `.env.example`을 `.env.dev`로 복사하고 `npm run dev`(관리자 서비스는 `npm run dev:admin`)를 사용하세요. 운영 데이터베이스와 분리된 상태로 로컬 테스트를 진행할 수 있습니다. `npm start`/`npm run admin`은 기존대로 `.env`를 사용합니다.
+
 ## 공개 발행 서버
 
 공개 발행 API는 MongoDB 연결이 필요합니다. `.env`에 다음 값을 설정합니다.
 
 ```dotenv
 MONGODB_URI=mongodb://...
-MONGODB_DB=invitation_publish
+MONGODB_DB=invitation_maker
 PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 ```
 
@@ -76,6 +78,8 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 ```bash
 ADMIN_PASSWORD='change-me' npm run admin
 ```
+
+운영 데이터베이스 대신 로컬/개발 데이터베이스를 관리하려면 `.env.dev` 파일을 준비하고 `npm run dev:admin`을 사용하세요.
 
 관리자 화면:
 

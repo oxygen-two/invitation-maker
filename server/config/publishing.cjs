@@ -1,11 +1,16 @@
 const DEFAULT_PUBLISHING_CONFIG = Object.freeze({
+  // Sliding expiry: a publication lives `idleWindowDays` past its last public
+  // read, and never longer than `maxLifetimeDays` after it was published.
+  // `expiryRefreshThrottleHours` bounds how often a read may write.
+  expiryRefreshThrottleHours: 6,
+  idleWindowDays: 7,
   lifetimeLimit: 1000,
+  maxLifetimeDays: 30,
   maxPayloadBytes: 2_000_000,
   publicIdLength: 22,
   rateLimitPerHour: 10,
   tokenBytes: 32,
-  totalDailyLimit: 100,
-  ttlDays: 0
+  totalDailyLimit: 100
 });
 
 const PUBLISHING_ERROR_MESSAGES = Object.freeze({
@@ -31,11 +36,13 @@ const integerFromEnv = (env, name, fallback) => {
 };
 
 const readPublishingConfigFromEnv = (env = process.env) => ({
+  expiryRefreshThrottleHours: integerFromEnv(env, "PUBLISH_EXPIRY_REFRESH_HOURS", DEFAULT_PUBLISHING_CONFIG.expiryRefreshThrottleHours),
+  idleWindowDays: integerFromEnv(env, "PUBLISH_IDLE_WINDOW_DAYS", DEFAULT_PUBLISHING_CONFIG.idleWindowDays),
   lifetimeLimit: integerFromEnv(env, "PUBLISH_LIFETIME_LIMIT", DEFAULT_PUBLISHING_CONFIG.lifetimeLimit),
+  maxLifetimeDays: integerFromEnv(env, "PUBLISH_MAX_LIFETIME_DAYS", DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays),
   maxPayloadBytes: integerFromEnv(env, "PUBLISH_MAX_BYTES", DEFAULT_PUBLISHING_CONFIG.maxPayloadBytes),
   rateLimitPerHour: integerFromEnv(env, "PUBLISH_RATE_LIMIT_PER_HOUR", DEFAULT_PUBLISHING_CONFIG.rateLimitPerHour),
-  totalDailyLimit: integerFromEnv(env, "PUBLISH_TOTAL_DAILY_LIMIT", DEFAULT_PUBLISHING_CONFIG.totalDailyLimit),
-  ttlDays: integerFromEnv(env, "PUBLISH_TTL_DAYS", DEFAULT_PUBLISHING_CONFIG.ttlDays)
+  totalDailyLimit: integerFromEnv(env, "PUBLISH_TOTAL_DAILY_LIMIT", DEFAULT_PUBLISHING_CONFIG.totalDailyLimit)
 });
 
 module.exports = {

@@ -19,7 +19,6 @@ const dbName = `inv_pub_test_${Date.now().toString(36)}_${Math.random().toString
 const repository = createMongoPublicationsRepository({
   uri,
   dbName,
-  ttlDays: 1,
   rateLimitPerHour: 5,
   totalDailyLimit: 2,
   lifetimeLimit: 2
@@ -55,8 +54,7 @@ const repository = createMongoPublicationsRepository({
     const restarted = createMongoPublicationsRepository({
       uri,
       dbName,
-      ttlDays: 1,
-      rateLimitPerHour: 5,
+          rateLimitPerHour: 5,
       totalDailyLimit: 2,
       lifetimeLimit: 2
     });

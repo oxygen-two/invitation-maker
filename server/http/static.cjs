@@ -58,7 +58,32 @@ const serveStatic = async (req, res, config, requestPath) => {
   }
 };
 
+// Serves a fixed, known error page (e.g. "404.html") from the static root.
+// `fileName` is always a literal supplied by server code, never derived from
+// the request path, so there is no path-traversal surface here.
+const serveErrorPage = async (req, res, config, fileName, status) => {
+  if (!config.staticRoot) return false;
+  const file = path.resolve(config.staticRoot, fileName);
+  try {
+    const stat = await fs.promises.stat(file);
+    if (!stat.isFile()) return false;
+    res.writeHead(status, {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store"
+    });
+    if (req.method === "HEAD") {
+      res.end();
+      return true;
+    }
+    fs.createReadStream(file).pipe(res);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 module.exports = {
+  serveErrorPage,
   serveStatic,
   staticFileFor
 };

@@ -3,10 +3,37 @@ const {
   normalizeForPublishing,
   sha256
 } = require("../validation.cjs");
+const { initialExpiresAt, nextExpiresAt } = require("./expiry.cjs");
 
-const calculateExpiresAt = (ttlDays, now) => {
-  if (!Number.isFinite(ttlDays) || ttlDays <= 0) return null;
-  return new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000).toISOString();
+const calculateExpiresAt = (config, now) => initialExpiresAt({
+  now,
+  idleWindowDays: config?.idleWindowDays,
+  maxLifetimeDays: config?.maxLifetimeDays
+});
+
+// Public reads extend the sliding window. This is bookkeeping: a failure must
+// never turn a working invitation page into an error, so every problem here
+// resolves to "keep serving the stored expiry".
+const refreshPublicationExpiry = async ({ record, repository, config = {}, now = new Date() }) => {
+  const storedExpiresAt = record?.expiresAt || null;
+  if (!record || typeof repository?.refreshExpiry !== "function") return storedExpiresAt;
+
+  const target = nextExpiresAt({
+    createdAt: record.createdAt,
+    expiresAt: storedExpiresAt,
+    now,
+    idleWindowDays: config.idleWindowDays,
+    maxLifetimeDays: config.maxLifetimeDays,
+    expiryRefreshThrottleHours: config.expiryRefreshThrottleHours
+  });
+  if (!target) return storedExpiresAt;
+
+  try {
+    const applied = await repository.refreshExpiry({ id: record.id, expiresAt: target });
+    return applied ? target : storedExpiresAt;
+  } catch {
+    return storedExpiresAt;
+  }
 };
 
 const mapRepositoryError = (error) => {
@@ -45,7 +72,7 @@ const publishInvitation = async ({
     contentHash: publishing.contentHash,
     clientKeyHash,
     now,
-    expiresAt: calculateExpiresAt(config.ttlDays, now)
+    expiresAt: calculateExpiresAt(config, now)
   });
 
   return {
@@ -58,5 +85,6 @@ const publishInvitation = async ({
 module.exports = {
   calculateExpiresAt,
   mapRepositoryError,
-  publishInvitation
+  publishInvitation,
+  refreshPublicationExpiry
 };

@@ -1,6 +1,6 @@
 const DEFAULT_DATABASE_CONFIG = Object.freeze({
   mongoUri: "",
-  mongoDbName: "invitation_publish"
+  mongoDbName: "invitation_maker"
 });
 
 const readDatabaseConfigFromEnv = (env = process.env) => ({
