@@ -17,7 +17,7 @@ const createSessionStore = ({ ttlMs = 8 * 60 * 60 * 1000, now = () => Date.now()
     const sessionToken = crypto.randomBytes(32).toString("base64url");
     const csrfToken = crypto.randomBytes(32).toString("base64url");
     sessions.set(hash(sessionToken), {
-      csrfHash: hash(csrfToken),
+      csrfHashes: new Set([hash(csrfToken)]),
       expiresAt: now() + ttlMs
     });
     return { sessionToken, csrfToken };
@@ -31,21 +31,35 @@ const createSessionStore = ({ ttlMs = 8 * 60 * 60 * 1000, now = () => Date.now()
     return { expiresAt: session.expiresAt };
   };
 
+  const issueCsrf = (sessionToken) => {
+    if (!sessionToken) return null;
+    purge();
+    const session = sessions.get(hash(sessionToken));
+    if (!session) return null;
+    const csrfToken = crypto.randomBytes(32).toString("base64url");
+    session.csrfHashes.add(hash(csrfToken));
+    return csrfToken;
+  };
+
   const validCsrf = (sessionToken, csrfToken) => {
     if (!sessionToken || !csrfToken) return false;
     purge();
     const session = sessions.get(hash(sessionToken));
     if (!session) return false;
-    const actual = Buffer.from(hash(csrfToken));
-    const expected = Buffer.from(session.csrfHash);
-    return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+    const candidate = hash(csrfToken);
+    for (const csrfHash of session.csrfHashes) {
+      const actual = Buffer.from(candidate);
+      const expected = Buffer.from(csrfHash);
+      if (actual.length === expected.length && crypto.timingSafeEqual(actual, expected)) return true;
+    }
+    return false;
   };
 
   const remove = (sessionToken) => {
     if (sessionToken) sessions.delete(hash(sessionToken));
   };
 
-  return { create, get, validCsrf, remove, size: () => sessions.size };
+  return { create, get, issueCsrf, validCsrf, remove, size: () => sessions.size };
 };
 
 module.exports = { createSessionStore };
