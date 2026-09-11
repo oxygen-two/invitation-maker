@@ -33,6 +33,9 @@ const server = http.createServer(createHandler({
 server.listen(config.port, config.host, () => {
   console.log(`Invitation admin listening at http://${config.host}:${config.port}/admin`);
   logConnectionTarget(console, databaseConfig);
+  if (!config.trustProxy) {
+    console.warn("ADMIN_TRUST_PROXY is off: the session cookie only gets Secure when the connection is directly HTTPS. If this service sits behind an HTTPS-terminating proxy (e.g. Cloudtype), set ADMIN_TRUST_PROXY=true or the session cookie will be sent over plaintext to that proxy.");
+  }
 });
 
 const shutdown = async () => {

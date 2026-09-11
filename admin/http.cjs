@@ -51,8 +51,19 @@ const cookies = (req) => Object.fromEntries(String(req.headers.cookie || "").spl
   }
 }).filter(([key]) => key));
 
-const sessionCookie = (token, maxAge) => `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
-const clearCookie = `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+// Cloudtype (and similar platforms) terminate TLS at a proxy, so req.socket.encrypted
+// is false even when the browser is on HTTPS. x-forwarded-proto is the only signal for
+// that case, but it's attacker-controllable unless a trusted proxy actually sets it —
+// so it's only trusted when the deployer has explicitly opted in via config.trustProxy.
+const requestIsHttps = (req, config) => {
+  if (req.socket?.encrypted) return true;
+  if (!config.trustProxy) return false;
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  return typeof forwardedProto === "string" && forwardedProto.split(",")[0].trim().toLowerCase() === "https";
+};
+
+const sessionCookie = (token, maxAge, secure) => `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
+const clearCookie = (secure) => `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? "; Secure" : ""}`;
 
 const parsePage = (parsed, defaultPageSize) => {
   const page = Math.max(1, Number.parseInt(parsed.searchParams.get("page") || "1", 10) || 1);
@@ -123,7 +134,7 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
         const body = JSON.parse(await readBody(req));
         if (!passwordMatches(body.password, config.adminPassword)) return error(res, 401, "INVALID_ADMIN_PASSWORD");
         const { sessionToken, csrfToken } = sessionStore.create();
-        return json(res, 200, { csrfToken }, { "set-cookie": sessionCookie(sessionToken, Math.floor(config.sessionTtlMs / 1000)) });
+        return json(res, 200, { csrfToken }, { "set-cookie": sessionCookie(sessionToken, Math.floor(config.sessionTtlMs / 1000), requestIsHttps(req, config)) });
       } catch (caught) {
         return error(res, caught.message === "BODY_TOO_LARGE" ? 413 : 400, "BAD_REQUEST");
       }
@@ -134,7 +145,7 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
       if (!logoutAuth) return;
       if (!requireCsrf(req, res, logoutAuth)) return;
       sessionStore.remove(logoutAuth.sessionToken);
-      return empty(res, 204, { "set-cookie": clearCookie });
+      return empty(res, 204, { "set-cookie": clearCookie(requestIsHttps(req, config)) });
     }
 
     const auth = requireSession(req, res);

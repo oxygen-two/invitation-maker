@@ -14,10 +14,10 @@ const adminClientSource = read("admin/public/admin.js");
 const adminCssSource = read("admin/public/admin.css");
 const adminServerSource = read("admin/http.cjs");
 
-const call = async (handler, { method = "GET", url = "/", headers = {}, body } = {}) => {
+const call = async (handler, { method = "GET", url = "/", headers = {}, body, socket = {} } = {}) => {
   const req = new Readable({ read() { this.push(null); } });
   req.method = method; req.url = url; req.headers = headers; req.body = body;
-  req.socket = { encrypted: false, remoteAddress: "127.0.0.1" };
+  req.socket = { encrypted: false, remoteAddress: "127.0.0.1", ...socket };
   const res = { status: 0, headers: {}, payload: "", writeHead(status, headers) { this.status = status; this.headers = headers; }, end(chunk = "") { this.payload += chunk; this.resolve(); } };
   await new Promise((resolve) => { res.resolve = resolve; handler(req, res); });
   return { status: res.status, headers: res.headers, body: res.payload ? JSON.parse(res.payload) : null };
@@ -36,9 +36,9 @@ class FakeAdminRepository {
   async revoke(id) { const before = this.items.length; this.items = this.items.filter((item) => item.id !== id); return this.items.length !== before; }
 }
 
-const make = (repository = new FakeAdminRepository()) => {
+const make = (repository = new FakeAdminRepository(), configOverrides = {}) => {
   const sessionStore = createSessionStore({ ttlMs: 60_000 });
-  return { repository, sessionStore, handler: createHandler({ repository, sessionStore, staticRoot: "/tmp/does-not-exist", config: { adminPassword: "secret", pageSize: 2, publicBaseUrl: "https://example.test", loginRateLimit: { windowMs: 60_000, maxAttempts: 3 } } }) };
+  return { repository, sessionStore, handler: createHandler({ repository, sessionStore, staticRoot: "/tmp/does-not-exist", config: { adminPassword: "secret", pageSize: 2, publicBaseUrl: "https://example.test", loginRateLimit: { windowMs: 60_000, maxAttempts: 3 }, trustProxy: false, ...configOverrides } }) };
 };
 
 test("admin session store expires and validates CSRF", () => {
@@ -82,6 +82,44 @@ test("admin login, paginated listing, detail, and csrf-protected revoke", async 
   const logout = await call(setup.handler, { method: "POST", url: "/admin/api/logout", headers: { cookie, "x-admin-csrf": csrf } });
   assert.equal(logout.status, 204);
   assert.match(logout.headers["set-cookie"], new RegExp(`^${COOKIE}=`));
+});
+
+test("admin session cookie carries Secure only when the request is actually HTTPS", async () => {
+  const plain = make();
+  const plainLogin = await call(plain.handler, { method: "POST", url: "/admin/api/login", body: { password: "secret" } });
+  assert.equal(plainLogin.status, 200);
+  assert.match(plainLogin.headers["set-cookie"], new RegExp(`^${COOKIE}=`));
+  assert.doesNotMatch(plainLogin.headers["set-cookie"], /;\s*Secure/, "plain HTTP request must not receive a Secure cookie");
+  const plainCookie = plainLogin.headers["set-cookie"].split(";")[0];
+  const plainCsrf = plainLogin.body.csrfToken;
+  const plainLogout = await call(plain.handler, { method: "POST", url: "/admin/api/logout", headers: { cookie: plainCookie, "x-admin-csrf": plainCsrf } });
+  assert.equal(plainLogout.status, 204);
+  assert.doesNotMatch(plainLogout.headers["set-cookie"], /;\s*Secure/, "clear-cookie must match the session cookie's Secure attribute");
+
+  const directTls = make();
+  const directLogin = await call(directTls.handler, { method: "POST", url: "/admin/api/login", body: { password: "secret" }, socket: { encrypted: true } });
+  assert.equal(directLogin.status, 200);
+  assert.match(directLogin.headers["set-cookie"], /;\s*Secure/, "req.socket.encrypted === true must produce a Secure cookie");
+  const directCookie = directLogin.headers["set-cookie"].split(";")[0];
+  const directCsrf = directLogin.body.csrfToken;
+  const directLogout = await call(directTls.handler, { method: "POST", url: "/admin/api/logout", headers: { cookie: directCookie, "x-admin-csrf": directCsrf }, socket: { encrypted: true } });
+  assert.equal(directLogout.status, 204);
+  assert.match(directLogout.headers["set-cookie"], /;\s*Secure/, "clear-cookie must match the session cookie's Secure attribute");
+
+  const untrustedProxy = make();
+  const untrustedLogin = await call(untrustedProxy.handler, { method: "POST", url: "/admin/api/login", body: { password: "secret" }, headers: { "x-forwarded-proto": "https" } });
+  assert.equal(untrustedLogin.status, 200);
+  assert.doesNotMatch(untrustedLogin.headers["set-cookie"], /;\s*Secure/, "x-forwarded-proto must not be trusted when trustProxy is off");
+
+  const trustedProxy = make(new FakeAdminRepository(), { trustProxy: true });
+  const trustedLogin = await call(trustedProxy.handler, { method: "POST", url: "/admin/api/login", body: { password: "secret" }, headers: { "x-forwarded-proto": "https" } });
+  assert.equal(trustedLogin.status, 200);
+  assert.match(trustedLogin.headers["set-cookie"], /;\s*Secure/, "x-forwarded-proto: https must produce a Secure cookie when trustProxy is on");
+  const trustedCookie = trustedLogin.headers["set-cookie"].split(";")[0];
+  const trustedCsrf = trustedLogin.body.csrfToken;
+  const trustedLogout = await call(trustedProxy.handler, { method: "POST", url: "/admin/api/logout", headers: { cookie: trustedCookie, "x-admin-csrf": trustedCsrf, "x-forwarded-proto": "https" } });
+  assert.equal(trustedLogout.status, 204);
+  assert.match(trustedLogout.headers["set-cookie"], /;\s*Secure/, "clear-cookie must match the session cookie's Secure attribute");
 });
 
 test("admin routes require a session", async () => {
@@ -145,6 +183,15 @@ test("admin config parses strict bounded inputs and validates public base URL", 
   assert.equal(config.pageSize, 100);
   assert.deepEqual(config.loginRateLimit, { windowMs: 60_000, maxAttempts: 5 });
   assert.equal(config.publicBaseUrl, "http://127.0.0.1:4173");
+  assert.equal(config.trustProxy, false);
+});
+
+test("admin config trust-proxy setting defaults off and only turns on with an explicit truthy value", () => {
+  assert.equal(readAdminConfigFromEnv({ ADMIN_PASSWORD: "secret" }).trustProxy, false);
+  assert.equal(readAdminConfigFromEnv({ ADMIN_PASSWORD: "secret", ADMIN_TRUST_PROXY: "nonsense" }).trustProxy, false);
+  assert.equal(readAdminConfigFromEnv({ ADMIN_PASSWORD: "secret", ADMIN_TRUST_PROXY: "true" }).trustProxy, true);
+  assert.equal(readAdminConfigFromEnv({ ADMIN_PASSWORD: "secret", ADMIN_TRUST_PROXY: "1" }).trustProxy, true);
+  assert.equal(readAdminConfigFromEnv({ ADMIN_PASSWORD: "secret", ADMIN_TRUST_PROXY: "false" }).trustProxy, false);
 });
 
 test("admin mongo publication list counts, clamps, sorts, searches safely, and excludes photo payloads", async () => {

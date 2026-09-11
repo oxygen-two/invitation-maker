@@ -91,6 +91,8 @@ Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin). `npm run dev:ad
 
 `ADMIN_HOST` defaults to `0.0.0.0`. Use HTTPS when accessing the service across a network. Restarting the process clears sessions. Set `PUBLIC_BASE_URL` to the public site's origin when managing a remote deployment.
 
+The session cookie only carries `Secure` when the request is actually HTTPS. A direct TLS connection is detected automatically, but a proxy that terminates TLS in front of the admin service (as Cloudtype does) is invisible to it — the only signal is the `x-forwarded-proto` header, which is spoofable and therefore ignored unless you opt in. **Set `ADMIN_TRUST_PROXY=true` when running behind such a proxy**, or the session cookie will be missing `Secure` and can be sent in the clear. It defaults to `false`, and the admin service prints a startup warning while it's off.
+
 ## Analytics
 
 GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics-config.js`. Local and preview hosts do not send events by default. See [analytics documentation](docs/analytics.md) for configuration and privacy boundaries.

@@ -123,6 +123,7 @@ The publication manager is a separate local Node service and is not included in 
 | `ADMIN_SESSION_TTL_MS` | `28800000` | In-memory session lifetime (8 hours). |
 | `ADMIN_PAGE_SIZE` | `20` | Default admin list page size; requests are capped at 100. |
 | `PUBLIC_BASE_URL` | unset | Optional base URL used for links shown in the admin screen. |
+| `ADMIN_TRUST_PROXY` | `false` | Only enable behind a trusted HTTPS-terminating proxy (e.g. Cloudtype); makes the session cookie honor `x-forwarded-proto` so it gets `Secure`. Off by default because that header is otherwise spoofable. |
 
 Run `npm test` for unit and HTTP checks. `node scripts/verify-publishing-mongo.cjs` tests actual MongoDB persistence using a separate disposable test database; use a local development MongoDB connection. Run the browser scripts with a running API and an existing Playwright installation:
 
