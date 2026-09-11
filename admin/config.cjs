@@ -7,7 +7,8 @@ const DEFAULT_ADMIN_CONFIG = Object.freeze({
   pageSize: 20,
   loginWindowMs: 60 * 1000,
   loginMaxAttempts: 5,
-  publicBaseUrl: "http://127.0.0.1:4173"
+  publicBaseUrl: "http://127.0.0.1:4173",
+  trustProxy: false
 });
 
 const boundedIntegerFromEnv = (env, name, fallback, { min = 0, max = Number.MAX_SAFE_INTEGER } = {}) => {
@@ -19,6 +20,13 @@ const clampedIntegerFromEnv = (env, name, fallback, { min = 0, max = Number.MAX_
   const value = Number.parseInt(env[name] || "", 10);
   if (!Number.isSafeInteger(value)) return fallback;
   return Math.min(max, Math.max(min, value));
+};
+
+const booleanFromEnv = (env, name, fallback) => {
+  const value = String(env[name] || "").trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(value)) return true;
+  if (["0", "false", "no", "off"].includes(value)) return false;
+  return fallback;
 };
 
 const httpUrlFromEnv = (env, name, fallback) => {
@@ -37,6 +45,7 @@ const readAdminConfigFromEnv = (env = process.env) => ({
   sessionTtlMs: boundedIntegerFromEnv(env, "ADMIN_SESSION_TTL_MS", DEFAULT_ADMIN_CONFIG.sessionTtlMs, { min: 60_000, max: 7 * 24 * 60 * 60 * 1000 }),
   pageSize: clampedIntegerFromEnv(env, "ADMIN_PAGE_SIZE", DEFAULT_ADMIN_CONFIG.pageSize, { min: 1, max: 100 }),
   publicBaseUrl: httpUrlFromEnv(env, "PUBLIC_BASE_URL", DEFAULT_ADMIN_CONFIG.publicBaseUrl),
+  trustProxy: booleanFromEnv(env, "ADMIN_TRUST_PROXY", DEFAULT_ADMIN_CONFIG.trustProxy),
   loginRateLimit: {
     windowMs: boundedIntegerFromEnv(env, "ADMIN_LOGIN_WINDOW_MS", DEFAULT_ADMIN_CONFIG.loginWindowMs, { min: 10_000, max: 60 * 60 * 1000 }),
     maxAttempts: boundedIntegerFromEnv(env, "ADMIN_LOGIN_MAX_ATTEMPTS", DEFAULT_ADMIN_CONFIG.loginMaxAttempts, { min: 1, max: 100 })
@@ -58,6 +67,7 @@ const passwordMatches = (actual, expected) => {
 module.exports = {
   DEFAULT_ADMIN_CONFIG,
   boundedIntegerFromEnv,
+  booleanFromEnv,
   clampedIntegerFromEnv,
   passwordMatches,
   readAdminConfigFromEnv
