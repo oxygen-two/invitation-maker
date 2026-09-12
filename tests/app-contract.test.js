@@ -8,6 +8,21 @@ const ContentOrder = require("../assets/studio/content-order.js");
 const HeroImage = require("../assets/media/hero-image.js");
 const InvitationCore = require("../assets/invitation/core.js");
 const PresetApplication = require("../assets/studio/preset-application.js");
+const InvitationI18n = require("../assets/i18n/i18n.js");
+const dictionaryKo = require("../assets/i18n/dictionary-ko.js");
+const dictionaryEn = require("../assets/i18n/dictionary-en.js");
+
+InvitationI18n.register("ko", dictionaryKo);
+InvitationI18n.register("en", dictionaryEn);
+
+/* The studio's copy lives in the dictionaries now, so assertions name the key
+   and resolve it rather than repeating the sentence. A wording change updates
+   one file and the tests follow; a key that stops existing fails loudly here
+   because t() returns the key itself and the key never matches the text. */
+const ko = (key, values) => InvitationI18n.t(key, values, "ko");
+const en = (key, values) => InvitationI18n.t(key, values, "en");
+const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const copy = (key, values) => new RegExp(escapeRegExp(ko(key, values)));
 
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
@@ -552,6 +567,7 @@ const loadEditorHarness = ({
     },
     PresetApplication,
     TemplateCatalog,
+    InvitationI18n,
     InvitationStorage: {
       async list() { return []; },
       async put(record) { if (put) await put(record); },
@@ -764,6 +780,7 @@ const loadIntroLifecycleHarness = () => {
     },
     ImageTools: { ImageError: class ImageError extends Error {}, compress: async () => ({}) },
     InvitationCore,
+    InvitationI18n,
     InvitationIntro,
     InvitationStorage: { async list() { return []; }, async open() { return { close() {} }; }, async put() {}, async remove() {} },
     URL,
@@ -927,6 +944,7 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
     },
     ImageTools: { ImageError: class ImageError extends Error {}, compress: async () => ({}) },
     InvitationCore,
+    InvitationI18n,
     InvitationStorage,
     URL,
     clearTimeout,
@@ -1399,7 +1417,12 @@ test("library implementation uses IndexedDB outside resumable migration and acce
   const appWithoutMigration = app.replace(migration, "");
 
   assert.match(app, /const MAX_UPLOAD_BYTES = 10 \* 1024 \* 1024/);
-  assert.match(app, /10MB 이하의 초대장 HTML만 등록할 수 있습니다/);
+  // The over-size message moved into the dictionary; assert the guard still
+  // reaches for it and that every language actually names the 10MB limit,
+  // which the single-language literal could never check.
+  assert.match(app, /dom\.uploadStatus\.textContent = t\("status\.uploadTooLarge"\)/);
+  assert.match(ko("status.uploadTooLarge"), /10MB/);
+  assert.match(en("status.uploadTooLarge"), /10MB/);
   assert.match(app, /await InvitationStorage\.open\(\)/);
   assert.match(app, /await InvitationStorage\.(?:put|remove|list)\(/);
   assert.doesNotMatch(appWithoutMigration, /localStorage\.(?:getItem|setItem|removeItem)/);
@@ -1408,12 +1431,19 @@ test("library implementation uses IndexedDB outside resumable migration and acce
 test("library initialization distinguishes open failure from later sync failure", () => {
   const app = read("assets/studio/app.js");
   const init = app.match(/const init = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
-  const statusMessages = [...init.matchAll(/dom\.uploadStatus\.textContent = "([^"]+)"/g)]
+  const statusKeys = [...init.matchAll(/dom\.uploadStatus\.textContent = t\("([^"]+)"\)/g)]
     .map((match) => match[1]);
 
-  assert.ok(statusMessages.some((message) => /저장소를 열지 못/.test(message)));
-  assert.ok(statusMessages.some((message) => /동기화|마이그레이션/.test(message)));
-  assert.equal(new Set(statusMessages).size, statusMessages.length);
+  assert.ok(statusKeys.includes("status.storageUnavailable"));
+  assert.ok(statusKeys.some((key) => /sync|migration/i.test(key)));
+  // Every branch must still say something different, in every language — a
+  // shared sentence would hide which failure the reader is actually looking at.
+  assert.equal(new Set(statusKeys).size, statusKeys.length);
+  for (const translate of [ko, en]) {
+    const messages = statusKeys.map((key) => translate(key));
+    assert.equal(new Set(messages).size, messages.length, `duplicate init status copy: ${messages}`);
+    for (const message of messages) assert.ok(message.length > 0 && !statusKeys.includes(message));
+  }
 });
 
 test("viewer awaits IndexedDB and rebuilds only a typed JSON invitation payload", async () => {
@@ -1801,7 +1831,14 @@ test("map controls use place geocoding without exposing coordinates or zoom", ()
   assert.match(app, /data-course-field="mapLongitude" type="hidden"/);
   assert.match(app, /submodules=geocoder/);
   assert.match(index, /src="assets\/integrations\/map-location\.js"/);
-  assert.match(app, /error\.code === "SERVICE_UNAVAILABLE"[\s\S]*?NAVER Geocoding 설정을 확인해 주세요/);
+  // The geocoding-misconfigured branch must still point the reader at the
+  // NAVER Geocoding setting rather than at their own address — in every
+  // language, which the single Korean literal could not check.
+  assert.match(app, /error\.code === "SERVICE_UNAVAILABLE"[\s\S]*?t\("map\.serviceUnavailable"\)/);
+  for (const translate of [ko, en]) {
+    assert.match(translate("map.serviceUnavailable"), /NAVER Geocoding/);
+    assert.notEqual(translate("map.serviceUnavailable"), translate("map.notFound"));
+  }
 });
 
 test("mobile preview frame remains viewport-bounded and scrollable", () => {
@@ -2102,7 +2139,15 @@ test("course labels use presets and reveal text entry only for a custom label", 
   for (const label of ["MEET", "CAFE", "WALK", "DINNER"]) {
     assert.match(app, new RegExp(`COURSE_LABEL_PRESETS[^;]+"${label}"`));
   }
-  assert.match(app, /<option value="custom"[^>]*>직접 입력<\/option>/);
+  // The custom option is still the last one and still carries a real label —
+  // now resolved from the dictionary, and asserted to be distinct from every
+  // preset so "custom" can never be mistaken for one of them.
+  assert.match(app, /<option value="custom"[^>]*>\$\{escapeAttribute\(t\("content\.courseLabelCustom"\)\)\}<\/option>/);
+  for (const translate of [ko, en]) {
+    const custom = translate("content.courseLabelCustom");
+    assert.ok(custom.length > 0);
+    assert.equal(["MEET", "CAFE", "WALK", "DINNER", "DRINK", "ACTIVITY"].includes(custom), false);
+  }
   assert.match(app, /data-custom-label-field/);
   assert.match(app, /data-course-field="label" type="text"/);
   assert.match(app, /syncCourseLabelPreset\(event\.target\)/);
@@ -2553,16 +2598,56 @@ test("editor exposes particle size and amount as percentage scales", () => {
   assert.match(app, /particleAmountOutput\.setAttribute\("aria-label"/);
 });
 
+/* The <option> and <optgroup> labels now carry data-i18n bindings alongside
+   their attributes, so these read the tag's attributes rather than assuming
+   an order, then check the copy through the dictionary. That keeps the same
+   assertions and adds one the literals could not make: the English studio
+   shows a real translated label for every single choice. */
+const parseTagAttributes = (tag) => {
+  const attributes = {};
+  for (const match of String(tag).matchAll(/\s([a-z][\w:-]*)\s*=\s*"([^"]*)"/gi)) {
+    attributes[match[1].toLowerCase()] = match[2];
+  }
+  return attributes;
+};
+const readOptions = (select) => [...select.matchAll(/<option\b([^>]*)>([^<]*)<\/option>/g)]
+  .map(([, attributes, text]) => ({ ...parseTagAttributes(`<option${attributes}>`), text }));
+const readOptgroups = (select) => [...select.matchAll(/<optgroup\b([^>]*)>([\s\S]*?)<\/optgroup>/g)]
+  .map(([, attributes, body]) => ({ ...parseTagAttributes(`<optgroup${attributes}>`), options: readOptions(body) }));
+
+const assertLocalizedChoice = ({ text, "data-i18n": key }, value) => {
+  assert.ok(key, `option ${value} must be translatable`);
+  // The inline text is the Korean default the page serves before scripts run,
+  // so it has to agree with the Korean dictionary or the two would drift.
+  assert.equal(text, ko(key), `option ${value} inline text must match the ko dictionary`);
+  assert.notEqual(en(key), key, `option ${value} has no English translation`);
+};
+
 test("particle selector groups every effect profile in the editor", () => {
   const index = read("index.html");
   const select = index.match(/<select name="particleEffect"[\s\S]*?<\/select>/)?.[0] || "";
+  const groups = readOptgroups(select);
 
-  assert.match(select, /<option value="none">효과 없음<\/option>/);
-  assert.equal((select.match(/<optgroup /g) || []).length, 4);
-  assert.match(select, /<optgroup label="로맨틱">[\s\S]*?<option value="petals">꽃잎<\/option>[\s\S]*?<option value="hearts">하트<\/option>[\s\S]*?<\/optgroup>/);
-  assert.match(select, /<optgroup label="분위기">[\s\S]*?<option value="sparkle">빛가루<\/option>[\s\S]*?<option value="fireflies">반딧불<\/option>[\s\S]*?<option value="bubbles">버블<\/option>[\s\S]*?<\/optgroup>/);
-  assert.match(select, /<optgroup label="계절">[\s\S]*?<option value="snow">눈<\/option>[\s\S]*?<option value="leaves">나뭇잎<\/option>[\s\S]*?<\/optgroup>/);
-  assert.match(select, /<optgroup label="축하">[\s\S]*?<option value="confetti">컨페티<\/option>[\s\S]*?<\/optgroup>/);
+  const none = readOptions(select).find((option) => option.value === "none");
+  assertLocalizedChoice(none, "none");
+
+  assert.equal(groups.length, 4);
+  const expectedGroups = [
+    ["effects.particleGroupRomantic", ["petals", "hearts"]],
+    ["effects.particleGroupMood", ["sparkle", "fireflies", "bubbles"]],
+    ["effects.particleGroupSeason", ["snow", "leaves"]],
+    ["effects.particleGroupCelebration", ["confetti"]]
+  ];
+  assert.deepEqual(groups.map((group) => group.options.map((option) => option.value)),
+    expectedGroups.map(([, values]) => values));
+
+  for (const [index_, [groupKey]] of expectedGroups.entries()) {
+    const group = groups[index_];
+    assert.equal(group["data-i18n-attr"], `label:${groupKey}`);
+    assert.equal(group.label, ko(groupKey), `optgroup ${groupKey} inline label must match the ko dictionary`);
+    assert.notEqual(en(groupKey), groupKey, `optgroup ${groupKey} has no English translation`);
+    for (const option of group.options) assertLocalizedChoice(option, option.value);
+  }
 
   for (const effect of ["none", "petals", "hearts", "sparkle", "fireflies", "bubbles", "snow", "leaves", "confetti"]) {
     assert.equal((select.match(new RegExp(`value="${effect}"`, "g")) || []).length, 1);
@@ -2571,13 +2656,19 @@ test("particle selector groups every effect profile in the editor", () => {
 
 test("editor exposes grouped intro choices and replay control", () => {
   const html = read("index.html");
+  const select = html.match(/<select id="intro-effect"[\s\S]*?<\/select>/)?.[0] || "";
   assert.match(html, /name="introEffect"/);
   assert.match(html, /id="replay-intro-button"/);
   for (const effect of ["envelope", "card-shrink", "dawn", "fireworks", "curtain", "petals", "spotlight", "photo-focus"]) {
     assert.match(html, new RegExp(`value="${effect}"`));
   }
-  assert.match(html, /value="petals">꽃잎 사이로</);
-  assert.match(html, /value="photo-focus">사진 초점 전환</);
+
+  const options = new Map(readOptions(select).map((option) => [option.value, option]));
+  assert.equal(options.get("petals")["data-i18n"], "effects.introPetals");
+  assert.equal(options.get("photo-focus")["data-i18n"], "effects.introPhotoFocus");
+  for (const effect of ["none", "envelope", "card-shrink", "dawn", "fireworks", "curtain", "petals", "spotlight", "photo-focus"]) {
+    assertLocalizedChoice(options.get(effect), effect);
+  }
 });
 
 test("ordinary preview rendering does not start intro playback", () => {

@@ -22,12 +22,26 @@ const assertWellFormedXml = (xml) => {
   }
   assert.equal(stack.length, 0, 'unclosed XML tags');
 };
+// Attribute-order independent: the meta tags carry data-i18n-attr bindings
+// between the name and the content, and a crawler does not care what order
+// attributes appear in either.
+const readMetaTags = (html) => [...html.matchAll(/<meta\b[^>]*>/g)]
+  .map(([tag]) => {
+    const attributes = {};
+    for (const match of tag.matchAll(/\s([a-z][\w:-]*)\s*=\s*"([^"]*)"/gi)) {
+      attributes[match[1].toLowerCase()] = match[2];
+    }
+    return attributes;
+  })
+  .filter((attributes) => (attributes.property || attributes.name) && attributes.content !== undefined)
+  .map((attributes) => [attributes.property || attributes.name, attributes.content]);
+
 test('initial HTML exposes one complete social card without running JavaScript', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8').split('</head>')[0];
-  const tags = [...html.matchAll(/<meta\s+(?:property|name)="([^"]+)"\s+content="([^"]*)"/g)];
-  const metadata = Object.fromEntries(tags.map(m => [m[1], m[2]]));
+  const tags = readMetaTags(html);
+  const metadata = Object.fromEntries(tags);
   for (const key of ['og:title', 'og:description', 'og:type', 'og:url', 'og:image', 'og:image:alt', 'twitter:card', 'twitter:image']) {
-    assert.equal(tags.filter(m => m[1] === key).length, 1, key);
+    assert.equal(tags.filter(([name]) => name === key).length, 1, key);
     assert.ok(metadata[key].length > 0);
   }
   assert.equal(metadata['og:url'], 'https://invitation-maker-one.vercel.app/');

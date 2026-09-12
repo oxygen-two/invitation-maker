@@ -196,6 +196,16 @@
       "'": "&#039;"
     })[char]);
 
+  /* The instant the built-in sample invitation is set at. A dateLabel the
+     author typed is free text and is rendered verbatim everywhere — nothing
+     reformats it. This is the generated placeholder, so it goes through Intl
+     and reads correctly in whichever language the studio is in. The designed
+     literal stays as the fallback: the standalone export and the viewer do
+     not load the i18n module, and they must still produce a date. */
+  const SAMPLE_DATE_ISO = "2026-09-12T14:00:00";
+  const sampleDateLabel = () =>
+    root.InvitationI18n?.formatSampleDate?.(SAMPLE_DATE_ISO) || defaultInvitation.dateLabel;
+
   const normalizeStop = (stop = {}) => {
     const mapLatitude = normalizeCoordinate(stop.mapLatitude, -90, 90);
     const mapLongitude = normalizeCoordinate(stop.mapLongitude, -180, 180);
@@ -370,7 +380,7 @@
       naverMapClientId: normalizeClientId(input.naverMapClientId),
       title: input.title ?? defaultInvitation.title,
       subtitle: input.subtitle ?? defaultInvitation.subtitle,
-      dateLabel: input.dateLabel ?? defaultInvitation.dateLabel,
+      dateLabel: input.dateLabel ?? sampleDateLabel(),
       host: input.host ?? defaultInvitation.host,
       location: input.location ?? defaultInvitation.location,
       mapUrl: normalizeMapUrl(input.mapUrl, input.mapUrl === undefined ? defaultInvitation.mapUrl : ""),

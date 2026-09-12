@@ -3,14 +3,28 @@ const MAX_SAVED = 20;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAP_LOAD_TIMEOUT_MS = 10000;
 const PREVIEW_FRAME_TIMEOUT_MS = 5000;
+// Decorative typography, not copy: these are the course labels printed on the
+// invitation itself, in the same letterspaced English the templates use for
+// INVITATION / DATE / PLACE. Translating them would break the layouts they
+// were set for, and they read as convention on a Korean invitation already.
 const COURSE_LABEL_PRESETS = ["MEET", "CAFE", "WALK", "DINNER", "DRINK", "ACTIVITY"];
-const ITEM_LABELS = Object.freeze({
-  course: "코스",
-  photo: "사진",
-  notice: "안내",
-  profile: "인물 소개",
-  link: "연락처·링크"
+
+/* Every user-facing string in this file goes through t(). The engine is read
+   off the global rather than imported because app.js is also executed inside
+   a bare vm context by the contract tests; the key-returning fallback keeps a
+   missing engine from turning into a page full of "undefined". */
+const I18n = globalThis.InvitationI18n;
+const t = (key, values) => I18n?.t(key, values) ?? String(key);
+const percent = (value) => I18n?.formatPercent(value) ?? `${value}%`;
+
+const ITEM_LABEL_KEYS = Object.freeze({
+  course: "content.typeCourse",
+  photo: "content.typePhoto",
+  notice: "content.typeNotice",
+  profile: "content.typeProfile",
+  link: "content.typeLink"
 });
+const itemTypeLabel = (type) => t(ITEM_LABEL_KEYS[type] || ITEM_LABEL_KEYS.course);
 const ITEM_FOCUS_SELECTORS = Object.freeze({
   course: '[data-course-field="time"]',
   notice: '[data-notice-field="heading"]',
@@ -20,6 +34,10 @@ const ITEM_FOCUS_SELECTORS = Object.freeze({
 
 const state = {
   catalog: { occasions: [], templates: [] },
+  // The catalog as fetched, before any language overlay. Kept so switching
+  // language re-localizes the gallery without another network round trip.
+  rawData: null,
+  localizedDefault: null,
   templates: [],
   activeOccasion: "date",
   pendingTemplateId: "royal",
@@ -85,13 +103,18 @@ const saveDraft = () => {
   const revision = ++draftRevision;
   const edited = analyticsEditRevision > 0;
   const status = document.querySelector('#draft-status');
-  status.textContent = '초안 저장 중…';
+  status.textContent = t('status.draftSaving');
   draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation)).then(() => {
     if (edited) trackAnalytics("draft_saved", {}, "draft");
-    if (revision === draftRevision) status.textContent = '이 기기에 초안 저장됨';
+    if (revision === draftRevision) status.textContent = t('status.draftSaved');
   }).catch(() => {
-    if (revision === draftRevision) status.textContent = '자동 저장 실패 · HTML로 다운로드해 주세요';
+    if (revision === draftRevision) status.textContent = t('status.draftFailed');
   });
+};
+
+const syncStudioHeading = (stage = document.body.dataset.studioStage) => {
+  document.querySelector('#studio-heading').textContent =
+    t(stage === 'gallery' ? 'maker.headingGallery' : 'maker.headingEdit');
 };
 
 const setStudioStage = (stage) => {
@@ -102,7 +125,7 @@ const setStudioStage = (stage) => {
     dom.shareDialog?.close?.();
   }
   document.querySelectorAll('.studio-steps button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.studioStage === stage)));
-  document.querySelector('#studio-heading').textContent = stage === 'gallery' ? '어떤 날을 초대할까요?' : '나만의 초대장을 완성하세요';
+  syncStudioHeading(stage);
   if (stage !== 'gallery') {
     state.pendingTemplateId = state.activeTemplate;
     renderTemplates();
@@ -188,7 +211,7 @@ const handlePreviewClick = (event) => {
   if (!canvas || !status) return;
 
   delete canvas.dataset.mapState;
-  status.textContent = "지도를 불러오는 중입니다.";
+  status.textContent = t("map.loading");
   naverMapsPromise = undefined;
   previewMapsPromise = undefined;
   previewRenderId += 1;
@@ -252,17 +275,15 @@ const escapeAttribute = (value = "") => String(value).replace(/[&<>"']/g, (char)
   "'": "&#039;"
 })[char]);
 
-const formatSavedDate = (value) => {
-  const date = new Date(String(value || ""));
-  if (!Number.isFinite(date.getTime())) return "날짜 정보 없음";
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
-};
+// A record's createdAt is a machine timestamp, so it is formatted for the
+// reader's language rather than printed as stored.
+const formatSavedDate = (value) => I18n?.formatDateTime(value, {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit"
+}) ?? t("library.unknownDate");
 
 const createItemId = (type) => {
   if (globalThis.crypto?.randomUUID) return `${type}-${globalThis.crypto.randomUUID()}`;
@@ -376,12 +397,12 @@ const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-ca
 });
 
 const renderItemActions = (item, index, itemCount) => {
-  const typeLabel = ITEM_LABELS[item.type] || ITEM_LABELS.course;
+  const type = itemTypeLabel(item.type);
   return `
     <div class="item-editor-actions">
-      <button class="item-icon-button" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${typeLabel} 항목 위로 이동" title="위로 이동">↑</button>
-      <button class="item-icon-button" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${typeLabel} 항목 아래로 이동" title="아래로 이동">↓</button>
-      <button class="item-icon-button remove-item-button" type="button" data-item-action="delete" aria-label="${typeLabel} 항목 삭제" title="이 항목 삭제">×</button>
+      <button class="item-icon-button" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}" title="${escapeAttribute(t("content.moveUpTitle"))}">↑</button>
+      <button class="item-icon-button" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}" title="${escapeAttribute(t("content.moveDownTitle"))}">↓</button>
+      <button class="item-icon-button remove-item-button" type="button" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}" title="${escapeAttribute(t("content.removeItemTitle"))}">×</button>
     </div>
   `;
 };
@@ -394,35 +415,35 @@ const renderCourseFields = (item, bodyId, isOpen) => {
   return `
     <div id="${bodyId}" class="course-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
       <label>
-        <span>시간</span>
+        <span>${escapeAttribute(t("content.courseTime"))}</span>
         <input data-course-field="time" type="time" step="600" value="${escapeAttribute(item.time)}">
       </label>
       <label>
-        <span>라벨</span>
-        <select data-course-label-preset aria-label="코스 라벨">
+        <span>${escapeAttribute(t("content.courseLabel"))}</span>
+        <select data-course-label-preset aria-label="${escapeAttribute(t("content.courseLabelSelect"))}">
           ${COURSE_LABEL_PRESETS.map((preset) => `<option value="${preset}"${labelPreset === preset ? " selected" : ""}>${preset}</option>`).join("")}
-          <option value="custom"${labelPreset === "custom" ? " selected" : ""}>직접 입력</option>
+          <option value="custom"${labelPreset === "custom" ? " selected" : ""}>${escapeAttribute(t("content.courseLabelCustom"))}</option>
         </select>
       </label>
       <label class="full custom-label-field" data-custom-label-field${labelPreset === "custom" ? "" : " hidden"}>
-        <span>직접 입력</span>
-        <input data-course-field="label" type="text" value="${escapeAttribute(labelPreset === "custom" ? label : labelPreset)}" placeholder="예: EXHIBITION" autocomplete="off">
+        <span>${escapeAttribute(t("content.courseLabelCustom"))}</span>
+        <input data-course-field="label" type="text" value="${escapeAttribute(labelPreset === "custom" ? label : labelPreset)}" placeholder="${escapeAttribute(t("content.courseLabelPlaceholder"))}" autocomplete="off">
       </label>
       <label class="full">
-        <span>장소 또는 주소</span>
+        <span>${escapeAttribute(t("content.coursePlace"))}</span>
         <input data-course-field="place" type="text" value="${escapeAttribute(item.place)}" autocomplete="off">
       </label>
       <label class="full">
-        <span>메모</span>
+        <span>${escapeAttribute(t("content.courseNote"))}</span>
         <textarea data-course-field="note" rows="2">${escapeAttribute(item.note)}</textarea>
       </label>
       <label class="full">
-        <span>지도 링크</span>
+        <span>${escapeAttribute(t("content.courseMapUrl"))}</span>
         <input data-course-field="mapUrl" type="url" value="${escapeAttribute(item.mapUrl)}" placeholder="https://map.naver.com/" autocomplete="off">
       </label>
       <label class="full checkbox-field">
         <input data-course-field="mapEnabled" type="checkbox"${checked}>
-        <span>이 코스에 동적 지도 표시</span>
+        <span>${escapeAttribute(t("content.courseMapEnabled"))}</span>
       </label>
       <div class="full map-settings stop-map-settings" data-course-map-settings${hidden}>
         <input data-course-field="mapLatitude" type="hidden" value="${escapeAttribute(item.mapLatitude ?? "")}">
@@ -449,19 +470,19 @@ const syncCourseLabelPreset = (select) => {
     labelInput.value = select.value;
   }
 
-  const time = card.querySelector('[data-course-field="time"]').value || "시간 미정";
+  const time = card.querySelector('[data-course-field="time"]').value || t("content.timeUnset");
   card.querySelector("[data-item-secondary-summary]").textContent = `${time} · ${labelInput.value || "PLACE"}`;
 };
 
 const renderPhotoFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="photo-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
-    <img class="photo-editor-thumbnail" data-photo-thumbnail src="${escapeAttribute(item.src)}" alt="${escapeAttribute(item.alt || "선택한 사진 미리보기")}">
+    <img class="photo-editor-thumbnail" data-photo-thumbnail src="${escapeAttribute(item.src)}" alt="${escapeAttribute(item.alt || t("content.photoThumbnailAlt"))}">
     <label class="full">
-      <span>대체 텍스트</span>
+      <span>${escapeAttribute(t("content.photoAlt"))}</span>
       <input data-photo-field="alt" type="text" value="${escapeAttribute(item.alt)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>사진 설명</span>
+      <span>${escapeAttribute(t("content.photoCaption"))}</span>
       <textarea data-photo-field="caption" rows="2">${escapeAttribute(item.caption)}</textarea>
     </label>
   </div>
@@ -470,11 +491,11 @@ const renderPhotoFields = (item, bodyId, isOpen) => `
 const renderNoticeFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="notice-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
     <label class="full">
-      <span>제목</span>
+      <span>${escapeAttribute(t("content.noticeHeading"))}</span>
       <input data-notice-field="heading" type="text" value="${escapeAttribute(item.heading)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>내용</span>
+      <span>${escapeAttribute(t("content.noticeBody"))}</span>
       <textarea data-notice-field="body" rows="2">${escapeAttribute(item.body)}</textarea>
     </label>
   </div>
@@ -483,15 +504,15 @@ const renderNoticeFields = (item, bodyId, isOpen) => `
 const renderProfileFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="profile-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
     <label>
-      <span>이름</span>
+      <span>${escapeAttribute(t("content.profileName"))}</span>
       <input data-profile-field="name" type="text" value="${escapeAttribute(item.name)}" autocomplete="off">
     </label>
     <label>
-      <span>역할</span>
+      <span>${escapeAttribute(t("content.profileRole"))}</span>
       <input data-profile-field="role" type="text" value="${escapeAttribute(item.role)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>소개</span>
+      <span>${escapeAttribute(t("content.profileDescription"))}</span>
       <textarea data-profile-field="description" rows="2">${escapeAttribute(item.description)}</textarea>
     </label>
   </div>
@@ -500,15 +521,15 @@ const renderProfileFields = (item, bodyId, isOpen) => `
 const renderLinkFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="link-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
     <label>
-      <span>라벨</span>
+      <span>${escapeAttribute(t("content.linkLabel"))}</span>
       <input data-link-field="label" type="text" value="${escapeAttribute(item.label)}" autocomplete="off">
     </label>
     <label>
-      <span>표시값</span>
+      <span>${escapeAttribute(t("content.linkValue"))}</span>
       <input data-link-field="value" type="text" value="${escapeAttribute(item.value)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>URL</span>
+      <span>${escapeAttribute(t("content.linkUrl"))}</span>
       <input data-link-field="url" type="url" value="${escapeAttribute(item.url)}" autocomplete="off">
     </label>
   </div>
@@ -549,7 +570,9 @@ const syncTemplateAvailability = () => {
   dom.applyTemplate.disabled = busy || !pending;
   document.querySelector('#gallery-create').disabled = busy || !pending;
   document.querySelector('#gallery-back').disabled = busy;
-  document.querySelector('#gallery-selection').textContent = pending ? `선택한 디자인 · ${pending.name}` : '디자인을 선택해 주세요';
+  document.querySelector('#gallery-selection').textContent = pending
+    ? t('gallery.dockSelected', { name: pending.name })
+    : t('gallery.dockEmpty');
   dom.undoTemplate.disabled = busy || !state.undoSnapshot;
   const needsApply = Boolean(pending && pending.id !== state.activeTemplate);
   dom.startTemplate.hidden = !needsApply;
@@ -560,16 +583,16 @@ const syncTemplateAvailability = () => {
   dom.startTemplate.disabled = busy;
   dom.keepDraft.disabled = busy;
   dom.previewApply.disabled = busy;
-  dom.startTemplate.textContent = pending ? `${pending.name}로 시작` : "이 디자인으로 시작";
-  // A card already badged 적용됨 sitting next to a button offering to apply it
-  // reads as a contradiction. When the selection IS the applied design the same
-  // button becomes the next step instead — go write the invitation.
-  const applyLabel = needsApply ? "이 디자인으로 만들기" : "내용 편집하기";
+  dom.startTemplate.textContent = pending ? t("gallery.startNamed", { name: pending.name }) : t("gallery.start");
+  // A card already badged as in-use sitting next to a button offering to apply
+  // it reads as a contradiction. When the selection IS the applied design the
+  // same button becomes the next step instead — go write the invitation.
+  const applyLabel = needsApply ? t("gallery.apply") : t("gallery.continueToEditor");
   dom.applyTemplate.textContent = applyLabel;
   document.querySelector('#gallery-create').textContent = applyLabel;
   dom.pendingPreview.hidden = !needsApply;
   dom.pendingPreviewText.textContent = needsApply
-    ? `현재 초안 미리보기입니다. 선택한 ‘${pending.name}’ 디자인은 아직 적용 전입니다.` : "";
+    ? t("preview.pendingTemplate", { name: pending.name }) : "";
 };
 
 const syncAddItemAvailability = (items) => {
@@ -592,16 +615,16 @@ const syncAddItemAvailability = (items) => {
 const getItemPrimarySummary = (item) => {
   switch (item.type) {
     case "photo":
-      return item.caption || item.alt || "설명을 입력하세요";
+      return item.caption || item.alt || t("content.summaryPhoto");
     case "notice":
-      return item.heading || item.body || "안내 내용을 입력하세요";
+      return item.heading || item.body || t("content.summaryNotice");
     case "profile":
-      return item.name || item.role || "소개할 인물을 입력하세요";
+      return item.name || item.role || t("content.summaryProfile");
     case "link":
-      return item.label || item.value || item.url || "연락처나 링크를 입력하세요";
+      return item.label || item.value || item.url || t("content.summaryLink");
     case "course":
     default:
-      return item.place || "장소를 입력하세요";
+      return item.place || t("content.summaryCourse");
   }
 };
 
@@ -617,23 +640,24 @@ const getItemSecondarySummary = (item) => {
       return item.value || item.url || "LINK";
     case "course":
     default:
-      return `${item.time || "시간 미정"} · ${item.label || "PLACE"}`;
+      return `${item.time || t("content.timeUnset")} · ${item.label || "PLACE"}`;
   }
 };
 
 const getDeleteItemName = (item, index) => {
+  const position = index + 1;
   switch (item.type) {
     case "photo":
-      return item.caption.trim() || item.alt.trim() || `사진 ${index + 1}`;
+      return item.caption.trim() || item.alt.trim() || t("content.fallbackPhoto", { index: position });
     case "notice":
-      return item.heading.trim() || item.body.trim() || `안내 ${index + 1}`;
+      return item.heading.trim() || item.body.trim() || t("content.fallbackNotice", { index: position });
     case "profile":
-      return item.name.trim() || item.role.trim() || `인물 소개 ${index + 1}`;
+      return item.name.trim() || item.role.trim() || t("content.fallbackProfile", { index: position });
     case "link":
-      return item.label.trim() || item.value.trim() || item.url.trim() || `연락처·링크 ${index + 1}`;
+      return item.label.trim() || item.value.trim() || item.url.trim() || t("content.fallbackLink", { index: position });
     case "course":
     default:
-      return item.place.trim() || `코스 ${index + 1}`;
+      return item.place.trim() || t("content.fallbackCourse", { index: position });
   }
 };
 
@@ -670,14 +694,14 @@ const renderContentEditor = (items = [], openId = items[0]?.id) => {
   syncAddItemAvailability(items);
 
   if (!items.length) {
-    dom.contentEditor.innerHTML = '<p class="content-empty">코스나 사진을 추가해 초대장을 구성하세요.</p>';
+    dom.contentEditor.innerHTML = `<p class="content-empty">${escapeAttribute(t("content.empty"))}</p>`;
     return;
   }
 
   dom.contentEditor.innerHTML = items.map((item, index) => {
     const isOpen = item.id === openId;
     const bodyId = `content-editor-body-${index}`;
-    const typeLabel = ITEM_LABELS[item.type] || ITEM_LABELS.course;
+    const typeLabel = itemTypeLabel(item.type);
     const primarySummary = getItemPrimarySummary(item);
     const secondarySummary = getItemSecondarySummary(item);
     return `
@@ -792,10 +816,10 @@ const getFormData = () => {
 const syncParticleOutputs = () => {
   const scale = dom.form.elements.particleScale.value;
   const amount = dom.form.elements.particleAmount.value;
-  dom.particleScaleOutput.textContent = `${scale}%`;
-  dom.particleScaleOutput.setAttribute("aria-label", `파티클 크기 ${scale}%`);
-  dom.particleAmountOutput.textContent = `${amount}%`;
-  dom.particleAmountOutput.setAttribute("aria-label", `파티클 양 ${amount}%`);
+  dom.particleScaleOutput.textContent = percent(scale);
+  dom.particleScaleOutput.setAttribute("aria-label", t("editor.particleScaleValue", { value: percent(scale) }));
+  dom.particleAmountOutput.textContent = percent(amount);
+  dom.particleAmountOutput.setAttribute("aria-label", t("editor.particleAmountValue", { value: percent(amount) }));
 };
 
 const syncIntroReplayAvailability = () => {
@@ -818,7 +842,7 @@ const syncHeroImageEditor = () => {
   dom.heroImagePreview.hidden = !heroImage;
   dom.heroImageEmpty.hidden = Boolean(heroImage);
   dom.heroImageAdjustments.hidden = !heroImage;
-  dom.heroImageSelect.textContent = heroImage ? "사진 변경" : "배경 사진 추가";
+  dom.heroImageSelect.textContent = t(heroImage ? "hero.change" : "hero.add");
 
   if (heroImage) {
     const crop = HeroImage.normalizeCrop(heroImage);
@@ -829,13 +853,13 @@ const syncHeroImageEditor = () => {
       `--hero-image-scale:${crop.scale / 100};--hero-image-x:${crop.positionX}%;--hero-image-y:${crop.positionY}%`
     );
     dom.heroImageScale.value = String(crop.scale);
-    dom.heroImageScaleOutput.textContent = `${crop.scale}%`;
-    dom.heroImageScaleOutput.setAttribute("aria-label", `배경 사진 확대 ${crop.scale}%`);
+    dom.heroImageScaleOutput.textContent = percent(crop.scale);
+    dom.heroImageScaleOutput.setAttribute("aria-label", t("hero.scaleValue", { value: percent(crop.scale) }));
   } else {
     dom.heroImagePreview.removeAttribute?.("src");
     dom.heroImagePreview.removeAttribute?.("style");
     dom.heroImageScale.value = String(HeroImage.MIN_SCALE);
-    dom.heroImageScaleOutput.textContent = `${HeroImage.MIN_SCALE}%`;
+    dom.heroImageScaleOutput.textContent = percent(HeroImage.MIN_SCALE);
   }
 
   syncHeroImageAvailability();
@@ -876,13 +900,13 @@ const syncMapSettingsVisibility = () => {
     representativeMessage.textContent = "";
     delete representativeMessage.dataset.mapLookupState;
   } else if (representativeCoordinatesValid && representativeMessage.dataset.mapLookupState !== "loading") {
-    representativeMessage.textContent = "지도 위치를 확인했습니다.";
+    representativeMessage.textContent = t("map.ready");
     representativeMessage.dataset.mapLookupState = "ready";
   } else if (!dom.form.elements.location.value.trim()) {
-    representativeMessage.textContent = "장소 또는 주소를 입력해 주세요.";
+    representativeMessage.textContent = t("map.empty");
     representativeMessage.dataset.mapLookupState = "empty";
   } else if (!representativeMessage.dataset.mapLookupState || representativeMessage.dataset.mapLookupState === "ready") {
-    representativeMessage.textContent = "장소 입력을 마치면 지도 위치를 확인합니다.";
+    representativeMessage.textContent = t("map.pending");
     representativeMessage.dataset.mapLookupState = "pending";
   }
   dom.contentEditor.querySelectorAll('[data-item-type="course"]').forEach((card) => {
@@ -903,13 +927,13 @@ const syncMapSettingsVisibility = () => {
       message.textContent = "";
       delete message.dataset.mapLookupState;
     } else if (hasValidCoordinates && message.dataset.mapLookupState !== "loading") {
-      message.textContent = "지도 위치를 확인했습니다.";
+      message.textContent = t("map.ready");
       message.dataset.mapLookupState = "ready";
     } else if (!place.value.trim()) {
-      message.textContent = "장소 또는 주소를 입력해 주세요.";
+      message.textContent = t("map.empty");
       message.dataset.mapLookupState = "empty";
     } else if (!message.dataset.mapLookupState || message.dataset.mapLookupState === "ready") {
-      message.textContent = "장소 입력을 마치면 지도 위치를 확인합니다.";
+      message.textContent = t("map.pending");
       message.dataset.mapLookupState = "pending";
     }
   });
@@ -944,13 +968,13 @@ const setMapFallback = (canvas, status, canRetry = false) => {
   const statusElement = status || canvas?.nextElementSibling;
   if (!statusElement) return;
 
-  statusElement.textContent = "지도를 불러올 수 없습니다. 아래 버튼으로 확인하세요.";
+  statusElement.textContent = t("map.unavailable");
   if (canRetry) {
     const retryButton = document.createElement("button");
     retryButton.type = "button";
     retryButton.className = "map-retry-button";
     retryButton.dataset.retryMap = "";
-    retryButton.textContent = "지도 다시 시도";
+    retryButton.textContent = t("map.retry");
     statusElement.append(retryButton);
   }
 };
@@ -1051,7 +1075,7 @@ const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, messa
   latitude.value = "";
   longitude.value = "";
   message.dataset.mapLookupState = "loading";
-  message.textContent = "지도 위치를 찾고 있습니다.";
+  message.textContent = t("map.searching");
 
   try {
     const hasUrl = String(mapUrl || "").trim() || /^https?:\/\//i.test(normalizedQuery);
@@ -1061,7 +1085,7 @@ const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, messa
     latitude.value = String(coordinates.latitude);
     longitude.value = String(coordinates.longitude);
     message.dataset.mapLookupState = "ready";
-    message.textContent = "지도 위치를 확인했습니다.";
+    message.textContent = t("map.ready");
     pendingPreviewMapKey = typeof mapKey === "function" ? mapKey() : mapKey;
   } catch (error) {
     if (mapLookupVersions.get(key) !== version) return;
@@ -1069,11 +1093,9 @@ const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, messa
     if (error.code === "URL_LOCATION_UNAVAILABLE" || error.code === "INVALID_MAP_URL") {
       message.textContent = error.message;
     } else if (error.code === "SERVICE_UNAVAILABLE") {
-      message.textContent = "지도 위치 검색을 사용할 수 없습니다. NAVER Geocoding 설정을 확인해 주세요.";
+      message.textContent = t("map.serviceUnavailable");
     } else {
-      message.textContent = normalizedQuery
-        ? "장소를 찾지 못했습니다. 도로명 주소를 입력해 주세요."
-        : "장소 또는 주소를 입력해 주세요.";
+      message.textContent = t(normalizedQuery ? "map.notFound" : "map.empty");
     }
   }
   renderPreview();
@@ -1281,11 +1303,11 @@ const renderTemplates = () => {
         <div class="template-card-copy">
           <div class="template-card-heading">
             <strong>${escapeAttribute(template.name)}</strong>
-            ${isApplied ? '<small class="template-chip-status">적용됨</small>' : ""}
+            ${isApplied ? `<small class="template-chip-status">${escapeAttribute(t("gallery.applied"))}</small>` : ""}
           </div>
           <p>${escapeAttribute(template.note)}</p>
         </div>
-        <button class="template-chip" type="button" data-template-id="${escapeAttribute(template.id)}" aria-label="${escapeAttribute(template.name)} 템플릿 선택${isApplied ? ", 현재 적용됨" : ""}" aria-pressed="${isPending}"></button>
+        <button class="template-chip" type="button" data-template-id="${escapeAttribute(template.id)}" aria-label="${escapeAttribute(t("gallery.selectTemplate", { name: template.name }) + (isApplied ? t("gallery.selectTemplateApplied") : ""))}" aria-pressed="${isPending}"></button>
       </article>
     `;
   }).join("");
@@ -1293,10 +1315,10 @@ const renderTemplates = () => {
 
   const pending = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId) || presets[0] || null;
   dom.templateSummary.textContent = pending
-    ? (pending.id === state.activeTemplate ? `적용된 디자인: ${pending.name}` : `선택: ${pending.name} · 적용 전까지 현재 초안은 유지됩니다.`)
-    : "적용할 템플릿을 선택해 주세요.";
+    ? t(pending.id === state.activeTemplate ? "gallery.summaryApplied" : "gallery.summaryPending", { name: pending.name })
+    : t("gallery.summaryEmpty");
   dom.toggleTemplates.textContent = dom.toggleTemplates.getAttribute('aria-expanded') === 'true'
-    ? '접기' : `${presets.length}개 전체 보기`;
+    ? t('gallery.collapse') : t('gallery.showAllCount', { count: presets.length });
   dom.undoTemplate.hidden = !state.undoSnapshot;
   syncTemplateAvailability();
 };
@@ -1326,7 +1348,7 @@ const renderSamplePreview = () => {
   applyPreviewPalette(sample);
   updatePreviewMarkup(InvitationCore.renderInvitationBody(sample));
   dom.pendingPreview.hidden = false;
-  dom.pendingPreviewText.textContent = '디자인 샘플 · 작성한 내용은 유지됩니다';
+  dom.pendingPreviewText.textContent = t('preview.sample');
   setMobileView('preview');
   document.querySelector('.preview-panel').scrollIntoView({ block: 'start' });
   dom.previewApply.focus({ preventScroll: true });
@@ -1366,7 +1388,7 @@ const applyPendingTemplate = () => {
     setStudioStage('edit');
     return true;
   } catch {
-    dom.saveStatus.textContent = "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다.";
+    dom.saveStatus.textContent = t("gallery.applyFailed");
   }
 };
 
@@ -1406,7 +1428,7 @@ const playPreviewIntro = () => {
 
 const renderSaved = () => {
   if (!state.saved.length) {
-    dom.savedList.innerHTML = `<p class="empty-state">아직 등록된 초대장이 없습니다.</p>`;
+    dom.savedList.innerHTML = `<p class="empty-state">${escapeAttribute(t("library.empty"))}</p>`;
     return;
   }
 
@@ -1415,14 +1437,14 @@ const renderSaved = () => {
       <div class="saved-item-copy">
         <strong>${escapeAttribute(item.title)}</strong>
         <div class="saved-item-meta">
-          <span class="saved-source">${item.source === "upload" ? "HTML 등록" : "직접 제작"}</span>
+          <span class="saved-source">${escapeAttribute(t(item.source === "upload" ? "library.sourceUpload" : "library.sourceGenerated"))}</span>
           <time datetime="${escapeAttribute(item.createdAt)}">${escapeAttribute(formatSavedDate(item.createdAt))}</time>
         </div>
       </div>
       <div class="saved-actions">
-        <button type="button" data-action="open" data-id="${escapeAttribute(item.id)}">열기</button>
-        <button type="button" data-action="download" data-id="${escapeAttribute(item.id)}">다운로드</button>
-        <button type="button" data-action="delete" data-id="${escapeAttribute(item.id)}">삭제</button>
+        <button type="button" data-action="open" data-id="${escapeAttribute(item.id)}">${escapeAttribute(t("library.open"))}</button>
+        <button type="button" data-action="download" data-id="${escapeAttribute(item.id)}">${escapeAttribute(t("library.download"))}</button>
+        <button type="button" data-action="delete" data-id="${escapeAttribute(item.id)}">${escapeAttribute(t("library.remove"))}</button>
       </div>
     </article>
   `).join("");
@@ -1511,11 +1533,15 @@ const validateForExport = () => {
 };
 
 const confirmReplyContact = () => {
+  // The vocabulary that marks an item as asking for a reply is language-
+  // specific — an English author writes "RSVP" or "Reply", never "회신" — so
+  // the pattern comes from the dictionary rather than being hard-coded here.
+  const replyWords = new RegExp(t('finish.replyContactPattern'), 'i');
   const item = getFormData().items.find((entry) => entry.type === 'link'
-    && /rsvp|회신|참석|연락/i.test(`${entry.label} ${entry.value}`)
+    && replyWords.test(`${entry.label} ${entry.value}`)
     && !entry.url && !/(?:\b0[1-9]\d?[ -]?\d{3,4}[ -]?\d{4}\b|\+[1-9][\d ()-]{7,}\d\b|[^\s@]+@[^\s@]+\.[^\s@]+)/.test(entry.value));
   if (!item) return true;
-  if (window.confirm('회신을 요청하는 항목에 연락처나 링크가 없습니다. 연락 수단 없이 다운로드할까요?\n취소하면 연락처 입력으로 이동합니다.')) return true;
+  if (window.confirm(t('finish.confirmReplyContact'))) return true;
   setStudioStage('edit');
   const card = findItemCard(item.id);
   if (card) {
@@ -1548,7 +1574,7 @@ const makeSavedItem = (html, title, source = "generated", legacy = {}) => ({
   id: typeof legacy.id === "string" && legacy.id.trim()
     ? legacy.id
     : createItemId("invitation"),
-  title: title || "Untitled Invitation",
+  title: title || t("library.untitled"),
   createdAt: normalizeCreatedAt(legacy.createdAt),
   source: source === "upload" ? "upload" : "generated",
   html
@@ -1625,11 +1651,9 @@ const saveCurrent = async () => {
     const html = InvitationCore.buildStandaloneHtml(invitation);
     trackAnalyticsCompletion(invitation);
     const result = await saveRecord(makeSavedItem(html, invitation.title, "generated"));
-    dom.saveStatus.textContent = result.synchronized
-      ? "목록에 등록했습니다."
-      : "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.";
+    dom.saveStatus.textContent = t(result.synchronized ? "status.saved" : "status.savedUnsynchronized");
   } catch {
-    dom.saveStatus.textContent = "브라우저 저장 공간에 기록하지 못해 등록에 실패했습니다.";
+    dom.saveStatus.textContent = t("status.saveFailed");
   } finally {
     saveWritePending = false;
     syncAddItemAvailability(getItemsData());
@@ -1655,7 +1679,7 @@ const handleSavedAction = async (event) => {
     trackAnalytics("html_downloaded", { template_id: undefined, occasion: undefined }, `download:library:${item.id}`);
   }
   if (button.dataset.action === "delete") {
-    if (!window.confirm(`“${item.title}” 초대장을 목록에서 삭제할까요?`)) return;
+    if (!window.confirm(t("library.confirmRemove", { title: item.title }))) return;
     button.disabled = true;
     try {
       await InvitationStorage.remove(item.id);
@@ -1666,11 +1690,9 @@ const handleSavedAction = async (event) => {
       } catch {
         synchronized = false;
       }
-      dom.uploadStatus.textContent = synchronized
-        ? "등록된 초대장을 삭제했습니다."
-        : "삭제는 완료했지만 저장 목록 새로고침을 마치지 못했습니다.";
+      dom.uploadStatus.textContent = t(synchronized ? "status.removed" : "status.removedUnsynchronized");
     } catch {
-      dom.uploadStatus.textContent = "브라우저 저장 공간을 변경하지 못했습니다.";
+      dom.uploadStatus.textContent = t("status.removeFailed");
     } finally {
       button.disabled = false;
     }
@@ -1682,7 +1704,7 @@ const registerUploadedHtml = async (file) => {
   dom.uploadStatus.textContent = "";
 
   if (file.size > MAX_UPLOAD_BYTES) {
-    dom.uploadStatus.textContent = "10MB 이하의 초대장 HTML만 등록할 수 있습니다.";
+    dom.uploadStatus.textContent = t("status.uploadTooLarge");
     dom.upload.value = "";
     return;
   }
@@ -1695,15 +1717,9 @@ const registerUploadedHtml = async (file) => {
     const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation);
     parsedSuccessfully = true;
     const result = await saveRecord(makeSavedItem(rebuiltHtml, invitation.title, "upload"));
-    dom.uploadStatus.textContent = result.synchronized
-      ? "초대장을 등록했습니다."
-      : "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.";
+    dom.uploadStatus.textContent = t(result.synchronized ? "status.uploaded" : "status.uploadedUnsynchronized");
   } catch {
-    if (parsedSuccessfully) {
-      dom.uploadStatus.textContent = "브라우저 저장 공간에 기록하지 못해 등록에 실패했습니다.";
-    } else {
-      dom.uploadStatus.textContent = "이 제작기에서 다운로드한 HTML만 등록할 수 있습니다.";
-    }
+    dom.uploadStatus.textContent = t(parsedSuccessfully ? "status.saveFailed" : "status.uploadUnsupported");
   } finally {
     dom.upload.value = "";
     dom.upload.disabled = false;
@@ -1801,10 +1817,10 @@ const handlePhotoSelection = async () => {
   try {
     for (const [index, file] of files.entries()) {
       if (compressedPhotos.length >= availableCapacity) {
-        statuses[index] = `${file.name}: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다.`;
+        statuses[index] = t("content.photoOverCapacity", { file: file.name });
         continue;
       }
-      dom.saveStatus.textContent = `${file.name}: 사진을 처리하고 있습니다.`;
+      dom.saveStatus.textContent = t("content.photoProcessing", { file: file.name });
       try {
         const image = await ImageTools.compress(file);
         const item = {
@@ -1816,10 +1832,10 @@ const handlePhotoSelection = async () => {
         };
         compressedPhotos.push({ fileName: file.name, index, item });
       } catch (error) {
-        const message = error instanceof ImageTools.ImageError
+        const reason = error instanceof ImageTools.ImageError
           ? error.message
-          : "이미지를 처리할 수 없습니다.";
-        statuses[index] = `${file.name}: ${message}`;
+          : t("content.imageFailed");
+        statuses[index] = t("content.photoFailed", { file: file.name, reason });
       }
     }
 
@@ -1828,11 +1844,11 @@ const handlePhotoSelection = async () => {
     const currentItems = getItemsData();
     const result = mergeCompressedPhotos(currentItems, compressedPhotos);
     for (const committed of result.committed) {
-      statuses[committed.index] = `${committed.fileName}: 사진을 추가했습니다.`;
+      statuses[committed.index] = t("content.photoAdded", { file: committed.fileName });
     }
     for (const skipped of result.skipped) {
-      const limit = skipped.reason === "items" ? "초대장 항목" : "사진";
-      statuses[skipped.index] = `${skipped.fileName}: 사진 처리를 완료했지만 ${limit} 제한으로 추가하지 않았습니다.`;
+      const limit = t(skipped.reason === "items" ? "content.limitItems" : "content.limitPhotos");
+      statuses[skipped.index] = t("content.photoSkipped", { file: skipped.fileName, limit });
     }
 
     if (result.committed.length) {
@@ -1862,7 +1878,7 @@ const handleHeroImageSelection = async () => {
   }
 
   heroImageSelectionPending = true;
-  dom.heroImageStatus.textContent = `${file.name}: 배경 사진을 처리하고 있습니다.`;
+  dom.heroImageStatus.textContent = t("hero.processing", { file: file.name });
   syncAddItemAvailability(getItemsData());
   try {
     const image = await ImageTools.compress(file);
@@ -1873,12 +1889,12 @@ const handleHeroImageSelection = async () => {
     markAnalyticsEdit();
     syncHeroImageEditor();
     renderPreview();
-    dom.heroImageStatus.textContent = `${file.name}: 배경 사진을 추가했습니다.`;
+    dom.heroImageStatus.textContent = t("hero.added", { file: file.name });
   } catch (error) {
-    const message = error instanceof ImageTools.ImageError
+    const reason = error instanceof ImageTools.ImageError
       ? error.message
-      : "이미지를 처리할 수 없습니다.";
-    dom.heroImageStatus.textContent = `${file.name}: ${message}`;
+      : t("content.imageFailed");
+    dom.heroImageStatus.textContent = t("content.photoFailed", { file: file.name, reason });
   } finally {
     dom.heroImageInput.value = "";
     heroImageSelectionPending = false;
@@ -1902,7 +1918,7 @@ const resetHeroImage = () => {
   state.heroImage = { src: state.heroImage.src, ...HeroImage.normalizeCrop() };
   syncHeroImageEditor();
   renderPreview();
-  dom.heroImageStatus.textContent = "배경 사진 위치와 확대를 초기화했습니다.";
+  dom.heroImageStatus.textContent = t("hero.wasReset");
 };
 
 const removeHeroImage = () => {
@@ -1911,7 +1927,7 @@ const removeHeroImage = () => {
   state.heroImage = null;
   syncHeroImageEditor();
   renderPreview();
-  dom.heroImageStatus.textContent = "템플릿 기본 배경으로 되돌렸습니다.";
+  dom.heroImageStatus.textContent = t("hero.wasRemoved");
 };
 
 const beginHeroImageDrag = (event) => {
@@ -1983,12 +1999,82 @@ const finishHeroImageDrag = (event) => {
   }
 };
 
+/* Sample content localization ----------------------------------------------
+   invitation-data.json is the Korean original and the single source of
+   structure. Other languages ship an overlay keyed by the same ids that
+   carries only translatable leaves, so ids, course labels, effects, fonts,
+   coordinates and zoom can never drift apart between languages. */
+const contentOverlays = new Map();
+
+const loadContentOverlay = async (language) => {
+  if (contentOverlays.has(language)) return contentOverlays.get(language);
+  // Korean is the base data and needs no overlay.
+  if (language === (I18n?.DEFAULT_LANGUAGE ?? "ko")) {
+    contentOverlays.set(language, null);
+    return null;
+  }
+
+  let overlay = null;
+  try {
+    const response = await fetch(`assets/i18n/content-${language}.json`, { cache: "no-store" });
+    if (response.ok) overlay = await response.json();
+  } catch {
+    // Samples falling back to the base language is a blemish, not a failure.
+  }
+  contentOverlays.set(language, overlay);
+  return overlay;
+};
+
+const localizeSampleInvitation = (invitation = {}, overlay) => {
+  const localized = { ...invitation };
+  for (const field of ["title", "subtitle", "host", "location", "message"]) {
+    if (overlay?.[field]) localized[field] = overlay[field];
+  }
+  /* dateTime is the language-neutral instant behind a sample. Only generated
+     values are formatted: once an author types into the 일시 / Date and time
+     field the invitation carries their dateLabel and no dateTime, so their
+     free text survives every language switch untouched. */
+  const sampleDate = invitation.dateTime && I18n?.formatSampleDate(invitation.dateTime);
+  if (sampleDate) localized.dateLabel = sampleDate;
+  localized.items = (invitation.items || []).map((item) => ({ ...item, ...(overlay?.items?.[item.id] || {}) }));
+  return localized;
+};
+
+const localizeCatalogData = (data, overlay) => ({
+  ...data,
+  occasions: (data.occasions || []).map((occasion) => ({
+    ...occasion,
+    name: overlay?.occasions?.[occasion.id] || occasion.name
+  })),
+  templates: (data.templates || []).map((template) => {
+    const localized = overlay?.templates?.[template.id];
+    return {
+      ...template,
+      name: localized?.name || template.name,
+      note: localized?.note || template.note,
+      defaults: localizeSampleInvitation(template.defaults, localized?.defaults)
+    };
+  }),
+  defaultInvitation: localizeSampleInvitation(data.defaultInvitation, overlay?.defaultInvitation)
+});
+
+// Rebuilds the gallery and the starting sample in the active language.
+// Returns the localized defaultInvitation so callers can decide whether the
+// author's current draft is theirs to keep or ours to replace.
+const applyContentLanguage = async () => {
+  const language = I18n?.getLanguage() ?? "ko";
+  const data = localizeCatalogData(state.rawData || {}, await loadContentOverlay(language));
+  state.catalog = TemplateCatalog.normalizeCatalog(data);
+  state.templates = state.catalog.templates;
+  state.localizedDefault = data.defaultInvitation;
+  return data;
+};
+
 const loadInitialData = async () => {
   const response = await fetch("invitation-data.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
-  state.catalog = TemplateCatalog.normalizeCatalog(data);
-  state.templates = state.catalog.templates;
+  state.rawData = await response.json();
+  const data = await applyContentLanguage();
   state.naverMapClientId = String(data.site?.naverMapClientId || "").trim();
   state.activeTemplate = data.site?.defaultTemplate || state.templates[0]?.id || "royal";
   state.invitation = InvitationCore.normalizeInvitation({
@@ -2028,10 +2114,10 @@ const init = async () => {
         state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
         state.appliedBaseline = state.invitation;
         personalDraft = true;
-        document.querySelector('#draft-status').textContent = '이전 초안을 복구했습니다';
+        document.querySelector('#draft-status').textContent = t('status.draftRestored');
       }
     } catch {
-      document.querySelector('#draft-status').textContent = '자동 저장 사용 불가 · HTML로 다운로드해 주세요';
+      document.querySelector('#draft-status').textContent = t('status.draftUnavailable');
     }
     renderTemplates();
     fillForm(state.invitation);
@@ -2046,7 +2132,7 @@ const init = async () => {
       database = await InvitationStorage.open();
       database.close?.();
     } catch {
-      dom.uploadStatus.textContent = "등록 목록 저장소를 열지 못했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
+      dom.uploadStatus.textContent = t("status.storageUnavailable");
       return;
     }
 
@@ -2054,19 +2140,19 @@ const init = async () => {
       const migration = await migrateLegacySaved();
       const synchronized = await synchronizeSaved();
       if (!migration.checkpointed) {
-        dom.uploadStatus.textContent = "기존 등록 목록 마이그레이션을 시작하지 못했습니다. 기존 데이터는 그대로 유지됩니다.";
+        dom.uploadStatus.textContent = t("status.migrationUnavailable");
       } else if (!synchronized) {
-        dom.uploadStatus.textContent = "등록 목록 동기화를 마치지 못했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
+        dom.uploadStatus.textContent = t("status.syncIncomplete");
       }
     } catch {
-      dom.uploadStatus.textContent = "등록 목록 동기화에 실패했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.";
+      dom.uploadStatus.textContent = t("status.syncFailed");
     }
   } catch {
     if (previewHost) {
       previewHost.innerHTML = `
       <div class="error-panel">
-        <strong>초기 데이터를 불러오지 못했습니다.</strong>
-        <p>별도 JSON 파일을 읽기 때문에 로컬 서버나 배포 환경에서 열어야 합니다.</p>
+        <strong>${escapeAttribute(t("status.bootFailedTitle"))}</strong>
+        <p>${escapeAttribute(t("status.bootFailedBody"))}</p>
         <code>python3 -m http.server 4173</code>
       </div>
     `;
@@ -2148,7 +2234,10 @@ dom.form.addEventListener("change", (event) => {
 const addEditableItem = (type) => {
   const items = getItemsData();
   if (items.length >= InvitationCore.MAX_ITEMS) {
-    dom.saveStatus.textContent = `초대장 항목은 최대 ${InvitationCore.MAX_ITEMS}개까지 추가할 수 있습니다.`;
+    dom.saveStatus.textContent = t("content.limitReached", {
+      max: InvitationCore.MAX_ITEMS,
+      count: InvitationCore.MAX_ITEMS
+    });
     return;
   }
   const item = createEmptyItem(type);
@@ -2207,7 +2296,7 @@ dom.contentEditor.addEventListener("click", (event) => {
   const items = getItemsData();
   const item = items[index];
   const itemName = getDeleteItemName(item, index);
-  if (!window.confirm(`“${itemName}” 항목을 삭제할까요?`)) return;
+  if (!window.confirm(t("content.confirmRemove", { name: itemName }))) return;
 
   const openId = getOpenItemId();
   items.splice(index, 1);
@@ -2226,37 +2315,37 @@ dom.contentEditor.addEventListener("input", (event) => {
   if (!card) return;
   const value = event.target.value.trim();
   if (event.target.dataset.courseField === "place") {
-    card.querySelector("[data-item-summary]").textContent = value || "장소를 입력하세요";
+    card.querySelector("[data-item-summary]").textContent = value || t("content.summaryCourse");
   }
   if (event.target.dataset.courseField === "time" || event.target.dataset.courseField === "label") {
-    const time = card.querySelector('[data-course-field="time"]').value || "시간 미정";
+    const time = card.querySelector('[data-course-field="time"]').value || t("content.timeUnset");
     const label = card.querySelector('[data-course-field="label"]').value || "PLACE";
     card.querySelector("[data-item-secondary-summary]").textContent = `${time} · ${label}`;
   }
   if (event.target.dataset.photoField === "alt") {
-    card.querySelector("[data-photo-thumbnail]").alt = value || "선택한 사진 미리보기";
+    card.querySelector("[data-photo-thumbnail]").alt = value || t("content.photoThumbnailAlt");
   }
   if (event.target.dataset.photoField === "alt" || event.target.dataset.photoField === "caption") {
     const alt = card.querySelector('[data-photo-field="alt"]').value.trim();
     const caption = card.querySelector('[data-photo-field="caption"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = caption || alt || "설명을 입력하세요";
+    card.querySelector("[data-item-summary]").textContent = caption || alt || t("content.summaryPhoto");
   }
   if (event.target.dataset.noticeField) {
     const heading = card.querySelector('[data-notice-field="heading"]').value.trim();
     const body = card.querySelector('[data-notice-field="body"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = heading || body || "안내 내용을 입력하세요";
+    card.querySelector("[data-item-summary]").textContent = heading || body || t("content.summaryNotice");
   }
   if (event.target.dataset.profileField) {
     const name = card.querySelector('[data-profile-field="name"]').value.trim();
     const role = card.querySelector('[data-profile-field="role"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = name || role || "소개할 인물을 입력하세요";
+    card.querySelector("[data-item-summary]").textContent = name || role || t("content.summaryProfile");
     card.querySelector("[data-item-secondary-summary]").textContent = role || "PROFILE";
   }
   if (event.target.dataset.linkField) {
     const label = card.querySelector('[data-link-field="label"]').value.trim();
     const valueText = card.querySelector('[data-link-field="value"]').value.trim();
     const url = card.querySelector('[data-link-field="url"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = label || valueText || url || "연락처나 링크를 입력하세요";
+    card.querySelector("[data-item-summary]").textContent = label || valueText || url || t("content.summaryLink");
     card.querySelector("[data-item-secondary-summary]").textContent = valueText || url || "LINK";
   }
 });
@@ -2281,7 +2370,7 @@ dom.templates.addEventListener("click", (event) => {
   renderSamplePreview();
 });
 
-// Matches the 내용 편집하기 / 이 디자인으로 만들기 label swap in
+// Matches the gallery.continueToEditor / gallery.apply label swap in
 // syncTemplateAvailability: re-applying the design you are already on is a
 // no-op the author never asked for, so it advances to the editor instead.
 const applyOrContinue = () => {
@@ -2328,7 +2417,7 @@ dom.toggleTemplates.addEventListener('click', () => {
   dom.templates.scrollLeft = 0;
   dom.templates.scrollTop = 0;
   const count = TemplateCatalog.getPresetsForOccasion(state.catalog, state.activeOccasion).length;
-  dom.toggleTemplates.textContent = expanded ? '접기' : `${count}개 전체 보기`;
+  dom.toggleTemplates.textContent = expanded ? t('gallery.collapse') : t('gallery.showAllCount', { count });
 });
 
 dom.replayIntro.addEventListener("click", playPreviewIntro);
@@ -2368,4 +2457,68 @@ dom.mobileTabs.forEach((button) => {
 
 document.querySelectorAll('.studio-steps button').forEach(button => button.addEventListener('click', () => setStudioStage(button.dataset.studioStage)));
 document.querySelector('#review-button').addEventListener('click', () => setStudioStage('finish'));
+
+/* Language switching ------------------------------------------------------
+   Options are built from the engine's registry, so adding a language means
+   adding a dictionary and a content overlay — never touching this file or
+   index.html. Each language is named in its own words, because "영어" is no
+   help to someone who cannot read Korean. */
+const languageSelect = document.querySelector('#language-select');
+
+const populateLanguageSwitcher = () => {
+  if (!languageSelect || !I18n) return;
+  languageSelect.innerHTML = I18n.getLanguages()
+    .map(({ language, label }) =>
+      `<option value="${escapeAttribute(language)}">${escapeAttribute(label)}</option>`)
+    .join('');
+  languageSelect.value = I18n.getLanguage();
+};
+
+/* Re-renders every surface that was built from the dictionary or the catalog.
+   The author's invitation is deliberately NOT retranslated: what they typed is
+   their document, and swapping it out on a language change would be data loss.
+   The one exception is an untouched draft, which is still our sample rather
+   than their writing — personalDraft is false only until they edit or apply a
+   design. */
+const handleLanguageChange = async () => {
+  if (languageSelect) languageSelect.value = I18n.getLanguage();
+  syncStudioHeading();
+
+  if (state.rawData) {
+    await applyContentLanguage();
+    if (!personalDraft && state.localizedDefault) {
+      state.invitation = InvitationCore.normalizeInvitation({
+        ...state.localizedDefault,
+        templateId: state.activeTemplate,
+        naverMapClientId: state.naverMapClientId
+      });
+      state.appliedBaseline = PresetApplication.snapshot(state.invitation);
+      fillForm(state.invitation);
+    } else {
+      // Re-render the item cards so their field labels and placeholder
+      // summaries follow the new language without touching the values.
+      renderContentEditor(getItemsData(), getOpenItemId());
+    }
+    renderTemplates();
+    renderPreview();
+  }
+
+  renderSaved();
+  document.querySelector('#draft-status').textContent = t(draftReady ? 'status.draftSaved' : 'status.draftKept');
+};
+
+if (I18n) {
+  populateLanguageSwitcher();
+  I18n.subscribe(() => { handleLanguageChange(); });
+  languageSelect?.addEventListener('change', () => {
+    // Persisted: this is the one signal that records a decision made here.
+    I18n.setLanguage(languageSelect.value);
+    trackAnalytics('language_changed', { language: I18n.getLanguage() }, `language:${I18n.getLanguage()}`);
+  });
+  // index.html resolves and applies the language in <head> so the document
+  // never paints in the wrong one; this second pass covers the body, which
+  // had not been parsed yet at that point.
+  I18n.applyDom(document);
+}
+
 init();
