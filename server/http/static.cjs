@@ -11,7 +11,9 @@ const MIME_TYPES = Object.freeze({
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8"
 });
 
 const staticFileFor = (staticRoot, requestPath) => {
@@ -29,6 +31,8 @@ const staticFileFor = (staticRoot, requestPath) => {
     /^\/[0-9A-Za-z_-][0-9A-Za-z_.-]*\.html$/.test(decoded)
     || /^\/assets\/[0-9A-Za-z_./-]+\.(?:css|js|json|png|webp|jpe?g|svg|ico)$/.test(decoded)
     || decoded === "/invitation-data.json"
+    || decoded === "/robots.txt"
+    || decoded === "/sitemap.xml"
   )) return null;
   const fullPath = path.resolve(staticRoot, `.${decoded}`);
   const rootWithSep = path.resolve(staticRoot) + path.sep;
