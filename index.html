@@ -1,27 +1,33 @@
 <!doctype html>
+<!-- lang is the served default; assets/i18n/i18n.js rewrites it to the
+     resolved language before first paint so screen readers and browser
+     translation both see the language actually on screen. -->
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f7f7f4">
-  <meta name="description" content="마음에 드는 디자인에 나만의 이야기를 담아보세요. 생일부터 소중한 모임까지, 나만의 초대장을 만드는 Invitation Studio.">
+  <meta name="description" data-i18n-attr="content:meta.description" content="마음에 드는 디자인에 나만의 이야기를 담아보세요. 생일부터 소중한 모임까지, 나만의 초대장을 만드는 Invitation Studio.">
   <link rel="canonical" href="https://invitation-maker-one.vercel.app/">
   <meta property="og:type" content="website">
-  <meta property="og:locale" content="ko_KR">
+  <meta property="og:locale" data-i18n-attr="content:meta.ogLocale" content="ko_KR">
   <meta property="og:site_name" content="Invitation Studio">
-  <meta property="og:title" content="Invitation Studio · 작은 초대, 소중한 순간">
-  <meta property="og:description" content="마음에 드는 디자인에 나만의 이야기를 담아보세요. 생일부터 소중한 모임까지, 나만의 초대장을 만들어보세요.">
+  <meta property="og:title" data-i18n-attr="content:meta.ogTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
+  <meta property="og:description" data-i18n-attr="content:meta.ogDescription" content="마음에 드는 디자인에 나만의 이야기를 담아보세요. 생일부터 소중한 모임까지, 나만의 초대장을 만들어보세요.">
   <meta property="og:url" content="https://invitation-maker-one.vercel.app/">
   <meta property="og:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <meta property="og:image:alt" data-i18n-attr="content:meta.ogImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Invitation Studio · 작은 초대, 소중한 순간">
-  <meta name="twitter:description" content="마음에 드는 디자인에 나만의 이야기를 담아 나만의 초대장을 만들어보세요.">
+  <meta name="twitter:title" data-i18n-attr="content:meta.twitterTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
+  <meta name="twitter:description" data-i18n-attr="content:meta.twitterDescription" content="마음에 드는 디자인에 나만의 이야기를 담아 나만의 초대장을 만들어보세요.">
   <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
-  <meta name="twitter:image:alt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <meta name="twitter:image:alt" data-i18n-attr="content:meta.twitterImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <!-- Structured data stays in the served default language on purpose: a
+       crawler sees this document before any script runs, so describing it as
+       anything other than what was served would be a lie to the indexer. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -48,58 +54,80 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/studio/style.css">
   <link rel="stylesheet" href="assets/studio/studio.css">
+  <!-- Loaded in <head>, before the body paints, so the resolved language is
+       applied in the same frame rather than flashing Korean at an English
+       visitor. The dictionaries register themselves onto the engine. -->
+  <script src="assets/i18n/i18n.js"></script>
+  <script src="assets/i18n/dictionary-ko.js"></script>
+  <script src="assets/i18n/dictionary-en.js"></script>
+  <script>InvitationI18n.init();</script>
 </head>
 <body data-mobile-view="editor" data-studio-stage="gallery">
-  <header class="studio-bar"><a href="./">Invitation Studio<span>작은 날도, 특별하게.</span></a><p id="draft-status" role="status">이 기기에 초안을 보관합니다</p></header>
-  <nav class="studio-steps" aria-label="제작 단계">
-    <button type="button" data-studio-stage="gallery" aria-pressed="true">01 디자인</button>
-    <button type="button" data-studio-stage="edit" aria-pressed="false">02 내용 편집</button>
-    <button type="button" data-studio-stage="finish" aria-pressed="false">03 완성</button>
-    <button type="button" data-studio-stage="library" aria-pressed="false">보관함</button>
+  <header class="studio-bar">
+    <a href="./">Invitation Studio<span data-i18n="header.tagline">작은 날도, 특별하게.</span></a>
+    <div class="studio-bar-meta">
+      <p id="draft-status" role="status" data-i18n="status.draftKept">이 기기에 초안을 보관합니다</p>
+      <!-- Sits in the top bar, clear of .studio-steps, so the three-stage nav
+           keeps reading as the one row of primary navigation. A <select> is
+           used rather than a pair of toggles because it stays one control at
+           any number of languages, and it is keyboard-reachable and
+           state-announcing natively. Options are built from the engine's
+           language registry, so a new language needs no markup change. -->
+      <div class="studio-language">
+        <label for="language-select" data-i18n="lang.switcherDescription">스튜디오 표시 언어</label>
+        <select id="language-select" data-i18n-attr="aria-label:lang.switcherLabel" aria-label="언어 선택"></select>
+      </div>
+    </div>
+  </header>
+  <nav class="studio-steps" data-i18n-attr="aria-label:nav.stepsLabel" aria-label="제작 단계">
+    <button type="button" data-studio-stage="gallery" aria-pressed="true" data-i18n="nav.gallery">01 디자인</button>
+    <button type="button" data-studio-stage="edit" aria-pressed="false" data-i18n="nav.edit">02 내용 편집</button>
+    <button type="button" data-studio-stage="finish" aria-pressed="false" data-i18n="nav.finish">03 완성</button>
+    <button type="button" data-studio-stage="library" aria-pressed="false" data-i18n="nav.library">보관함</button>
   </nav>
-  <nav class="mobile-view-tabs" aria-label="화면 전환">
-    <button type="button" data-mobile-view="editor" aria-pressed="true">제작</button>
-    <button type="button" data-mobile-view="preview" aria-pressed="false">미리보기</button>
-    <button type="button" data-mobile-view="library" aria-pressed="false">보관함</button>
+  <nav class="mobile-view-tabs" data-i18n-attr="aria-label:nav.viewsLabel" aria-label="화면 전환">
+    <button type="button" data-mobile-view="editor" aria-pressed="true" data-i18n="nav.viewEditor">제작</button>
+    <button type="button" data-mobile-view="preview" aria-pressed="false" data-i18n="nav.viewPreview">미리보기</button>
+    <button type="button" data-mobile-view="library" aria-pressed="false" data-i18n="nav.viewLibrary">보관함</button>
   </nav>
   <main class="app-shell">
     <section class="maker-panel">
       <div class="maker-header">
-        <p class="eyebrow">Make it personal</p>
-        <h1 id="studio-heading">어떤 날을 초대할까요?</h1>
-        <p>마음에 드는 디자인에 나만의 이야기를 담아보세요.</p>
+        <p class="eyebrow" data-i18n="maker.eyebrow">Make it personal</p>
+        <h1 id="studio-heading" data-i18n="maker.headingGallery">어떤 날을 초대할까요?</h1>
+        <p data-i18n="maker.intro">마음에 드는 디자인에 나만의 이야기를 담아보세요.</p>
       </div>
 
-      <section class="template-picker" aria-label="초대장 템플릿 선택">
-        <span class="picker-label">어떤 날인가요?</span>
-        <div id="occasion-list" class="occasion-list" aria-label="행사 유형"></div>
-        <div class="template-picker-heading"><span class="picker-label">디자인 선택</span><button id="toggle-templates-button" type="button" aria-controls="template-list" aria-expanded="false">전체 보기</button></div>
-        <div id="template-list" class="template-list" aria-label="템플릿 디자인"></div>
+      <section class="template-picker" data-i18n-attr="aria-label:gallery.pickerLabel" aria-label="초대장 템플릿 선택">
+        <span class="picker-label" data-i18n="gallery.occasionQuestion">어떤 날인가요?</span>
+        <div id="occasion-list" class="occasion-list" data-i18n-attr="aria-label:gallery.occasionListLabel" aria-label="행사 유형"></div>
+        <div class="template-picker-heading"><span class="picker-label" data-i18n="gallery.designLabel">디자인 선택</span><button id="toggle-templates-button" type="button" aria-controls="template-list" aria-expanded="false" data-i18n="gallery.showAll">전체 보기</button></div>
+        <div id="template-list" class="template-list" data-i18n-attr="aria-label:gallery.designListLabel" aria-label="템플릿 디자인"></div>
         <div class="template-apply-row">
           <p id="template-summary" aria-live="polite"></p>
-          <button id="apply-template-button" type="button">이 디자인으로 만들기</button>
-          <button id="undo-template-button" type="button" hidden>되돌리기</button>
+          <button id="apply-template-button" type="button" data-i18n="gallery.apply">이 디자인으로 만들기</button>
+          <button id="undo-template-button" type="button" hidden data-i18n="gallery.undo">되돌리기</button>
         </div>
       </section>
 
       <form id="invitation-form" class="editor-form">
         <details class="editor-group" data-editor-group="details" open>
-          <summary><span>기본 정보</span><small>제목 · 일정 · 메시지</small></summary>
+          <summary><span data-i18n="editor.detailsTitle">기본 정보</span><small data-i18n="editor.detailsHint">제목 · 일정 · 메시지</small></summary>
           <div class="editor-group-body">
-            <label class="full"><span>제목</span><input name="title" type="text" autocomplete="off"></label>
-            <label class="full"><span>부제</span><input name="subtitle" type="text" autocomplete="off"></label>
-            <label><span>일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
-            <label><span>보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
-            <label class="full"><span>메시지</span><textarea name="message" rows="4"></textarea></label>
+            <label class="full"><span data-i18n="editor.title">제목</span><input name="title" type="text" autocomplete="off"></label>
+            <label class="full"><span data-i18n="editor.subtitle">부제</span><input name="subtitle" type="text" autocomplete="off"></label>
+            <label><span data-i18n="editor.dateLabel">일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
+            <label><span data-i18n="editor.host">보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
+            <label class="full"><span data-i18n="editor.message">메시지</span><textarea name="message" rows="4"></textarea></label>
           </div>
         </details>
 
         <details class="editor-group" data-editor-group="location" open>
-          <summary><span>대표 장소</span><small>장소 · 네이버 지도</small></summary>
+          <summary><span data-i18n="editor.locationTitle">대표 장소</span><small data-i18n="editor.locationHint">장소 · 네이버 지도</small></summary>
           <div class="editor-group-body">
-            <label><span>장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
-            <label><span>지도 링크</span><input name="mapUrl" type="url" autocomplete="off"></label>
-            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span>대표 동적 지도 표시</span></label>
+            <label><span data-i18n="editor.location">장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
+            <label><span data-i18n="editor.mapUrl">지도 링크</span><input name="mapUrl" type="url" autocomplete="off"></label>
+            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span data-i18n="editor.mapEnabled">대표 동적 지도 표시</span></label>
             <div class="full map-settings" data-map-settings hidden>
               <input name="mapLatitude" type="hidden">
               <input name="mapLongitude" type="hidden">
@@ -110,92 +138,92 @@
         </details>
 
         <details class="editor-group" data-editor-group="style">
-          <summary><span>스타일과 효과</span><small>인트로 · 파티클 · 폰트</small></summary>
+          <summary><span data-i18n="editor.styleTitle">스타일과 효과</span><small data-i18n="editor.styleHint">인트로 · 파티클 · 폰트</small></summary>
           <div class="editor-group-body">
             <div class="full intro-effect-field">
-              <label for="intro-effect"><span>인트로 효과</span></label>
-              <select id="intro-effect" name="introEffect" aria-label="인트로 효과">
-                <option value="none">사용 안 함</option>
-                <optgroup label="클래식"><option value="envelope">봉투 열기</option><option value="card-shrink">전체 화면 카드</option></optgroup>
-                <optgroup label="시네마틱"><option value="dawn">어둠에서 밝아지기</option><option value="curtain">커튼 열기</option><option value="spotlight">스포트라이트</option></optgroup>
-                <optgroup label="축하"><option value="fireworks">골드 폭죽</option></optgroup>
-                <optgroup label="로맨틱"><option value="petals">꽃잎 사이로</option></optgroup>
-                <optgroup label="사진"><option value="photo-focus">사진 초점 전환</option></optgroup>
+              <label for="intro-effect"><span data-i18n="editor.introEffect">인트로 효과</span></label>
+              <select id="intro-effect" name="introEffect" data-i18n-attr="aria-label:editor.introEffect" aria-label="인트로 효과">
+                <option value="none" data-i18n="effects.introNone">사용 안 함</option>
+                <optgroup label="클래식" data-i18n-attr="label:effects.introGroupClassic"><option value="envelope" data-i18n="effects.introEnvelope">봉투 열기</option><option value="card-shrink" data-i18n="effects.introCardShrink">전체 화면 카드</option></optgroup>
+                <optgroup label="시네마틱" data-i18n-attr="label:effects.introGroupCinematic"><option value="dawn" data-i18n="effects.introDawn">어둠에서 밝아지기</option><option value="curtain" data-i18n="effects.introCurtain">커튼 열기</option><option value="spotlight" data-i18n="effects.introSpotlight">스포트라이트</option></optgroup>
+                <optgroup label="축하" data-i18n-attr="label:effects.introGroupCelebration"><option value="fireworks" data-i18n="effects.introFireworks">골드 폭죽</option></optgroup>
+                <optgroup label="로맨틱" data-i18n-attr="label:effects.introGroupRomantic"><option value="petals" data-i18n="effects.introPetals">꽃잎 사이로</option></optgroup>
+                <optgroup label="사진" data-i18n-attr="label:effects.introGroupPhoto"><option value="photo-focus" data-i18n="effects.introPhotoFocus">사진 초점 전환</option></optgroup>
               </select>
-              <button id="replay-intro-button" class="replay-intro-button" type="button" title="인트로 다시 보기" aria-label="인트로 다시 보기" disabled>&#8635;</button>
+              <button id="replay-intro-button" class="replay-intro-button" type="button" data-i18n-attr="title:editor.replayIntro;aria-label:editor.replayIntro" title="인트로 다시 보기" aria-label="인트로 다시 보기" disabled>&#8635;</button>
             </div>
             <label class="full effect-field">
-              <span>파티클 효과</span>
-              <select name="particleEffect" aria-label="파티클 효과">
-                <option value="none">효과 없음</option>
-                <optgroup label="로맨틱"><option value="petals">꽃잎</option><option value="hearts">하트</option></optgroup>
-                <optgroup label="분위기"><option value="sparkle">빛가루</option><option value="fireflies">반딧불</option><option value="bubbles">버블</option></optgroup>
-                <optgroup label="계절"><option value="snow">눈</option><option value="leaves">나뭇잎</option></optgroup>
-                <optgroup label="축하"><option value="confetti">컨페티</option></optgroup>
+              <span data-i18n="editor.particleEffect">파티클 효과</span>
+              <select name="particleEffect" data-i18n-attr="aria-label:editor.particleEffect" aria-label="파티클 효과">
+                <option value="none" data-i18n="effects.particleNone">효과 없음</option>
+                <optgroup label="로맨틱" data-i18n-attr="label:effects.particleGroupRomantic"><option value="petals" data-i18n="effects.particlePetals">꽃잎</option><option value="hearts" data-i18n="effects.particleHearts">하트</option></optgroup>
+                <optgroup label="분위기" data-i18n-attr="label:effects.particleGroupMood"><option value="sparkle" data-i18n="effects.particleSparkle">빛가루</option><option value="fireflies" data-i18n="effects.particleFireflies">반딧불</option><option value="bubbles" data-i18n="effects.particleBubbles">버블</option></optgroup>
+                <optgroup label="계절" data-i18n-attr="label:effects.particleGroupSeason"><option value="snow" data-i18n="effects.particleSnow">눈</option><option value="leaves" data-i18n="effects.particleLeaves">나뭇잎</option></optgroup>
+                <optgroup label="축하" data-i18n-attr="label:effects.particleGroupCelebration"><option value="confetti" data-i18n="effects.particleConfetti">컨페티</option></optgroup>
               </select>
             </label>
             <label class="range-field">
-              <span class="range-heading"><span>파티클 크기</span><output data-particle-scale-output for="particle-scale">100%</output></span>
-              <input id="particle-scale" name="particleScale" type="range" min="50" max="200" step="5" value="100" aria-label="파티클 크기 스케일">
+              <span class="range-heading"><span data-i18n="editor.particleScale">파티클 크기</span><output data-particle-scale-output for="particle-scale">100%</output></span>
+              <input id="particle-scale" name="particleScale" type="range" min="50" max="200" step="5" value="100" data-i18n-attr="aria-label:editor.particleScaleLabel" aria-label="파티클 크기 스케일">
             </label>
             <label class="range-field">
-              <span class="range-heading"><span>파티클 양</span><output data-particle-amount-output for="particle-amount">100%</output></span>
-              <input id="particle-amount" name="particleAmount" type="range" min="25" max="500" step="25" value="100" aria-label="파티클 양 스케일">
+              <span class="range-heading"><span data-i18n="editor.particleAmount">파티클 양</span><output data-particle-amount-output for="particle-amount">100%</output></span>
+              <input id="particle-amount" name="particleAmount" type="range" min="25" max="500" step="25" value="100" data-i18n-attr="aria-label:editor.particleAmountLabel" aria-label="파티클 양 스케일">
             </label>
             <label>
-              <span>영문 폰트</span>
-              <select name="englishFont" aria-label="영문 폰트">
+              <span data-i18n="editor.englishFont">영문 폰트</span>
+              <select name="englishFont" data-i18n-attr="aria-label:editor.englishFont" aria-label="영문 폰트">
                 <option value="cormorant-garamond">Cormorant Garamond</option><option value="playfair-display">Playfair Display</option><option value="dm-serif-display">DM Serif Display</option><option value="libre-baskerville">Libre Baskerville</option><option value="great-vibes">Great Vibes</option><option value="gmarket-sans">Gmarket Sans</option>
               </select>
             </label>
             <label>
-              <span>한글 폰트</span>
-              <select name="koreanFont" aria-label="한글 폰트">
-                <option value="gowun-batang">고운바탕</option><option value="noto-serif-kr">노토 명조</option><option value="nanum-myeongjo">나눔명조</option><option value="nanum-gothic">나눔고딕</option><option value="song-myung">송명</option><option value="gmarket-sans">Gmarket Sans</option>
+              <span data-i18n="editor.koreanFont">한글 폰트</span>
+              <select name="koreanFont" data-i18n-attr="aria-label:editor.koreanFont" aria-label="한글 폰트">
+                <option value="gowun-batang" data-i18n="fonts.gowunBatang">고운바탕</option><option value="noto-serif-kr" data-i18n="fonts.notoSerifKr">노토 명조</option><option value="nanum-myeongjo" data-i18n="fonts.nanumMyeongjo">나눔명조</option><option value="nanum-gothic" data-i18n="fonts.nanumGothic">나눔고딕</option><option value="song-myung" data-i18n="fonts.songMyung">송명</option><option value="gmarket-sans">Gmarket Sans</option>
               </select>
             </label>
           </div>
         </details>
 
         <details class="editor-group" data-editor-group="hero-image">
-          <summary><span>첫 화면 배경</span><small>사진 · 위치 · 확대</small></summary>
+          <summary><span data-i18n="editor.heroTitle">첫 화면 배경</span><small data-i18n="editor.heroHint">사진 · 위치 · 확대</small></summary>
           <div class="editor-group-body">
             <section id="hero-image-editor" class="full hero-image-editor" data-layout-family="romantic-story">
-              <div id="hero-image-frame" class="hero-image-frame" tabindex="0" role="img" aria-label="첫 화면 배경 사진 위치 조정">
+              <div id="hero-image-frame" class="hero-image-frame" tabindex="0" role="img" data-i18n-attr="aria-label:hero.frameLabel" aria-label="첫 화면 배경 사진 위치 조정">
                 <img id="hero-image-preview" alt="" draggable="false" hidden>
-                <span id="hero-image-empty" class="hero-image-empty">템플릿 기본 배경</span>
+                <span id="hero-image-empty" class="hero-image-empty" data-i18n="hero.empty">템플릿 기본 배경</span>
               </div>
               <div class="hero-image-toolbar">
-                <button id="hero-image-select-button" class="hero-image-select-button" type="button">배경 사진 추가</button>
+                <button id="hero-image-select-button" class="hero-image-select-button" type="button" data-i18n="hero.add">배경 사진 추가</button>
                 <div id="hero-image-adjustments" class="hero-image-adjustments" hidden>
                   <label class="range-field" for="hero-image-scale">
-                    <span class="range-heading"><span>확대</span><output id="hero-image-scale-output" for="hero-image-scale">100%</output></span>
-                    <input id="hero-image-scale" type="range" min="100" max="250" step="5" value="100" aria-label="배경 사진 확대">
+                    <span class="range-heading"><span data-i18n="hero.scale">확대</span><output id="hero-image-scale-output" for="hero-image-scale">100%</output></span>
+                    <input id="hero-image-scale" type="range" min="100" max="250" step="5" value="100" data-i18n-attr="aria-label:hero.scaleLabel" aria-label="배경 사진 확대">
                   </label>
                   <div class="hero-image-actions">
-                    <button id="hero-image-reset-button" type="button" title="배경 사진 위치 초기화">초기화</button>
-                    <button id="hero-image-remove-button" type="button" title="배경 사진 삭제">삭제</button>
+                    <button id="hero-image-reset-button" type="button" data-i18n-attr="title:hero.resetTitle" title="배경 사진 위치 초기화" data-i18n="hero.reset">초기화</button>
+                    <button id="hero-image-remove-button" type="button" data-i18n-attr="title:hero.removeTitle" title="배경 사진 삭제" data-i18n="hero.remove">삭제</button>
                   </div>
                 </div>
               </div>
-              <input id="hero-image-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="첫 화면 배경 사진 파일 선택" hidden>
+              <input id="hero-image-input" type="file" accept="image/jpeg,image/png,image/webp" data-i18n-attr="aria-label:hero.fileLabel" aria-label="첫 화면 배경 사진 파일 선택" hidden>
               <p id="hero-image-status" class="hero-image-status" role="status" aria-live="polite"></p>
             </section>
           </div>
         </details>
 
         <details class="editor-group" data-editor-group="content" open>
-          <summary><span>초대장 항목</span><small>↑ ↓ 로 순서 변경</small></summary>
+          <summary><span data-i18n="editor.contentTitle">초대장 항목</span><small data-i18n="editor.contentHint">↑ ↓ 로 순서 변경</small></summary>
           <div class="editor-group-body editor-content-body">
-            <section class="full content-editor-section" aria-label="초대장 항목">
+            <section class="full content-editor-section" data-i18n-attr="aria-label:content.sectionLabel" aria-label="초대장 항목">
               <div class="content-editor-header">
                 <div class="content-editor-commands">
-                  <button id="add-course-button" class="add-item-button" type="button">+ 코스</button>
-                  <button id="add-photo-button" class="add-item-button" type="button">+ 사진</button>
-                  <button class="add-item-button" type="button" data-add-item="notice">+ 안내</button>
-                  <button class="add-item-button" type="button" data-add-item="profile">+ 인물 소개</button>
-                  <button class="add-item-button" type="button" data-add-item="link">+ 연락처·링크</button>
-                  <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="초대장 사진 파일 선택" hidden>
+                  <button id="add-course-button" class="add-item-button" type="button" data-i18n="content.addCourse">+ 코스</button>
+                  <button id="add-photo-button" class="add-item-button" type="button" data-i18n="content.addPhoto">+ 사진</button>
+                  <button class="add-item-button" type="button" data-add-item="notice" data-i18n="content.addNotice">+ 안내</button>
+                  <button class="add-item-button" type="button" data-add-item="profile" data-i18n="content.addProfile">+ 인물 소개</button>
+                  <button class="add-item-button" type="button" data-add-item="link" data-i18n="content.addLink">+ 연락처·링크</button>
+                  <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple data-i18n-attr="aria-label:content.photoFileLabel" aria-label="초대장 사진 파일 선택" hidden>
                 </div>
               </div>
               <div id="content-editor" class="content-editor"></div>
@@ -205,37 +233,37 @@
       </form>
 
       <div class="action-row">
-        <button id="review-button" class="primary-button" type="button">완성 미리보기</button>
-        <button id="start-template-button" class="primary-button" type="button" hidden>이 디자인으로 시작</button>
-        <button id="keep-draft-button" class="secondary-button" type="button" hidden>현재 초안 유지</button>
+        <button id="review-button" class="primary-button" type="button" data-i18n="editor.reviewButton">완성 미리보기</button>
+        <button id="start-template-button" class="primary-button" type="button" hidden data-i18n="gallery.start">이 디자인으로 시작</button>
+        <button id="keep-draft-button" class="secondary-button" type="button" hidden data-i18n="gallery.keepDraft">현재 초안 유지</button>
       </div>
       <p id="save-status" class="save-status" role="status" aria-live="polite"></p>
 
       <div class="finish-actions">
         <p class="finish-persistence-note">
-          <strong>보관함은 이 브라우저에만 저장돼요.</strong>
-          브라우저 데이터를 지우거나 시크릿(프라이빗) 모드를 쓰면 보관함의 초안이 함께 사라져요. 오래 보관하고 싶다면 아래에서 파일로 저장하거나 링크를 만들어 두세요.
+          <strong data-i18n="finish.persistenceLead">보관함은 이 브라우저에만 저장돼요.</strong>
+          <span data-i18n="finish.persistenceBody">브라우저 데이터를 지우거나 시크릿(프라이빗) 모드를 쓰면 보관함의 초안이 함께 사라져요. 오래 보관하고 싶다면 아래에서 파일로 저장하거나 링크를 만들어 두세요.</span>
         </p>
         <div class="finish-choice-row">
           <button id="save-button" class="finish-choice-card" type="button">
             <span class="finish-choice-icon" aria-hidden="true">🗂</span>
             <span class="finish-choice-copy">
-              <span class="finish-choice-title">보관함에 저장</span>
-              <span class="finish-choice-desc">이 브라우저의 보관함에 넣어 두고 이어서 고쳐요.</span>
+              <span class="finish-choice-title" data-i18n="finish.saveTitle">보관함에 저장</span>
+              <span class="finish-choice-desc" data-i18n="finish.saveDesc">이 브라우저의 보관함에 넣어 두고 이어서 고쳐요.</span>
             </span>
           </button>
           <button id="open-download-dialog-button" class="finish-choice-card" type="button" aria-haspopup="dialog" aria-controls="download-dialog">
             <span class="finish-choice-icon" aria-hidden="true">⬇</span>
             <span class="finish-choice-copy">
-              <span class="finish-choice-title">파일로 저장</span>
-              <span class="finish-choice-desc">사진이 담긴 HTML 파일 하나로 내려받아요.</span>
+              <span class="finish-choice-title" data-i18n="finish.downloadTitle">파일로 저장</span>
+              <span class="finish-choice-desc" data-i18n="finish.downloadDesc">사진이 담긴 HTML 파일 하나로 내려받아요.</span>
             </span>
           </button>
           <button id="open-share-dialog-button" class="finish-choice-card" type="button" aria-haspopup="dialog" aria-controls="share-dialog">
             <span class="finish-choice-icon" aria-hidden="true">🔗</span>
             <span class="finish-choice-copy">
-              <span class="finish-choice-title">링크로 공유</span>
-              <span class="finish-choice-desc">누구나 열어볼 수 있는 공개 페이지를 만들어요.</span>
+              <span class="finish-choice-title" data-i18n="finish.shareTitle">링크로 공유</span>
+              <span class="finish-choice-desc" data-i18n="finish.shareDesc">누구나 열어볼 수 있는 공개 페이지를 만들어요.</span>
             </span>
           </button>
         </div>
@@ -243,65 +271,65 @@
 
       <dialog id="download-dialog" class="studio-dialog" aria-labelledby="download-dialog-title">
         <div class="studio-dialog-header">
-          <h2 id="download-dialog-title">파일로 저장</h2>
-          <button type="button" class="studio-dialog-close" data-dialog-close aria-label="닫기">✕</button>
+          <h2 id="download-dialog-title" data-i18n="finish.downloadTitle">파일로 저장</h2>
+          <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
         </div>
         <div class="studio-dialog-body">
-          <p>사진까지 하나로 묶은 HTML 파일을 내려받아요. <strong>이 파일이 끝까지 남는 사본</strong>이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.</p>
-          <button id="download-button" class="primary-button studio-dialog-primary" type="button">HTML 다운로드</button>
+          <p><span data-i18n="finish.downloadDialogLead">사진까지 하나로 묶은 HTML 파일을 내려받아요.</span> <strong data-i18n="finish.downloadDialogStrong">이 파일이 끝까지 남는 사본</strong><span data-i18n="finish.downloadDialogTail">이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.</span></p>
+          <button id="download-button" class="primary-button studio-dialog-primary" type="button" data-i18n="finish.downloadButton">HTML 다운로드</button>
         </div>
       </dialog>
 
       <dialog id="share-dialog" class="studio-dialog" aria-labelledby="share-dialog-title">
         <div class="studio-dialog-header">
-          <h2 id="share-dialog-title">링크로 공유</h2>
-          <button type="button" class="studio-dialog-close" data-dialog-close aria-label="닫기">✕</button>
+          <h2 id="share-dialog-title" data-i18n="finish.shareTitle">링크로 공유</h2>
+          <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
         </div>
         <div class="studio-dialog-body">
-          <p>공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만 <strong>링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만</strong> 저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</p>
-          <section id="publishing-panel" class="publishing-panel" aria-label="공개 링크 발행"></section>
+          <p><span data-i18n="finish.shareDialogLead">공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만</span> <strong data-i18n="finish.shareDialogStrong">링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만</strong><span data-i18n="finish.shareDialogTail">저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</span></p>
+          <section id="publishing-panel" class="publishing-panel" data-i18n-attr="aria-label:finish.shareDialogPanelLabel" aria-label="공개 링크 발행"></section>
         </div>
       </dialog>
     </section>
 
     <section class="preview-panel">
       <div class="panel-title">
-        <p class="eyebrow">Preview</p>
-        <h2>미리보기</h2>
+        <p class="eyebrow" data-i18n="preview.eyebrow">Preview</p>
+        <h2 data-i18n="preview.heading">미리보기</h2>
       </div>
       <div id="pending-preview-notice" class="pending-preview-notice" hidden>
         <p id="pending-preview-text" role="status"></p>
-        <button id="preview-apply-button" type="button">선택한 디자인 적용</button>
+        <button id="preview-apply-button" type="button" data-i18n="preview.apply">선택한 디자인 적용</button>
       </div>
       <!-- The invitation renders inside its own document (see mountPreviewFrame
            in assets/studio/app.js). Two reasons: the invitation's own <h1> and
            <header> stay out of the studio's page outline, and the frame runs the
            exact standalone document a guest receives, so the preview can no
            longer drift from the export by inheriting studio CSS. -->
-      <iframe id="preview" class="preview-frame" title="초대장 미리보기" referrerpolicy="no-referrer"></iframe>
+      <iframe id="preview" class="preview-frame" data-i18n-attr="title:preview.frameTitle" title="초대장 미리보기" referrerpolicy="no-referrer"></iframe>
     </section>
 
     <section class="library-panel">
       <div class="panel-title">
-        <p class="eyebrow">Library</p>
-        <h2>나의 초대장</h2>
+        <p class="eyebrow" data-i18n="library.eyebrow">Library</p>
+        <h2 data-i18n="library.heading">나의 초대장</h2>
       </div>
       <div class="upload-box">
-        <label for="html-upload">다운로드된 HTML 등록</label>
+        <label for="html-upload" data-i18n="library.uploadLabel">다운로드된 HTML 등록</label>
         <input id="html-upload" type="file" accept=".html,text/html">
         <p id="upload-status" class="upload-status" role="status" aria-live="polite"></p>
       </div>
       <div id="saved-list" class="saved-list"></div>
     </section>
   </main>
-  <aside id="gallery-dock" aria-label="선택한 디자인">
+  <aside id="gallery-dock" data-i18n-attr="aria-label:gallery.dockLabel" aria-label="선택한 디자인">
     <span id="gallery-selection" aria-live="polite"></span>
-    <div><button id="gallery-back" type="button">디자인 목록</button><button id="gallery-create" type="button">이 디자인으로 만들기</button></div>
+    <div><button id="gallery-back" type="button" data-i18n="gallery.dockBack">디자인 목록</button><button id="gallery-create" type="button" data-i18n="gallery.apply">이 디자인으로 만들기</button></div>
   </aside>
 
   <footer class="studio-footer">
     <span>INVITATION STUDIO</span>
-    <span class="studio-footer-note">작은 초대, 소중한 순간.</span>
+    <span class="studio-footer-note" data-i18n="header.footerNote">작은 초대, 소중한 순간.</span>
   </footer>
 
   <script src="assets/invitation/intro-effects.js"></script>

@@ -1,0 +1,430 @@
+{
+  "_comment": "English overlay onto invitation-data.json, merged by id. Carries only translatable leaves — never ids, types, times, course labels, effects, fonts, coordinates or zoom — so structure can never drift between languages. dateLabel is absent on purpose: sample dates are derived from the language-neutral dateTime through Intl. A third language is one more file of exactly this shape.",
+
+  "occasions": {
+    "date": "Date",
+    "birthday": "Birthday",
+    "anniversary": "Anniversary",
+    "event": "Event",
+    "kindergarten": "Kindergarten",
+    "wedding": "Wedding",
+    "gohui": "70th Birthday",
+    "hwangap": "60th Birthday",
+    "first-birthday": "First Birthday"
+  },
+
+  "templates": {
+    "botanical": {
+      "name": "Two of Us, in the Sun",
+      "note": "A soft garden invitation of flowers and paper texture",
+      "defaults": {
+        "title": "Shall we go for a walk?",
+        "subtitle": "Let's take our time on a path where the green lingers.",
+        "host": "From. Rin",
+        "location": "Seongsu Station, Exit 3",
+        "message": "Let's fold the busy day away for a while, walk to a cafe we love and along a small wooded path, and make an afternoon worth remembering.",
+        "items": {
+          "course-1": { "place": "Seongsu Station, Exit 3", "note": "An easy meeting point to start the day from." },
+          "course-2": { "place": "Add the cafe name", "note": "Coffee and something sweet by the window." },
+          "course-3": { "place": "Seoul Forest walking path", "note": "A slow walk through the colours of the season." }
+        }
+      }
+    },
+    "midnight-cinema": {
+      "name": "Tonight's Ticket",
+      "note": "A late-night movie ticket in perforated edges and big type",
+      "defaults": {
+        "title": "MIDNIGHT CINEMA",
+        "subtitle": "The story keeps going after the credits roll.",
+        "host": "From. Jae",
+        "location": "Megabox COEX",
+        "message": "Let's watch a film we love, then talk through every scene of it under the late-night lights.",
+        "items": {
+          "course-1": { "place": "Add the screen number", "note": "Worth noting the booking and seat numbers here." },
+          "course-2": { "place": "Late dinner spot", "note": "Where we go once the film is over." },
+          "notice-1": { "heading": "Ticket note", "body": "I'll have the tickets ready. Wear comfortable shoes." }
+        }
+      }
+    },
+    "modern": {
+      "name": "My New Page",
+      "note": "A birthday invitation in plain type and asymmetric space",
+      "defaults": {
+        "title": "A new beginning",
+        "subtitle": "A birthday dinner with the people who matter",
+        "host": "Host. Mina",
+        "location": "Yeonnam-dong party room",
+        "message": "I want to share good food, laughter, and a few small surprises with the people who made this year brighter.",
+        "items": {
+          "profile-1": { "name": "Mina", "role": "Birthday Host", "description": "The reason we are all here. Bring plenty of cheer." },
+          "notice-1": { "heading": "Dress code", "body": "Add one bright accent so the photos come out lovely." },
+          "course-1": { "place": "Yeonnam-dong party room", "note": "Doors open ten minutes early." },
+          "link-1": { "label": "RSVP", "value": "Let me know if you can come" }
+        }
+      }
+    },
+    "color-pop": {
+      "name": "Let's Celebrate Loudly",
+      "note": "A birthday party poster in lime and bold type",
+      "defaults": {
+        "title": "HAPPY BIRTHDAY!",
+        "subtitle": "Cake, music, and one bright day",
+        "host": "From. Sora",
+        "location": "Hongdae rooftop lounge",
+        "message": "I want to laugh louder and remember this birthday longer. Come as you are and celebrate with me.",
+        "items": {
+          "notice-1": { "heading": "Party notes", "body": "There will be light food and cake. Your company is gift enough." },
+          "course-1": { "place": "Hongdae rooftop lounge", "note": "Give the booking name at the door." },
+          "link-1": { "label": "Questions", "value": "010-0000-0000" }
+        }
+      }
+    },
+    "cherry-muse": {
+      "name": "Cherry Muse",
+      "note": "A vivid red birthday party with close friends",
+      "defaults": {
+        "title": "CHERRY MUSE",
+        "subtitle": "A bright birthday dinner made of favourite things",
+        "host": "Birthday Host",
+        "location": "Hannam private dining",
+        "message": "Familiar faces, good music, and one meal worth remembering. Come and make yourself at home.",
+        "items": {
+          "notice-1": { "heading": "DRESS NOTE", "body": "One cherry-red accent will make tonight look even better." },
+          "course-1": { "place": "Hannam private dining", "note": "Dinner starts with a welcome drink." },
+          "course-2": { "place": "The main table", "note": "Cake and a toast to follow." },
+          "link-1": { "label": "RSVP", "value": "Let me know if you can come" }
+        }
+      }
+    },
+    "silver-afterglow": {
+      "name": "Silver Afterglow",
+      "note": "A wine bar birthday evening you dress with photos",
+      "defaults": {
+        "title": "SILVER AFTERGLOW",
+        "subtitle": "A celebration that starts as the city lights dim",
+        "host": "Birthday Host",
+        "location": "Euljiro wine bar",
+        "message": "A quiet, glimmering room, good wine, good conversation, and a playlist to match. That is the night I have planned.",
+        "items": {
+          "notice-1": { "heading": "EVENING NOTE", "body": "Relaxed semi-formal is perfect. Arrive late if you need to — no ceremony." },
+          "course-1": { "place": "Euljiro wine bar", "note": "We start with a light glass and small plates." },
+          "course-2": { "place": "Lounge table", "note": "A birthday toast and dessert." },
+          "link-1": { "label": "RSVP", "value": "Reply so we can set your seat" }
+        }
+      }
+    },
+    "peach-table": {
+      "name": "Peach Table",
+      "note": "A birthday brunch with cake in the sunshine",
+      "defaults": {
+        "title": "Peach Table",
+        "subtitle": "A birthday lunch of sunlight, flowers, and easy talk",
+        "host": "Your name here",
+        "location": "Seochon Garden Kitchen",
+        "message": "A table set with what's in season, and a long unhurried lunch with the people I love.",
+        "items": {
+          "notice-1": { "heading": "TABLE NOTE", "body": "A light brunch course and a birthday dessert are planned." },
+          "course-1": { "place": "Seochon Garden Kitchen", "note": "Meet at the long table by the garden." },
+          "course-2": { "place": "The terrace", "note": "Tea and cake, and no reason to hurry." },
+          "link-1": { "label": "RSVP", "value": "Reply so we can plan the meal" }
+        }
+      }
+    },
+    "midnight-toast": {
+      "name": "Midnight Toast",
+      "note": "A quiet evening party dressed in black and gold",
+      "defaults": {
+        "title": "MIDNIGHT TOAST",
+        "subtitle": "A celebration that sharpens as the night gets deeper",
+        "host": "Birthday Host",
+        "location": "Cheongdam listening lounge",
+        "message": "Late at night, with music I love playing, I want to raise a glass with the people closest to me and start a new season.",
+        "items": {
+          "notice-1": { "heading": "MUSIC & BAR", "body": "A welcome cocktail and small bites are ready. Leave a request for a song, too." },
+          "course-1": { "place": "Cheongdam listening lounge", "note": "Bar seats and sofa seats — sit wherever you like." },
+          "course-2": { "place": "The main bar", "note": "Champagne and cake to mark the day." },
+          "link-1": { "label": "RSVP", "value": "Reply for the guest list" }
+        }
+      }
+    },
+    "bloom-portrait": {
+      "name": "Bloom Portrait",
+      "note": "A birthday kept in flowers, or in a photo of your own",
+      "defaults": {
+        "title": "BLOOM PORTRAIT",
+        "subtitle": "A day for recording who I am right now",
+        "host": "Birthday Host",
+        "location": "Seongsu photo studio",
+        "message": "In a room where flowers and light linger, I want a photograph of this moment — and a quiet celebration with people I love.",
+        "items": {
+          "notice-1": { "heading": "PORTRAIT NOTE", "body": "For natural photographs, wear colours and shapes that feel like you." },
+          "course-1": { "place": "Seongsu photo studio", "note": "Short portrait sittings, in order of arrival." },
+          "course-2": { "place": "Studio dining room", "note": "A light dinner and cake after the shoot." },
+          "link-1": { "label": "RSVP", "value": "Reply so we can plan the shoot" }
+        }
+      }
+    },
+    "signature-birthday": {
+      "name": "Signature Birthday",
+      "note": "An elegant birthday letter to the people closest to you",
+      "defaults": {
+        "title": "A SIGNATURE DAY",
+        "subtitle": "A birthday dinner finished entirely my own way",
+        "host": "Birthday Host",
+        "location": "Bukchon private salon",
+        "message": "The things I love and the people who have stayed, in one room — that is the birthday dinner I want.",
+        "items": {
+          "notice-1": { "heading": "PRIVATE DINNER", "body": "A small room, by reservation only. Let's start together, on time." },
+          "course-1": { "place": "Bukchon private salon", "note": "Welcome tea, then we'll show you to your seat." },
+          "course-2": { "place": "The main salon", "note": "A seasonal course and a birthday dessert." },
+          "link-1": { "label": "RSVP", "value": "Reply to confirm your seat" }
+        }
+      }
+    },
+    "royal": {
+      "name": "Our Brightest Season",
+      "note": "An elegant anniversary in plum and gold lettering",
+      "defaults": {
+        "title": "Our Anniversary",
+        "subtitle": "An evening for the time we have walked together",
+        "host": "From. Rin",
+        "location": "Cheongdam restaurant",
+        "message": "I want to take out the good scenes we have left each other, and spend our anniversary evening starting over again.",
+        "items": {
+          "notice-1": { "heading": "Booking note", "body": "Please arrive at the reserved time. We have a quiet room." },
+          "course-1": { "place": "Cheongdam restaurant", "note": "An anniversary tasting menu is planned." },
+          "link-1": { "label": "Message", "value": "Get in touch before you arrive" }
+        }
+      }
+    },
+    "memory-film": {
+      "name": "The Scenes We Kept",
+      "note": "A memory album of tilted photographs and small notes",
+      "defaults": {
+        "title": "When our days stack up, one page at a time",
+        "subtitle": "Our scenes, kept like film",
+        "host": "From. Us",
+        "location": "Hangang Park, Banpo",
+        "message": "From the day we met to now — an afternoon for going back through the small, vivid memories together.",
+        "items": {
+          "profile-1": { "name": "Our record", "role": "Anniversary", "description": "A quiet day for the time behind us and the promises ahead." },
+          "notice-1": { "heading": "Bring along", "body": "A photo or a letter you would like to look at together." }
+        }
+      }
+    },
+    "black-tie": {
+      "name": "An Evening for You",
+      "note": "A formal invitation of arched gold lines and few words",
+      "defaults": {
+        "title": "An Evening Invitation",
+        "subtitle": "A late invitation to a gracious gathering",
+        "host": "Host. The Committee",
+        "location": "The Grand Ballroom",
+        "message": "An evening of quiet music and dinner. We would be glad to share it with you.",
+        "items": {
+          "notice-1": { "heading": "Entry", "body": "Please have your invitation ready at the door. Formal dress is requested." },
+          "course-1": { "place": "The Grand Ballroom", "note": "The reception opens at 18:30." },
+          "link-1": { "label": "Questions", "value": "event@example.com" }
+        }
+      }
+    },
+    "gallery-notice": {
+      "name": "Something New to Love",
+      "note": "An exhibition poster that sets big type apart from the work",
+      "defaults": {
+        "title": "OPEN STUDIO",
+        "subtitle": "You are invited to the opening scene of a new show.",
+        "host": "Gallery H",
+        "location": "Gallery H",
+        "message": "New work from the artist, a short talk, and unhurried time to meet people.",
+        "items": {
+          "notice-1": { "heading": "Opening", "body": "The artist speaks at 18:30. Look around at your own pace." },
+          "course-1": { "place": "Gallery H", "note": "Guest list checked at the entrance." },
+          "profile-1": { "name": "Iseo", "role": "Artist", "description": "Work that records the light and spaces of ordinary days." },
+          "link-1": { "label": "Visiting", "value": "gallery@example.com" }
+        }
+      }
+    },
+    "sunny-classroom": {
+      "name": "Our Shining Stage",
+      "note": "A recital notice in friendly lettering and bright drawings",
+      "defaults": {
+        "title": "Our little recital",
+        "subtitle": "A stage prepared by the Sunbeam class",
+        "host": "Sunbeam Kindergarten",
+        "location": "Sunbeam Kindergarten hall",
+        "message": "The children have worked hard on their songs and dances. Please come and cheer them on.",
+        "items": {
+          "notice-1": { "heading": "While watching", "body": "Please set your phone to silent during the performance." },
+          "course-1": { "place": "Sunbeam Kindergarten hall", "note": "Doors open at 10:10." },
+          "profile-1": { "name": "Sunbeam class", "role": "Age 5", "description": "Songs, dances, and a short hello — tonight's stars." },
+          "link-1": { "label": "Class letter", "value": "See the full details" }
+        }
+      }
+    },
+    "little-forest": {
+      "name": "Meet Me in the Forest",
+      "note": "A cosy outing drawn in woodland and plant markers",
+      "defaults": {
+        "title": "A day out in the forest",
+        "subtitle": "Nature play for children and families together",
+        "host": "The Green class teacher",
+        "location": "Children's Grand Park forest centre",
+        "message": "A morning for the children to learn about nature through small leaves and the smell of earth. Dress comfortably and join us.",
+        "items": {
+          "notice-1": { "heading": "Bring along", "body": "Trainers, water, and a small handkerchief." },
+          "course-1": { "place": "Forest centre entrance", "note": "We gather by class, then set off." },
+          "course-2": { "place": "Nature play area", "note": "Leaf spotting and a little making." },
+          "link-1": { "label": "Questions", "value": "Contact your class teacher" }
+        }
+      }
+    },
+    "wedding": {
+      "name": "A Beginning That Lasts",
+      "note": "A gracious letter of serif type, space, and a thin border",
+      "defaults": {
+        "title": "The beginning of our long life together",
+        "subtitle": "We will go on as each other's closest friend.",
+        "host": "Minjun · Seoyeon",
+        "location": "Raum Wedding Hall",
+        "message": "Two people looking the same way as a new season begins. We would be honoured by your blessing.",
+        "items": {
+          "profile-1": { "name": "Minjun Kim", "role": "Groom", "description": "I will always be there, with a kind heart." },
+          "profile-2": { "name": "Seoyeon Lee", "role": "Bride", "description": "I will live without ever forgetting my gratitude." },
+          "course-1": { "place": "Raum Wedding Hall, 2nd floor", "note": "The ceremony begins on the hour." },
+          "notice-1": { "heading": "About flowers", "body": "We gratefully accept your good wishes, and respectfully decline flower wreaths." },
+          "link-1": { "label": "RSVP", "value": "Let us know if you can come" }
+        }
+      }
+    },
+    "modern-vow": {
+      "name": "Our Next Scene",
+      "note": "A wedding editorial where the photo fills the frame and the names sit on it",
+      "defaults": {
+        "title": "Doyun & Harin",
+        "subtitle": "The day we share our first promise",
+        "host": "Doyun · Harin",
+        "location": "Arte Chapel",
+        "message": "We promise to be the warmest person in each other's ordinary days. Please be there at the start of it.",
+        "items": {
+          "profile-1": { "name": "Doyun Jung", "role": "Groom", "description": "I will make many more days we laugh through together." },
+          "profile-2": { "name": "Harin Choi", "role": "Bride", "description": "I will take her side and walk a long way with her." },
+          "course-1": { "place": "Arte Chapel", "note": "The reception is in the same building after the ceremony." },
+          "link-1": { "label": "Send your wishes", "value": "Leave us a message" }
+        }
+      }
+    },
+    "blue-porcelain": {
+      "name": "A Serene Seventy",
+      "note": "Formality in blue-and-white porcelain, vertical characters, and space",
+      "defaults": {
+        "title": "Please join us for her 70th",
+        "subtitle": "With thanks for seventy years of love and wisdom.",
+        "host": "From her children",
+        "location": "Hanjeongsik Cheongdam",
+        "message": "Remembering all she has steadily given this family, we have set aside a small afternoon to say thank you.",
+        "items": {
+          "profile-1": { "name": "Youngja Kim", "role": "The guest of honour", "description": "The seventieth birthday of the mother who has been this family's steady centre." },
+          "notice-1": { "heading": "The meal", "body": "Lunch is served at noon, with family photographs to follow." },
+          "course-1": { "place": "Hanjeongsik Cheongdam", "note": "The booking is under Youngja Kim's 70th." },
+          "link-1": { "label": "RSVP", "value": "Let the family know" }
+        }
+      }
+    },
+    "peony-tribute": {
+      "name": "Years Lovelier Than Flowers",
+      "note": "A warm letter built around a note of thanks and a peony",
+      "defaults": {
+        "title": "Seventy years of love and thanks",
+        "subtitle": "We would be honoured by your presence.",
+        "host": "From the family",
+        "location": "Namsan Hanok Village banquet hall",
+        "message": "With thanks for the love she has given over so many years, we are gathering family and relatives for a warm meal together.",
+        "items": {
+          "profile-1": { "name": "Jeongsuk Park", "role": "The guest of honour", "description": "Someone who has always shared her love generously with the family." },
+          "notice-1": { "heading": "Photographs", "body": "We will take the family photograph before the meal." },
+          "course-1": { "place": "Namsan Hanok Village banquet hall", "note": "A Korean course menu is planned." }
+        }
+      }
+    },
+    "red-silk": {
+      "name": "Life in Bloom Again",
+      "note": "A traditional celebration in red silk and vertical type",
+      "defaults": {
+        "title": "Please join us for his 60th",
+        "subtitle": "Celebrating sixty years of health and joy.",
+        "host": "From the family",
+        "location": "Deochae Korean Restaurant",
+        "message": "For the 60th birthday of the father who has always held this family up, we have arranged a meal to say thank you.",
+        "items": {
+          "profile-1": { "name": "Sanghoon Lee", "role": "The guest of honour", "description": "Someone who has kept this family safe with diligence and warmth." },
+          "notice-1": { "heading": "Seating", "body": "A meal for family and close relatives." },
+          "course-1": { "place": "Deochae Korean Restaurant", "note": "You will be shown to the reserved room." },
+          "link-1": { "label": "Contact", "value": "Get in touch with the family" }
+        }
+      }
+    },
+    "golden-years": {
+      "name": "Today, at Its Brightest",
+      "note": "A family story in arched photographs and warm colour",
+      "defaults": {
+        "title": "A shining story at sixty",
+        "subtitle": "A celebration at the start of a new season",
+        "host": "From her children",
+        "location": "Garden banquet hall",
+        "message": "We want to celebrate everything the years have asked of her, and the good health ahead. Please come, and be comfortable.",
+        "items": {
+          "profile-1": { "name": "Mikyung Choi", "role": "The guest of honour", "description": "The mother who has led this family with a bright smile." },
+          "notice-1": { "heading": "The programme", "body": "A short film and cake follow the meal." },
+          "course-1": { "place": "Garden banquet hall", "note": "We will help with parking registration at the entrance." }
+        }
+      }
+    },
+    "first-chapter": {
+      "name": "Your First Chapter",
+      "note": "A first birthday invitation built like a book cover around a big number one",
+      "defaults": {
+        "title": "Harin's first birthday",
+        "subtitle": "A first year that began with small steps",
+        "host": "Harin's family",
+        "location": "Baby Party House",
+        "message": "It has already been a year since Harin came into the world. We would love to celebrate her first birthday with everyone who has watched over her.",
+        "items": {
+          "profile-1": { "name": "Harin", "role": "The birthday girl", "description": "A lovely child who laughs a lot and loves applause." },
+          "notice-1": { "heading": "Doljabi", "body": "The doljabi and family photographs follow the meal." },
+          "course-1": { "place": "Baby Party House", "note": "Check your seat at the desk as you come in." },
+          "link-1": { "label": "RSVP", "value": "Let the parents know" }
+        }
+      }
+    },
+    "little-star": {
+      "name": "The Little Star Who Came to Us",
+      "note": "A glittering first birthday in deep night sky and stars",
+      "defaults": {
+        "title": "One year since your star started shining",
+        "subtitle": "You are invited to a sparkling first birthday.",
+        "host": "Yujun's family",
+        "location": "Star Lounge",
+        "message": "It is the first birthday of Yujun, who came to us like a small star. Please join us and celebrate.",
+        "items": {
+          "profile-1": { "name": "Yujun", "role": "The birthday boy", "description": "A little star who waves his hands whenever music plays." },
+          "notice-1": { "heading": "The programme", "body": "A welcome, the meal, then the doljabi." },
+          "course-1": { "place": "Star Lounge", "note": "High chairs and family seating are ready." }
+        }
+      }
+    }
+  },
+
+  "defaultInvitation": {
+    "title": "Our Anniversary",
+    "subtitle": "An evening for the time we have walked together",
+    "host": "From. Rin",
+    "location": "Cheongdam restaurant",
+    "message": "I want to take out the good scenes we have left each other, and spend our anniversary evening starting over again.",
+    "items": {
+      "notice-1": { "heading": "Booking note", "body": "Please arrive at the reserved time. We have a quiet room." },
+      "course-1": { "place": "Cheongdam restaurant", "note": "An anniversary tasting menu is planned." },
+      "link-1": { "label": "Message", "value": "Get in touch before you arrive" }
+    }
+  }
+}

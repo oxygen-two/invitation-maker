@@ -5,7 +5,11 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   try {
     for (const width of [320, 390, 768, 1440]) {
-      const page = await browser.newPage({ viewport: { width, height: 844 } });
+      // This script drives the Korean studio, and it says so: without a locale
+      // headless Chrome reports en-US and the studio would correctly resolve
+      // to English, leaving the Korean assertions below checking nothing.
+      // Both languages are exercised by the per-language verification script.
+      const page = await browser.newPage({ viewport: { width, height: 844 }, locale: 'ko-KR' });
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       page.on('dialog', dialog => dialog.accept());
