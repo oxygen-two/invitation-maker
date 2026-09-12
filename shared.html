@@ -3,16 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- Deliberate, not an oversight: a published invitation carries real names,
+       dates, venues and phone numbers, and is meant for people who were given
+       the link. robots.txt disallows /i/ as a second layer and a test asserts
+       this tag still exists, so removing it fails the suite. -->
   <meta name="robots" content="noindex">
+  <!-- The invitation's public id lives in the URL, so any outbound click (a map
+       link, a guest's own tap-through) would otherwise hand the address to a
+       third party in the Referer header. -->
   <meta name="referrer" content="no-referrer">
   <meta name="theme-color" content="#f7f7f4">
   <title>초대장</title>
+  <!-- Empty data URI: suppresses the automatic /favicon.ico request rather than
+       shipping an icon a guest never sees. -->
   <link rel="icon" href="data:,">
   <style>
     :root { --paper: #f7f7f4; --ink: #282b29; --green: #314e41; --muted: #59645e; --line: #dce1d8; }
     * { box-sizing: border-box; }
+    /* Column layout so the footer can be pushed down by `margin-top: auto`
+       instead of floating over a short error panel. */
     body {
       margin: 0;
+      /* svh overrides vh where supported: on mobile Safari 100vh counts the
+         collapsing browser chrome and overshoots the visible area. */
       min-height: 100vh;
       min-height: 100svh;
       display: flex;
@@ -24,6 +37,8 @@
     }
     a { color: inherit; }
     a:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
+    /* Parked off-screen rather than hidden, so it stays in the tab order and
+       drops into view on focus. */
     .skip { position: absolute; left: 20px; top: -80px; background: #fff; padding: 10px; z-index: 5; }
     .skip:focus { top: 10px; }
     [hidden] { display: none !important; }
@@ -48,6 +63,8 @@
     .footer-note { letter-spacing: 0; }
 
     main { flex: 1; display: flex; flex-direction: column; }
+    /* Live region announcing load progress. Collapsed when emptied, so a
+       successfully loaded invitation is not pushed down by a blank 16px band. */
     #shared-invitation-status { margin: 0; padding: 16px; text-align: center; color: var(--muted); font-size: 14px; }
     #shared-invitation-status:empty { display: none; }
     #shared-invitation-frame { display: block; width: 100%; min-height: 100vh; border: 0; background: var(--paper); }
@@ -74,6 +91,10 @@
 </head>
 <body>
   <a class="skip" href="#shared-invitation-root">본문으로 건너뛰기</a>
+  <!-- Header and footer start hidden and are revealed by shared-invitation.js
+       only when the invitation cannot be shown. A guest who opens a working
+       link should get the invitation filling the viewport, not site chrome
+       framing it. -->
   <header id="shared-invitation-header" class="site-header" hidden>
     <a class="brand" href="/" aria-label="Invitation Studio 홈"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a>
     <span class="header-note">마음을 전하는 작은 시작</span>
@@ -97,6 +118,11 @@
   <footer id="shared-invitation-footer" class="site-footer" hidden>
     <span>INVITATION STUDIO</span><span class="footer-note">작은 초대, 소중한 순간.</span>
   </footer>
+  <!-- Load order is load-bearing, not alphabetical. There is no bundler here:
+       each file attaches a global that the next one reads. core.js normalizes an
+       invitation using the template catalog, art and renderers, so those three
+       must already be defined; shared-invitation.js drives the whole page and
+       goes last. Reordering these silently breaks rendering. -->
   <script src="/assets/analytics/config.js"></script>
   <script type="module" src="/assets/analytics/ga4.js"></script>
   <script src="/assets/invitation/intro-effects.js"></script>
