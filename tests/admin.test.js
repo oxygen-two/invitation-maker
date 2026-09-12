@@ -13,6 +13,22 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const adminClientSource = read("admin/public/admin.js");
 const adminCssSource = read("admin/public/admin.css");
 const adminServerSource = read("admin/http.cjs");
+const adminMarkupSource = read("admin/public/index.html");
+
+/* The console's copy moved out of admin.js and into its own dictionaries, so
+   the assertions that used to read sentences out of admin.js now read them out
+   of here. Same guarantees, one indirection further: admin.js must still name
+   a key for every server error code, and that key must still resolve to real
+   copy in every language. */
+const adminDictionaries = require("../admin/public/admin-i18n.js");
+const InvitationI18n = require("../assets/i18n/i18n.js");
+for (const [language, dictionary] of Object.entries(adminDictionaries)) {
+  InvitationI18n.register(language, dictionary);
+}
+const HANGUL = /[가-힣]/;
+const adminCopy = (language, key) => InvitationI18n.t(`admin.${key}`, undefined, language);
+const errorKeyFor = (code) =>
+  adminClientSource.match(new RegExp(`\\b${code}:\\s*"([A-Za-z0-9_]+)"`))?.[1] ?? null;
 
 const call = async (handler, { method = "GET", url = "/", headers = {}, body, socket = {} } = {}) => {
   const req = new Readable({ read() { this.push(null); } });
@@ -291,17 +307,129 @@ test("admin client maps every server error code to a Korean message instead of s
   const codes = [...new Set([...adminServerSource.matchAll(/error\(res,\s*[^,]+,\s*"([A-Z_]+)"\)/g)].map((match) => match[1]))];
   assert.ok(codes.length > 0, "no error codes found in admin/http.cjs to cross-check against");
   for (const code of codes) {
-    const mapping = new RegExp(`${code}:\\s*"[^"]*[가-힣][^"]*"`);
-    assert.match(adminClientSource, mapping, `admin.js should map ${code} to a Korean-language message`);
+    const key = errorKeyFor(code);
+    assert.ok(key, `admin.js should map ${code} to a dictionary key`);
+    // The Korean guarantee the raw-code bug was fixed with, unchanged — only
+    // the place the sentence is read from has moved.
+    assert.match(adminCopy("ko", key), HANGUL, `admin-i18n.js should give ${code} a Korean-language message`);
+    // And the same guarantee for every other language the console ships.
+    for (const language of Object.keys(adminDictionaries)) {
+      const message = adminCopy(language, key);
+      assert.ok(message.trim().length > 0, `${language} has no message for ${code}`);
+      assert.notEqual(message, `admin.${key}`, `${language} is missing admin.${key}`);
+      assert.doesNotMatch(message, /^[A-Z_]+$/, `${language} shows the raw code for ${code}`);
+    }
   }
   assert.doesNotMatch(adminClientSource, /throw new Error\(body\?\.error/, "request() must not surface the raw server error code directly");
 });
 
 test("admin client's rate-limit message tells the user to wait rather than blaming the password", () => {
-  const match = adminClientSource.match(/LOGIN_RATE_LIMITED:\s*"([^"]*)"/);
-  assert.ok(match, "LOGIN_RATE_LIMITED mapping not found");
-  assert.match(match[1], /(잠시|기다|후\s*다시)/, "message should tell the user to wait");
-  assert.doesNotMatch(match[1], /비밀번호/, "message should not suggest the password was wrong");
+  const key = errorKeyFor("LOGIN_RATE_LIMITED");
+  assert.ok(key, "LOGIN_RATE_LIMITED mapping not found");
+
+  const korean = adminCopy("ko", key);
+  assert.match(korean, /(잠시|기다|후\s*다시)/, "message should tell the user to wait");
+  assert.doesNotMatch(korean, /비밀번호/, "message should not suggest the password was wrong");
+
+  const english = adminCopy("en", key);
+  assert.match(english, /(wait|moment|try again)/i, "message should tell the user to wait");
+  assert.doesNotMatch(english, /password/i, "message should not suggest the password was wrong");
+});
+
+test("admin dictionaries cover the same keys in every language with no leftover Korean in English", () => {
+  const leafKeys = (node, prefix = "", out = []) => {
+    for (const [name, value] of Object.entries(node)) {
+      const key = prefix ? `${prefix}.${name}` : name;
+      if (typeof value === "string") out.push(key);
+      else if (value && typeof value === "object") leafKeys(value, key, out);
+    }
+    return out;
+  };
+  const languages = Object.keys(adminDictionaries);
+  assert.ok(languages.includes("ko") && languages.includes("en"));
+  assert.deepEqual(languages.sort(), [...InvitationI18n.SUPPORTED].sort(),
+    "the console must ship a dictionary for every language the engine offers");
+
+  const koKeys = leafKeys(adminDictionaries.ko).sort();
+  const enKeys = leafKeys(adminDictionaries.en).sort();
+  assert.ok(koKeys.length > 40, "the dictionaries should cover the whole console");
+  assert.deepEqual(koKeys, enKeys, "the console dictionaries have drifted apart");
+
+  for (const key of enKeys) {
+    const value = InvitationI18n.t(key, undefined, "en");
+    assert.doesNotMatch(value, HANGUL, `en:${key} still contains Korean: ${value}`);
+  }
+});
+
+test("admin markup binds its copy to real keys and keeps every element id", () => {
+  const bindings = [
+    ...[...adminMarkupSource.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]),
+    ...[...adminMarkupSource.matchAll(/data-i18n-attr="([^"]+)"/g)]
+      .flatMap((match) => match[1].split(";"))
+      .map((pair) => pair.split(":")[1])
+  ].filter(Boolean).map((key) => key.trim());
+
+  assert.ok(bindings.length > 20, "most of the console should be translatable");
+  for (const key of bindings) {
+    for (const language of Object.keys(adminDictionaries)) {
+      assert.equal(InvitationI18n.hasKey(key, language), true, `${language} has no ${key}`);
+    }
+  }
+
+  // The inline copy is the served Korean default and must not drift from it.
+  for (const [, , attributes, text] of adminMarkupSource.matchAll(/<([a-z0-9]+)\b([^>]*\bdata-i18n="[^"]+"[^>]*)>([^<]*)</gi)) {
+    const key = attributes.match(/data-i18n="([^"]+)"/)[1];
+    assert.equal(text, InvitationI18n.t(key, undefined, "ko"), `admin index.html text for ${key} has drifted`);
+  }
+
+  // The ids the client and the tests above address by selector.
+  for (const id of [
+    "login-view", "app-view", "login-form", "password", "login-error", "logout",
+    "search", "page-size", "refresh", "status", "rows", "prev", "next",
+    "page-label", "detail", "detail-heading", "detail-body", "close-detail"
+  ]) {
+    assert.match(adminMarkupSource, new RegExp(`id="${id}"`), `#${id} must stay in the markup`);
+  }
+});
+
+test("admin console shares the studio's language engine instead of reimplementing it", () => {
+  // A second resolution order would mean the operator's choice next door
+  // silently failed to carry, and two sets of rules to keep in step.
+  assert.match(adminMarkupSource, /<script src="\/admin\/i18n\.js"><\/script>/);
+  assert.match(adminMarkupSource, /<script src="\/admin\/admin-i18n\.js"><\/script>/);
+  assert.ok(adminMarkupSource.indexOf("/admin/i18n.js") < adminMarkupSource.indexOf("/admin/admin-i18n.js"),
+    "the engine must be defined before the dictionaries register onto it");
+  assert.ok(adminMarkupSource.indexOf("InvitationI18n.init()") < adminMarkupSource.indexOf("<body"),
+    "the language must be resolved before the body paints");
+  assert.match(adminMarkupSource, /<html lang="ko" data-i18n-title="admin\.documentTitle">/);
+  assert.doesNotMatch(adminClientSource, /localStorage|navigator\.languages/,
+    "language resolution and persistence belong to the engine, not to admin.js");
+});
+
+test("admin serves the shared engine and its own assets from fixed names only", async () => {
+  const { handler } = make();
+  const served = [];
+  const tryServe = async (url) => {
+    const res = { status: 0, headers: {}, chunks: [], writeHead(status, headers) { this.status = status; this.headers = headers; }, end(chunk = "") { this.chunks.push(chunk); this.resolve(); } };
+    const req = new Readable({ read() { this.push(null); } });
+    req.method = "GET"; req.url = url; req.headers = {}; req.socket = { remoteAddress: "127.0.0.1" };
+    await new Promise((resolve) => { res.resolve = resolve; handler(req, res); });
+    served.push({ url, status: res.status });
+    return res;
+  };
+
+  // staticRoot is deliberately missing in this harness, so nothing resolves;
+  // what matters is that a traversal attempt is refused as NOT_FOUND rather
+  // than reaching the filesystem at all.
+  for (const url of ["/admin/../server/http.cjs", "/admin/i18n.js/../../.env", "/admin/dictionary-ko.js", "/admin/../../etc/passwd"]) {
+    const res = await tryServe(url);
+    assert.equal(res.status, 404, `${url} must not be served`);
+  }
+
+  // And the allowlist is a fixed map of names, not a pattern over the request.
+  assert.match(adminServerSource, /const STATIC_FILES = Object\.freeze\(\{/);
+  assert.doesNotMatch(adminServerSource, /path\.join\(\s*(?:directory|staticRoot|sharedRoot)\s*,\s*requested\s*\)/,
+    "the request must never contribute a path segment");
 });
 
 test("admin client marks the revoke action as visually destructive", () => {

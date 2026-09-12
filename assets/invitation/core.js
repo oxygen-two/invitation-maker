@@ -89,6 +89,44 @@
     }
     return root.HeroImage || noHeroImage;
   })();
+  /* The invitation's own chrome — the "안내" eyebrow, the map status, the map
+     link, the intro skip button — is looked up here.
+
+     Under Node the dictionaries are pulled in and registered so the renderer
+     is fully functional without a page around it; in a browser the engine is
+     already on the page. If neither is present the lookups fall through to the
+     key, which is loud rather than silently Korean. */
+  const I18n = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        const engine = require("../i18n/i18n.js");
+        try {
+          engine.register("ko", require("../i18n/dictionary-ko.js"));
+          engine.register("en", require("../i18n/dictionary-en.js"));
+        } catch {
+          // An engine with no dictionaries still resolves languages correctly.
+        }
+        return engine;
+      } catch {
+        return null;
+      }
+    }
+    return root.InvitationI18n || null;
+  })();
+
+  /* The language every render defaults to when a caller does not name one.
+
+     Deliberately the product default rather than the engine's *active*
+     language: a rendered invitation is a document, and which document you get
+     must not depend on what the switcher happened to be set to when this
+     module was last touched. Callers that have a language — the studio
+     exporting the author's file, the viewer rebuilding a saved one — pass it
+     explicitly. */
+  const DEFAULT_CHROME_LANGUAGE = I18n?.DEFAULT_LANGUAGE || "ko";
+  const chromeLanguage = (value) =>
+    (I18n?.normalizeLanguage?.(value) ?? null) || DEFAULT_CHROME_LANGUAGE;
+  const t = (key, language) => I18n?.t(key, undefined, language) ?? String(key);
+
   const defaultInvitation = {
     templateId: "royal",
     heroImage: null,
@@ -422,15 +460,13 @@
     return `<div class="particle-layer" data-effect="${effect}" data-scale="${scale}" data-amount="${amount}" style="--particle-scale:${scale / 100}" aria-hidden="true">${particles}</div>`;
   };
 
-  const renderDynamicMap = (mapSettings, variant = "global", mapKey = "representative") => {
+  const renderDynamicMap = (mapSettings, variant = "global", mapKey = "representative", language = DEFAULT_CHROME_LANGUAGE) => {
     if (!mapSettings.mapEnabled) return "";
 
-    const status = mapSettings.naverMapClientId
-      ? "지도를 불러오는 중입니다."
-      : "지도를 불러올 수 없습니다. 아래 버튼으로 확인하세요.";
+    const status = escapeHtml(t(mapSettings.naverMapClientId ? "map.loading" : "map.unavailable", language));
     const variantClass = variant === "stop" ? " is-stop-map" : "";
     return `
-        <section class="invite-map-panel${variantClass}" data-map-key="${mapKey}" aria-label="약속 장소 지도">
+        <section class="invite-map-panel${variantClass}" data-map-key="${mapKey}" aria-label="${escapeHtml(t("invitation.mapRegionLabel", language))}">
           <div class="invite-map-canvas" data-dynamic-map data-latitude="${mapSettings.mapLatitude}" data-longitude="${mapSettings.mapLongitude}" data-zoom="${mapSettings.mapZoom}"></div>
           <p class="invite-map-status" data-map-status role="status" aria-live="polite">${status}</p>
         </section>
@@ -447,7 +483,7 @@
       ? "https://map.naver.com/"
       : "");
 
-  const renderInvitationItems = (invitation) => {
+  const renderInvitationItems = (invitation, language = DEFAULT_CHROME_LANGUAGE) => {
     let courseNumber = 0;
     return invitation.items.map((item) => {
       if (item.type === "photo") {
@@ -465,7 +501,7 @@
       if (item.type === "notice") {
         return `
       <section class="invite-notice">
-        <p class="invite-item-eyebrow">안내</p>
+        <p class="invite-item-eyebrow">${escapeHtml(t("invitation.noticeEyebrow", language))}</p>
         <h3>${escapeHtml(item.heading)}</h3>
         <p>${escapeHtml(item.body)}</p>
       </section>
@@ -501,16 +537,20 @@
           <p class="invite-stop-time">${escapeHtml(item.time)} · ${escapeHtml(item.label)}</p>
           <h3>${escapeHtml(item.place)}</h3>
           <p>${escapeHtml(item.note)}</p>
-          ${renderDynamicMap({ ...item, naverMapClientId: invitation.naverMapClientId }, "stop", `stop-${courseIndex}`)}
-          ${renderMapLink(getMapFallbackUrl(item, item.place), "invite-stop-map-link", "장소 지도 열기")}
+          ${renderDynamicMap({ ...item, naverMapClientId: invitation.naverMapClientId }, "stop", `stop-${courseIndex}`, language)}
+          ${renderMapLink(getMapFallbackUrl(item, item.place), "invite-stop-map-link", escapeHtml(t("invitation.openMap", language)))}
         </div>
       </article>
       `;
     }).join("");
   };
 
-  const renderInvitationBody = (input = {}) => {
+  /* `language` selects the invitation's own chrome only. Every field the
+     author typed is rendered verbatim in whatever language they wrote it —
+     nothing here translates their document. */
+  const renderInvitationBody = (input = {}, { language } = {}) => {
     const invitation = normalizeInvitation(input);
+    const chrome = chromeLanguage(language);
     const customHero = invitation.heroImage;
     const art = customHero?.src || TemplateArt.getDataUrl(invitation.templateId);
     const artAttributes = customHero
@@ -543,9 +583,9 @@
             <strong>${escapeHtml(invitation.host)}</strong>
           </div>
       `,
-      items: renderInvitationItems(invitation),
-      map: renderDynamicMap(invitation),
-      mapLink: renderMapLink(getMapFallbackUrl(invitation, invitation.location), "invite-map", "대표 지도 열기")
+      items: renderInvitationItems(invitation, chrome),
+      map: renderDynamicMap(invitation, "global", "representative", chrome),
+      mapLink: renderMapLink(getMapFallbackUrl(invitation, invitation.location), "invite-map", escapeHtml(t("invitation.openMainMap", chrome)))
     };
 
     return TemplateRenderers.render(invitation.layoutFamily, slots);
@@ -574,7 +614,14 @@
     body[data-template="peony-tribute"],body[data-template="red-silk"],body[data-template="golden-years"]{--bg:#ead7bc;--paper:#fff6e9;--ink:#321c1c;--soft:#755c4f;--deep:#67161d;--mid:#a93c3f;--gold:#c49a4f;--ink-soft:#755c4f;--wine-950:#3b0e14;--wine-900:#67161d;--wine-800:#90242c;--wine-700:#a93c3f;--wine-600:#bc5956;--cream-50:#fff6e9;--cream-100:#f2dfc2;--gold-500:#c49a4f;--gold-300:#e6c47c;--rose-100:#f7dfcf;--hero-end:#7b2727;--particle-light:#f3cf83;--particle-accent:#b93c47;--particle-alt:#77815f;--particle-edge:rgba(50,28,28,.56);--particle-glow:rgba(243,207,131,.66)}
   `;
 
-  const renderStandaloneMapScript = (invitation) => {
+  /* A translated sentence inlined into a <script> body. `<` is escaped so no
+     dictionary entry can ever close the script element early. */
+  const scriptLiteral = (value) => JSON.stringify(String(value))
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+
+  const renderStandaloneMapScript = (invitation, language = DEFAULT_CHROME_LANGUAGE) => {
     const hasDynamicMaps = invitation.mapEnabled
       || invitation.items.some((item) => item.type === "course" && item.mapEnabled);
     if (!hasDynamicMaps || !invitation.naverMapClientId) return "";
@@ -586,7 +633,7 @@
   const fail = (canvas) => {
     if (canvas) canvas.dataset.mapState = "fallback";
     const status = canvas?.nextElementSibling;
-    if (status) status.textContent = "지도를 불러올 수 없습니다. 아래 버튼으로 확인하세요.";
+    if (status) status.textContent = ${scriptLiteral(t("map.unavailable", language))};
   };
   const failAll = () => canvases.forEach(fail);
   const mount = () => {
@@ -631,11 +678,21 @@
 </script>`;
   };
 
-  const buildStandaloneHtml = (input = {}) => {
+  /* A finished, self-contained document. It is generated once and then
+     travels — downloaded, mailed, re-uploaded, reopened years later — so every
+     word of chrome in it is frozen at this moment and can never adapt again.
+     That is exactly why `language` belongs here and not in the invitation
+     data: it describes this rendering, and the rendering records it in
+     <html lang> so the file stays self-describing. readStandaloneLanguage()
+     reads it back, which is what lets a re-import or a viewer rebuild
+     reproduce the file the author actually made instead of quietly
+     re-languaging it to whatever the studio is set to today. */
+  const buildStandaloneHtml = (input = {}, { language } = {}) => {
     const invitation = normalizeInvitation(input);
+    const chrome = chromeLanguage(language);
     const hasIntro = invitation.introEffect !== "none";
     const introStyles = hasIntro ? InvitationIntro.getStyles() : "";
-    const introMarkup = hasIntro ? InvitationIntro.renderMarkup(invitation) : "";
+    const introMarkup = hasIntro ? InvitationIntro.renderMarkup(invitation, { language: chrome }) : "";
     const introRuntime = hasIntro ? InvitationIntro.getStandaloneRuntime() : "";
     const canonicalInvitation = { ...invitation, stops: undefined };
     const invitationData = JSON.stringify(canonicalInvitation)
@@ -645,7 +702,7 @@
       .replace(/\u2028/g, "\\u2028")
       .replace(/\u2029/g, "\\u2029");
     return `<!doctype html>
-<html lang="ko">
+<html lang="${escapeHtml(chrome)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -659,12 +716,26 @@
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" style="${invitationStyleFrom(invitation)}">
 ${introMarkup}
-${renderInvitationBody(invitation)}
+${renderInvitationBody(invitation, { language: chrome })}
 <script id="invitation-data" type="application/json">${invitationData}</script>
-${renderStandaloneMapScript(invitation)}
+${renderStandaloneMapScript(invitation, chrome)}
 ${introRuntime}
 </body>
 </html>`;
+  };
+
+  /* The other half of the round trip. Given a standalone file — or the parsed
+     document of one — return the chrome language it was built with, so a
+     re-import or a viewer rebuild reproduces the same document rather than
+     re-languaging someone's finished invitation.
+
+     Files exported before this existed carry lang="ko", which is precisely
+     what they were built in, so old files round-trip correctly too. */
+  const readStandaloneLanguage = (source) => {
+    const declared = typeof source === "string"
+      ? source.match(/<html[^>]*\slang\s*=\s*"([^"]*)"/i)?.[1]
+      : source?.documentElement?.getAttribute?.("lang");
+    return chromeLanguage(declared);
   };
 
   const api = {
@@ -674,6 +745,7 @@ ${introRuntime}
     defaultInvitation,
     getInvitationStyle,
     normalizeInvitation,
+    readStandaloneLanguage,
     renderInvitationBody,
     buildStandaloneHtml
   };

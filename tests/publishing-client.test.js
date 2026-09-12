@@ -3,6 +3,16 @@ const assert = require("node:assert/strict");
 
 const InvitationPublishing = require("../assets/publishing/publishing.js");
 const SharedInvitation = require("../assets/publishing/shared-invitation.js");
+const InvitationI18n = require("../assets/i18n/i18n.js");
+
+/* The panel's copy moved into the dictionaries, so these assertions read the
+   expected sentence from there rather than repeating it. The literal
+   guarantees are kept alongside, so a translation that quietly dropped the
+   point of a message still fails. The panel speaks to the AUTHOR and so
+   follows the studio language; pinned to Korean here to keep the expectations
+   independent of test ordering. */
+InvitationI18n.setLanguage("ko", { persist: false });
+const publishCopy = (key, values) => InvitationI18n.t(`publish.${key}`, values, "ko");
 
 const makeCrypto = () => {
   let uuid = 0;
@@ -198,7 +208,17 @@ test("storage write failure blocks a new publish before network access", async (
   };
   const { client, requests } = makeClient({ storage });
 
-  await assert.rejects(() => client.publish({ title: "No storage" }), /저장 공간/);
+  await assert.rejects(
+    () => client.publish({ title: "No storage" }),
+    (error) => {
+      assert.equal(error.message, publishCopy("noStorage"));
+      // Carried as a code so the pass-through in messageForError survives
+      // translation instead of sniffing for Korean words in the sentence.
+      assert.equal(error.code, "NO_STORAGE");
+      assert.match(error.message, /저장 공간/);
+      return true;
+    }
+  );
   assert.equal(requests.length, 0);
 });
 
@@ -250,7 +270,15 @@ test("unreadable publishing storage fails clearly instead of overwriting saved t
   const storage = makeStorage({ [InvitationPublishing.STORAGE_KEY]: "{broken" });
   const { client, requests } = makeClient({ storage });
 
-  await assert.rejects(() => client.publish({ title: "Would overwrite" }), /발행 정보를 읽지 못했습니다/);
+  await assert.rejects(
+    () => client.publish({ title: "Would overwrite" }),
+    (error) => {
+      assert.equal(error.message, publishCopy("storeUnreadable"));
+      assert.equal(error.code, "STORE_UNREADABLE");
+      assert.match(error.message, /발행 정보를 읽지 못했습니다/);
+      return true;
+    }
+  );
   assert.equal(requests.length, 0);
   assert.equal(storage.raw(), "{broken");
 });
@@ -384,7 +412,12 @@ test("mount renders an independent finish section and forwards validate/getValue
   assert.match(root.innerHTML, /publish-button/);
   assert.match(root.innerHTML, /publish-result-link/);
   assert.match(root.innerHTML, /published-list/);
-  assert.match(root.innerHTML, /누구나 링크로 볼 수 있습니다/);
+  assert.ok(root.innerHTML.includes(publishCopy("consent")));
+  assert.match(publishCopy("consent"), /누구나 링크로 볼 수 있습니다/);
+  // The static copy is bound as well as rendered, so the engine's applyDom
+  // pass retranslates the panel on a language change without a remount.
+  assert.match(root.innerHTML, /data-i18n="publish\.consent"/);
+  assert.match(root.innerHTML, /data-i18n="publish\.publishButton"/);
 });
 
 test("mount surfaces actionable publish failures without injecting raw server text", async () => {
@@ -401,7 +434,8 @@ test("mount surfaces actionable publish failures without injecting raw server te
 
   await harness.clickPublish();
 
-  assert.equal(harness.status.textContent, "발행 횟수가 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.");
+  assert.equal(harness.status.textContent, publishCopy("rateLimited"));
+  assert.equal(publishCopy("rateLimited"), "발행 횟수가 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.");
   assert.doesNotMatch(harness.status.textContent, /raw noisy/);
 });
 
@@ -418,7 +452,9 @@ test("mount announces pending snapshot recovery before retrying edited content",
 
   await harness.clickPublish();
 
+  assert.equal(messages[0], publishCopy("recovering"));
   assert.match(messages[0], /이전 발행 요청/);
+  assert.ok(harness.status.textContent.startsWith(publishCopy("recovered")));
   assert.match(harness.status.textContent, /이전 발행 요청을 확인했습니다/);
 });
 
@@ -463,6 +499,105 @@ test("public viewer fetches only public invitation data into a sandboxed iframe"
   assert.doesNotMatch(frame.attributes.sandbox, /allow-same-origin/);
   assert.match(frame.srcdoc, /Shared/);
   assert.equal(frame.hidden, false);
+});
+
+/* The guest-facing language decision, exercised rather than read off source.
+
+   A guest lands on /i/<id> having made no choice in the studio, so the page
+   chrome around the invitation follows their own language. The invitation
+   itself is somebody else's finished document, and a published record carries
+   no note of the language its author worked in, so its baked chrome stays in
+   the product's home language — never the reader's. */
+const sharedHarness = () => {
+  const frame = { attributes: {}, hidden: true, setAttribute(name, value) { this.attributes[name] = value; } };
+  const nodes = {
+    "#shared-invitation-root": {},
+    "#shared-invitation-frame": frame,
+    "#shared-invitation-status": { textContent: "" },
+    "#shared-invitation-error": { hidden: true },
+    "#shared-invitation-error-eyebrow": { textContent: "" },
+    "#shared-invitation-error-title": { textContent: "" },
+    "#shared-invitation-error-description": { textContent: "" },
+    "#shared-invitation-error-hint": { textContent: "" },
+    "#shared-invitation-header": { hidden: true },
+    "#shared-invitation-footer": { hidden: true }
+  };
+  return { frame, nodes, document: { querySelector: (selector) => nodes[selector] ?? null } };
+};
+
+test("a guest's not-found page speaks the guest's language", async () => {
+  for (const language of InvitationI18n.SUPPORTED) {
+    const harness = sharedHarness();
+
+    await SharedInvitation.mount({
+      document: harness.document,
+      language,
+      location: { pathname: "/i/missing1" },
+      fetch: async () => ({ ok: false, status: 404 })
+    });
+
+    const expect = (key) => InvitationI18n.t(`shared.${key}`, undefined, language);
+    assert.equal(harness.nodes["#shared-invitation-error-title"].textContent, expect("notFoundTitle"));
+    assert.equal(harness.nodes["#shared-invitation-error-description"].textContent, expect("notFoundDescription"));
+    assert.equal(harness.nodes["#shared-invitation-error-hint"].textContent, expect("notFoundHint"));
+    assert.equal(harness.nodes["#shared-invitation-error-eyebrow"].textContent, expect("notFoundEyebrow"));
+    assert.equal(harness.nodes["#shared-invitation-error"].hidden, false);
+    assert.equal(harness.nodes["#shared-invitation-header"].hidden, false);
+  }
+
+  // The three failure kinds stay distinguishable rather than collapsing onto
+  // one apologetic sentence.
+  const titles = ["notFound", "gone", "failed"].map((kind) => InvitationI18n.t(`shared.${kind}Title`, undefined, "ko"));
+  assert.equal(new Set(titles).size, titles.length);
+});
+
+test("a published invitation is never re-languaged to suit whoever opens the link", async () => {
+  const invitation = { title: "서울숲 저녁 초대", items: [{ id: "n1", type: "notice", heading: "주차 안내", body: "지하 2층" }] };
+  const rendered = [];
+
+  for (const language of InvitationI18n.SUPPORTED) {
+    const harness = sharedHarness();
+
+    await SharedInvitation.mount({
+      document: harness.document,
+      language,
+      location: { pathname: "/i/abc123" },
+      fetch: async () => ({ ok: true, json: async () => ({ expiresAt: null, invitation }) })
+    });
+
+    rendered.push(harness.frame.srcdoc);
+    // The author's words, untouched, whoever is reading.
+    assert.match(harness.frame.srcdoc, /서울숲 저녁 초대/);
+    assert.match(harness.frame.srcdoc, /주차 안내/);
+  }
+
+  // An English-speaking guest and a Korean-speaking one receive byte-identical
+  // documents. The reader's preference changes the page around the frame, not
+  // what is inside it.
+  assert.equal(new Set(rendered).size, 1, "the frame must not follow the reader's language");
+  assert.match(rendered[0], /<html lang="ko">/);
+  assert.ok(rendered[0].includes(InvitationI18n.t("invitation.noticeEyebrow", undefined, "ko")));
+});
+
+test("an expiry shown to a guest is formatted for the guest", async () => {
+  const expiresAt = "2026-10-01T05:00:00.000Z";
+  const seen = [];
+
+  for (const language of InvitationI18n.SUPPORTED) {
+    const harness = sharedHarness();
+    await SharedInvitation.mount({
+      document: harness.document,
+      language,
+      location: { pathname: "/i/abc123" },
+      fetch: async () => ({ ok: true, json: async () => ({ expiresAt, invitation: { title: "T", items: [] } }) })
+    });
+    const shown = harness.nodes["#shared-invitation-status"].textContent;
+    assert.ok(shown.includes("2026"), shown);
+    assert.doesNotMatch(shown, /2026-10-01T/, "a raw ISO timestamp is not copy");
+    seen.push(shown);
+  }
+
+  assert.equal(new Set(seen).size, seen.length, "the expiry line should differ per language");
 });
 
 test("shared viewer CSS preserves hidden iframe and removes the empty status strip", () => {

@@ -283,12 +283,24 @@
   };
 
   /* Screen readers pick their voice from this, and browser translation offers
-     itself based on it, so it has to be the language actually on screen. */
+     itself based on it, so it has to be the language actually on screen.
+
+     The tab title comes from meta.title unless the page names its own key in
+     <html data-i18n-title="...">. Every page that loads this engine is a
+     different thing in a tab strip — the studio, a guest's invitation, the
+     operator console — and a shared "Invitation Studio" on all of them would
+     be wrong on two of the three. Same data-i18n convention as the elements,
+     just hung on the element that already carries `lang`. */
+  const DEFAULT_TITLE_KEY = "meta.title";
+  const documentTitleKey = () =>
+    root.document?.documentElement?.getAttribute?.("data-i18n-title") || DEFAULT_TITLE_KEY;
+
   const syncDocumentLanguage = (language = activeLanguage) => {
     const element = root.document?.documentElement;
     if (element?.setAttribute) element.setAttribute("lang", language);
-    if (root.document?.title !== undefined && hasKey("meta.title", language)) {
-      root.document.title = translate("meta.title", undefined, language);
+    const titleKey = documentTitleKey();
+    if (root.document?.title !== undefined && hasKey(titleKey, language)) {
+      root.document.title = translate(titleKey, undefined, language);
     }
   };
 

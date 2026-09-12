@@ -8,7 +8,13 @@ a { color: inherit; }
 .site-footer .footer-note { letter-spacing: 0; }
 .brand { font-size: 18px; font-weight: 700; letter-spacing: -.5px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; gap: 10px; }
 .brand svg { width: 23px; height: 23px; color: #8d5e39; flex-shrink: 0; }
-.header-note { font-size: 12px; color: #766f67; }
+/* The header is space-between, so with the switcher added as a third child the
+   note would drift to the middle of the bar. Pushing it right keeps the note
+   and the switcher together as one trailing group. */
+.header-note { font-size: 12px; color: #766f67; margin-left: auto; }
+.admin-language { flex-shrink: 0; }
+.admin-language select { min-height: 36px; padding: 0 8px; border: 1px solid #e4ddd3; border-radius: 9px; background: #fffdf9; color: inherit; font: inherit; font-size: 13px; }
+.admin-language select:focus-visible { outline: 2px solid #8d5e39; outline-offset: 2px; }
 .shell { width: min(1120px, calc(100% - 32px)); margin: 48px auto; flex: 1 0 auto; }
 .panel, .table-wrap { background: #fffdf9; border: 1px solid #e4ddd3; border-radius: 18px; box-shadow: 0 12px 30px #6f5d4312; }
 .panel { max-width: 440px; padding: 28px; margin: 12vh auto; }

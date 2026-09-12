@@ -71,7 +71,31 @@ const parsePage = (parsed, defaultPageSize) => {
   return { page, pageSize, query: (parsed.searchParams.get("q") || "").trim().slice(0, 80) };
 };
 
-const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
+/* What /admin/* may serve, as a fixed map from request name to the directory
+   the file comes from. Two roots, not one:
+
+     staticRoot  admin/public — the console's own page, script, styles and
+                 dictionaries.
+     sharedRoot  assets/i18n — the language ENGINE only.
+
+   The engine is shared with the studio deliberately: reimplementing resolution
+   order and the storage key here would mean the operator's language choice
+   next door silently failed to carry over, and two copies of the rules to keep
+   in step. Reading one named file off local disk is not a dependency on the
+   public SERVER — this process already reads server/config/database.cjs — and
+   the admin still starts, listens and serves on its own.
+
+   A map rather than a widened regex: the request never contributes a path
+   segment, so there is no traversal to defend against. */
+const STATIC_FILES = Object.freeze({
+  "index.html": ["static", "index.html", "text/html; charset=utf-8"],
+  "admin.js": ["static", "admin.js", "text/javascript; charset=utf-8"],
+  "admin.css": ["static", "admin.css", "text/css; charset=utf-8"],
+  "admin-i18n.js": ["static", "admin-i18n.js", "text/javascript; charset=utf-8"],
+  "i18n.js": ["shared", "i18n.js", "text/javascript; charset=utf-8"]
+});
+
+const createHandler = ({ repository, config, sessionStore, staticRoot, sharedRoot }) => {
   const loginAttempts = new Map();
 
   const requireSession = (req, res) => {
@@ -111,11 +135,13 @@ const createHandler = ({ repository, config, sessionStore, staticRoot }) => {
 
   const serve = async (req, res, pathname) => {
     const requested = pathname === "/admin" || pathname === "/admin/" ? "index.html" : pathname.replace(/^\/admin\//, "");
-    if (!/^(?:index\.html|admin\.(?:js|css))$/.test(requested)) return false;
+    const entry = Object.hasOwn(STATIC_FILES, requested) ? STATIC_FILES[requested] : null;
+    if (!entry) return false;
+    const [source, name, type] = entry;
+    const directory = source === "shared" ? sharedRoot : staticRoot;
+    if (!directory) return false;
     try {
-      const file = path.join(staticRoot, requested);
-      const content = await fs.promises.readFile(file);
-      const type = requested.endsWith(".html") ? "text/html; charset=utf-8" : requested.endsWith(".css") ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8";
+      const content = await fs.promises.readFile(path.join(directory, name));
       res.writeHead(200, { "content-type": type, "cache-control": "no-store" });
       res.end(content);
       return true;

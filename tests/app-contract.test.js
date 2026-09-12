@@ -1500,6 +1500,8 @@ test("viewer rejects stored HTML containing duplicate invitation payloads", asyn
   const context = {
     DOMParser: invitationParser,
     InvitationCore,
+    // viewer.html loads the engine in <head>, so the sandbox carries it too.
+    InvitationI18n,
     InvitationStorage: { async get() { return { id: "duplicate", html: duplicated }; } },
     URLSearchParams,
     document: {
@@ -1511,11 +1513,16 @@ test("viewer rejects stored HTML containing duplicate invitation payloads", asyn
     window: { location: { search: "?id=duplicate" } }
   };
 
+  InvitationI18n.setLanguage("ko", { persist: false });
   const result = vm.runInNewContext(viewerSource, context, { filename: "assets/invitation/viewer.js" });
   await result;
 
   assert.equal(written.length, 0);
-  assert.match(main.innerHTML, /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+  // Asserted through the dictionary rather than as a literal, so the copy can
+  // be edited in one place while this still pins the exact rendered sentence.
+  assert.ok(main.innerHTML.includes(ko("viewer.errorBody")), main.innerHTML);
+  assert.ok(main.innerHTML.includes(ko("viewer.errorTitle")), main.innerHTML);
+  assert.match(ko("viewer.errorBody"), /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
 });
 
 test("viewer preserves the missing invitation message for invalid stored HTML", async () => {
@@ -1525,6 +1532,7 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
   const context = {
     DOMParser: invitationParser,
     InvitationCore,
+    InvitationI18n,
     InvitationStorage: {
       async get() {
         return { id: "bad", html: '<script id="invitation-data" type="application/json">[]</script>' };
@@ -1540,11 +1548,14 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
     window: { location: { search: "?id=bad" } }
   };
 
+  InvitationI18n.setLanguage("ko", { persist: false });
   const result = vm.runInNewContext(viewerSource, context, { filename: "assets/invitation/viewer.js" });
   await result;
 
   assert.equal(written.length, 0);
-  assert.match(main.innerHTML, /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+  assert.ok(main.innerHTML.includes(ko("viewer.errorBody")), main.innerHTML);
+  assert.ok(main.innerHTML.includes(ko("viewer.errorTitle")), main.innerHTML);
+  assert.match(ko("viewer.errorBody"), /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
 });
 
 test("editor exposes mobile view tabs and selected template state", () => {

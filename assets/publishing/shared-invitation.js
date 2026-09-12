@@ -5,52 +5,85 @@
     }
     return root.InvitationCore || null;
   })();
-  const strings = Object.freeze({
-    loading: "초대장을 불러오는 중입니다.",
-    errors: {
-      // Wrong/typo'd link, or a link that never existed.
-      notFound: Object.freeze({
-        eyebrow: "A LITTLE DETOUR",
-        title: "초대장을 찾을 수 없습니다.",
-        description: "주소가 달라졌거나, 더 이상 사용할 수 없는 링크일 수 있어요.",
-        hint: "초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요."
-      }),
-      // The record carried a set viewing window and that window has passed
-      // (HTTP 410). A manual revoke deletes the record outright, so that case
-      // surfaces through the 404 branch above instead - and so does an expired
-      // publication on the MongoDB-backed API, whose read hides it entirely.
-      // This branch stays for any deployment that answers 410 instead.
-      gone: Object.freeze({
-        eyebrow: "THIS CHAPTER IS CLOSED",
-        title: "초대장이 만료되었습니다.",
-        description: "설정된 열람 기간이 지나 더 이상 볼 수 없어요.",
-        hint: "초대장을 보내준 분에게 새로운 링크를 요청해 주세요."
-      }),
-      // Network hiccup or server error — worth a retry, not a dead link.
-      failed: Object.freeze({
-        eyebrow: "A BRIEF PAUSE",
-        title: "초대장을 불러오지 못했습니다.",
-        description: "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
-        hint: "오류가 계속되면 잠시 후 다시 방문해 주세요."
-      })
+  const I18n = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        const engine = require("../i18n/i18n.js");
+        try {
+          engine.register("ko", require("../i18n/dictionary-ko.js"));
+          engine.register("en", require("../i18n/dictionary-en.js"));
+        } catch {
+          // Resolution still works without dictionaries.
+        }
+        return engine;
+      } catch {
+        return null;
+      }
     }
-  });
+    return root.InvitationI18n || null;
+  })();
+
+  /* Two languages live on this page, and conflating them is the bug this file
+     exists to avoid.
+
+     THE PAGE CHROME — the loading line, the not-found / expired / failed
+     panels, the header and footer revealed alongside them — is the product
+     speaking to a GUEST. That guest arrived from a link, has never opened the
+     studio, and made no choice in it. So the chrome follows their own browser
+     language (shared.html runs InvitationI18n.init() before this file loads).
+     On the not-found path there is not even an author to defer to: nothing was
+     found, so the only person in the room is the reader.
+
+     THE INVITATION INSIDE THE FRAME is somebody else's finished document. Its
+     baked chrome ("안내", the map button, the skip button) belongs to the
+     author, exactly as it does in a downloaded file — a Korean invitation must
+     not sprout English labels because an English speaker opened the link, and
+     an English one must not sprout Korean ones. But a PUBLISHED invitation
+     carries no record of the language its author was working in: the stored
+     document is whatever normalizeInvitation emits, and adding a field to it
+     would mean changing the publish payload, server/validation.cjs and every
+     stored record. So the frame is rendered in the product's home language,
+     which is what every publication to date was in fact authored and previewed
+     in. It is emphatically NOT the guest's language, because that would be
+     translating a stranger's document to suit the reader. */
+  const pageLanguage = (override) =>
+    (I18n?.normalizeLanguage?.(override) ?? null)
+    || I18n?.getLanguage?.()
+    || I18n?.DEFAULT_LANGUAGE
+    || "ko";
+  const FRAME_LANGUAGE = I18n?.DEFAULT_LANGUAGE || "ko";
+  const t = (key, values, language) => I18n?.t(key, values, language) ?? String(key);
+
+  /* Which panel answers which failure:
+       notFound — wrong or typo'd link, or one that never existed. A manual
+         revoke deletes the record outright and an expired publication on the
+         MongoDB-backed API is hidden by the read, so both land here too.
+       gone — HTTP 410, for any deployment that answers with a closed viewing
+         window rather than hiding the record.
+       failed — network hiccup or server error. Worth a retry, not a dead link.
+
+     Anything else falls back to `failed`, which is the only one of the three
+     that invites the guest to try again. */
+  const ERROR_KINDS = Object.freeze(["notFound", "gone", "failed"]);
   const resolveId = (location = root.location) => {
     const match = String(location?.pathname || "").match(/\/i\/([A-Za-z0-9]{1,64})\/?$/);
     return match?.[1] || "";
   };
-  const renderFrame = (frame, invitation) => {
+  const renderFrame = (frame, invitation, { language = FRAME_LANGUAGE } = {}) => {
     if (!InvitationCore?.buildStandaloneHtml) throw new Error("InvitationCore is unavailable");
     frame.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
     frame.setAttribute("referrerpolicy", "no-referrer");
-    frame.srcdoc = InvitationCore.buildStandaloneHtml(invitation);
+    frame.srcdoc = InvitationCore.buildStandaloneHtml(invitation, { language });
     frame.hidden = false;
   };
   const mount = async ({
     document = root.document,
     fetch = root.fetch?.bind(root),
+    language,
     location = root.location
   } = {}) => {
+    const reader = pageLanguage(language);
+    const say = (key, values) => t(`shared.${key}`, values, reader);
     const rootNode = document?.querySelector?.("#shared-invitation-root");
     const frame = document?.querySelector?.("#shared-invitation-frame");
     const status = document?.querySelector?.("#shared-invitation-status");
@@ -67,18 +100,18 @@
     // and loading states so a working invitation's iframe still fills the
     // viewport with no chrome around it.
     const showError = (key) => {
-      const copy = strings.errors[key] || strings.errors.failed;
+      const kind = ERROR_KINDS.includes(key) ? key : "failed";
       setStatus("");
-      if (errorEyebrow) errorEyebrow.textContent = copy.eyebrow;
-      if (errorTitle) errorTitle.textContent = copy.title;
-      if (errorDescription) errorDescription.textContent = copy.description;
-      if (errorHint) errorHint.textContent = copy.hint;
+      if (errorEyebrow) errorEyebrow.textContent = say(`${kind}Eyebrow`);
+      if (errorTitle) errorTitle.textContent = say(`${kind}Title`);
+      if (errorDescription) errorDescription.textContent = say(`${kind}Description`);
+      if (errorHint) errorHint.textContent = say(`${kind}Hint`);
       if (errorPanel) errorPanel.hidden = false;
       if (header) header.hidden = false;
       if (footer) footer.hidden = false;
     };
     const id = resolveId(location);
-    setStatus(strings.loading);
+    setStatus(say("loading"));
     if (!id) {
       showError("notFound");
       return null;
@@ -95,7 +128,14 @@
       }
       const data = await response.json();
       renderFrame(frame, data.invitation);
-      setStatus(data.expiresAt ? `만료: ${data.expiresAt}` : "");
+      // Formatted for the reader — an expiry date is the product telling the
+      // guest something, not part of the author's document.
+      setStatus(data.expiresAt
+        ? say("expires", {
+          date: I18n?.formatDateTime(data.expiresAt, { dateStyle: "medium", timeStyle: "short" }, reader)
+            || data.expiresAt
+        })
+        : "");
       return data;
     } catch {
       showError("failed");
@@ -105,8 +145,15 @@
   const api = { mount, renderFrame, resolveId };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.SharedInvitation = api;
+  /* shared.html resolves and applies the language in <head> so <html lang> and
+     the tab title are right for the first paint; the body had not been parsed
+     at that point, so its bound nodes get this second pass. */
+  const boot = () => {
+    I18n?.applyDom?.(root.document);
+    mount();
+  };
   if (root.document) {
-    if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", () => mount());
-    else mount();
+    if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", boot);
+    else boot();
   }
 })(typeof window !== "undefined" ? window : globalThis);

@@ -1,4 +1,28 @@
 (function (root) {
+  /* Same soft dependency as assets/invitation/core.js: the engine when a page
+     or a Node caller has one, nothing otherwise. The only string looked up
+     here is the skip button. */
+  const I18n = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        const engine = require("../i18n/i18n.js");
+        try {
+          engine.register("ko", require("../i18n/dictionary-ko.js"));
+          engine.register("en", require("../i18n/dictionary-en.js"));
+        } catch {
+          // Resolution still works without dictionaries.
+        }
+        return engine;
+      } catch {
+        return null;
+      }
+    }
+    return root.InvitationI18n || null;
+  })();
+  const DEFAULT_LANGUAGE = I18n?.DEFAULT_LANGUAGE || "ko";
+  const t = (key, language) =>
+    I18n?.t(key, undefined, (I18n.normalizeLanguage?.(language) ?? null) || DEFAULT_LANGUAGE) ?? String(key);
+
   const safeImagePattern = /^data:image\/(?:jpeg|png|webp);base64,(?:(?:[A-Za-z0-9+/]{4})+|(?:[A-Za-z0-9+/]{4})*[A-Za-z0-9+/]{3}=|(?:[A-Za-z0-9+/]{4})*[A-Za-z0-9+/]{2}==)$/;
   const controllers = new WeakMap();
   const petalPositions = Object.freeze([
@@ -71,10 +95,16 @@
     return "";
   };
 
+  /* `options.language` names the language of the one piece of chrome in the
+     overlay — the skip button. Everything else on screen is `preset.copy`,
+     which is a list of FIELD NAMES: the author's own title, host and date,
+     rendered verbatim and never translated. Defaults to the product's home
+     language so a caller with no opinion gets today's behaviour. */
   const renderMarkup = (invitation = {}, options = {}) => {
     const effect = normalizeEffect(invitation.introEffect);
     if (effect === "none") return "";
     const preset = PRESETS[effect];
+    const language = options.language;
     const preview = options.preview ? " data-intro-preview" : "";
     const copy = preset.copy.map((field) => {
       const value = escapeHtml(invitation[field] || "");
@@ -88,7 +118,7 @@
   <div class="intro-copy">
     ${copy}
   </div>
-  <button class="intro-skip" type="button" data-intro-skip aria-label="인트로 건너뛰기">건너뛰기</button>
+  <button class="intro-skip" type="button" data-intro-skip aria-label="${escapeHtml(t("invitation.skipIntroLabel", language))}">${escapeHtml(t("invitation.skipIntro", language))}</button>
 </div>`;
   };
 
@@ -183,7 +213,12 @@ body.is-intro-active{overflow:hidden}
 
     try {
       host.classList.add("is-intro-active");
-      host.insertAdjacentHTML("afterbegin", renderMarkup(invitation, environment.preview ? { preview: true } : {}));
+      // The live overlay is on the author's screen, so its skip button follows
+      // the studio rather than the invitation's baked language.
+      host.insertAdjacentHTML("afterbegin", renderMarkup(invitation, {
+        ...(environment.preview ? { preview: true } : {}),
+        language: environment.language ?? I18n?.getLanguage?.()
+      }));
       overlay = host.querySelector("[data-intro-overlay]");
       if (!overlay) throw new Error("Intro overlay did not mount");
       if (effect === "card-shrink") setCardTarget(host, overlay);

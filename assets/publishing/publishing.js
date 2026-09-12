@@ -2,27 +2,37 @@
   const STORAGE_KEY = "invitation-maker.publishing.v1";
   const MAX_PUBLISH_BYTES = 2000000;
   const API_ROOT = "/api/invitations";
-  const strings = Object.freeze({
-    busy: "사진 처리나 저장이 끝난 뒤 발행할 수 있습니다.",
-    copyFailed: "링크를 복사하지 못했습니다.",
-    deleting: "공개 링크를 취소하고 있습니다.",
-    deleteFailed: "공개 링크 취소에 실패했습니다.",
-    invalid: "초대장 내용을 먼저 확인해 주세요.",
-    noStorage: "브라우저 저장 공간에 기록하지 못해 발행할 수 없습니다.",
-    published: "공개 링크를 만들었습니다.",
-    publishing: "공개 링크를 만들고 있습니다.",
-    recovering: "이전 발행 요청을 먼저 확인하고 있습니다.",
-    recovered: "이전 발행 요청을 확인했습니다.",
-    publishFailed: "발행에 실패했습니다. 다시 누르면 같은 요청으로 재시도합니다.",
-    storageUnavailable: "브라우저 저장 공간을 사용할 수 없습니다."
-  });
-
   const InvitationCore = (() => {
     if (typeof module !== "undefined" && module.exports) {
       try { return require("../invitation/core.js"); } catch { return null; }
     }
     return root.InvitationCore || null;
   })();
+
+  const I18n = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        const engine = require("../i18n/i18n.js");
+        try {
+          engine.register("ko", require("../i18n/dictionary-ko.js"));
+          engine.register("en", require("../i18n/dictionary-en.js"));
+        } catch {
+          // Resolution still works without dictionaries.
+        }
+        return engine;
+      } catch {
+        return null;
+      }
+    }
+    return root.InvitationI18n || null;
+  })();
+
+  /* This panel is mounted inside the studio and only ever speaks to the AUTHOR,
+     so it follows the studio's language like every other control there. Read
+     live rather than captured at mount, so a language change mid-session is
+     already reflected the next time anything is said. Nothing in this file
+     reaches a guest — what a guest sees lives in shared-invitation.js. */
+  const t = (key, values) => I18n?.t(`publish.${key}`, values) ?? `publish.${key}`;
 
   const encodeBase64Url = (bytes) => {
     if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64url");
@@ -36,7 +46,7 @@
       const parsed = JSON.parse(value);
       return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
     } catch {
-      throw new Error("이 브라우저의 발행 정보를 읽지 못했습니다. 기존 링크 취소 정보 보호를 위해 새 발행을 중단했습니다.");
+      throw createPublishingError(t("storeUnreadable"), "STORE_UNREADABLE");
     }
   };
   const normalizeStore = (store = {}) => ({
@@ -57,17 +67,17 @@
     const body = JSON.stringify({ invitation: normalized });
     const requestBytes = byteLength(body, textEncoder);
     if (requestBytes > MAX_PUBLISH_BYTES || byteLength(invitationJson, textEncoder) > MAX_PUBLISH_BYTES) {
-      throw new Error("2MB 이하 초대장만 공개 링크로 발행할 수 있습니다.");
+      throw createPublishingError(t("tooLarge"), "TOO_LARGE");
     }
     return { body, invitation: normalized, requestBytes };
   };
   const createToken = (cryptoApi) => {
-    if (!cryptoApi?.getRandomValues) throw new Error("보안 토큰을 만들 수 없습니다.");
+    if (!cryptoApi?.getRandomValues) throw createPublishingError(t("tokenFailed"), "TOKEN_FAILED");
     const bytes = new Uint8Array(32);
     cryptoApi.getRandomValues(bytes);
     return encodeBase64Url(bytes);
   };
-  const getTitle = (invitation) => String(invitation?.title || "공개 초대장").trim() || "공개 초대장";
+  const getTitle = (invitation) => String(invitation?.title || "").trim() || t("defaultTitle");
   const createPublishingError = (message, code, status) => {
     const error = new Error(message);
     error.code = code;
@@ -75,15 +85,23 @@
     return error;
   };
   const statusCodeFromError = (error) => error?.status || Number(String(error?.message || "").match(/^HTTP (\d+)/)?.[1]);
+
+  /* Errors this file raised itself already carry copy in the reader's
+     language, so they are passed through by CODE rather than by matching words
+     inside the message. Sniffing for "저장 공간" worked only while there was
+     exactly one language to sniff for; a code survives translation. */
+  const PASS_THROUGH_CODES = new Set([
+    "TOO_LARGE", "STORE_UNREADABLE", "NO_STORAGE", "STORAGE_UNAVAILABLE",
+    "TOKEN_FAILED", "REQUEST_KEY_FAILED", "BAD_RESPONSE", "NOTHING_TO_REVOKE"
+  ]);
   const messageForError = (error) => {
-    if (/2MB/.test(error?.message || "")) return error.message;
-    if (/저장 공간|발행 정보를 읽지 못했습니다|브라우저 저장 공간/.test(error?.message || "")) return error.message;
+    if (PASS_THROUGH_CODES.has(error?.code) && error?.message) return error.message;
     const status = statusCodeFromError(error);
-    if (status === 409) return "이전 발행 요청과 다른 내용입니다. 잠시 후 다시 시도해 주세요.";
-    if (status === 413) return "초대장이 2MB를 넘었습니다. 사진을 줄인 뒤 다시 시도해 주세요.";
-    if (status === 429) return "발행 횟수가 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.";
-    if (status === 503) return "발행 서버 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요.";
-    return strings.publishFailed;
+    if (status === 409) return t("conflict");
+    if (status === 413) return t("serverTooLarge");
+    if (status === 429) return t("rateLimited");
+    if (status === 503) return t("storeNotReady");
+    return t("publishFailed");
   };
 
   const createClient = ({
@@ -102,14 +120,14 @@
       return callback();
     };
     const readStore = () => {
-      if (!storage?.getItem || !storage?.setItem) throw new Error(strings.storageUnavailable);
+      if (!storage?.getItem || !storage?.setItem) throw createPublishingError(t("storageUnavailable"), "STORAGE_UNAVAILABLE");
       return normalizeStore(safeParse(storage.getItem(STORAGE_KEY) || "{}"));
     };
     const writeStore = (store) => {
       try {
         storage.setItem(STORAGE_KEY, JSON.stringify(normalizeStore(store)));
       } catch {
-        throw new Error(strings.noStorage);
+        throw createPublishingError(t("noStorage"), "NO_STORAGE");
       }
     };
     const getOrCreatePending = (store, body, invitation, requestBytes) => {
@@ -123,7 +141,7 @@
         title: getTitle(invitation),
         token: createToken(crypto)
       };
-      if (!pending.idempotencyKey) throw new Error("요청 키를 만들 수 없습니다.");
+      if (!pending.idempotencyKey) throw createPublishingError(t("requestKeyFailed"), "REQUEST_KEY_FAILED");
       store.pending = pending;
       writeStore(store);
       return pending;
@@ -149,7 +167,7 @@
         sizeBytes: pending.requestBytes,
         token: pending.token
       };
-      if (!record.id || !record.url) throw new Error("발행 응답이 올바르지 않습니다.");
+      if (!record.id || !record.url) throw createPublishingError(t("badResponse"), "BAD_RESPONSE");
       const next = readStore();
       next.pending = null;
       next.publications = [record, ...next.publications.filter((item) => item.id !== record.id)];
@@ -178,7 +196,7 @@
     const removeUnlocked = async (id) => {
       const store = readStore();
       const record = store.publications.find((item) => item.id === id);
-      if (!record?.token) throw new Error("취소할 수 있는 발행 정보가 없습니다.");
+      if (!record?.token) throw createPublishingError(t("nothingToRevoke"), "NOTHING_TO_REVOKE");
       const response = await fetch(`${API_ROOT}/${encodeURIComponent(id)}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${record.token}` }
@@ -192,34 +210,39 @@
   };
 
   const formatExpiry = (value) => {
-    if (!value) return "자동 만료 없음";
-    const date = new Date(String(value));
-    if (!Number.isFinite(date.getTime())) return "만료일 확인 필요";
-    return new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    if (!value) return t("noExpiry");
+    return I18n?.formatDateTime(value, { dateStyle: "medium", timeStyle: "short" }) ?? t("expiryUnknown");
   };
   const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   })[char]);
 
+  /* The static copy carries data-i18n as well as its rendered text, so the
+     engine's applyDom pass re-translates this panel on a language change
+     without it having to be torn down and rebuilt. The dynamic parts — the
+     status line and the publication cards — are re-rendered through t() at the
+     moment they are written instead. */
+  const bind = (key) => `data-i18n="publish.${key}"`;
+  const copy = (key) => escapeHtml(t(key));
   const renderShell = (rootNode) => {
     rootNode.innerHTML = `
       <div class="publishing-header">
         <div>
-          <p class="eyebrow">Share</p>
-          <h2>공개 링크</h2>
+          <p class="eyebrow" ${bind("eyebrow")}>${copy("eyebrow")}</p>
+          <h2 ${bind("heading")}>${copy("heading")}</h2>
         </div>
-        <span class="publishing-limit">2MB 이하</span>
+        <span class="publishing-limit" ${bind("limit")}>${copy("limit")}</span>
       </div>
-      <p class="publishing-consent">공개 링크를 만들면 주소를 아는 누구나 링크로 볼 수 있습니다. 발행 후 만료일을 확인할 수 있습니다.</p>
+      <p class="publishing-consent" ${bind("consent")}>${copy("consent")}</p>
       <div class="publishing-actions">
-        <button id="publish-button" class="primary-button" type="button" autofocus>공개 링크 만들기</button>
-        <a id="publish-result-link" class="publication-link" href="#" target="_blank" rel="noopener noreferrer" hidden>링크 열기</a>
-        <button id="copy-publication-link" class="secondary-button" type="button" hidden>링크 복사</button>
-        <button id="revoke-publication-link" class="secondary-button" type="button" hidden>취소</button>
+        <button id="publish-button" class="primary-button" type="button" autofocus ${bind("publishButton")}>${copy("publishButton")}</button>
+        <a id="publish-result-link" class="publication-link" href="#" target="_blank" rel="noopener noreferrer" hidden ${bind("openLink")}>${copy("openLink")}</a>
+        <button id="copy-publication-link" class="secondary-button" type="button" hidden ${bind("copyLink")}>${copy("copyLink")}</button>
+        <button id="revoke-publication-link" class="secondary-button" type="button" hidden ${bind("revokeLink")}>${copy("revokeLink")}</button>
       </div>
       <p id="publish-status" class="publishing-status" role="status" aria-live="polite"></p>
       <div>
-        <h3 class="publication-list-title">이 브라우저의 발행 목록</h3>
+        <h3 class="publication-list-title" ${bind("listTitle")}>${copy("listTitle")}</h3>
         <div id="published-list" class="publication-list"></div>
       </div>
     `;
@@ -256,9 +279,9 @@
     const copyUrl = async (url) => {
       try {
         await clipboard?.writeText?.(absoluteUrl(url));
-        setStatus("링크를 복사했습니다.");
+        setStatus(t("copied"));
       } catch {
-        setStatus(strings.copyFailed);
+        setStatus(t("copyFailed"));
       }
     };
     const hideResult = () => {
@@ -269,14 +292,14 @@
       latestId = "";
     };
     const revokePublication = async (id, onSuccess) => {
-      setStatus(strings.deleting);
+      setStatus(t("deleting"));
       try {
         await client.remove(id);
-        setStatus("공개 링크를 취소했습니다.");
+        setStatus(t("deleted"));
         renderList();
         onSuccess?.();
       } catch {
-        setStatus(strings.deleteFailed);
+        setStatus(t("deleteFailed"));
       }
     };
     const renderList = () => {
@@ -284,7 +307,7 @@
       try {
         publications = client.list();
       } catch (error) {
-        setStatus(error.message || strings.storageUnavailable);
+        setStatus(error.message || t("storageUnavailable"));
       }
       listNode.innerHTML = publications.length ? publications.map((item) => `
         <article class="publication-card" data-publication-id="${escapeHtml(item.id)}">
@@ -293,27 +316,27 @@
             <span>${formatExpiry(item.expiresAt)}</span>
           </div>
           <div class="publication-card-actions">
-            <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">열기</a>
-            <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">복사</button>
-            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}">취소</button>
+            <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("cardOpen"))}</a>
+            <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">${escapeHtml(t("cardCopy"))}</button>
+            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
           </div>
         </article>
-      `).join("") : '<p class="publication-empty">아직 공개한 초대장이 없습니다.</p>';
+      `).join("") : `<p class="publication-empty">${escapeHtml(t("listEmpty"))}</p>`;
     };
     publishButton.addEventListener("click", async () => {
       if (pending) return;
       if (isBusy()) {
-        setStatus(strings.busy);
+        setStatus(t("busy"));
         return;
       }
       if (!validate()) {
-        setStatus(strings.invalid);
+        setStatus(t("invalid"));
         return;
       }
       pending = true;
       syncBusy();
       const recovering = Boolean(client.hasPending?.());
-      setStatus(recovering ? strings.recovering : strings.publishing);
+      setStatus(t(recovering ? "recovering" : "publishing"));
       try {
         const result = await client.publish(getValue());
         latestUrl = result.url;
@@ -322,7 +345,7 @@
         link.hidden = false;
         copyButton.hidden = false;
         if (revokeButton) revokeButton.hidden = false;
-        setStatus(`${recovering ? strings.recovered : strings.published} ${formatExpiry(result.expiresAt)}.`);
+        setStatus(`${t(recovering ? "recovered" : "published")} ${formatExpiry(result.expiresAt)}.`);
         renderList();
       } catch (error) {
         setStatus(messageForError(error));

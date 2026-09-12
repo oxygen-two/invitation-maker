@@ -27,7 +27,9 @@ const server = http.createServer(createHandler({
   repository,
   config,
   sessionStore,
-  staticRoot: path.resolve(__dirname, "public")
+  staticRoot: path.resolve(__dirname, "public"),
+  // The language engine only — the console's own copy lives in public/.
+  sharedRoot: path.resolve(__dirname, "../assets/i18n")
 }));
 
 server.listen(config.port, config.host, () => {

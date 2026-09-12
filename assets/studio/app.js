@@ -17,6 +17,26 @@ const I18n = globalThis.InvitationI18n;
 const t = (key, values) => I18n?.t(key, values) ?? String(key);
 const percent = (value) => I18n?.formatPercent(value) ?? `${value}%`;
 
+/* The language an invitation rendered HERE is built in.
+
+   Everything the studio renders — the live preview, the gallery thumbnails,
+   the file the author downloads — is the author's work in progress, so its
+   baked chrome follows the studio. Read at call time rather than captured,
+   because the switcher can move between one render and the next.
+
+   Re-rendering somebody's ALREADY FINISHED file is the opposite case and does
+   not use this: see standaloneOptionsFor(). */
+const studioChrome = () => ({ language: I18n?.getLanguage?.() });
+
+/* A file that already exists — a legacy library record being migrated, or an
+   HTML the author is re-importing — is rebuilt in the language it was built
+   in, read back out of its own <html lang>. Rebuilding it in today's studio
+   language would silently re-word a document the author considered done, and
+   would make their downloaded copy and their library copy disagree. */
+const standaloneOptionsFor = (html) => ({
+  language: InvitationCore.readStandaloneLanguage?.(html) ?? I18n?.DEFAULT_LANGUAGE
+});
+
 const ITEM_LABEL_KEYS = Object.freeze({
   course: "content.typeCourse",
   photo: "content.typePhoto",
@@ -256,7 +276,7 @@ const mountPreviewFrame = () => new Promise((resolve) => {
     particleEffect: "none",
     mapEnabled: false,
     items: []
-  });
+  }, studioChrome());
 });
 
 const sanitizeFilename = (value) =>
@@ -1251,7 +1271,7 @@ const renderTemplateThumbnail = (template) => {
     particleEffect: "none",
     introEffect: "none",
     mapEnabled: false
-  });
+  }, studioChrome());
   const article = rendered.match(/<article\b[^>]*>/i)?.[0];
   const hero = rendered.match(/<(header|section)\b[^>]*class=["'][^"']*\binvite-hero\b[^"']*["'][^>]*>[\s\S]*?<\/\1>/i)?.[0];
   if (!article || !hero) return "";
@@ -1346,7 +1366,7 @@ const renderSamplePreview = () => {
   const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
   const sample = PresetApplication.prepare({ current: getFormData(), preset }).next;
   applyPreviewPalette(sample);
-  updatePreviewMarkup(InvitationCore.renderInvitationBody(sample));
+  updatePreviewMarkup(InvitationCore.renderInvitationBody(sample, studioChrome()));
   dom.pendingPreview.hidden = false;
   dom.pendingPreviewText.textContent = t('preview.sample');
   setMobileView('preview');
@@ -1414,7 +1434,7 @@ const renderPreview = () => {
   document.body.dataset.template = state.activeTemplate;
   document.body.dataset.particle = state.invitation.particleEffect;
   applyPreviewPalette(state.invitation);
-  updatePreviewMarkup(InvitationCore.renderInvitationBody(state.invitation));
+  updatePreviewMarkup(InvitationCore.renderInvitationBody(state.invitation, studioChrome()));
   previewRenderId += 1;
   clearTimeout(previewMapTimer);
   previewMapTimer = setTimeout(() => mountPreviewMaps(previewRenderId), 180);
@@ -1617,7 +1637,7 @@ const migrateLegacySaved = async () => {
     let record;
     try {
       const invitation = parseInvitationHtml(legacyItem.html);
-      const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation);
+      const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation, standaloneOptionsFor(legacyItem.html));
       const source = legacyItem.source === "upload" ? "upload" : "generated";
       record = makeSavedItem(rebuiltHtml, invitation.title, source, legacyItem);
       await InvitationStorage.put(record);
@@ -1648,7 +1668,7 @@ const saveCurrent = async () => {
   syncAddItemAvailability(getItemsData());
   try {
     const invitation = getFormData();
-    const html = InvitationCore.buildStandaloneHtml(invitation);
+    const html = InvitationCore.buildStandaloneHtml(invitation, studioChrome());
     trackAnalyticsCompletion(invitation);
     const result = await saveRecord(makeSavedItem(html, invitation.title, "generated"));
     dom.saveStatus.textContent = t(result.synchronized ? "status.saved" : "status.savedUnsynchronized");
@@ -1714,7 +1734,7 @@ const registerUploadedHtml = async (file) => {
   try {
     const html = await file.text();
     const invitation = parseInvitationHtml(html);
-    const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation);
+    const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation, standaloneOptionsFor(html));
     parsedSuccessfully = true;
     const result = await saveRecord(makeSavedItem(rebuiltHtml, invitation.title, "upload"));
     dom.uploadStatus.textContent = t(result.synchronized ? "status.uploaded" : "status.uploadedUnsynchronized");
@@ -2441,7 +2461,7 @@ dom.download.addEventListener("click", () => {
   if (!validateForExport()) return;
   if (!confirmReplyContact()) return;
   const invitation = getFormData();
-  const html = InvitationCore.buildStandaloneHtml(invitation);
+  const html = InvitationCore.buildStandaloneHtml(invitation, studioChrome());
   trackAnalyticsCompletion(invitation);
   downloadHtml(html, invitation.title);
   trackAnalytics("html_downloaded", {}, `download:editor:${analyticsPageRevision}:${state.activeTemplate}:${analyticsEditRevision}`);
