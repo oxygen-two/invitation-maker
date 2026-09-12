@@ -31,7 +31,7 @@ for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
   if (/^(?:index|viewer|shared|[0-9A-Za-z_-]+)\.html$/.test(entry.name) || /^[0-9]{3}\.html$/.test(entry.name)) {
     copyFile(path.join(root, entry.name), path.join(output, entry.name));
   }
-  if (entry.name === "invitation-data.json") {
+  if (entry.name === "invitation-data.json" || entry.name === "robots.txt" || entry.name === "sitemap.xml") {
     copyFile(path.join(root, entry.name), path.join(output, entry.name));
   }
 }
