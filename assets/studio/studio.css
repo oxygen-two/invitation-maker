@@ -15,7 +15,7 @@ body::before, body::after { display: none; }
 .studio-language { display: flex; align-items: center; gap: 6px; }
 .studio-language::before { content: "🌐"; font-size: 13px; line-height: 1; }
 .studio-language label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; white-space: nowrap; clip-path: inset(50%); }
-#language-select { min-height: 32px; padding: 4px 8px; border: 1px solid #d7dad3; border-radius: 999px; background: #fff; color: #3c463f; font: inherit; font-size: 12px; cursor: pointer; }
+#language-select { min-height: 44px; padding: 4px 8px; border: 1px solid #d7dad3; border-radius: 999px; background: #fff; color: #3c463f; font: inherit; font-size: 12px; cursor: pointer; }
 .studio-steps { display: flex; justify-content: center; gap: 8px; padding: 12px 20px; border-block: 1px solid #e3e5df; background: #fff; }
 .studio-steps button { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 24px; background: transparent; color: #59645e; font: inherit; font-size: 13px; cursor: pointer; }
 .studio-steps button[aria-pressed="true"] { color: #fff; background: #314e41; }
@@ -115,7 +115,9 @@ body[data-studio-stage="library"] .app-shell { display: block; max-width: 820px;
   .studio-bar a { font-size: 18px; }
   #draft-status { max-width: 130px; font-size: 11px; text-align: right; }
   .studio-language::before { font-size: 12px; }
-  #language-select { min-height: 28px; padding: 3px 6px; font-size: 11px; }
+  /* Touch target stays at the 44px guideline on phones even though the control
+     itself reads small; padding carries the height, not the font size. */
+  #language-select { min-height: 44px; padding: 3px 8px; font-size: 11px; }
   .studio-steps { gap: 2px; padding: 8px; position: sticky; top: 0; z-index: 30; }
   .studio-steps button { padding: 10px 12px; font-size: 12px; }
   .app-shell { width: calc(100% - 32px); margin: 24px auto; display: block; }
