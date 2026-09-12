@@ -1,5 +1,12 @@
 <!doctype html>
-<html lang="ko">
+<!-- lang is the served default; assets/i18n/i18n.js rewrites it to the
+     language this GUEST resolves to. A guest arrives from a link having made
+     no choice in the studio, so the chrome on this page follows their own
+     browser preference. The invitation inside the frame does not — see the
+     long note in assets/publishing/shared-invitation.js.
+     data-i18n-title keeps the tab reading "초대장" rather than the studio's
+     own meta.title. -->
+<html lang="ko" data-i18n-title="shared.documentTitle">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -17,6 +24,12 @@
   <!-- Empty data URI: suppresses the automatic /favicon.ico request rather than
        shipping an icon a guest never sees. -->
   <link rel="icon" href="data:,">
+  <!-- In <head> and before the body, so the guest's language is applied in the
+       same frame instead of flashing Korean at an English reader. -->
+  <script src="/assets/i18n/i18n.js"></script>
+  <script src="/assets/i18n/dictionary-ko.js"></script>
+  <script src="/assets/i18n/dictionary-en.js"></script>
+  <script>InvitationI18n.init();</script>
   <style>
     :root { --paper: #f7f7f4; --ink: #282b29; --green: #314e41; --muted: #59645e; --line: #dce1d8; }
     * { box-sizing: border-box; }
@@ -90,18 +103,21 @@
   </style>
 </head>
 <body>
-  <a class="skip" href="#shared-invitation-root">본문으로 건너뛰기</a>
+  <a class="skip" href="#shared-invitation-root" data-i18n="shared.skipToContent">본문으로 건너뛰기</a>
   <!-- Header and footer start hidden and are revealed by shared-invitation.js
        only when the invitation cannot be shown. A guest who opens a working
        link should get the invitation filling the viewport, not site chrome
        framing it. -->
   <header id="shared-invitation-header" class="site-header" hidden>
-    <a class="brand" href="/" aria-label="Invitation Studio 홈"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a>
-    <span class="header-note">마음을 전하는 작은 시작</span>
+    <a class="brand" href="/" data-i18n-attr="aria-label:shared.brandHome" aria-label="Invitation Studio 홈"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a>
+    <span class="header-note" data-i18n="shared.headerNote">마음을 전하는 작은 시작</span>
   </header>
   <main id="shared-invitation-root">
+    <!-- No data-i18n on the status line: shared-invitation.js owns its text
+         from the first tick and a late applyDom pass would overwrite whatever
+         it had already said. -->
     <p id="shared-invitation-status" role="status" aria-live="polite">초대장을 불러오는 중입니다.</p>
-    <iframe id="shared-invitation-frame" title="공개 초대장" hidden></iframe>
+    <iframe id="shared-invitation-frame" data-i18n-attr="title:shared.frameTitle" title="공개 초대장" hidden></iframe>
     <section id="shared-invitation-error" class="error-panel" hidden aria-labelledby="shared-invitation-error-title">
       <div class="art" aria-hidden="true">
         <div class="halo"></div>
@@ -111,12 +127,12 @@
       <p class="eyebrow" id="shared-invitation-error-eyebrow"></p>
       <h1 id="shared-invitation-error-title"></h1>
       <p class="description" id="shared-invitation-error-description"></p>
-      <div class="actions"><a href="/">스튜디오로 돌아가기 <span aria-hidden="true">&nbsp;↗</span></a></div>
+      <div class="actions"><a href="/"><span data-i18n="shared.backToStudio">스튜디오로 돌아가기</span> <span aria-hidden="true">&nbsp;↗</span></a></div>
       <p class="hint" id="shared-invitation-error-hint"></p>
     </section>
   </main>
   <footer id="shared-invitation-footer" class="site-footer" hidden>
-    <span>INVITATION STUDIO</span><span class="footer-note">작은 초대, 소중한 순간.</span>
+    <span>INVITATION STUDIO</span><span class="footer-note" data-i18n="shared.footerNote">작은 초대, 소중한 순간.</span>
   </footer>
   <!-- Load order is load-bearing, not alphabetical. There is no bundler here:
        each file attaches a global that the next one reads. core.js normalizes an

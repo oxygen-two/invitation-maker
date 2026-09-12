@@ -273,6 +273,18 @@
       retry: "Try the map again"
     },
 
+    /* Chrome baked INTO a generated invitation. Frozen into the downloaded
+       HTML at build time, so it is rendered in the author's language and
+       travels with the document. */
+    invitation: {
+      noticeEyebrow: "Notice",
+      mapRegionLabel: "Map of the venue",
+      openMap: "Open in maps",
+      openMainMap: "Open the venue in maps",
+      skipIntro: "Skip",
+      skipIntroLabel: "Skip the intro"
+    },
+
     preview: {
       /* Korean pairs the English eyebrow "Preview" with a Korean heading. In
          English that pairing becomes the same word twice, so the eyebrow
@@ -307,6 +319,55 @@
       replyContactPattern: "rsvp|reply|respond|contact|attend"
     },
 
+    /* The publish panel. The studio talking to the author, so it follows the
+       studio's language. Nothing in this section reaches a guest. */
+    publish: {
+      eyebrow: "Share",
+      heading: "Public link",
+      limit: "2MB max",
+      consent: "A public link lets anyone who has the address open it. You can check the expiry date once it is published.",
+      publishButton: "Create a public link",
+      openLink: "Open link",
+      copyLink: "Copy link",
+      revokeLink: "Revoke",
+      listTitle: "Published from this browser",
+      listEmpty: "Nothing published yet.",
+      cardOpen: "Open",
+      cardCopy: "Copy",
+      cardRevoke: "Revoke",
+      defaultTitle: "Shared invitation",
+
+      noExpiry: "No automatic expiry",
+      expiryUnknown: "Expiry needs checking",
+
+      busy: "You can publish once the photos and saving have finished.",
+      invalid: "Check the invitation's content first.",
+      publishing: "Creating the public link.",
+      published: "Public link created.",
+      recovering: "Checking your previous publish request first.",
+      recovered: "Checked your previous publish request.",
+      publishFailed: "Publishing failed. Press again to retry the same request.",
+      copied: "Link copied.",
+      copyFailed: "Could not copy the link.",
+      deleting: "Revoking the public link.",
+      deleted: "Public link revoked.",
+      deleteFailed: "Could not revoke the public link.",
+
+      storageUnavailable: "Browser storage is unavailable.",
+      noStorage: "Could not write to browser storage, so nothing was published.",
+      storeUnreadable: "This browser's publishing record could not be read. Publishing was stopped so the existing revoke keys are not lost.",
+      tooLarge: "Only invitations of 2MB or less can be published as a link.",
+      tokenFailed: "Could not create a security token.",
+      requestKeyFailed: "Could not create a request key.",
+      badResponse: "The publish response was not valid.",
+      nothingToRevoke: "There is no publishing record to revoke.",
+
+      conflict: "This differs from your previous publish request. Try again in a moment.",
+      serverTooLarge: "The invitation went over 2MB. Shrink the photos and try again.",
+      rateLimited: "Publishing is rate-limited for a moment. Try again shortly.",
+      storeNotReady: "The publishing server's store is not ready. Try again shortly."
+    },
+
     library: {
       eyebrow: "Saved",
       heading: "My invitations",
@@ -320,6 +381,50 @@
       confirmRemove: "Remove “{title}” from the list?",
       untitled: "Untitled Invitation",
       unknownDate: "No date"
+    },
+
+    /* shared.html — the page a GUEST lands on at /i/<id>. Follows the
+       visitor's own browser language, not the author's: on the not-found path
+       there is no author to defer to, and on the loading path we do not yet
+       know who wrote what. */
+    shared: {
+      documentTitle: "Invitation",
+      skipToContent: "Skip to content",
+      brandHome: "Invitation Studio home",
+      headerNote: "A small way to say it",
+      footerNote: "Small invitations, lasting moments.",
+      loading: "Loading the invitation.",
+      frameTitle: "Shared invitation",
+      backToStudio: "Back to the studio",
+      expires: "Expires: {date}",
+
+      notFoundEyebrow: "A LITTLE DETOUR",
+      notFoundTitle: "This invitation could not be found.",
+      notFoundDescription: "The address may have changed, or the link may no longer work.",
+      notFoundHint: "If someone sent you this invitation, ask them to check the link.",
+
+      goneEyebrow: "THIS CHAPTER IS CLOSED",
+      goneTitle: "This invitation has expired.",
+      goneDescription: "Its viewing period has passed, so it can no longer be opened.",
+      goneHint: "Ask whoever sent it for a new link.",
+
+      failedEyebrow: "A BRIEF PAUSE",
+      failedTitle: "The invitation could not be loaded.",
+      failedDescription: "Something went wrong for a moment. Please try again shortly.",
+      failedHint: "If it keeps happening, come back a little later."
+    },
+
+    /* viewer.html — the author reopening their OWN saved invitation. Follows
+       the author's studio language; the invitation it rebuilds keeps the
+       language baked into the saved file. */
+    viewer: {
+      documentTitle: "Opening the invitation",
+      loadingTitle: "Loading the invitation.",
+      loadingBody: "One moment please.",
+      footerNote: "Small invitations, lasting moments.",
+      errorTitle: "This invitation could not be opened.",
+      errorBody: "Check that it is still in your library, then try again.",
+      backToStudio: "Back to the studio"
     },
 
     status: {

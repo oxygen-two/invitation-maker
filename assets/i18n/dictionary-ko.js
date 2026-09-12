@@ -269,6 +269,21 @@
       retry: "지도 다시 시도"
     },
 
+    /* Chrome baked INTO a generated invitation, as opposed to the studio
+       around it. These strings are frozen into the downloaded HTML file at the
+       moment it is built and cannot adapt afterwards, so they are rendered in
+       the author's language and travel with the document. map.loading and
+       map.unavailable are reused here rather than duplicated: the invitation
+       and the studio say the same sentence about the same map. */
+    invitation: {
+      noticeEyebrow: "안내",
+      mapRegionLabel: "약속 장소 지도",
+      openMap: "장소 지도 열기",
+      openMainMap: "대표 지도 열기",
+      skipIntro: "건너뛰기",
+      skipIntroLabel: "인트로 건너뛰기"
+    },
+
     preview: {
       eyebrow: "Preview",
       heading: "미리보기",
@@ -304,6 +319,56 @@
       replyContactPattern: "rsvp|회신|참석|연락"
     },
 
+    /* The publish panel. Spoken by the studio to the author, so it follows the
+       studio's language like every other control here. Nothing in this section
+       reaches a guest. */
+    publish: {
+      eyebrow: "Share",
+      heading: "공개 링크",
+      limit: "2MB 이하",
+      consent: "공개 링크를 만들면 주소를 아는 누구나 링크로 볼 수 있습니다. 발행 후 만료일을 확인할 수 있습니다.",
+      publishButton: "공개 링크 만들기",
+      openLink: "링크 열기",
+      copyLink: "링크 복사",
+      revokeLink: "취소",
+      listTitle: "이 브라우저의 발행 목록",
+      listEmpty: "아직 공개한 초대장이 없습니다.",
+      cardOpen: "열기",
+      cardCopy: "복사",
+      cardRevoke: "취소",
+      defaultTitle: "공개 초대장",
+
+      noExpiry: "자동 만료 없음",
+      expiryUnknown: "만료일 확인 필요",
+
+      busy: "사진 처리나 저장이 끝난 뒤 발행할 수 있습니다.",
+      invalid: "초대장 내용을 먼저 확인해 주세요.",
+      publishing: "공개 링크를 만들고 있습니다.",
+      published: "공개 링크를 만들었습니다.",
+      recovering: "이전 발행 요청을 먼저 확인하고 있습니다.",
+      recovered: "이전 발행 요청을 확인했습니다.",
+      publishFailed: "발행에 실패했습니다. 다시 누르면 같은 요청으로 재시도합니다.",
+      copied: "링크를 복사했습니다.",
+      copyFailed: "링크를 복사하지 못했습니다.",
+      deleting: "공개 링크를 취소하고 있습니다.",
+      deleted: "공개 링크를 취소했습니다.",
+      deleteFailed: "공개 링크 취소에 실패했습니다.",
+
+      storageUnavailable: "브라우저 저장 공간을 사용할 수 없습니다.",
+      noStorage: "브라우저 저장 공간에 기록하지 못해 발행할 수 없습니다.",
+      storeUnreadable: "이 브라우저의 발행 정보를 읽지 못했습니다. 기존 링크 취소 정보 보호를 위해 새 발행을 중단했습니다.",
+      tooLarge: "2MB 이하 초대장만 공개 링크로 발행할 수 있습니다.",
+      tokenFailed: "보안 토큰을 만들 수 없습니다.",
+      requestKeyFailed: "요청 키를 만들 수 없습니다.",
+      badResponse: "발행 응답이 올바르지 않습니다.",
+      nothingToRevoke: "취소할 수 있는 발행 정보가 없습니다.",
+
+      conflict: "이전 발행 요청과 다른 내용입니다. 잠시 후 다시 시도해 주세요.",
+      serverTooLarge: "초대장이 2MB를 넘었습니다. 사진을 줄인 뒤 다시 시도해 주세요.",
+      rateLimited: "발행 횟수가 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.",
+      storeNotReady: "발행 서버 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요."
+    },
+
     library: {
       eyebrow: "Library",
       heading: "나의 초대장",
@@ -317,6 +382,58 @@
       confirmRemove: "“{title}” 초대장을 목록에서 삭제할까요?",
       untitled: "Untitled Invitation",
       unknownDate: "날짜 정보 없음"
+    },
+
+    /* shared.html — the page a GUEST lands on at /i/<id>.
+
+       Everything here is the product talking to a visitor who has never opened
+       the studio and made no choice in it, so it follows that visitor's own
+       browser language. It is deliberately NOT the author's language: on the
+       not-found path there is no author to defer to, and on the loading path
+       we do not yet know who wrote what. The invitation inside the frame is a
+       separate decision — see assets/publishing/shared-invitation.js. */
+    shared: {
+      documentTitle: "초대장",
+      skipToContent: "본문으로 건너뛰기",
+      brandHome: "Invitation Studio 홈",
+      headerNote: "마음을 전하는 작은 시작",
+      footerNote: "작은 초대, 소중한 순간.",
+      loading: "초대장을 불러오는 중입니다.",
+      frameTitle: "공개 초대장",
+      backToStudio: "스튜디오로 돌아가기",
+      expires: "만료: {date}",
+
+      /* The eyebrows stay English on purpose, matching the generated error
+         pages (scripts/build-error-pages.cjs) and the decorative small-caps
+         typography the panel was designed around. */
+      notFoundEyebrow: "A LITTLE DETOUR",
+      notFoundTitle: "초대장을 찾을 수 없습니다.",
+      notFoundDescription: "주소가 달라졌거나, 더 이상 사용할 수 없는 링크일 수 있어요.",
+      notFoundHint: "초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요.",
+
+      goneEyebrow: "THIS CHAPTER IS CLOSED",
+      goneTitle: "초대장이 만료되었습니다.",
+      goneDescription: "설정된 열람 기간이 지나 더 이상 볼 수 없어요.",
+      goneHint: "초대장을 보내준 분에게 새로운 링크를 요청해 주세요.",
+
+      failedEyebrow: "A BRIEF PAUSE",
+      failedTitle: "초대장을 불러오지 못했습니다.",
+      failedDescription: "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
+      failedHint: "오류가 계속되면 잠시 후 다시 방문해 주세요."
+    },
+
+    /* viewer.html — the author reopening their OWN saved invitation from the
+       library, on their own device. Only the author is present, so this page
+       chrome follows the author's studio language. The invitation it rebuilds
+       keeps the language baked into the saved file. */
+    viewer: {
+      documentTitle: "초대장 열기",
+      loadingTitle: "초대장을 불러오는 중입니다.",
+      loadingBody: "잠시만 기다려 주세요.",
+      footerNote: "작은 초대, 소중한 순간.",
+      errorTitle: "초대장을 열 수 없습니다.",
+      errorBody: "등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요.",
+      backToStudio: "제작기로 돌아가기"
     },
 
     status: {

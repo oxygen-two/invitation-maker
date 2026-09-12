@@ -86,6 +86,11 @@ test("English copy carries no leftover Korean, and Korean copy is actually Korea
   const englishOnlyInKorean = new Set([
     "meta.title", "meta.ogLocale", "maker.eyebrow", "preview.eyebrow",
     "library.eyebrow", "library.untitled", "content.linkUrl", "finish.replyContactPattern",
+    "publish.eyebrow",
+    // The shared.html error eyebrows are decorative small-caps set in English
+    // on Korean invitations too, matching the generated error pages. Same
+    // reasoning as the INVITATION / DATE / PLACE words in the template art.
+    "shared.notFoundEyebrow", "shared.goneEyebrow", "shared.failedEyebrow",
     // Pure interpolation: "{file}: {reason}" is punctuation around two values
     // that are themselves already in the reader's language.
     "content.photoFailed"
@@ -466,4 +471,213 @@ test("the studio's own copy never hard-codes a Korean sentence", () => {
   const withoutSanitizer = withoutComments.replace(/\[\^\\w가-힣-\]\+/g, "");
 
   assert.doesNotMatch(withoutSanitizer, HANGUL, "Korean copy must live in dictionary-ko.js");
+});
+
+const withoutComments = (source) => source
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+test("no surface outside the dictionaries hard-codes a Korean sentence", () => {
+  /* The same rule the studio has always been held to, now applied to every
+     other surface that speaks. assets/invitation/core.js is exempt only for
+     its defaultInvitation block, which is not chrome: it is the sample
+     invitation's CONTENT, the last-resort copy of what invitation-data.json
+     holds, and it is replaced wholesale by the localized sample the moment
+     that file loads. */
+  const surfaces = [
+    "assets/publishing/publishing.js",
+    "assets/publishing/shared-invitation.js",
+    "assets/invitation/viewer.js",
+    "admin/public/admin.js"
+  ];
+
+  for (const surface of surfaces) {
+    assert.doesNotMatch(withoutComments(read(surface)), HANGUL,
+      `${surface} must read its copy from a dictionary`);
+  }
+
+  const core = withoutComments(read("assets/invitation/core.js"));
+  const withoutSample = core.replace(/const defaultInvitation = \{[\s\S]*?\n  \};/, "");
+  assert.notEqual(withoutSample, core, "the defaultInvitation block moved; re-check this exemption");
+  assert.doesNotMatch(withoutSample, HANGUL, "the invitation's chrome must come from the dictionaries");
+});
+
+test("shared.html and viewer.html inline copy is exactly what the Korean dictionary says", () => {
+  for (const page of ["shared.html", "viewer.html"]) {
+    const markup = read(page);
+    const bindings = [...markup.matchAll(/<([a-z0-9]+)\b([^>]*\bdata-i18n="[^"]+"[^>]*)>([^<]*)</gi)];
+    assert.ok(bindings.length >= 3, `${page} should bind its chrome`);
+
+    for (const [, , attributes, text] of bindings) {
+      const key = parseTagAttributes(`<x ${attributes}>`)["data-i18n"];
+      assert.equal(text, InvitationI18n.t(key, undefined, "ko"),
+        `${page} text for ${key} has drifted from dictionary-ko.js`);
+    }
+
+    const keys = [
+      ...[...markup.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]),
+      ...[...markup.matchAll(/data-i18n-attr="([^"]+)"/g)]
+        .flatMap((match) => match[1].split(";"))
+        .map((pair) => pair.split(":")[1]),
+      ...[...markup.matchAll(/data-i18n-title="([^"]+)"/g)].map((match) => match[1])
+    ].filter(Boolean).map((key) => key.trim());
+
+    for (const key of keys) {
+      for (const language of InvitationI18n.SUPPORTED) {
+        assert.equal(InvitationI18n.hasKey(key, language), true, `${language} has no ${key}`);
+      }
+    }
+
+    // The engine has to run before the body so <html lang> and the tab title
+    // are right for the first paint.
+    const i18nAt = markup.indexOf("i18n/i18n.js");
+    const koAt = markup.indexOf("i18n/dictionary-ko.js");
+    const enAt = markup.indexOf("i18n/dictionary-en.js");
+    const initAt = markup.indexOf("InvitationI18n.init()");
+    assert.ok(i18nAt > 0 && i18nAt < koAt && koAt < enAt && enAt < initAt && initAt < markup.indexOf("<body"),
+      `${page} must resolve its language in <head>`);
+  }
+});
+
+test("every page that resolves a language in <head> also applies it to the body", () => {
+  /* init() runs before the body is parsed, so <html lang> and the tab title
+     are right for the first paint but no bound node in the body has been
+     touched yet. Each page needs a second pass, or an English reader gets an
+     English panel sitting on a Korean footer. */
+  assert.match(read("assets/studio/app.js"), /I18n\.applyDom\(document\)/);
+  assert.match(read("assets/publishing/shared-invitation.js"), /I18n\?\.applyDom\?\.\(root\.document\)/);
+  assert.match(read("assets/invitation/viewer.js"), /InvitationI18n\?\.applyDom\?\.\(globalThis\.document\)/);
+  assert.match(read("admin/public/admin.js"), /I18n\.applyDom\(document\)/);
+
+  for (const page of ["shared.html", "viewer.html", "admin/public/index.html"]) {
+    assert.ok(read(page).includes("data-i18n"), `${page} has nothing bound to apply`);
+  }
+});
+
+test("a page can name its own tab title instead of borrowing the studio's", () => {
+  // Three different things in a tab strip: the studio, a guest's invitation,
+  // the operator console. One shared meta.title would be wrong on two of them.
+  assert.match(read("shared.html"), /<html lang="ko" data-i18n-title="shared\.documentTitle">/);
+  assert.match(read("viewer.html"), /<html lang="ko" data-i18n-title="viewer\.documentTitle">/);
+  assert.doesNotMatch(read("index.html"), /data-i18n-title/, "the studio keeps the default meta.title");
+
+  const titled = (key) => {
+    const documentElement = {
+      attributes: {},
+      getAttribute: (name) => (name === "data-i18n-title" ? key : null),
+      setAttribute(name, value) { this.attributes[name] = value; }
+    };
+    const fakeDocument = { documentElement, title: "", querySelectorAll: () => [] };
+    const previousDocument = globalThis.document;
+    globalThis.document = fakeDocument;
+    try {
+      InvitationI18n.syncDocumentLanguage("en");
+      return fakeDocument.title;
+    } finally {
+      globalThis.document = previousDocument;
+      InvitationI18n.setLanguage("ko", { persist: false });
+    }
+  };
+
+  assert.equal(titled("shared.documentTitle"), InvitationI18n.t("shared.documentTitle", undefined, "en"));
+  assert.equal(titled(null), InvitationI18n.t("meta.title", undefined, "en"));
+  // A page naming a key that does not exist keeps whatever title it served
+  // rather than rendering the key into the tab strip.
+  assert.equal(titled("nope.not.here"), "");
+});
+
+test("an invitation's baked chrome follows the language it was built in, not the reader's", () => {
+  const InvitationCore = require("../assets/invitation/core.js");
+  const invitation = {
+    title: "서울숲 저녁 초대",
+    introEffect: "fireworks",
+    items: [
+      { id: "notice-1", type: "notice", heading: "주차 안내", body: "지하 2층" },
+      { id: "course-1", type: "course", time: "18:00", place: "서울숲", mapUrl: "https://map.naver.com/" }
+    ]
+  };
+
+  const korean = InvitationCore.buildStandaloneHtml(invitation, { language: "ko" });
+  const english = InvitationCore.buildStandaloneHtml(invitation, { language: "en" });
+
+  // The chrome differs...
+  assert.match(korean, /<html lang="ko">/);
+  assert.match(english, /<html lang="en">/);
+  for (const key of ["invitation.noticeEyebrow", "invitation.openMap", "invitation.skipIntro"]) {
+    assert.ok(korean.includes(InvitationI18n.t(key, undefined, "ko")), `ko is missing ${key}`);
+    assert.ok(english.includes(InvitationI18n.t(key, undefined, "en")), `en is missing ${key}`);
+  }
+  assert.doesNotMatch(english, /안내<\/p>/, "the English export still carries a Korean eyebrow");
+
+  // ...while every word the AUTHOR typed is identical in both.
+  for (const authored of ["서울숲 저녁 초대", "주차 안내", "지하 2층", "서울숲"]) {
+    assert.ok(korean.includes(authored), `ko dropped ${authored}`);
+    assert.ok(english.includes(authored), `the English export must not translate ${authored}`);
+  }
+
+  // No caller, no opinion: the product's home language, never whatever the
+  // switcher was last set to.
+  InvitationI18n.setLanguage("en", { persist: false });
+  try {
+    assert.match(InvitationCore.buildStandaloneHtml(invitation), /<html lang="ko">/,
+      "an unspecified render must not follow the active language");
+  } finally {
+    InvitationI18n.setLanguage("ko", { persist: false });
+  }
+
+  // And the file says what it was built in, so a rebuild can reproduce it.
+  assert.equal(InvitationCore.readStandaloneLanguage(english), "en");
+  assert.equal(InvitationCore.readStandaloneLanguage(korean), "ko");
+  // Files exported before <html lang> varied carry "ko", which is what they
+  // were in fact built in, so they round-trip correctly too.
+  assert.equal(InvitationCore.readStandaloneLanguage('<html lang="ko">'), "ko");
+  assert.equal(InvitationCore.readStandaloneLanguage("<html>"), "ko");
+  assert.equal(InvitationCore.readStandaloneLanguage('<html lang="de">'), "ko");
+});
+
+test("the studio bakes its own language into exports but never re-languages a finished file", () => {
+  const app = read("assets/studio/app.js");
+
+  // What the author is making now follows the studio.
+  assert.match(app, /const studioChrome = \(\) => \(\{ language: I18n\?\.getLanguage\?\.\(\) \}\)/);
+  for (const site of [
+    /downloadHtml/, /makeSavedItem\(html, invitation\.title, "generated"\)/
+  ]) assert.match(app, site);
+  assert.equal((app.match(/buildStandaloneHtml\(invitation, studioChrome\(\)\)/g) || []).length, 2,
+    "the download and the library save both bake the studio's language");
+
+  // What already exists is rebuilt in the language it declares.
+  assert.match(app, /const standaloneOptionsFor = \(html\) => \(\{[\s\S]*?readStandaloneLanguage/);
+  assert.equal((app.match(/buildStandaloneHtml\(invitation, standaloneOptionsFor\(html\)\)/g) || []).length, 1,
+    "a re-imported file keeps its own language");
+  assert.match(app, /buildStandaloneHtml\(invitation, standaloneOptionsFor\(legacyItem\.html\)\)/,
+    "a migrated legacy record keeps its own language");
+
+  // No call site may fall back to the bare one-argument form again.
+  assert.doesNotMatch(app, /buildStandaloneHtml\(invitation\)/);
+});
+
+test("a guest's page chrome and the invitation they were sent are separate languages", () => {
+  const shared = read("assets/publishing/shared-invitation.js");
+
+  /* The decision this file exists to hold: the panels around the invitation
+     follow the GUEST, because a guest made no choice in the studio and on the
+     not-found path there is no author to defer to. The invitation inside the
+     frame does not follow them, because it is somebody else's document. */
+  assert.match(shared, /const pageLanguage = \(override\) =>[\s\S]*?I18n\?\.getLanguage\?\.\(\)/,
+    "page chrome must resolve to the reader's own language");
+  assert.match(shared, /const FRAME_LANGUAGE = I18n\?\.DEFAULT_LANGUAGE \|\| "ko"/,
+    "the frame must not follow the reader");
+  assert.doesNotMatch(shared, /renderFrame\([^)]*pageLanguage/,
+    "rendering a stranger's invitation in the reader's language is the bug this file guards against");
+
+  // Every panel the guest can be shown resolves in their language.
+  for (const kind of ["notFound", "gone", "failed"]) {
+    for (const part of ["Eyebrow", "Title", "Description", "Hint"]) {
+      for (const language of InvitationI18n.SUPPORTED) {
+        assert.equal(InvitationI18n.hasKey(`shared.${kind}${part}`, language), true,
+          `${language} has no shared.${kind}${part}`);
+      }
+    }
+  }
 });

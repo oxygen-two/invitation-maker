@@ -1,5 +1,10 @@
 <!doctype html>
-<html lang="ko">
+<!-- lang is the served default; assets/i18n/i18n.js rewrites it to the
+     language the AUTHOR resolves to. This page only ever shows an author their
+     own saved invitation on their own device, so its chrome follows the studio
+     language they chose next door. The invitation it rebuilds keeps whatever
+     language was baked into the saved file — see assets/invitation/viewer.js. -->
+<html lang="ko" data-i18n-title="viewer.documentTitle">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,13 +21,20 @@
     footer { flex: 0 0 auto; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); text-align: center; color: #8a6f78; font-size: 11px; letter-spacing: 1px; }
     footer .footer-note { letter-spacing: 0; }
   </style>
+  <!-- In <head> and before the body: this page replaces its own document the
+       moment the invitation is ready, so the loading copy has to be right on
+       the first paint rather than after a later pass. -->
+  <script src="assets/i18n/i18n.js"></script>
+  <script src="assets/i18n/dictionary-ko.js"></script>
+  <script src="assets/i18n/dictionary-en.js"></script>
+  <script>InvitationI18n.init();</script>
 </head>
 <body>
   <main>
-    <h1>초대장을 불러오는 중입니다.</h1>
-    <p>잠시만 기다려 주세요.</p>
+    <h1 data-i18n="viewer.loadingTitle">초대장을 불러오는 중입니다.</h1>
+    <p data-i18n="viewer.loadingBody">잠시만 기다려 주세요.</p>
   </main>
-  <footer><span>INVITATION STUDIO</span> <span class="footer-note">작은 초대, 소중한 순간.</span></footer>
+  <footer><span>INVITATION STUDIO</span> <span class="footer-note" data-i18n="viewer.footerNote">작은 초대, 소중한 순간.</span></footer>
   <script src="assets/invitation/intro-effects.js" defer></script>
   <script src="assets/invitation/template-catalog.js" defer></script>
   <script src="assets/invitation/template-art.js" defer></script>

@@ -1,34 +1,43 @@
 <!doctype html>
-<html lang="ko">
+<!-- lang is the served default; /admin/i18n.js rewrites it to the language the
+     operator resolves to. One operator, no guests, so there is no competing
+     audience here: the console simply follows whoever is signed in, and shares
+     the studio's stored preference because it shares the studio's engine. -->
+<html lang="ko" data-i18n-title="admin.documentTitle">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>초대장 발행 관리</title>
   <link rel="stylesheet" href="/admin/admin.css">
+  <!-- The shared engine, then this console's own dictionaries. Served by
+       admin/http.cjs from two fixed roots; see STATIC_FILES there. -->
+  <script src="/admin/i18n.js"></script>
+  <script src="/admin/admin-i18n.js"></script>
+  <script>InvitationI18n.init();</script>
 </head>
 <body>
-  <header class="site-header"><a class="brand" href="/" aria-label="Invitation Studio 공개 사이트로 이동" title="공개 사이트로 이동"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a><span class="header-note">초대장 발행을 관리하는 운영자 공간</span></header>
+  <header class="site-header"><a class="brand" href="/" data-i18n-attr="aria-label:admin.brandLabel;title:admin.brandTitle" aria-label="Invitation Studio 공개 사이트로 이동" title="공개 사이트로 이동"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a><span class="header-note" data-i18n="admin.headerNote">초대장 발행을 관리하는 운영자 공간</span><div class="admin-language"><label for="language-select" class="sr-only" data-i18n="lang.switcherDescription">관리 화면 표시 언어</label><select id="language-select" data-i18n-attr="aria-label:lang.switcherLabel" aria-label="언어 선택"></select></div></header>
   <main class="shell">
     <section id="login-view" class="panel">
-      <h1>발행 관리</h1>
+      <h1 data-i18n="admin.loginHeading">발행 관리</h1>
       <form id="login-form">
-        <label for="password">관리자 비밀번호</label>
+        <label for="password" data-i18n="admin.passwordLabel">관리자 비밀번호</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required>
-        <button type="submit">로그인</button>
+        <button type="submit" data-i18n="admin.loginButton">로그인</button>
         <p id="login-error" class="error" role="alert"></p>
       </form>
     </section>
 
     <section id="app-view" hidden>
-      <header class="topbar"><h1>발행 목록</h1><button id="logout" class="secondary">로그아웃</button></header>
-      <div class="toolbar"><label for="search" class="sr-only">발행 검색 (ID 또는 제목)</label><input id="search" type="search" placeholder="ID 또는 제목으로 검색"><select id="page-size"><option>20</option><option>50</option><option>100</option></select><button id="refresh" class="secondary">새로고침</button></div>
+      <header class="topbar"><h1 data-i18n="admin.listHeading">발행 목록</h1><button id="logout" class="secondary" data-i18n="admin.logout">로그아웃</button></header>
+      <div class="toolbar"><label for="search" class="sr-only" data-i18n="admin.searchLabel">발행 검색 (ID 또는 제목)</label><input id="search" type="search" data-i18n-attr="placeholder:admin.searchPlaceholder" placeholder="ID 또는 제목으로 검색"><select id="page-size"><option>20</option><option>50</option><option>100</option></select><button id="refresh" class="secondary" data-i18n="admin.refresh">새로고침</button></div>
       <p id="status" class="muted" role="status"></p>
-      <div class="table-wrap"><table><thead><tr><th>제목</th><th>ID</th><th>발행일</th><th>만료</th><th>관리</th></tr></thead><tbody id="rows"></tbody></table></div>
-      <nav class="pagination" aria-label="발행 목록 페이지"><button id="prev" class="secondary">이전</button><span id="page-label"></span><button id="next" class="secondary">다음</button></nav>
-      <aside id="detail" class="panel detail" hidden tabindex="-1" aria-labelledby="detail-heading"><div class="detail-head"><h2 id="detail-heading">상세</h2><button id="close-detail" class="secondary">닫기</button></div><div id="detail-body"></div></aside>
+      <div class="table-wrap"><table><thead><tr><th data-i18n="admin.columnTitle">제목</th><th data-i18n="admin.columnId">ID</th><th data-i18n="admin.columnCreated">발행일</th><th data-i18n="admin.columnExpires">만료</th><th data-i18n="admin.columnActions">관리</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <nav class="pagination" data-i18n-attr="aria-label:admin.paginationLabel" aria-label="발행 목록 페이지"><button id="prev" class="secondary" data-i18n="admin.previous">이전</button><span id="page-label"></span><button id="next" class="secondary" data-i18n="admin.next">다음</button></nav>
+      <aside id="detail" class="panel detail" hidden tabindex="-1" aria-labelledby="detail-heading"><div class="detail-head"><h2 id="detail-heading" data-i18n="admin.detailHeading">상세</h2><button id="close-detail" class="secondary" data-i18n="admin.closeDetail">닫기</button></div><div id="detail-body"></div></aside>
     </section>
   </main>
-  <footer class="site-footer"><span>INVITATION STUDIO</span><span class="footer-note">작은 초대, 소중한 순간.</span></footer>
+  <footer class="site-footer"><span>INVITATION STUDIO</span><span class="footer-note" data-i18n="admin.footerNote">작은 초대, 소중한 순간.</span></footer>
   <script src="/admin/admin.js" defer></script>
 </body>
 </html>
