@@ -35,6 +35,7 @@ const refreshPublicationExpiry = async ({ record, repository, config = {}, now =
     const applied = await repository.refreshExpiry({ id: record.id, expiresAt: target, now });
     return applied ? target : storedExpiresAt;
   } catch {
+    try { config.reportServerEvent?.({ event: 'expiry_refresh_failed', route: 'publication' }); } catch {}
     return storedExpiresAt;
   }
 };

@@ -35,6 +35,11 @@
     <p data-i18n="viewer.loadingBody">잠시만 기다려 주세요.</p>
   </main>
   <footer><span>INVITATION STUDIO</span> <span class="footer-note" data-i18n="viewer.footerNote">작은 초대, 소중한 순간.</span></footer>
+  <!-- Not deferred, and ahead of the deferred bundle below: the handlers have
+       to exist before the files they watch are parsed. -->
+  <script src="assets/analytics/config.js"></script>
+  <script src="assets/analytics/analytics.js"></script>
+  <script src="assets/analytics/error-reporting.js"></script>
   <script src="assets/invitation/intro-effects.js" defer></script>
   <script src="assets/invitation/template-catalog.js" defer></script>
   <script src="assets/invitation/template-art.js" defer></script>

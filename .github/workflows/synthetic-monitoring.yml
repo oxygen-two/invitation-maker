@@ -21,7 +21,7 @@ on:
     #
     # GitHub delays scheduled runs under load and disables schedules entirely in
     # repositories with 60 days of no activity, so treat the interval as a
-    # ceiling, not a guarantee.
+    # requested cadence, not a detection-time guarantee.
     - cron: "*/15 * * * *"
   workflow_dispatch:
 

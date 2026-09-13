@@ -101,6 +101,7 @@ Supported event names are:
 - `draft_saved`
 - `html_downloaded`
 - `share_clicked`
+- `client_error` (fixed diagnostic categories; see [observability](observability.md))
 
 The current tab defines one `flow_id`; the app does not currently expose a new-invitation action that calls `resetFlow()`. Pass `dedupKey` as the third `track` argument to suppress repeat captures in the same flow. Dedup is namespaced by `flow_id`, works in memory when storage is denied, and is marked only after a configured provider is ready to dispatch. For downloads, use a local-only key derived from non-sensitive state such as `download:<source>:<templateId>:<revision>`. Library actions may use local record IDs in dedup keys, but those IDs are never transmitted as event props. Do not include title, body, raw HTML, or user-entered content in dedup keys.
 
@@ -119,6 +120,12 @@ Actual editor wiring:
 - `share_clicked`: the legacy funnel event remains API-only here; publishing link behavior lives in the separate publishing module.
 
 Map fields should stay coarse. It is acceptable to send booleans such as `hasMap`; do not send map URLs, addresses, place ids, coordinates, or raw place labels.
+
+## Error diagnostics
+
+`assets/analytics/error-reporting.js` loads after the analytics wrapper and before the application entry scripts. It reports global and selected handled failures through `client_error`. Diagnostic fields use their own closed allowlists, applied again by the analytics wrapper and PostHog `before_send`: raw error messages, arbitrary URLs and authored content are excluded. Reporting is deduplicated and limited to eight events per page. It honors the same host, opt-out, DNT and GPC gates as product events.
+
+This is a custom event, not automatic SDK exception capture. Sandbox invitation frames, standalone HTML exports and admin browser pages do not install this reporter. No new vendor or npm dependency is added. See [observability](observability.md) for investigation steps and limitations.
 
 ## Campaign Attribution
 

@@ -65,6 +65,15 @@
      Anything else falls back to `failed`, which is the only one of the three
      that invites the guest to try again. */
   const ERROR_KINDS = Object.freeze(["notFound", "gone", "failed"]);
+
+  // A 404 or 410 is an expected outcome; only service failures are reported.
+  const reportFault = (context, error, options) => {
+    try {
+      root.InvitationErrorReporting?.reportError?.(error, context, options);
+    } catch {
+      // A guest looking at a broken invitation is not helped by a second error.
+    }
+  };
   const resolveId = (location = root.location) => {
     const match = String(location?.pathname || "").match(/\/i\/([A-Za-z0-9]{1,64})\/?$/);
     return match?.[1] || "";
@@ -123,6 +132,12 @@
         referrerPolicy: "no-referrer"
       });
       if (!response.ok) {
+        if (response.status !== 410 && response.status !== 404) {
+          reportFault("shared_fetch", { message: `HTTP ${response.status}` }, {
+            kind: "network",
+            status: response.status
+          });
+        }
         showError(response.status === 410 ? "gone" : response.status === 404 ? "notFound" : "failed");
         return null;
       }
@@ -137,7 +152,8 @@
         })
         : "");
       return data;
-    } catch {
+    } catch (error) {
+      reportFault("shared_fetch", error, { kind: "network" });
       showError("failed");
       return null;
     }

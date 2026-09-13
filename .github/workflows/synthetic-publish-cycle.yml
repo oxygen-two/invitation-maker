@@ -7,8 +7,8 @@ name: Synthetic publish cycle
 # back 404 instead of 503?" — which a correctly configured database and an
 # EMPTY OR WRONG one both answer identically. Writing a unique marker and
 # reading that same marker back is the only way to prove the write path and the
-# read path are looking at the same database. That is precisely the failure that
-# once made the admin show zero of everything, and it threw no exception.
+# read path can retrieve the same marker. This does not prove that the admin
+# uses the same database, or that previously published invitations still exist.
 #
 # WHY WEEKLY AND NOT HOURLY
 #

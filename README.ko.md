@@ -114,6 +114,12 @@ http://127.0.0.1:4174/admin
 
 GA4는 `assets/analytics/config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다. 분석 이벤트와 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
 
+## 운영 관측
+
+합성 모니터링 → 개인정보를 제한한 PostHog `client_error` 이벤트 → 서버 JSON 오류 로그의 세 단계로 구성했습니다. `npm run monitor:synthetic`은 운영을 읽기 전용으로 검사합니다. 예약 검사 실패 시 GitHub 이슈를 생성·갱신하고 복구 시 닫습니다. 별도 주간 발행 검사는 `SYNTHETIC_PUBLISH_OPT_IN`이 있어야 실행되며 성공할 때마다 반환되지 않는 발행 쿼터 1건을 사용합니다.
+
+브라우저 보고에는 기존 운영 호스트·개인정보 설정이 적용됩니다. 서버 5xx 로그에는 고정 라우트 분류와 생성한 요청 ID만 담고 원문 예외나 초대장 내용을 넣지 않습니다. 서버 로그는 호스팅 로그에 남으며 외부 보관·알림 규칙은 자동 설정하지 않습니다. 명령·수집 범위·검증의 한계는 [운영 관측 문서](docs/observability.md)를 참고하세요.
+
 ## 검색 노출(SEO)
 
 랜딩 페이지만 검색에 노출되도록 설계되어 있습니다. `robots.txt`는 `/`를 허용하고 `/i/`, `/api/`를 차단하며, `sitemap.xml`은 랜딩 페이지 하나만 나열합니다. 발행된 개별 초대장(`/i/{id}`)은 `shared.html`의 메타 태그와 API의 `x-robots-tag` 헤더를 통해 항상 `noindex`로 유지됩니다 — 이름, 날짜, 장소, 전화번호처럼 초대한 사람들에게만 공유하려던 정보가 검색엔진에 노출되지 않게 하기 위한 의도적 결정입니다. 이 결정이 실수로 되돌려지지 않도록 테스트가 `noindex` 태그의 존재를 강제합니다. 랜딩 페이지에는 Google Search Console과 네이버 서치어드바이저 소유 확인 태그가 포함되어 있고, 사이트맵은 Google에 제출되었습니다. 자세한 근거와 배포 시 `robots.txt`/`sitemap.xml`을 함께 복사하는 빌드 단계는 [SEO 문서](docs/seo.md)를 참고하세요.
@@ -143,6 +149,7 @@ npm run verify:publishing-mongo
 - [`docs/i18n.md`](docs/i18n.md): 사전 구조, 언어 결정 순서, 저작 콘텐츠와 chrome 번역 규칙
 - [`docs/seo.md`](docs/seo.md): 검색 노출, 발행 초대장의 `noindex`, Search Console/서치어드바이저 확인
 - [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정과 이벤트 경계
+- [`docs/observability.md`](docs/observability.md): 합성 검사, 브라우저 오류, 서버 로그와 검증 범위
 - [`DESIGN.md`](DESIGN.md): 제작기 UI와 템플릿 기준
 
 ## 유지보수 원칙
@@ -152,4 +159,3 @@ npm run verify:publishing-mongo
 - 저장소 문서를 HTTP 응답으로 직접 노출하지 않고 DTO 경계를 둡니다.
 - 새 샘플 파일은 제작기 루트에 두지 않고 `docs/` 또는 별도 fixture 경로에 둡니다.
 - 구조 변경은 공개 발행, 관리자, 정적 빌드 테스트를 함께 실행한 뒤 반영합니다.
-

@@ -117,6 +117,7 @@ const loadEditorHarness = ({
   normalizeInvitation = (value) => value,
   renderInvitationBody = () => "",
   put,
+  putDraft,
   reducedMotion = false,
   mobile = false
 } = {}) => {
@@ -529,14 +530,17 @@ const loadEditorHarness = ({
     renderTemplates,
     removeHeroImage: typeof removeHeroImage === "function" ? removeHeroImage : undefined,
     resetHeroImage: typeof resetHeroImage === "function" ? resetHeroImage : undefined,
+    saveDraft,
     saveCurrent,
+    setDraftReady: (value) => { draftReady = value; },
     setMobileView,
     syncHeroImageEditor: typeof syncHeroImageEditor === "function" ? syncHeroImageEditor : undefined,
     updateHeroImageScale: typeof updateHeroImageScale === "function" ? updateHeroImageScale : undefined,
     moveHeroImageDrag: typeof moveHeroImageDrag === "function" ? moveHeroImageDrag : undefined,
     moveHeroImageByKeyboard: typeof moveHeroImageByKeyboard === "function" ? moveHeroImageByKeyboard : undefined,
     finishHeroImageDrag: typeof finishHeroImageDrag === "function" ? finishHeroImageDrag : undefined,
-    state
+    state,
+    waitForDraftWrite: () => draftWrite
   };`;
 
   let uuid = 0;
@@ -571,6 +575,7 @@ const loadEditorHarness = ({
     InvitationStorage: {
       async list() { return []; },
       async put(record) { if (put) await put(record); },
+      async putDraft(record) { if (putDraft) await putDraft(record); },
       async remove() {}
     },
     URL,
@@ -1291,6 +1296,36 @@ test("successful generation emits only aggregate analytics and transport failure
   assert.equal(Object.hasOwn(events[0].props, "title"), false);
   assert.equal(Object.hasOwn(events[0].props, "items"), false);
   assert.match(harness.node("#save-status").textContent, /목록에 등록했습니다/);
+});
+
+test("autosave failures keep the localized status and report a draft-save fault", async () => {
+  const failure = new Error("Alice Johnson at 221B Baker Street");
+  const reports = [];
+  const harness = loadEditorHarness({ putDraft: async () => { throw failure; } });
+  harness.window.InvitationErrorReporting = {
+    reportError(error, context) { reports.push({ error, context }); }
+  };
+  harness.api.setDraftReady(true);
+
+  harness.api.saveDraft();
+  await harness.api.waitForDraftWrite();
+
+  assert.equal(harness.node("#draft-status").textContent, ko("status.draftFailed"));
+  assert.deepEqual(reports, [{ error: failure, context: "draft_save" }]);
+});
+
+test("manual save failures keep the localized status and report a draft-save fault", async () => {
+  const failure = new Error("Robert Smith at The Grand Hotel");
+  const reports = [];
+  const harness = loadEditorHarness({ put: async () => { throw failure; } });
+  harness.window.InvitationErrorReporting = {
+    reportError(error, context) { reports.push({ error, context }); }
+  };
+
+  await harness.api.saveCurrent();
+
+  assert.equal(harness.node("#save-status").textContent, ko("status.saveFailed"));
+  assert.deepEqual(reports, [{ error: failure, context: "draft_save" }]);
 });
 
 test("generated save waits for durability and restores the save button", async () => {

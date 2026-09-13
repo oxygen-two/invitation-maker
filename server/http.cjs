@@ -1,4 +1,5 @@
 const { URL } = require("node:url");
+const { createReporter, observeHttp } = require("./observability.cjs");
 const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
 const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
 const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
@@ -186,13 +187,15 @@ const handleDelete = async (req, res, repository, id) => {
 };
 
 const createHandler = ({ repository, config = {} } = {}) => {
+  const report = createReporter(config.logSink);
   const mergedConfig = {
     ...DEFAULT_PUBLISHING_CONFIG,
     ...DEFAULT_HTTP_CONFIG,
-    ...config
+    ...config,
+    reportServerEvent: report
   };
 
-  return async (req, res) => {
+  return observeHttp(async (req, res) => {
     const parsed = new URL(req.url || "/", "http://localhost");
     const invitationId = req.query?.id || parsed.searchParams.get("id");
     if (parsed.pathname === "/api/invitations" || parsed.pathname === "/api/invitations.js") {
@@ -232,7 +235,7 @@ const createHandler = ({ repository, config = {} } = {}) => {
       }
     }
     return sendError(res, 404, "NOT_FOUND");
-  };
+  }, { report });
 };
 
 module.exports = {

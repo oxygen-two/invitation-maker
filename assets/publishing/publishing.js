@@ -34,6 +34,15 @@
      reaches a guest — what a guest sees lives in shared-invitation.js. */
   const t = (key, values) => I18n?.t(`publish.${key}`, values) ?? `publish.${key}`;
 
+  // Diagnostics are best-effort and carry only the reporter's closed fields.
+  const reportFault = (context, error, options) => {
+    try {
+      root.InvitationErrorReporting?.reportError?.(error, context, options);
+    } catch {
+      // Publishing is the user's work; diagnostics never get to interrupt it.
+    }
+  };
+
   const encodeBase64Url = (bytes) => {
     if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64url");
     let binary = "";
@@ -298,7 +307,8 @@
         setStatus(t("deleted"));
         renderList();
         onSuccess?.();
-      } catch {
+      } catch (error) {
+        reportFault("publish_revoke", error, { status: statusCodeFromError(error) });
         setStatus(t("deleteFailed"));
       }
     };
@@ -307,6 +317,7 @@
       try {
         publications = client.list();
       } catch (error) {
+        reportFault("publish_list", error);
         setStatus(error.message || t("storageUnavailable"));
       }
       listNode.innerHTML = publications.length ? publications.map((item) => `
@@ -348,6 +359,8 @@
         setStatus(`${t(recovering ? "recovered" : "published")} ${formatExpiry(result.expiresAt)}.`);
         renderList();
       } catch (error) {
+        const status = statusCodeFromError(error);
+        reportFault("publish", error, { kind: status ? "network" : "handled", status });
         setStatus(messageForError(error));
       } finally {
         pending = false;

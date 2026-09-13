@@ -337,6 +337,14 @@
     <span class="studio-footer-note" data-i18n="header.footerNote">작은 초대, 소중한 순간.</span>
   </footer>
 
+  <!-- Analytics first, and error-reporting.js immediately after it, because a
+       script that dies while PARSING can only be reported by handlers that are
+       already installed. Everything below this line is a file whose failure we
+       want to hear about; everything above it would have to fail silently. -->
+  <script src="assets/analytics/config.js"></script>
+  <script src="assets/analytics/analytics.js"></script>
+  <script src="assets/analytics/error-reporting.js"></script>
+  <script type="module" src="assets/analytics/ga4.js"></script>
   <script src="assets/invitation/intro-effects.js"></script>
   <script src="assets/invitation/template-catalog.js"></script>
   <script src="assets/invitation/template-art.js"></script>
@@ -348,9 +356,6 @@
   <script src="assets/studio/content-order.js"></script>
   <script src="assets/storage/invitation-storage.js"></script>
   <script src="assets/integrations/map-location.js"></script>
-  <script src="assets/analytics/config.js"></script>
-  <script type="module" src="assets/analytics/ga4.js"></script>
-  <script src="assets/analytics/analytics.js"></script>
   <script src="assets/publishing/publishing.js"></script>
   <script src="assets/studio/app.js"></script>
 </body>
