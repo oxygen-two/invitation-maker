@@ -133,6 +133,8 @@ npm run verify:publishing-mongo
 
 `build:public` copies public root HTML and `assets/` into `public/`, including `robots.txt` and `sitemap.xml`. Admin files and architecture documentation are excluded.
 
+For the mobile editor regression, start the local server and run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright node scripts/verify-mobile-editor.cjs` with Chrome installed. It checks actual card/control boundaries in Korean and English at six widths (320–1440px), including controls hidden by ancestor clipping. Playwright remains an external QA tool, not a runtime dependency.
+
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `verify` job runs `npm test` and `npm run build:public` on Node 22 and asserts the build left tracked files unchanged, and a `publishing-mongo` job runs `npm run verify:publishing-mongo` against a real `mongo:7` service container. There was no CI before this.
 
 ## Documentation
@@ -144,6 +146,7 @@ npm run verify:publishing-mongo
 - [SEO](docs/seo.md): indexing, `noindex` on published invitations, and Search Console/Search Advisor verification
 - [Analytics](docs/analytics.md): GA4/PostHog configuration
 - [Observability](docs/observability.md): synthetic checks, browser errors, server logs, and coverage limits
+- [Mobile app plan (Korean)](docs/mobile-app-plan.md): app approach, code reuse, implementation stages, and release criteria
 - [Design](DESIGN.md): editor and template conventions
 
 ## Maintenance
