@@ -140,6 +140,8 @@ npm run verify:publishing-mongo
 
 `build:public`은 루트의 공개 HTML과 `assets/`, 그리고 `robots.txt`/`sitemap.xml`을 `public/`으로 복사합니다. 관리자 코드는 이 산출물에 들어가지 않습니다.
 
+모바일 편집기 회귀 검증은 로컬 서버와 Chrome을 준비한 뒤 `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/verify-mobile-editor.cjs`로 실행합니다. 한국어·영어, 320–1440px의 여섯 화면 폭에서 카드·버튼·입력의 실제 경계를 검사하여 상위 요소에 가려진 잘림도 탐지합니다. Playwright는 외부 QA 도구로 사용하며 서비스 의존성에는 추가하지 않습니다.
+
 `.github/workflows/ci.yml`이 `main` 브랜치로의 push와 모든 PR마다 실행됩니다: `verify` 잡은 Node 22에서 `npm test`와 `npm run build:public`을 실행하고 빌드가 추적 파일을 건드리지 않았는지 확인하며, `publishing-mongo` 잡은 실제 `mongo:7` 서비스 컨테이너에 대해 `npm run verify:publishing-mongo`를 실행합니다. 이전에는 CI가 전혀 없었습니다.
 
 ## 문서 안내
@@ -150,6 +152,7 @@ npm run verify:publishing-mongo
 - [`docs/seo.md`](docs/seo.md): 검색 노출, 발행 초대장의 `noindex`, Search Console/서치어드바이저 확인
 - [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정과 이벤트 경계
 - [`docs/observability.md`](docs/observability.md): 합성 검사, 브라우저 오류, 서버 로그와 검증 범위
+- [`docs/mobile-app-plan.md`](docs/mobile-app-plan.md): 앱 방식 검토, 코드 재사용 범위, 단계별 구현·출시 기준
 - [`DESIGN.md`](DESIGN.md): 제작기 UI와 템플릿 기준
 
 ## 유지보수 원칙
