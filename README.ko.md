@@ -11,7 +11,9 @@
 - Base62 공개 ID를 사용하는 익명 초대장 발행
 - 발행 초대장 조회 및 제작자 토큰 기반 삭제
 - 로컬 관리자 서비스의 목록, 검색, 페이지네이션, 상세, 강제 폐기
+- 제작기·공개 뷰어·관리자 화면의 한국어/영어 다국어 지원, 외부 라이브러리 없이 `Intl` 기반 날짜/숫자 포맷
 - GA4/PostHog 선택적 분석 설정
+- 랜딩 페이지는 검색 노출, 발행된 개별 초대장은 의도적으로 검색 노출 제외
 
 ## 서비스 구조
 
@@ -49,6 +51,14 @@ python3 -m http.server 4173
 
 `npm start`, `npm run admin`, `npm run dev`, `npm run dev:admin`은 모두 로컬 개발자용 명령이며, 그중 어느 것도 운영 환경에서 실행되지 않습니다. 운영 환경은 `server/index.cjs`를 전혀 실행하지 않고, `api/*.js` 서버리스 함수와 `scripts/build-public.cjs`를 통해 배포되며, 설정은 전적으로 Vercel의 환경 변수에서 옵니다. 별도의 로컬 설정(예: 다른 로컬 데이터베이스)이 필요하면 `.env.example`을 `.env.dev`로 복사하고 `npm run dev`(관리자 서비스는 `npm run dev:admin`)를 사용하세요. `npm start`/`npm run admin`은 기존대로 `.env`를 사용합니다. `.env`와 `.env.dev` 모두 자신의 로컬 환경을 가리켜야 하며, 두 진입점 모두 시작 시 연결할 데이터베이스 이름과 호스트를 출력하고, 호스트가 로컬(loopback)이 아니면 눈에 띄게 경고합니다.
 
+## 제작기 화면 구성
+
+미리보기는 페이지에 직접 삽입되지 않고 `srcdoc` iframe 안에서 렌더링됩니다. 초대장 자체의 제목 구조가 제작기의 문서 구조에 섞이지 않고, 손님이 실제로 받는 것과 동일한 standalone 문서를 그대로 렌더링하므로 미리보기가 실제 결과물과 어긋날 일이 없습니다. 긴 폼을 편집하는 동안에도 화면에 고정되어 보입니다. 갤러리·편집·완성 세 단계는 하나의 정렬 기준을 공유해 단계를 옮겨도 레이아웃이 흔들리지 않습니다. 완성 단계는 대등한 세 가지 선택지 — 보관함에 저장, 파일로 저장, 링크로 공유 — 를 제공하며, 뒤의 두 가지는 무엇을 얻는지 설명하는 대화상자(`<dialog>`)를 엽니다: 보관함은 이 브라우저에만 남고, 발행된 링크는 브라우저를 지워도 계속 열리지만 그 링크를 취소할 수 있는 권한은 이 브라우저에만 남는다는 점입니다.
+
+## 다국어 지원
+
+제작기, 공개/공유 뷰어, 다운로드한 standalone HTML은 별도 라이브러리나 번들러 없이 한국어/영어를 지원합니다 — `assets/i18n/` 아래의 사전 파일과 `data-i18n` 속성만으로 동작합니다. 언어는 `?lang=` 명시적 지정 → 저장된 선택 → 방문자의 브라우저 언어 → 기본값(한국어) 순서로 결정되며, `<html lang>`과 생성/샘플 날짜(`Intl` 기반)가 이를 따릅니다. **초대장의 저작 콘텐츠는 절대 번역되지 않으며, 그 주변의 화면 문구(chrome)만 언어를 따릅니다.** 영어 브라우저를 쓰는 손님이 한국어로 작성된 초대장의 공개 링크를 열면, 로딩/오류 문구는 영어로 보이지만 초대장 본문은 작성된 한국어 그대로 보입니다. 다운로드한 파일은 내보내는 순간의 언어로 화면 문구가 고정됩니다. 사전 구조, 언어 추가 방법, 저작 콘텐츠와 chrome을 구분하는 전체 규칙은 [i18n 문서](docs/i18n.md)를 참고하세요.
+
 ## 공개 발행 서버
 
 공개 발행 API는 MongoDB 연결이 필요합니다. `.env`에 다음 값을 설정합니다.
@@ -73,7 +83,7 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 
 ## 로컬 관리자
 
-관리자 서비스는 공개 서버와 별도 프로세스로 실행하며 Vercel 공개 산출물에 포함되지 않습니다.
+관리자 서비스는 공개 서버와 별도 프로세스로 실행하며 Vercel 공개 산출물에 포함되지 않습니다. `admin/public/`(HTML/CSS/JS)은 이제 Git에 커밋되어 있습니다 — 예전에는 `.gitignore`의 `public/` 규칙이 모든 깊이에 매칭되어 이 디렉토리가 조용히 추적에서 빠졌고, 그 결과 새로 clone한 저장소의 관리자 서버는 화면 없이 떴습니다. 규칙을 `/public/`로 앵커링해 저장소 루트의 빌드 산출물만 무시하도록 고쳤습니다.
 
 ```bash
 ADMIN_PASSWORD='change-me' npm run admin
@@ -102,7 +112,11 @@ http://127.0.0.1:4174/admin
 
 ## 분석 설정
 
-GA4는 `assets/analytics-config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다. 분석 이벤트와 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
+GA4는 `assets/analytics/config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다. 분석 이벤트와 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
+
+## 검색 노출(SEO)
+
+랜딩 페이지만 검색에 노출되도록 설계되어 있습니다. `robots.txt`는 `/`를 허용하고 `/i/`, `/api/`를 차단하며, `sitemap.xml`은 랜딩 페이지 하나만 나열합니다. 발행된 개별 초대장(`/i/{id}`)은 `shared.html`의 메타 태그와 API의 `x-robots-tag` 헤더를 통해 항상 `noindex`로 유지됩니다 — 이름, 날짜, 장소, 전화번호처럼 초대한 사람들에게만 공유하려던 정보가 검색엔진에 노출되지 않게 하기 위한 의도적 결정입니다. 이 결정이 실수로 되돌려지지 않도록 테스트가 `noindex` 태그의 존재를 강제합니다. 랜딩 페이지에는 Google Search Console과 네이버 서치어드바이저 소유 확인 태그가 포함되어 있고, 사이트맵은 Google에 제출되었습니다. 자세한 근거와 배포 시 `robots.txt`/`sitemap.xml`을 함께 복사하는 빌드 단계는 [SEO 문서](docs/seo.md)를 참고하세요.
 
 ## 테스트와 빌드
 
@@ -118,18 +132,22 @@ git diff --check
 npm run verify:publishing-mongo
 ```
 
-`build:public`은 루트의 공개 HTML과 `assets/`만 `public/`으로 복사합니다. 관리자 코드는 이 산출물에 들어가지 않습니다.
+`build:public`은 루트의 공개 HTML과 `assets/`, 그리고 `robots.txt`/`sitemap.xml`을 `public/`으로 복사합니다. 관리자 코드는 이 산출물에 들어가지 않습니다.
+
+`.github/workflows/ci.yml`이 `main` 브랜치로의 push와 모든 PR마다 실행됩니다: `verify` 잡은 Node 22에서 `npm test`와 `npm run build:public`을 실행하고 빌드가 추적 파일을 건드리지 않았는지 확인하며, `publishing-mongo` 잡은 실제 `mongo:7` 서비스 컨테이너에 대해 `npm run verify:publishing-mongo`를 실행합니다. 이전에는 CI가 전혀 없었습니다.
 
 ## 문서 안내
 
 - [`docs/architecture/README.md`](docs/architecture/README.md): 현재 구조, Graphify 분석, 리팩토링 진척 현황
 - [`docs/publishing.md`](docs/publishing.md): 공개 발행 API와 MongoDB 운영
+- [`docs/i18n.md`](docs/i18n.md): 사전 구조, 언어 결정 순서, 저작 콘텐츠와 chrome 번역 규칙
+- [`docs/seo.md`](docs/seo.md): 검색 노출, 발행 초대장의 `noindex`, Search Console/서치어드바이저 확인
 - [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정과 이벤트 경계
 - [`DESIGN.md`](DESIGN.md): 제작기 UI와 템플릿 기준
 
 ## 유지보수 원칙
 
-- 초대장 정규화와 렌더링 규칙은 `assets/invitation-core.js`를 기준으로 유지합니다.
+- 초대장 정규화와 렌더링 규칙은 `assets/invitation/core.js`를 기준으로 유지합니다.
 - 공개 API와 관리자 API를 하나의 인증 흐름으로 합치지 않습니다.
 - 저장소 문서를 HTTP 응답으로 직접 노출하지 않고 DTO 경계를 둡니다.
 - 새 샘플 파일은 제작기 루트에 두지 않고 `docs/` 또는 별도 fixture 경로에 둡니다.

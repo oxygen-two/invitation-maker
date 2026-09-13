@@ -30,12 +30,13 @@ flowchart TB
 | 로컬 데이터 | `assets/storage/invitation-storage.js` | IndexedDB 초안/라이브러리 | 브라우저 저장소 어댑터 |
 | 공개 발행 클라이언트 | `assets/publishing/` (`publishing.js`, `shared-invitation.js`) | 토큰 보관, 재시도, 발행/삭제 | 공개 API와 강하게 연결 |
 | 분석/연동/미디어 | `assets/analytics/` (`analytics.js`, `ga4.js`, `config.js`), `assets/integrations/map-location.js`, `assets/media/` (`hero-image.js`, `image-tools.js`, `social-preview-v1.png`) | GA4 연동, 지도, 이미지 처리 | 도메인별 디렉토리로 이동 완료 |
+| 다국어 (i18n) | `assets/i18n/` (`i18n.js`, `dictionary-ko.js`, `dictionary-en.js`, `content-en.json`) | 언어 해석·저장, `data-i18n` DOM 적용, Intl 포맷, 샘플 콘텐츠 오버레이 | 엔진과 사전 분리 완료. 제작기·공개 뷰어·standalone export가 모두 로드. 자세한 내용은 [`docs/i18n.md`](../i18n.md) |
 | 공개 API (HTTP 어댑터) | `api/`, `server/http.cjs`, `server/http/static.cjs` | Vercel 어댑터, HTTP 계약, 정적 파일 응답 | `static.cjs` 분리 완료 (`server/http.cjs`가 require) |
 | 발행 유스케이스 | `server/publishing/use-case.cjs`, `server/validation.cjs` | 발행 유스케이스, 오류 매핑, 입력 검증 | 추출 완료 (`server/http.cjs`가 `publishInvitation`/`mapRepositoryError`를 require) |
 | 저장소 (공개) | `server/storage/mongo-publications.cjs` | Mongo 연결, quota, 읽기 쿼리에서의 만료 강제, `publish/get/refreshExpiry/remove/close/dropDatabase` | 계약 분리 완료. `server/index.cjs`, `api/invitations.js`, `scripts/verify-publishing-mongo.cjs`, `tests/publishing-server.test.js` 네 곳 모두 이 모듈을 require |
 | 저장소 (관리자) | `admin/storage/mongo-publications.cjs` | 목록/조회/폐기, injectable `collectionFactory` | 계약 분리 완료. `admin/index.cjs`가 이 모듈만 사용 |
 | 설정 | `server/config/database.cjs`, `server/config/http.cjs`, `server/config/publishing.cjs`, `admin/config.cjs` | 환경변수 읽기, HTTP/발행/DB 설정값 | 이동 완료. `server/index.cjs`·`api/invitations.js`는 세 리더를 조합해서 쓰고, `admin/index.cjs`는 `readDatabaseConfigFromEnv`만 사용. `server/validation.cjs`는 `DEFAULT_PUBLISHING_CONFIG`를 `config/publishing.cjs`에서 가져옴 |
-| 관리자 | `admin/` | 로그인, 세션, 목록, 페이지, 폐기 | 공개 배포와 분리된 로컬 서비스 |
+| 관리자 | `admin/` (`admin/public/`을 포함해 전체 Git 추적) | 로그인, 세션, 목록, 페이지, 폐기 | 공개 배포와 분리된 로컬 서비스. `.gitignore`의 `public/`이 모든 깊이에 적용되어 `admin/public/`도 무시되던 문제를 `/public/`로 앵커링해 수정 — 그전에는 새로 clone한 저장소의 관리자 서버가 화면 없이 떴다 |
 | 운영 문서 | `docs/` | 기능, 설계, 운영 절차 | 이 문서를 기준으로 확장 |
 
 ## Graphify 분석 결과
@@ -158,7 +159,7 @@ auth/           # 이후 회원 인증
 
 ## 실행 순서와 진척 현황
 
-아래 5단계는 더 이상 미래 제안이 아니라 실제 반영 여부를 기록한 진척 현황이다. 각 단계마다 `npm test`, `npm run build:public`, 관리자 HTTP 테스트를 실행해 회귀를 확인했다 (현재 `npm test` 305개 중 304 pass / 0 fail / 1 skip, `npm run build:public` 성공, `git diff --check` 이상 없음).
+아래 5단계는 더 이상 미래 제안이 아니라 실제 반영 여부를 기록한 진척 현황이다. 각 단계마다 `npm test`, `npm run build:public`, 관리자 HTTP 테스트를 실행해 회귀를 확인했다 (현재 `npm test` 362개 중 359 pass / 0 fail / 3 skip, `npm run build:public` 성공, `git diff --check` 이상 없음). `.github/workflows/ci.yml`이 push-to-main과 PR마다 같은 `npm test`·`npm run build:public`를 자동 실행하고, 빌드가 추적 파일을 건드리지 않았는지 `git diff --exit-code`로 검증한다. 별도의 `publishing-mongo` 잡은 `mongo:7` 서비스 컨테이너를 띄워 `npm run verify:publishing-mongo`로 실제 Mongo 경로(쿼터, TTL 인덱스)를 검증한다. 이 리팩토링 이전에는 CI가 전혀 없었다.
 
 1. **✅ 완료** — `server/http.cjs`에서 정적 파일 응답을 분리한다. → `server/http/static.cjs`로 추출되었고 `server/http.cjs:4`가 require한다.
 2. **✅ 완료** — 발행 유스케이스를 추출하고 기존 공개 테스트를 그대로 통과시킨다. → 계획했던 `server/domain/publishing/` 대신 `server/publishing/use-case.cjs`로 추출되었다 (`mapRepositoryError`, `publishInvitation`). `server/http.cjs:5`가 require한다.

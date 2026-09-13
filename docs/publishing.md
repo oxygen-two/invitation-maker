@@ -4,9 +4,9 @@ This feature adds a small Node.js API to the existing HTML/CSS/JS maker. It stor
 
 ## Responsibilities
 
-- `assets/app.js` owns the existing editor and supplies its value, validation, and busy state to the publishing client.
-- `assets/publishing.js` owns requests, publish status, link copying, and the browser's private publication records.
-- `shared.html` and `assets/shared-invitation.js` fetch a public snapshot and render it using the existing invitation renderer in a sandboxed frame.
+- `assets/studio/app.js` owns the existing editor and supplies its value, validation, and busy state to the publishing client.
+- `assets/publishing/publishing.js` owns requests, publish status, link copying, and the browser's private publication records.
+- `shared.html` and `assets/publishing/shared-invitation.js` fetch a public snapshot and render it using the existing invitation renderer in a sandboxed frame.
 - `server/` owns configuration, server-side input validation, HTTP routing, and MongoDB persistence. Database code does not access the DOM; frontend code never receives a database connection string.
 - `api/` adapts the same API implementation to Vercel. A static Python server still previews the maker, but cannot publish invitations. Vercel runs `npm run build:public` to copy public assets into `public/`; this is deployment packaging, not a frontend framework build.
 
@@ -65,6 +65,10 @@ Administrator reads never extend anything, and they deliberately still show expi
 Enforcement therefore lives in the read path (`server/storage/mongo-publications.cjs`). `get` filters expired records inside the `findOne` query rather than after fetching, so an expired invitation's content never leaves the database, and `refreshExpiry` refuses to write to a record that is already past its expiry. `GET /api/invitations/:id` still answers `410 EXPIRED` if some other store hands back an expired record, but the MongoDB-backed deployment answers `404 NOT_FOUND`, exactly as it did when a TTL index had already removed the document.
 
 The `publishing_counters` collection keeps its TTL index on `expiresAt`. Those documents are rate-limit quota buckets — ephemeral bookkeeping, not user content — and must keep expiring on their own.
+
+#### Required order: drop the index before backfilling
+
+`scripts/drop-expiry-ttl-index.cjs` and `scripts/backfill-expiry.cjs` must run in that order — drop first, backfill second — on any database that ever ran a pre-policy version of this server. The retired TTL index deletes any document the instant its `expiresAtDate` is set and in the past (which is exactly what the backfill grace bucket, described below, produces for old records). Backfilling before dropping the index means MongoDB deletes the very records the backfill just finished stamping, silently, with no error from either script. Both scripts default to a dry run and both are safe to re-run, so there is no cost to always dropping the index first even when you are not sure whether it still exists.
 
 #### Dropping the retired TTL index
 

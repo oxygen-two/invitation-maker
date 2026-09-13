@@ -1,11 +1,11 @@
 # Invitation Analytics
 
-This project ships analytics as an optional, no-build browser layer with remote provider SDKs. `index.html` loads `assets/analytics-config.js`, `assets/analytics-ga4.js`, and `assets/analytics.js` before `assets/app.js`. If `assets/analytics-config.js` is not loaded before provider modules, analytics stays off.
+This project ships analytics as an optional, no-build browser layer with remote provider SDKs. `index.html` loads `assets/analytics/config.js`, `assets/analytics/ga4.js`, and `assets/analytics/analytics.js` before `assets/studio/app.js`. If `assets/analytics/config.js` is not loaded before provider modules, analytics stays off.
 
 ```html
-<script src="assets/analytics-config.js"></script>
-<script type="module" src="assets/analytics-ga4.js"></script>
-<script src="assets/analytics.js"></script>
+<script src="assets/analytics/config.js"></script>
+<script type="module" src="assets/analytics/ga4.js"></script>
+<script src="assets/analytics/analytics.js"></script>
 <script>
   InvitationAnalytics.init();
   InvitationAnalytics.trackLandingViewed();
@@ -24,7 +24,7 @@ Localhost, custom preview hosts, and Vercel preview domains fail open and return
 
 ## Configuration
 
-`assets/analytics-config.js` contains the public ingestion token for PostHog project `602599` and the Vercel script path. It contains no account credentials or administrative API keys. To disable either provider, clear its configuration:
+`assets/analytics/config.js` contains the public ingestion token for PostHog project `602599` and the Vercel script path. It contains no account credentials or administrative API keys. To disable either provider, clear its configuration:
 
 ```js
 window.InvitationAnalyticsConfig = {
@@ -50,7 +50,7 @@ Vercel is base analytics only. Hobby-safe builds never dispatch custom Vercel ev
 
 ## GA4 Visitor Count
 
-GA4 support is present but inactive until a public web stream measurement ID is added to `assets/analytics-config.js`:
+GA4 support is present but inactive until a public web stream measurement ID is added to `assets/analytics/config.js`:
 
 ```js
 ga4: {
