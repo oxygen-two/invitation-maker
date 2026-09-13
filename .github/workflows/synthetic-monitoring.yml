@@ -1,0 +1,70 @@
+name: Synthetic monitoring
+
+# Watches the deployed site for behaviour that is WRONG rather than crashed.
+# Half the incidents this project has had threw no exception: a UI that was
+# never committed, an admin pointed at the wrong database name. Nothing in an
+# error tracker would have shown either one.
+#
+# Deliberately separate from ci.yml. CI answers "is this commit good?" and must
+# stay a fast, deterministic gate on a pull request. This answers "is the thing
+# that is deployed right now behaving?", which has a completely different
+# cadence, a completely different failure meaning, and must never be able to
+# turn a pull request red because Vercel had a bad minute.
+
+on:
+  schedule:
+    # Every 15 minutes. This suite is strictly read-only — it publishes nothing
+    # and spends none of the shared quota (see scripts/synthetic/checks.cjs), so
+    # the only costs are Actions minutes, which are free on a public repository,
+    # and ~6 requests per run against production. 15 minutes bounds how long a
+    # silent breakage can sit undetected; there is no reason to be slower.
+    #
+    # GitHub delays scheduled runs under load and disables schedules entirely in
+    # repositories with 60 days of no activity, so treat the interval as a
+    # ceiling, not a guarantee.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: synthetic-monitoring
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  read-only-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Only the scripts are needed; there is no history to inspect.
+          fetch-depth: 1
+
+      # No `npm ci` on purpose. The monitor uses nothing but Node built-ins, so
+      # skipping the install keeps a run that repeats 96 times a day down to a
+      # few seconds and removes the registry as a source of false alarms.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run the read-only checks against production
+        id: checks
+        continue-on-error: true
+        run: node scripts/synthetic-monitor.cjs --report "$RUNNER_TEMP/synthetic-report.md"
+
+      - name: Open, update or close the tracking issue
+        uses: ./.github/actions/synthetic-alert
+        with:
+          report-path: ${{ runner.temp }}/synthetic-report.md
+          outcome: ${{ steps.checks.outcome }}
+          label: synthetic-monitoring
+          issue-title: "Synthetic monitoring: production read-only checks are failing"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The alerting step above is the signal that matters, but the job itself
+      # should still reflect reality for anyone reading the Actions tab.
+      - name: Fail the job if any check failed
+        if: steps.checks.outcome == 'failure'
+        run: exit 1

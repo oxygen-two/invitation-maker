@@ -1,0 +1,126 @@
+name: Synthetic publish cycle
+
+# The one check that WRITES to production: publish -> read back -> revoke.
+#
+# It exists because the read-only suite has exactly one blind spot it cannot
+# close. That suite's database probe asks "does a lookup for a missing id come
+# back 404 instead of 503?" — which a correctly configured database and an
+# EMPTY OR WRONG one both answer identically. Writing a unique marker and
+# reading that same marker back is the only way to prove the write path and the
+# read path are looking at the same database. That is precisely the failure that
+# once made the admin show zero of everything, and it threw no exception.
+#
+# WHY WEEKLY AND NOT HOURLY
+#
+# A successful publish permanently spends one unit of PUBLISH_LIFETIME_LIMIT
+# (default 1000) that every real user shares. Revoking does not give it back:
+# releaseCounter() is only called on the rollback path of a *failed* publish,
+# and remove() never calls it. So the cadence is a budget decision, not a
+# latency decision:
+#
+#     daily  -> 365 of 1000 lifetime units per year (36.5%). Not acceptable.
+#     weekly ->  52 of 1000 lifetime units per year (5.2%). Acceptable.
+#
+# Parking one long-lived canary instead is not possible either: every
+# publication is capped at createdAt + PUBLISH_MAX_LIFETIME_DAYS (30), so it
+# would quietly become a check on a 404 after a month.
+#
+# The price is a blind spot of up to 7 days for a wrong-database deploy. The
+# mitigation is workflow_dispatch, not a faster cron: run this by hand right
+# after any deploy that touches MONGODB_URI, MONGODB_DB or the publishing
+# config, which is the moment that failure gets introduced.
+
+on:
+  schedule:
+    # Mondays at 03:15 UTC (12:15 KST). Off the hour because GitHub's scheduler
+    # is busiest exactly on it, and early in the week so a broken publish path
+    # is found on a working day rather than over a weekend.
+    - cron: "15 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: synthetic-publish-cycle
+  # Never cancel a run in flight. A cancelled cycle can leave a published canary
+  # invitation live at a public URL with nothing to revoke it.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  publish-cycle:
+    runs-on: ubuntu-latest
+    steps:
+      # SYNTHETIC_PUBLISH_OPT_IN is a consent switch, not a credential. The
+      # publishing API is anonymous by design — the cycle mints its own
+      # management token, so no secret is technically required to run it. What
+      # a secret buys is that nobody spends unrefundable shared quota by
+      # accident, and that the decision lives with a repository admin rather
+      # than in a file. Set it to any non-empty value to enable this job.
+      #
+      # Until then the job SKIPS CLEANLY and says why. A job that failed red for
+      # a missing secret would train everyone to ignore this workflow, which is
+      # the same disease the alerting design is trying to avoid.
+      - name: Check the publish opt-in secret
+        id: gate
+        env:
+          OPT_IN: ${{ secrets.SYNTHETIC_PUBLISH_OPT_IN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPT_IN:-}" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Publish cycle skipped"
+              echo
+              echo "The repository secret \`SYNTHETIC_PUBLISH_OPT_IN\` is not set, so this run"
+              echo "did not publish anything and did not spend any quota."
+              echo
+              echo "This is a clean skip, not a failure. Set the secret to any non-empty value"
+              echo "to enable the weekly publish -> read back -> revoke canary. Each successful"
+              echo "run permanently consumes one of the service's \`PUBLISH_LIFETIME_LIMIT\`"
+              echo "publishes (default 1000), which revoking does not return."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "SYNTHETIC_PUBLISH_OPT_IN is not set; skipping the publish cycle."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          fetch-depth: 1
+
+      # Same as the read-only workflow: Node built-ins only, so no install.
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          node-version: 22
+
+      - name: Publish, read back and revoke a canary invitation
+        id: cycle
+        if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
+        # --confirm-quota-spend is required for any non-loopback origin. It is
+        # there so a developer who runs this script out of curiosity gets a
+        # refusal instead of a spent counter.
+        run: |
+          node scripts/synthetic-publish-cycle.cjs \
+            --confirm-quota-spend \
+            --report "$RUNNER_TEMP/publish-cycle-report.md"
+
+      - name: Open, update or close the tracking issue
+        if: steps.gate.outputs.enabled == 'true'
+        uses: ./.github/actions/synthetic-alert
+        with:
+          report-path: ${{ runner.temp }}/publish-cycle-report.md
+          outcome: ${{ steps.cycle.outcome }}
+          # A separate label from the read-only suite: these two fail for
+          # different reasons and must not share an incident issue.
+          label: synthetic-publish-cycle
+          issue-title: "Synthetic monitoring: the production publish cycle is failing"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail the job if any step failed
+        if: steps.gate.outputs.enabled == 'true' && steps.cycle.outcome == 'failure'
+        run: exit 1

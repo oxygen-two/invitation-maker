@@ -13,6 +13,8 @@
     "test": "node --test tests/*.test.js",
     "test:publishing": "node --test tests/publishing-server.test.js",
     "verify:publishing-mongo": "node scripts/verify-publishing-mongo.cjs",
+    "monitor:synthetic": "node scripts/synthetic-monitor.cjs",
+    "monitor:publish-cycle": "node scripts/synthetic-publish-cycle.cjs",
     "build:public": "node scripts/build-public.cjs"
   },
   "dependencies": {
