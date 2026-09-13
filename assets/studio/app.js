@@ -102,6 +102,13 @@ const trackAnalytics = (event, properties = {}, dedupKey = event) => {
     }, { dedupKey });
   } catch { /* Analytics must not interrupt authoring. */ }
 };
+
+// Diagnostics are best-effort and carry only the reporter's closed fields.
+const reportFault = (context, error, options) => {
+  try {
+    window.InvitationErrorReporting?.reportError?.(error, context, options);
+  } catch { /* Diagnostics must not interrupt authoring either. */ }
+};
 const markAnalyticsEdit = () => {
   analyticsEditRevision += 1;
   trackAnalytics("editing_started", { field_group: "editor" }, "editing");
@@ -127,7 +134,8 @@ const saveDraft = () => {
   draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation)).then(() => {
     if (edited) trackAnalytics("draft_saved", {}, "draft");
     if (revision === draftRevision) status.textContent = t('status.draftSaved');
-  }).catch(() => {
+  }).catch((error) => {
+    reportFault("draft_save", error);
     if (revision === draftRevision) status.textContent = t('status.draftFailed');
   });
 };
@@ -248,7 +256,10 @@ const mountPreviewFrame = () => new Promise((resolve) => {
   // must not take the whole editor down with it — time out and carry on with a
   // blank preview rather than a blank studio.
   const settle = (value) => { clearTimeout(timeoutId); resolve(value); };
-  const timeoutId = setTimeout(() => settle(false), PREVIEW_FRAME_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => {
+    reportFault("preview_render", { code: "PREVIEW_FRAME_TIMEOUT", message: "Preview frame did not load" });
+    settle(false);
+  }, PREVIEW_FRAME_TIMEOUT_MS);
   previewFrame.addEventListener("load", () => {
     const frameDocument = previewFrame.contentDocument;
     if (!frameDocument?.body) {
@@ -1113,6 +1124,8 @@ const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, messa
     if (error.code === "URL_LOCATION_UNAVAILABLE" || error.code === "INVALID_MAP_URL") {
       message.textContent = error.message;
     } else if (error.code === "SERVICE_UNAVAILABLE") {
+      // Invalid addresses are expected; service outages are not.
+      reportFault("map_lookup", error);
       message.textContent = t("map.serviceUnavailable");
     } else {
       message.textContent = t(normalizedQuery ? "map.notFound" : "map.empty");
@@ -1672,7 +1685,8 @@ const saveCurrent = async () => {
     trackAnalyticsCompletion(invitation);
     const result = await saveRecord(makeSavedItem(html, invitation.title, "generated"));
     dom.saveStatus.textContent = t(result.synchronized ? "status.saved" : "status.savedUnsynchronized");
-  } catch {
+  } catch (error) {
+    reportFault("draft_save", error);
     dom.saveStatus.textContent = t("status.saveFailed");
   } finally {
     saveWritePending = false;
@@ -2118,6 +2132,7 @@ const loadInitialData = async () => {
 
 const init = async () => {
   try { window.InvitationAnalytics?.init(); } catch { /* Optional analytics. */ }
+  try { window.InvitationErrorReporting?.init(); } catch { /* Optional diagnostics. */ }
   trackAnalytics("landing_viewed", {}, "landing");
   try {
     InvitationIntro.ensureStyles(document);
@@ -2136,7 +2151,8 @@ const init = async () => {
         personalDraft = true;
         document.querySelector('#draft-status').textContent = t('status.draftRestored');
       }
-    } catch {
+    } catch (error) {
+      reportFault("draft_load", error);
       document.querySelector('#draft-status').textContent = t('status.draftUnavailable');
     }
     renderTemplates();
@@ -2151,7 +2167,8 @@ const init = async () => {
     try {
       database = await InvitationStorage.open();
       database.close?.();
-    } catch {
+    } catch (error) {
+      reportFault("storage", error);
       dom.uploadStatus.textContent = t("status.storageUnavailable");
       return;
     }
@@ -2164,10 +2181,12 @@ const init = async () => {
       } else if (!synchronized) {
         dom.uploadStatus.textContent = t("status.syncIncomplete");
       }
-    } catch {
+    } catch (error) {
+      reportFault("draft_save", error);
       dom.uploadStatus.textContent = t("status.syncFailed");
     }
-  } catch {
+  } catch (error) {
+    reportFault("boot", error);
     if (previewHost) {
       previewHost.innerHTML = `
       <div class="error-panel">

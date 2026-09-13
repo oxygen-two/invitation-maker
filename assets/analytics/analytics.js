@@ -72,7 +72,94 @@
     "$session_id",
     "distinct_id"
   ]);
+  const errorKinds = Object.freeze(["handled", "network", "promise", "resource", "runtime"]);
+  const errorMessages = Object.freeze([
+    "handled_error",
+    "network_error",
+    "promise_rejection",
+    "resource_load_failure",
+    "runtime_error"
+  ]);
+  const errorContexts = Object.freeze([
+    "boot",
+    "draft_load",
+    "draft_save",
+    "image_process",
+    "map_lookup",
+    "preview_render",
+    "publish",
+    "publish_list",
+    "publish_revoke",
+    "resource_load",
+    "shared_fetch",
+    "shared_render",
+    "storage",
+    "unknown",
+    "window"
+  ]);
+  const pageKinds = Object.freeze(["other", "shared", "studio", "viewer"]);
+  const browserEnvironments = Object.freeze([
+    "android_webview",
+    "chrome",
+    "daum",
+    "edge",
+    "facebook",
+    "firefox",
+    "instagram",
+    "ios_webview",
+    "kakaotalk",
+    "line",
+    "naver",
+    "other",
+    "safari",
+    "samsung",
+    "unknown",
+    "wechat"
+  ]);
+  const osFamilies = Object.freeze(["android", "ios", "linux", "macos", "other", "windows"]);
+  const shippedAssetPaths = new Set([
+    "/assets/analytics/analytics.js",
+    "/assets/analytics/config.js",
+    "/assets/analytics/error-reporting.js",
+    "/assets/analytics/ga4.js",
+    "/assets/i18n/dictionary-en.js",
+    "/assets/i18n/dictionary-ko.js",
+    "/assets/i18n/i18n.js",
+    "/assets/integrations/map-location.js",
+    "/assets/invitation/core.js",
+    "/assets/invitation/intro-effects.js",
+    "/assets/invitation/template-art.js",
+    "/assets/invitation/template-catalog.js",
+    "/assets/invitation/template-renderers.js",
+    "/assets/invitation/viewer.js",
+    "/assets/media/hero-image.js",
+    "/assets/media/image-tools.js",
+    "/assets/publishing/publishing.js",
+    "/assets/publishing/shared-invitation.js",
+    "/assets/storage/invitation-storage.js",
+    "/assets/studio/app.js",
+    "/assets/studio/content-order.js",
+    "/assets/studio/preset-application.js"
+  ]);
+  const numericProperties = new Set(["error_column", "error_line", "error_status"]);
   const eventPropertyAllowlist = Object.freeze({
+    client_error: [
+      "browser_env",
+      "campaign",
+      "error_column",
+      "error_context",
+      "error_kind",
+      "error_line",
+      "error_message",
+      "error_source",
+      "error_stack",
+      "error_status",
+      "medium",
+      "os_family",
+      "os_version",
+      "page",
+      "source"
+    ],
     landing_viewed: ["campaign", "flow_id", "medium", "source"],
     template_selected: ["campaign", "flow_id", "layout_family", "medium", "occasion", "source", "template_id"],
     editing_started: ["campaign", "field_group", "flow_id", "medium", "occasion", "source", "template_id"],
@@ -94,13 +181,19 @@
     share_clicked: ["campaign", "channel", "flow_id", "medium", "source", "template_id"]
   });
   const stringLimits = Object.freeze({
+    browser_env: 24,
     campaign: 64,
     channel: 32,
+    error_context: 40,
+    error_kind: 16,
     field_group: 40,
     flow_id: 80,
     layout_family: 64,
     medium: 32,
     occasion: 64,
+    os_family: 16,
+    os_version: 12,
+    page: 16,
     source: 32,
     template_id: 80
   });
@@ -180,10 +273,49 @@
 
   const includesValue = (values, value) => values.includes(value);
 
+  const normalizeAssetPath = (value) => {
+    if (typeof value !== "string" || !value.trim()) return "";
+    try {
+      const Url = root.URL || globalThis.URL;
+      if (typeof Url !== "function") return "";
+      const parsed = new Url(value, `https://${productionHost}/`);
+      if (parsed.hostname !== productionHost) return "";
+      return shippedAssetPaths.has(parsed.pathname) ? parsed.pathname : "";
+    } catch {
+      return "";
+    }
+  };
+
+  const normalizeStackFrames = (value) => {
+    if (typeof value !== "string") return "";
+    const frames = [];
+    const pattern = /((?:https?:\/\/[^\s():]+)?\/assets\/[A-Za-z0-9_./-]+\.js):(\d+):(\d+)/g;
+    let match;
+    while ((match = pattern.exec(value)) && frames.length < 8) {
+      const asset = normalizeAssetPath(match[1]);
+      if (!asset) continue;
+      const line = Math.min(Number(match[2]), 9999999);
+      const column = Math.min(Number(match[3]), 9999999);
+      const frame = `${asset}:${line}:${column}`;
+      if (!frames.includes(frame)) frames.push(frame);
+    }
+    return frames.join("\n");
+  };
+
   const normalizeAllowedValue = (key, value) => {
+    if (key === "error_source") return normalizeAssetPath(value);
+    if (key === "error_stack") return normalizeStackFrames(value);
+
     const normalized = normalizeString(value, stringLimits[key] || 64);
     if (!normalized) return "";
 
+    if (key === "error_kind") return includesValue(errorKinds, normalized) ? normalized : "";
+    if (key === "error_message") return includesValue(errorMessages, normalized) ? normalized : "";
+    if (key === "error_context") return includesValue(errorContexts, normalized) ? normalized : "";
+    if (key === "page") return includesValue(pageKinds, normalized) ? normalized : "";
+    if (key === "browser_env") return includesValue(browserEnvironments, normalized) ? normalized : "";
+    if (key === "os_family") return includesValue(osFamilies, normalized) ? normalized : "";
+    if (key === "os_version") return /^\d{1,3}(?:\.\d{1,3}){0,2}$/.test(normalized) ? normalized : "";
     if (key === "campaign") return normalized === registeredCampaign ? normalized : "";
     if (key === "medium") return Object.values(registeredUtmPairs).includes(normalized) ? normalized : "";
     if (key === "source") return Object.hasOwn(registeredUtmPairs, normalized) ? normalized : "";
@@ -287,7 +419,7 @@
       if (value === undefined || value === null || value === "") continue;
       if (key.startsWith("has_")) {
         props[key] = normalizeBoolean(value);
-      } else if (key.endsWith("_count")) {
+      } else if (key.endsWith("_count") || numericProperties.has(key)) {
         const number = normalizeNumber(value);
         if (number !== undefined) props[key] = number;
       } else {
@@ -308,7 +440,7 @@
       if (value === undefined || value === null || value === "") continue;
       if (key.startsWith("has_")) {
         props[key] = normalizeBoolean(value);
-      } else if (key.endsWith("_count")) {
+      } else if (key.endsWith("_count") || numericProperties.has(key)) {
         const number = normalizeNumber(value);
         if (number !== undefined) props[key] = number;
       } else {

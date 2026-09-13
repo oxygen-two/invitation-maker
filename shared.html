@@ -139,7 +139,15 @@
        invitation using the template catalog, art and renderers, so those three
        must already be defined; shared-invitation.js drives the whole page and
        goes last. Reordering these silently breaks rendering. -->
+  <!-- This is the page a guest opens from a link, often inside KakaoTalk's
+       in-app browser, which has no console. If a script below dies here, the
+       guest sees a dead invitation and we never hear about it unless the
+       report travels over the network — so the reporter is installed before
+       anything it is meant to watch. analytics.js is what carries the report;
+       it stays inert off production exactly as it does in the studio. -->
   <script src="/assets/analytics/config.js"></script>
+  <script src="/assets/analytics/analytics.js"></script>
+  <script src="/assets/analytics/error-reporting.js"></script>
   <script type="module" src="/assets/analytics/ga4.js"></script>
   <script src="/assets/invitation/intro-effects.js"></script>
   <script src="/assets/invitation/template-catalog.js"></script>
