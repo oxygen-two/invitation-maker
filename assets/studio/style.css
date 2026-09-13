@@ -994,6 +994,9 @@ input, textarea, select { scroll-margin-block:120px 160px; }
 
 .content-editor-section {
   display: grid;
+  /* Let the nested grid shrink below the command row's intrinsic width. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 10px;
 }
 
@@ -2091,7 +2094,7 @@ a:focus-visible {
 
   .content-editor-commands {
     justify-content: flex-start;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     max-width: 100%;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
