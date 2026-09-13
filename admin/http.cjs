@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
+const { createReporter, observeHttp } = require("../server/observability.cjs");
 const { passwordMatches } = require("./config.cjs");
 
 const COOKIE = "invitation_admin_session";
@@ -148,7 +149,7 @@ const createHandler = ({ repository, config, sessionStore, staticRoot, sharedRoo
     } catch { return false; }
   };
 
-  return async (req, res) => {
+  return observeHttp(async (req, res) => {
     const parsed = new URL(req.url || "/", "http://admin.local");
     if (req.method === "GET" && await serve(req, res, parsed.pathname)) return;
     if (!parsed.pathname.startsWith("/admin/api/")) return error(res, 404, "NOT_FOUND");
@@ -208,7 +209,7 @@ const createHandler = ({ repository, config, sessionStore, staticRoot, sharedRoo
       } catch { return error(res, 503, "REPOSITORY_UNAVAILABLE"); }
     }
     return error(res, 405, "METHOD_NOT_ALLOWED");
-  };
+  }, { service: 'admin', report: createReporter(config.logSink) });
 };
 
 module.exports = { COOKIE, createHandler };

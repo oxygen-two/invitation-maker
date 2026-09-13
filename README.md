@@ -107,6 +107,12 @@ The session cookie only carries `Secure` when the request is actually HTTPS. A d
 
 GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics/config.js`. Local and preview hosts do not send events by default. See [analytics documentation](docs/analytics.md) for configuration and privacy boundaries.
 
+## Observability
+
+Monitoring is implemented in three layers: scheduled synthetic checks, privacy-limited PostHog `client_error` events, and JSON server error logs. Run `npm run monitor:synthetic` for read-only production checks; scheduled failures create/update a GitHub issue and recovery closes it. The separate weekly publish cycle requires `SYNTHETIC_PUBLISH_OPT_IN` and spends one non-refundable publishing quota unit per successful run.
+
+Browser reports respect the existing production-host and privacy gates. Server 5xx logs contain fixed route categories and generated request IDs, never raw errors or invitation content. Server logs remain in the hosting log system; external log retention and alert rules are not configured by this change. See [observability](docs/observability.md) for commands, boundaries, and coverage gaps.
+
 ## SEO
 
 Only the landing page is meant to be indexed. `robots.txt` allows `/` and disallows `/i/` and `/api/`; `sitemap.xml` lists just the landing page. Published invitations (`/i/{id}`) stay `noindex` — via `shared.html`'s meta tag and the API's `x-robots-tag` header — because they carry real names, dates, venues, and phone numbers a guest shared with their invitees, not with a search engine. A test asserts the `noindex` tag stays in place so this can't be quietly reverted. The landing page carries Google Search Console and Naver Search Advisor verification tags and its sitemap has been submitted to Google. See [SEO documentation](docs/seo.md) for the full reasoning and the build step that ships `robots.txt`/`sitemap.xml` to production.
@@ -137,6 +143,7 @@ npm run verify:publishing-mongo
 - [i18n](docs/i18n.md): dictionary structure, language resolution, and the authored-vs-chrome translation rule
 - [SEO](docs/seo.md): indexing, `noindex` on published invitations, and Search Console/Search Advisor verification
 - [Analytics](docs/analytics.md): GA4/PostHog configuration
+- [Observability](docs/observability.md): synthetic checks, browser errors, server logs, and coverage limits
 - [Design](DESIGN.md): editor and template conventions
 
 ## Maintenance
