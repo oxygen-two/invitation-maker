@@ -26,9 +26,9 @@ node "$HOME/.agents/skills/archify/bin/archify.mjs" visual-check docs/architectu
 
 ## 코드 근거와 범위
 
-검토 기준 커밋: `a043951f7ba2a4e549e72522410f62726890de5a`.
+검토 기준 커밋: `a043951f7ba2a4e549e72522410f62726890de5a`. 이 커밋은 `assets/`를 도메인별 하위 디렉토리로 옮기고 `server/mongo-repository.cjs`를 분리하기 **이전** 상태다. 아래 표의 경로는 diagram(`system.html`)이 실제로 렌더링된 근거이므로 그대로 보존하지만, 현재 코드에서의 대응 경로는 다음과 같다: `assets/publishing.js` → `assets/publishing/publishing.js`, `assets/app.js` → `assets/studio/app.js`, `assets/invitation-storage.js` → `assets/storage/invitation-storage.js`, `assets/shared-invitation.js` → `assets/publishing/shared-invitation.js`, `server/mongo-repository.cjs` → `server/storage/mongo-publications.cjs`(공개)와 `admin/storage/mongo-publications.cjs`(관리자)로 분리. 최신 디렉토리 책임은 [`../README.md`](../README.md)의 표를 기준으로 한다.
 
-| 연결 | 코드 근거 |
+| 연결 | 코드 근거 (검토 당시 경로) |
 | --- | --- |
 | 제작기 → 공개 API | `assets/publishing.js`, `api/invitations.js` |
 | 제작기 → IndexedDB | `assets/app.js`, `assets/invitation-storage.js` |

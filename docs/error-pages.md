@@ -65,7 +65,7 @@ are saved under `output/playwright/error-*.png`. Palette text contrast >= 4.5:1.
 After deployment (not claimed by local tests):
 
 1. Request a unique missing nested path and verify HTTP **404** and branded HTML.
-2. Confirm `/`, `/viewer.html`, `/assets/app.js` and existing birthday URLs still resolve.
+2. Confirm `/`, `/viewer.html`, `/assets/studio/app.js` and existing birthday URLs still resolve.
 3. Open the 11 explicit preview URLs on mobile and desktop. Confirm no analytics requests.
 4. Do not induce a production outage to test 5xx. Once a supported error integration
    exists, test controlled failures in Preview and verify original HTTP statuses.

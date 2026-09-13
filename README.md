@@ -12,7 +12,9 @@ A static-first invitation editor with live previews, standalone HTML downloads, 
 - Anonymous publishing with random Base62 public IDs
 - Public invitation viewing and owner-token deletion
 - A separate local admin service for search, pagination, details, and revocation
+- Korean and English studio, viewer, and admin UI, with dependency-free `Intl`-backed date/number formatting
 - Optional GA4 and PostHog analytics
+- Landing page indexed by search engines; published invitations deliberately are not
 
 ## Architecture
 
@@ -52,6 +54,14 @@ python3 -m http.server 4173
 
 `npm start`, `npm run admin`, `npm run dev`, and `npm run dev:admin` are all local-developer commands — none of them run in production. Production never runs `server/index.cjs`; it deploys through `api/*.js` serverless functions and `scripts/build-public.cjs`, configured entirely from Vercel's environment variables. For a second local config (e.g. a different local database), copy `.env.example` to `.env.dev` and run `npm run dev` (or `npm run dev:admin`) — `npm start`/`npm run admin` keep loading `.env` unchanged. Both `.env` and `.env.dev` should point at your own machine; both entry points print the database name and host they connect to at startup, and warn loudly if that host isn't loopback.
 
+## Studio experience
+
+The preview renders in a `srcdoc` iframe rather than being injected into the page: the invitation's own headings stay out of the studio's outline, and the preview runs the exact standalone document a guest receives, so it can never silently drift from the actual export. It stays visible while scrolling a long form. The three stages (gallery, edit, finish) share one layout so moving between them doesn't reflow the page. Finishing an invitation offers three peer choices — save to the browser's local library, save to an HTML file, or share a public link — the latter two opening a dialog that explains what you're getting: the local library survives only in this browser, and a published link outlives the browser while the token that can revoke it does not.
+
+## Language
+
+The studio, the shared/public viewer, and standalone downloads support Korean and English with no library or bundler — a dictionary under `assets/i18n/` plus `data-i18n` attributes. Language resolves from an explicit `?lang=` override, then a stored choice, then the visitor's own browser preference, defaulting to Korean; `<html lang>` and generated/sample dates (via `Intl`) follow it. **An invitation's authored content is never translated — only the chrome around it is.** A guest with an English browser opening a Korean invitation's public link sees English loading/error text around an invitation still entirely in the Korean it was written in; a standalone download bakes its chrome in whatever language was active at export time. See [i18n documentation](docs/i18n.md) for the dictionary structure, how to add a language, and the full authored-vs-chrome rule.
+
 ## Public publishing
 
 Set your MongoDB connection in the ignored `.env` file:
@@ -74,7 +84,7 @@ See [publishing documentation](docs/publishing.md) for authentication headers, l
 
 ## Local administration
 
-The admin service runs separately from the public server and is excluded from the public static build. It also requires `MONGODB_URI` and `MONGODB_DB` for the database you want to manage.
+The admin service runs separately from the public server and is excluded from the public static build. It also requires `MONGODB_URI` and `MONGODB_DB` for the database you want to manage. `admin/public/` (its HTML/CSS/JS) is committed to Git — `.gitignore`'s `public/` rule used to match at every depth, so this directory was silently untracked and a fresh clone got an admin server with no pages; the rule is now anchored to `/public/` so only the build output at the repository root is ignored.
 
 Set `ADMIN_PASSWORD` in your ignored `.env`, then run:
 
@@ -95,7 +105,11 @@ The session cookie only carries `Secure` when the request is actually HTTPS. A d
 
 ## Analytics
 
-GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics-config.js`. Local and preview hosts do not send events by default. See [analytics documentation](docs/analytics.md) for configuration and privacy boundaries.
+GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics/config.js`. Local and preview hosts do not send events by default. See [analytics documentation](docs/analytics.md) for configuration and privacy boundaries.
+
+## SEO
+
+Only the landing page is meant to be indexed. `robots.txt` allows `/` and disallows `/i/` and `/api/`; `sitemap.xml` lists just the landing page. Published invitations (`/i/{id}`) stay `noindex` — via `shared.html`'s meta tag and the API's `x-robots-tag` header — because they carry real names, dates, venues, and phone numbers a guest shared with their invitees, not with a search engine. A test asserts the `noindex` tag stays in place so this can't be quietly reverted. The landing page carries Google Search Console and Naver Search Advisor verification tags and its sitemap has been submitted to Google. See [SEO documentation](docs/seo.md) for the full reasoning and the build step that ships `robots.txt`/`sitemap.xml` to production.
 
 ## Tests and build
 
@@ -111,19 +125,23 @@ For integration checks against a disposable MongoDB test database:
 npm run verify:publishing-mongo
 ```
 
-`build:public` copies public root HTML and `assets/` into `public/`. Admin files and architecture documentation are excluded.
+`build:public` copies public root HTML and `assets/` into `public/`, including `robots.txt` and `sitemap.xml`. Admin files and architecture documentation are excluded.
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `verify` job runs `npm test` and `npm run build:public` on Node 22 and asserts the build left tracked files unchanged, and a `publishing-mongo` job runs `npm run verify:publishing-mongo` against a real `mongo:7` service container. There was no CI before this.
 
 ## Documentation
 
 - [Architecture review (Korean)](docs/architecture/README.md): boundaries and refactoring progress
 - [Archify diagram guide (Korean)](docs/architecture/archify/README.md): installation, source, regeneration, and validation
 - [Publishing](docs/publishing.md): API and MongoDB operations
+- [i18n](docs/i18n.md): dictionary structure, language resolution, and the authored-vs-chrome translation rule
+- [SEO](docs/seo.md): indexing, `noindex` on published invitations, and Search Console/Search Advisor verification
 - [Analytics](docs/analytics.md): GA4/PostHog configuration
 - [Design](DESIGN.md): editor and template conventions
 
 ## Maintenance
 
-- Keep normalization and rendering rules centered on `assets/invitation-core.js`.
+- Keep normalization and rendering rules centered on `assets/invitation/core.js`.
 - Preserve separate authentication flows for public publishing and administration.
 - Use response DTOs instead of returning raw database documents.
 - Keep examples in documentation or isolated fixtures, outside the public root.
