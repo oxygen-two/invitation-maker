@@ -1,59 +1,103 @@
-# 운영 관측
+# Observability
 
-관측은 **합성 모니터링 → 브라우저 오류 수집 → 서버 오류 로그** 순서로 구성합니다. 정상 응답처럼 보이는 기능 손상과 실제 예외를 서로 다른 경로로 확인합니다. 새 npm 의존성은 없습니다.
+Three independent layers, in the order a failure is most likely to be caught: synthetic checks against the live site, privacy-limited browser error reports, and server error logs. They exist because the incidents this project has actually had did not throw exceptions — a UI that was never committed, an admin pointed at a database whose name did not match production and calmly reported zero of everything. Nothing crashed, nothing logged, and both were found by a person noticing something looked wrong. These checks assert what production *should* look like instead of waiting for it to throw. No new npm dependency was added for any of this.
 
-## 1. 합성 모니터링
+## 1. Synthetic monitoring
 
-`scripts/synthetic-monitor.cjs`는 운영 HTML, 검색 확인 태그, robots.txt, sitemap.xml, 없는 초대장 안내와 API 응답을 검사합니다. 초대장을 발행하거나 실제 발행물을 조회하지 않습니다. 따라서 발행 쿼터를 소비하거나 방문으로 만료일을 연장하지 않습니다.
+`scripts/synthetic-monitor.cjs` runs eight read-only checks against a deployed origin and touches nothing: it never publishes, reads, or revokes a real invitation.
 
 ```bash
 npm run monitor:synthetic
 SYNTHETIC_ORIGIN=http://127.0.0.1:4173 npm run monitor:synthetic
 ```
 
-`.github/workflows/synthetic-monitoring.yml`은 15분 간격으로 예약되어 있으며 수동 실행도 가능합니다. 실패한 검사만 재시도한 뒤 계속 실패하면 GitHub 추적 이슈를 생성하거나 갱신합니다. 복구되면 이슈를 닫습니다. 실제 실행 간격은 GitHub 스케줄 지연에 따라 길어질 수 있습니다. 알림 수신은 저장소의 GitHub 알림 설정에 따릅니다.
+`SYNTHETIC_ORIGIN` overrides the production origin baked into the script, which is how you point it at a local build or a preview deploy. Exit code is non-zero if any check fails.
 
-`synthetic-publish-cycle.yml`은 별도의 **주 1회 발행 → 조회 → 폐기** 검사입니다. 저장소 secret `SYNTHETIC_PUBLISH_OPT_IN`이 비어 있으면 건너뜁니다. 활성화하면 성공한 실행마다 평생 발행 쿼터 1건을 사용하며, 폐기해도 돌려받지 않습니다. 운영 수동 실행도 `--confirm-quota-spend`가 필요합니다. 이 작업은 읽기 전용 검사와 분리되어 있습니다.
+The eight checks (see `scripts/synthetic/checks.cjs`):
 
-### 검사 범위의 한계
+1. The landing page returns 200, is HTML, and renders the studio heading rather than an error shell.
+2. Both search-console verification `<meta>` tags are present *and still carry their verified token* — a tag that is still there but holding somebody else's token fails as silently as a deleted one.
+3. `robots.txt` still disallows `/i/` and `/api/`.
+4. `sitemap.xml` parses (a shape check: declaration present, `urlset`/`url`/`loc` tags balanced).
+5. `GET /i/{unknown-id}` serves the HTML viewer shell with its error panel, never a raw JSON body — a guest must never see a JSON blob.
+6. `GET /api/invitations/{unknown-id}` answers `404 NOT_FOUND`, not `503 REPOSITORY_UNAVAILABLE`.
+7. That same API response still carries `x-robots-tag: noindex`.
+8. An unknown path (`/4asd`) serves the designed 404 page with a real 404 status.
 
-- 읽기 전용 검사는 JavaScript를 실행하지 않습니다. 브라우저 동작은 `verify-studio.cjs` 등의 별도 검증이 필요합니다.
-- 빈 DB와 올바른 DB가 같은 404를 반환할 수 있습니다. 발행 사이클도 공개 API의 쓰기·읽기 일관성만 확인하며, 관리자와 같은 DB를 보는지 또는 기존 데이터가 보존됐는지는 증명하지 않습니다.
-- 관리자 로그인, 실제 발행물 내용, iOS 카카오 인앱 동작은 이 예약 검사에 포함되지 않습니다.
+Checks 2, 3, and 7 guard things that are **silently droppable**: nothing user-visible breaks if the verification token goes stale, the `/i/` disallow disappears, or the `noindex` header stops being sent, yet each one costs something real — search-console ownership, a crawled directory of private invitations, or invitation content indexed by search engines. Nothing else in the codebase would notice if one of them regressed, which is exactly why a synthetic check exists for it.
 
-## 2. 브라우저 오류 수집
+Check 6 is the cheapest database health signal available: `handleGet` answers `404 NOT_FOUND` only after a query actually completed and found nothing, and `503 REPOSITORY_UNAVAILABLE` when the repository is missing or throws. So 404 proves Mongo answered; 503 means it did not — and asking for an id that can never exist costs zero writes.
 
-`assets/analytics/error-reporting.js`는 기존 `InvitationAnalytics` 전송 경로를 사용하여 PostHog에 `client_error` 이벤트를 보냅니다. 제작기와 shared/viewer 외부 페이지에서 전역 오류·처리되지 않은 Promise 거절·리소스 로드 실패를 수집합니다. 저장·발행 등 주요 처리된 실패는 명시적으로 보고하고, 다운로드처럼 처리되지 않은 예외는 전역 수집 경로로 보고합니다.
+`.github/workflows/synthetic-monitoring.yml` runs this suite on a 15-minute schedule (and on `workflow_dispatch`), separate from `ci.yml` on purpose: CI answers "is this commit good?" and must stay a fast, deterministic gate on a pull request; this answers "is what's deployed right now behaving?", which has a different cadence and must never turn a PR red because Vercel had a bad minute. Failures open or update a tracking GitHub issue; a signature of which checks are failing prevents re-commenting every 15 minutes on an unchanged incident, and recovery closes the issue. GitHub delays or disables scheduled runs under load or after 60 days of repository inactivity, so treat 15 minutes as a requested cadence, not a guarantee.
 
-개인정보를 지우는 정규식만 믿지 않고 **허용한 진단 값만 전송**합니다. 오류 메시지는 고정된 분류로 바꾸고, 스택은 알려진 배포 스크립트 경로와 행·열 위치로 제한합니다. 원문 메시지, 함수명, 임의 URL, 초대장 ID·본문·사진, 폼 값, 저장소 내용은 보내지 않습니다. 사전에 등록되지 않은 위치는 생략합니다.
+### Synthetic publish cycle
 
-기존 운영 호스트 제한과 `enabled`, `optOut`, DNT/GPC 설정이 적용됩니다. 로컬·미리보기에서는 외부 전송하지 않습니다. 같은 오류는 중복 억제하고, 페이지당 최대 8건만 보고합니다. 수집 또는 전송 실패가 사용자 작업을 중단하지 않도록 처리합니다. 기존 이벤트 경계와 공급자 설정은 [분석 문서](analytics.md)를 참고하세요.
+`scripts/synthetic-publish-cycle.cjs` is a separate, opt-in check: publish a real invitation, read it back, revoke it. It closes the one gap the read-only suite cannot: a database that is reachable and healthy but pointed at the *wrong* place answers "is a missing id a 404?" exactly the way a correct database does. Writing a unique marker and reading that same marker back is the only way to prove the write path and the read path reach the same database.
 
-PostHog에서 이벤트 이름 `client_error`로 조회하고 페이지 종류·오류 분류·스크립트 위치별로 집계할 수 있습니다. 이는 수동 커스텀 이벤트이며, PostHog의 자동 예외 수집이나 세션 녹화를 켜는 변경이 아닙니다. 별도 대시보드·알림 규칙을 자동 생성하지도 않습니다.
+It is deliberately rare. `releaseCounter()` in `server/storage/mongo-publications.cjs` is called only on the rollback path of a *failed* publish; `remove()` (used to revoke) never calls it. So **revoking a publication does not return its quota** — every successful cycle permanently consumes one unit of the shared lifetime publish limit (1000, via `PUBLISH_LIFETIME_LIMIT`) that real users draw against. Running it daily would spend 365 units a year (36.5% of the budget); weekly spends 52 (5.2%), which is the trade-off `.github/workflows/synthetic-publish-cycle.yml` makes explicit. A single long-lived canary invitation isn't a substitute either — every publication expires after `PUBLISH_MAX_LIFETIME_DAYS` (30 days) regardless, so it would quietly turn into a 404 check within a month.
 
-스크립트가 실행되기 전의 실패, 샌드박스 iframe 내부 오류, 다운로드된 독립 HTML, 광고 차단기로 막힌 전송은 보장하지 않습니다. 따라서 이 수집기를 추가했다고 iOS 카카오 인앱의 인트로 멈춤 문제가 해결되거나 반드시 보고되는 것은 아닙니다. 관리자 브라우저에는 분석 수집기를 추가하지 않습니다.
+The workflow is gated behind the repository secret `SYNTHETIC_PUBLISH_OPT_IN`: unset, the scheduled run skips cleanly (green, not red) rather than failing every week for every fork that hasn't configured it. A manual `workflow_dispatch` run additionally requires `--confirm-quota-spend`, so a human still has to mean it. Run it by hand right after any deploy that touches `MONGODB_URI`, `MONGODB_DB`, or the publishing config — that's the moment a wrong-database failure would actually be introduced, and the scheduled Monday run could be up to 7 days late to catch it.
 
-## 3. 서버 오류 로그
+### What this suite cannot see
 
-`server/observability.cjs`는 공개 서버와 관리자 HTTP 처리기의 5xx 응답을 요청당 한 번 JSON으로 stderr에 기록합니다. Vercel 공개 API도 같은 처리기를 사용합니다. 예상 가능한 4xx 응답은 서버 오류로 기록하지 않습니다. 처리기 내부의 예기치 않은 예외에는 민감한 원문 대신 일반적인 500 응답을 반환합니다.
+Say this plainly rather than implying fuller coverage:
+
+- **A database that is connected but empty or wrong**, for the read-only suite. A missing-id lookup against an empty database returns the same 404 as a correct one. Only the weekly publish cycle closes this, and only for one database at a time.
+- **The admin service**, which these checks never touch.
+- **Anything that requires JavaScript to execute.** The read-only checks assert on server-sent HTML; a page that arrives intact but then fails in the browser still looks healthy here. `scripts/verify-studio.cjs` and `scripts/verify-error-pages.cjs` drive a real browser and catch that class of failure, but are not part of this scheduled suite.
+- **Partial data loss, wrong invitation content, or anything about invitations real users published.**
+- **Availability between runs.** A 15-minute gap where the site is down and recovers looks perfect to a suite that only samples every 15 minutes.
+- **Whether the admin reads from the same database as the public API**, or whether previously published invitations still exist — the publish cycle proves the write and read paths agree with each other, nothing more.
+
+## 2. Browser error reporting
+
+`assets/analytics/error-reporting.js` rides the PostHog transport that `assets/analytics/analytics.js` already sets up, rather than adding a new SDK — this project has one runtime dependency and no bundler. It attaches a global `error`/`unhandledrejection` listener (plus a legacy `window.onerror` handler for older in-app WebViews) on the studio, the shared viewer, and the standalone viewer, and reports a `client_error` PostHog event. Selected handled failures — draft save, publish, revoke — report explicitly through the same path; everything else, including downloads, falls through the global listener.
+
+The motivating case: a user reported that the invitation intro hangs inside iOS KakaoTalk's in-app browser. That browser has no accessible console, so the only way to see what happened is for the failure to travel over the network. `browser_env` identifies that browser directly (in-app WebViews impersonate Safari/Chrome in their user agent, so every known wrapper — KakaoTalk, Line, Instagram, Facebook, Naver, Daum, WeChat, generic Android WebView — is matched before the browser it claims to be).
+
+The privacy design is the part worth reading closely, because someone will eventually want richer context for debugging and the reasoning needs to be findable here rather than rediscovered. The report does not attempt to mask or scrub free-form text — it **never carries free-form text at all**. Every field is drawn from a small closed vocabulary:
+
+| Field | Values / shape |
+|---|---|
+| `page` | `studio` \| `shared` \| `viewer` \| `other` — never the URL or the invitation id (the id *is* the capability to view a private invitation) |
+| `error_kind` / `error_message` | one of a fixed enum: `runtime` → `runtime_error`, `promise` → `promise_rejection`, `network` → `network_error`, `resource` → `resource_load_failure`, `handled` → `handled_error` — never the thrown message |
+| `error_context` | a fixed enum naming the code path (`boot`, `draft_save`, `publish`, `shared_fetch`, `window`, …), defaulting to `unknown` |
+| `error_stack` | normalized to `asset-path:line:column` per frame, only for paths in a hardcoded allowlist of shipped `/assets/**.js` files, capped at 8 frames |
+| `browser_env` | a closed vocabulary of known wrappers/browsers (`kakaotalk`, `line`, `safari`, `chrome`, `ios_webview`, …) |
+| `os_family` / `os_version` | closed vocabulary (`ios`, `android`, `macos`, `windows`, `linux`) plus a coarse version string — enough to tell iOS 15 from iOS 18, which are different JavaScript engines wearing the same name |
+
+This was verified empirically, not just trusted: a report was built from an error whose message and stack were stuffed with a real name, a phone number, a venue, and a 22-character invitation id. The resulting payload came back as
+
+```json
+{"browser_env":"kakaotalk","os_family":"ios","os_version":"17.0",
+ "page":"shared","error_kind":"runtime","error_message":"runtime_error"}
+```
+
+— none of the injected content survived. Tests in `tests/error-reporting.test.js` lock this boundary so it cannot quietly widen later; `assets/analytics/analytics.js` and PostHog's `before_send` re-apply their own allowlists on top as a second layer.
+
+The trade-off is honest and worth stating: dropping the raw message costs real diagnostic detail. In practice the normalized stack frame plus the environment usually locates the fault anyway, and for the motivating KakaoTalk case, `browser_env` alone answers the question that mattered. Reporting also respects the analytics module's existing production-host, `enabled`, opt-out, and DNT/GPC gates, deduplicates identical failures, and caps itself at 8 reports per page so a page that is failing in a loop cannot flood PostHog. A reporter that itself throws is treated as worse than one that misses, so every handler is wrapped to fail silently. It does not install on sandboxed invitation iframes, standalone downloaded HTML, or admin pages, and it cannot see failures that happen before the script itself has loaded. Adding this reporter does not by itself guarantee the iOS KakaoTalk intro issue is resolved or will always be reported — only that when it is, there is now a place for the signal to go. See [analytics.md](analytics.md) for the event allowlist and provider configuration this reporter shares.
+
+## 3. Server error logs
+
+`server/observability.cjs` wraps the public and admin HTTP handlers (the same wrapper backs the Vercel public API) and logs a single JSON line to stderr the first time a request's response status is 5xx. Expected 4xx responses are never logged as server errors. An unexpected exception inside a handler is caught, logged, and answered with a generic 500 — never the original error text.
 
 ```json
 {"timestamp":"2026-09-13T00:00:00.000Z","event":"server_error","level":"error","service":"public","route":"publication","status":503,"method":"GET","request_id":"11111111-1111-4111-8111-111111111111"}
 ```
 
-허용 필드는 시각, 고정 이벤트·서비스·라우트 분류, 5xx 상태, HTTP 메서드, 서버가 생성한 요청 ID입니다. 실제 URL, 검색어, 요청 헤더·본문, 세션·관리 토큰, DB 접속 문자열, 예외 메시지·스택은 기록하지 않습니다.
+Allowed fields are exactly: `timestamp`, a fixed `event` (`server_error` or `expiry_refresh_failed`), `level`, a fixed `service` (`public`/`admin`), a fixed `route` category (`publication`, `publications`, `session`, `static`, or `other`), the 5xx `status`, the HTTP `method`, and a server-generated `request_id` (a UUID, not derived from anything the client sent). The actual request URL, query string, headers, body, session or admin tokens, the Mongo connection string, and the original exception's message or stack are never logged.
 
-만료 연장 부가 작업이 실패하면 `expiry_refresh_failed` 경고를 남기고 기존 만료일을 유지합니다. 초대장 표시를 막지 않습니다. 로그 출력 자체가 실패해도 응답을 변경하지 않습니다.
+When the best-effort expiry-extension side effect fails, the handler logs an `expiry_refresh_failed` warning and keeps serving the invitation with its existing expiry date rather than blocking the read — a failed housekeeping write must never prevent someone from viewing an invitation. Logging failing outright also never changes the HTTP response; diagnostics are not allowed to affect the API outcome (see the guard in `createReporter` in `server/observability.cjs`).
 
-공개 API는 Vercel 함수 로그에서 `server_error` 또는 `expiry_refresh_failed`로, 관리자는 실행 터미널이나 호스팅 로그에서 확인합니다. 서버 로그는 외부 PostHog로 전송하지 않습니다. 장기 보관, 로그 기반 알림, 프로세스 기동 전 오류 수집은 호스팅 설정의 별도 영역입니다.
+Find these logs in Vercel's function logs for the public API, and in the admin process's own stdout/terminal or hosting log system for the admin service. Server logs are never sent to PostHog or any external service. Long-term retention, log-based alerting, and capturing failures before the process has even started are hosting concerns outside this project's code.
 
-## 변경 시 검증
+## Verifying a change to any of this
 
 ```bash
-node --test tests/error-reporting.test.js tests/analytics.test.js tests/server-observability.test.js
+node --test tests/synthetic-monitoring.test.js tests/error-reporting.test.js tests/server-observability.test.js
 npm test
 npm run build:public
 git diff --check
 ```
 
-클라이언트 검증은 공급자 전송을 가로채어 개인정보 제외·설정 차단·중복 억제를 확인합니다. 서버 검증은 실제 HTTP 요청에 DB 오류와 로그 출력 오류를 주입하여 응답 유지와 안전한 로그 필드를 확인합니다. 실제 사용자 데이터로 오류를 재현하거나 운영 초대장을 폐기하는 방식으로 검증하지 않습니다.
+Client-side tests intercept the provider transport to check that private content is excluded, that the host/opt-out/DNT gates are honored, and that duplicate reports are suppressed. Server-side tests inject database errors and log-sink failures into real HTTP requests to check that responses stay correct and that only the allowed fields reach the log line. None of this is verified against real user data or by revoking a production invitation outside the scheduled weekly cycle.
