@@ -269,7 +269,7 @@
       ready: "지도 위치를 확인했습니다.",
       empty: "장소 또는 주소를 입력해 주세요.",
       pending: "장소 입력을 마치면 지도 위치를 확인합니다.",
-      notFound: "장소를 찾지 못했습니다. 도로명 주소를 입력해 주세요. 해외 장소라면 지도 서비스를 Google 지도로 바꿔 주세요.",
+      notFound: "장소를 찾지 못했습니다. 네이버 지도는 주소로만 찾을 수 있어요. 도로명 주소를 입력하거나, 장소 이름이나 해외 장소라면 지도 서비스를 Google 지도로 바꿔 주세요.",
       notFoundGoogle: "장소를 찾지 못했습니다. 주소를 더 자세히 입력하거나 지도 링크를 붙여 넣어 주세요.",
       serviceUnavailable: "지도 위치 검색을 사용할 수 없습니다. NAVER Geocoding 설정을 확인해 주세요.",
       serviceUnavailableGoogle: "지도 위치 검색을 사용할 수 없습니다. Google Maps Geocoding API 설정을 확인해 주세요.",
