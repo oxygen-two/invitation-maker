@@ -161,6 +161,9 @@
       "source"
     ],
     landing_viewed: ["campaign", "flow_id", "medium", "source"],
+    site_page_viewed: ["campaign", "flow_id", "medium", "page", "source"],
+    landing_cta_clicked: ["campaign", "flow_id", "medium", "placement", "source"],
+    landing_sample_opened: ["campaign", "flow_id", "medium", "source"],
     template_selected: ["campaign", "flow_id", "layout_family", "medium", "occasion", "source", "template_id"],
     editing_started: ["campaign", "field_group", "flow_id", "medium", "occasion", "source", "template_id"],
     invitation_completed: [
@@ -194,6 +197,7 @@
     os_family: 16,
     os_version: 12,
     page: 16,
+    placement: 16,
     source: 32,
     template_id: 80
   });
@@ -313,6 +317,7 @@
     if (key === "error_message") return includesValue(errorMessages, normalized) ? normalized : "";
     if (key === "error_context") return includesValue(errorContexts, normalized) ? normalized : "";
     if (key === "page") return includesValue(pageKinds, normalized) ? normalized : "";
+    if (key === "placement") return includesValue(["header", "hero", "gallery", "footer"], normalized) ? normalized : "";
     if (key === "browser_env") return includesValue(browserEnvironments, normalized) ? normalized : "";
     if (key === "os_family") return includesValue(osFamilies, normalized) ? normalized : "";
     if (key === "os_version") return /^\d{1,3}(?:\.\d{1,3}){0,2}$/.test(normalized) ? normalized : "";
