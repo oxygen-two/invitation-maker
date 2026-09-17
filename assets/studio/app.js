@@ -72,8 +72,6 @@ const state = {
 };
 
 let naverMapsPromise;
-let previewMapsPromise;
-let previewMapsNamespace;
 let previewRenderId = 0;
 let previewMapTimer;
 let pendingPreviewMapKey = null;
@@ -81,7 +79,6 @@ let photoSelectionPending = false;
 let heroImageSelectionPending = false;
 let heroImageDragState = null;
 let saveWritePending = false;
-const previewMapInstances = new WeakMap();
 const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
 let mobileViewScrollCaptured = false;
 const mapLookupVersions = new Map();
@@ -242,7 +239,6 @@ const handlePreviewClick = (event) => {
   delete canvas.dataset.mapState;
   status.textContent = t("map.loading");
   naverMapsPromise = undefined;
-  previewMapsPromise = undefined;
   previewRenderId += 1;
   mountPreviewMaps(previewRenderId);
 };
@@ -1013,9 +1009,6 @@ const setMapFallback = (canvas, status, canRetry = false) => {
   }
 };
 
-window.navermap_authFailure = () => {
-  previewHost?.querySelectorAll("[data-dynamic-map]").forEach((canvas) => setMapFallback(canvas));
-};
 
 /* A fresh invitation starts on the map service its author most likely needs:
    the English studio is the one people abroad use. It is only a starting
@@ -1133,56 +1126,6 @@ const loadNaverMaps = () => {
   return naverMapsPromise;
 };
 
-/* Preview maps load their SDK inside the frame rather than borrowing the
-   studio's. The studio copy stays for address lookup (it is the one carrying
-   the geocoder submodule), but a map is an interactive surface: driving one
-   from the parent window would leave its drag and wheel handlers bound to the
-   parent document while the pointer events happen in the frame. Loading it in
-   the frame is also what the standalone export does, so the preview and the
-   guest's invitation run the same code. */
-const loadPreviewNaverMaps = () => {
-  if (!previewDoc) return loadNaverMaps().then((maps) => { previewMapsNamespace = maps; return maps; });
-
-  const frameWindow = previewDoc.defaultView;
-  if (frameWindow?.naver?.maps) {
-    previewMapsNamespace = frameWindow.naver.maps;
-    return Promise.resolve(previewMapsNamespace);
-  }
-  if (!state.naverMapClientId) return Promise.reject(new Error("NAVER Maps Client ID is missing"));
-  if (previewMapsPromise) return previewMapsPromise;
-
-  previewMapsPromise = new Promise((resolve, reject) => {
-    if (!frameWindow) {
-      reject(new Error("Preview frame is unavailable"));
-      return;
-    }
-    frameWindow.navermap_authFailure = window.navermap_authFailure;
-    const script = previewDoc.createElement("script");
-    let timeoutId;
-    const finish = (callback, value) => {
-      clearTimeout(timeoutId);
-      script.onload = null;
-      script.onerror = null;
-      script.remove();
-      callback(value);
-    };
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}`;
-    script.async = true;
-    script.onload = () => frameWindow.naver?.maps
-      ? finish(resolve, frameWindow.naver.maps)
-      : finish(reject, new Error("NAVER Maps failed to initialize"));
-    script.onerror = () => finish(reject, new Error("NAVER Maps failed to load"));
-    timeoutId = setTimeout(() => finish(reject, new Error("NAVER Maps timed out")), MAP_LOAD_TIMEOUT_MS);
-    previewDoc.head.append(script);
-  });
-
-  previewMapsPromise.then((maps) => { previewMapsNamespace = maps; }).catch(() => {
-    previewMapsPromise = undefined;
-  });
-
-  return previewMapsPromise;
-};
-
 const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, message, mapKey }) => {
   const normalizedQuery = String(query || "").trim();
   const version = (mapLookupVersions.get(key) || 0) + 1;
@@ -1257,65 +1200,47 @@ const mountPreviewMaps = async (renderId) => {
     return;
   }
 
-  try {
-    if (currentMapProvider() === "google") {
-      /* Same nested real-URL map page the exported invitation uses; see
-         renderStandaloneMapScript in core.js for why Google cannot be drawn
-         directly in this srcdoc frame. */
-      if (!state.googleMapsApiKey) throw new Error("Google Maps API key is missing");
-      const frameWindow = previewDoc?.defaultView || window;
-      if (!frameWindow.__invitationMapListener) {
-        frameWindow.__invitationMapListener = true;
-        frameWindow.addEventListener("message", (event) => {
-          if (event.data?.type !== "invitation-map") return;
-          const canvas = [...(previewHost?.querySelectorAll("[data-dynamic-map]") || [])]
-            .find((candidate) => candidate.querySelector("iframe")?.contentWindow === event.source);
-          if (!canvas) return;
-          if (event.data.state === "ready") canvas.dataset.mapState = "ready";
-          else if (canvas.dataset.mapState !== "fallback") setMapFallback(canvas, null, true);
-        });
-      }
-      canvases.forEach((canvas) => {
-        if (!canvas.isConnected) return;
-        canvas.querySelector("iframe")?.remove();
-        const frame = (previewDoc || document).createElement("iframe");
-        const hash = new URLSearchParams({
-          lat: canvas.dataset.latitude,
-          lng: canvas.dataset.longitude,
-          zoom: canvas.dataset.zoom,
-          lang: I18n?.getLanguage?.() || "ko",
-          key: state.googleMapsApiKey
-        });
-        frame.src = `${new URL("assets/integrations/google-map.html", window.location.href).href}#${hash}`;
-        frame.title = t("invitation.mapRegionLabel");
-        frame.style.cssText = "display:block;width:100%;height:100%;border:0";
-        canvas.append(frame);
-        canvas.dataset.mapState = "loading";
-        previewMapInstances.set(canvas, { frame });
-        setTimeout(() => {
-          if (canvas.isConnected && canvas.dataset.mapState === "loading") setMapFallback(canvas, null, true);
-        }, 15000);
-      });
-    } else {
-      const maps = await loadPreviewNaverMaps();
-      if (renderId !== previewRenderId) return;
-      canvases.forEach((canvas) => {
-        if (!canvas.isConnected) return;
-        const position = new maps.LatLng(
-          Number(canvas.dataset.latitude),
-          Number(canvas.dataset.longitude)
-        );
-        const map = new maps.Map(canvas, {
-          center: position,
-          zoom: Number(canvas.dataset.zoom)
-        });
-        const marker = new maps.Marker({ map, position });
-        previewMapInstances.set(canvas, { map, marker, events: maps.Event });
-        canvas.dataset.mapState = "ready";
+  /* Same nested real-URL map pages the exported invitation uses; see
+     renderStandaloneMapScript in core.js for why neither NAVER nor Google can
+     be drawn directly in this srcdoc frame. */
+  const google = currentMapProvider() === "google";
+  const key = google ? state.googleMapsApiKey : state.naverMapClientId;
+  if (!key) {
+    canvases.forEach((canvas) => setMapFallback(canvas, null, false));
+  } else {
+    const frameWindow = previewDoc?.defaultView || window;
+    if (!frameWindow.__invitationMapListener) {
+      frameWindow.__invitationMapListener = true;
+      frameWindow.addEventListener("message", (event) => {
+        if (event.data?.type !== "invitation-map") return;
+        const canvas = [...(previewHost?.querySelectorAll("[data-dynamic-map]") || [])]
+          .find((candidate) => candidate.querySelector("iframe")?.contentWindow === event.source);
+        if (!canvas) return;
+        if (event.data.state === "ready" && canvas.dataset.mapState === "loading") canvas.dataset.mapState = "ready";
+        else if (event.data.state === "failed" && canvas.dataset.mapState !== "fallback") setMapFallback(canvas, null, true);
       });
     }
-  } catch {
-    canvases.forEach((canvas) => setMapFallback(canvas, null, true));
+    const page = google ? "google-map.html" : "naver-map.html";
+    canvases.forEach((canvas) => {
+      if (!canvas.isConnected) return;
+      canvas.querySelector("iframe")?.remove();
+      const frame = (previewDoc || document).createElement("iframe");
+      const hash = new URLSearchParams({
+        lat: canvas.dataset.latitude,
+        lng: canvas.dataset.longitude,
+        zoom: canvas.dataset.zoom,
+        lang: I18n?.getLanguage?.() || "ko",
+        key
+      });
+      frame.src = `${new URL(`assets/integrations/${page}`, window.location.href).href}#${hash}`;
+      frame.title = t("invitation.mapRegionLabel");
+      frame.style.cssText = "display:block;width:100%;height:100%;border:0";
+      canvas.append(frame);
+      canvas.dataset.mapState = "loading";
+      setTimeout(() => {
+        if (canvas.isConnected && canvas.dataset.mapState === "loading") setMapFallback(canvas, null, true);
+      }, 15000);
+    });
   }
   if (renderId === previewRenderId) revealPendingPreviewMap();
 };
@@ -1325,23 +1250,12 @@ const mapSignature = (panel) => {
   return [panel.dataset.mapKey, panel.dataset.mapProvider, canvas?.dataset.latitude, canvas?.dataset.longitude, canvas?.dataset.zoom].join(":");
 };
 
+/* Preview maps live in their own frames, so discarding a panel discards its
+   map. There is no SDK object in this document to tear down — which is also
+   why a map service switch can no longer throw from inside NAVER's
+   Marker.setMap(null) and freeze the preview. */
 const cleanupPreviewMap = (canvas) => {
-  const instance = previewMapInstances.get(canvas);
-  if (!instance) return;
-  previewMapInstances.delete(canvas);
-  /* Best effort only. NAVER's Marker.setMap(null) can throw inside the SDK
-     ("reading 'capitalize'") for a map whose panel is being replaced, and an
-     exception here aborted updatePreviewMarkup, freezing the preview for the
-     rest of the session. Switching map service replaces every panel, so it
-     hit this reliably. */
-  try {
-    instance.marker?.setMap?.(null);
-    const events = instance.events || previewMapsNamespace?.Event;
-    events?.clearInstanceListeners?.(instance.marker);
-    events?.clearInstanceListeners?.(instance.map);
-  } catch {
-    // The panel is discarded either way.
-  }
+  canvas.querySelector("iframe")?.remove();
 };
 
 const updatePreviewMarkup = (html) => {

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Map</title>
+  <style>html,body,#map{width:100%;height:100%;margin:0}</style>
+  <!--
+    One NAVER map, drawn in a document that has a real URL.
+
+    Invitations render inside about:srcdoc frames (the studio preview and the
+    published viewer). NAVER Maps checks the page URL against the client's
+    registered web service URLs, and from srcdoc it sends "about:srcdoc":
+    "500 / Internal Server Error ... URI: about:srcdoc", shown as
+    "네이버 지도 Open API 인증이 실패했습니다". Observed on production; the same
+    map loaded from a real production URL authorized and drew its marker.
+    This is the NAVER twin of google-map.html.
+
+    Everything arrives in the fragment, which is never sent to a server:
+    #lat=..&lng=..&zoom=..&key=..
+    State is posted to the parent as {type: "invitation-map", state}.
+  -->
+</head>
+<body>
+<div id="map"></div>
+<script>
+(() => {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const latitude = Number(params.get("lat"));
+  const longitude = Number(params.get("lng"));
+  const zoom = Number(params.get("zoom")) || 16;
+  const key = params.get("key") || "";
+  let reported = "";
+  const report = (state) => {
+    if (reported === "failed") return;
+    reported = state;
+    window.parent.postMessage({ type: "invitation-map", state }, "*");
+  };
+  if (!/^[A-Za-z0-9_-]+$/.test(key) || !Number.isFinite(latitude) || !Number.isFinite(longitude)
+    || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    report("failed");
+    return;
+  }
+  // NAVER reports a rejected client asynchronously, after the map exists.
+  window.navermap_authFailure = () => report("failed");
+  const script = document.createElement("script");
+  script.src = "https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=" + encodeURIComponent(key);
+  script.async = true;
+  script.onload = () => {
+    try {
+      const position = new naver.maps.LatLng(latitude, longitude);
+      const map = new naver.maps.Map(document.getElementById("map"), { center: position, zoom });
+      new naver.maps.Marker({ map, position });
+      report("ready");
+    } catch (error) {
+      report("failed");
+    }
+  };
+  script.onerror = () => report("failed");
+  document.head.append(script);
+  setTimeout(() => { if (!reported) report("failed"); }, 10000);
+})();
+</script>
+</body>
+</html>

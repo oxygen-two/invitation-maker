@@ -48,12 +48,15 @@ Create the key in Google Cloud Console with both restrictions:
 
 Enter each site as its own row with the scheme and `/*`. A single row such as `a.com,127.0.0.1:4173` matches nothing. Key changes take up to five minutes to apply.
 
-### Why Google is drawn in its own pages
+### Why maps are drawn in their own pages
 
-Two pages in `assets/integrations/` exist because Google Maps cannot run directly where invitations are rendered. Both findings come from Chrome with the restricted key above.
+Maps are never drawn in the invitation document. The studio preview and the published viewer show invitations in `about:srcdoc` frames, and both services reject that page when they authorize a key. Both findings come from Chrome.
 
-- **`google-map.html` draws every Google map.** The studio preview and the published viewer show invitations in `about:srcdoc` frames. Google authorizes the key with a delayed call about 30 to 40 seconds after a map appears. From an `srcdoc` document it reports the site as `null`, fails with `RefererNotAllowedMapError`, and replaces the map with its error screen. The same map inside a nested frame with a real URL stays up, including inside the viewer's sandboxed, no-referrer frame. Coordinates and the public key travel in the URL fragment, which is never sent to a server. The page reports `ready` or `failed` back with `postMessage`.
-- **`google-geocoder.html` answers address lookups in the studio.** The geocoder inside the `srcdoc` preview never calls back. A Google copy loaded with a real URL in the studio's own origin also broke the preview map. This page runs in a sandbox without `allow-same-origin`, so it has a real URL but no access to the studio's storage.
+- **NAVER:** `assets/integrations/naver-map.html` draws every NAVER map. From `srcdoc`, NAVER sends `about:srcdoc` as the page URL and answers `500 / Internal Server Error ... URI: about:srcdoc`, shown as "네이버 지도 Open API 인증이 실패했습니다". Observed on production on 2026-09-18. The same map loaded from a real production URL authorized and drew its marker. Before this, NAVER maps in the preview and in published invitations failed this way.
+- **Google:** `assets/integrations/google-map.html` draws every Google map. Google authorizes the key with a delayed call about 30 to 40 seconds after a map appears. From `srcdoc` it reports the site as `null`, fails with `RefererNotAllowedMapError`, and replaces the map with its error screen. The nested real-URL page stays up, including inside the viewer's sandboxed, no-referrer frame.
+- **Studio address lookup:** NAVER lookups run in the studio window, which has a real URL. Google lookups run in the sandboxed `google-geocoder.html`, because the geocoder inside the `srcdoc` preview never calls back and a same-origin Google copy broke the preview map.
+
+Both map pages take coordinates and the public key in the URL fragment, which is never sent to a server, and report `ready` or `failed` back with `postMessage`. The NAVER client allows only its registered web service URLs, so NAVER maps show the fallback status on `127.0.0.1`; verify NAVER on the production domain.
 
 Short checks hide the map failure because it arrives late. Any change to how Google maps load must be verified by keeping a map on screen for at least a minute.
 
