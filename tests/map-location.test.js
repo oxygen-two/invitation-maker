@@ -92,3 +92,79 @@ test("resolve supports the legacy NAVER geocoder response shape", async () => {
     longitude: 127.1
   });
 });
+
+test("Google place links trust the pinned place, not the camera centre", async () => {
+  const url = "https://www.google.com/maps/place/Eiffel+Tower/@48.8583701,2.2919064,17z/data=!3m1!4b1!4m6!3m5!1s0x47e66e2964e34e2d:0x8ddca9ee380ef7e0!8m2!3d48.8583701!4d2.2944813!16zL20vMDJqODE";
+  assert.deepEqual(await MapLocation.resolve(null, "unrelated name", url), { latitude: 48.8583701, longitude: 2.2944813 });
+});
+
+test("Google links with an explicit coordinate pair are trusted on any Google country domain", async () => {
+  const cases = [
+    ["https://www.google.com/maps/search/?api=1&query=35.6585805,139.7454329", { latitude: 35.6585805, longitude: 139.7454329 }],
+    ["https://maps.google.com/?q=37.5741694,126.9916905", { latitude: 37.5741694, longitude: 126.9916905 }],
+    ["https://www.google.co.kr/maps/dir/?api=1&destination=-33.8567844,151.2152967", { latitude: -33.8567844, longitude: 151.2152967 }],
+    ["https://www.google.com/maps/search/40.6892,+-74.0445", { latitude: 40.6892, longitude: -74.0445 }]
+  ];
+  for (const [url, expected] of cases) {
+    assert.deepEqual(await MapLocation.resolve(null, "", url), expected, url);
+  }
+});
+
+test("Google short links, text searches and camera-only links never become a marker", async () => {
+  for (const url of [
+    "https://maps.app.goo.gl/AbCdEf123",
+    "https://goo.gl/maps/AbCdEf123",
+    "https://www.google.com/maps?q=Eiffel+Tower",
+    "https://www.google.com/maps/@48.8583701,2.2919064,17z"
+  ]) {
+    await assert.rejects(MapLocation.resolve(null, "Eiffel Tower", url), { code: "URL_LOCATION_UNAVAILABLE" }, url);
+  }
+});
+
+test("look-alike Google hosts and non-map Google pages are rejected", async () => {
+  for (const url of [
+    "https://www.google.com.evil.test/maps?q=37,127",
+    "https://www.google.com/search?q=37,127",
+    "https://google.evil.com/maps?q=37,127",
+    "https://www.google.com/maps?q=91,127"
+  ]) {
+    await assert.rejects(MapLocation.resolve(null, "", url), { code: "INVALID_MAP_URL" }, url);
+  }
+});
+
+test("Google geocoding reads LatLng methods from the first result", async () => {
+  const maps = {
+    Geocoder: class {
+      geocode({ address }, callback) {
+        assert.equal(address, "5 Avenue Anatole France, Paris");
+        callback([{ geometry: { location: { lat: () => 48.8583701, lng: () => 2.2944813 } } }], "OK");
+      }
+    }
+  };
+  assert.deepEqual(
+    await MapLocation.resolve(maps, " 5 Avenue Anatole France, Paris ", "", { provider: "google" }),
+    { latitude: 48.8583701, longitude: 2.2944813 }
+  );
+});
+
+test("Google geocoding separates an unknown address from a broken service", async () => {
+  const withStatus = (status) => ({ Geocoder: class { geocode(_request, callback) { callback([], status); } } });
+  await assert.rejects(MapLocation.resolve(withStatus("ZERO_RESULTS"), "nowhere", "", { provider: "google" }), { code: "NOT_FOUND" });
+  for (const status of ["REQUEST_DENIED", "OVER_QUERY_LIMIT", "UNKNOWN_ERROR"]) {
+    await assert.rejects(MapLocation.resolve(withStatus(status), "Paris", "", { provider: "google" }), { code: "SERVICE_UNAVAILABLE" });
+  }
+  await assert.rejects(MapLocation.resolve(null, "Paris", "", { provider: "google" }), { code: "SERVICE_UNAVAILABLE" });
+});
+
+test("an unknown provider falls back to NAVER geocoding", async () => {
+  assert.equal(MapLocation.normalizeProvider("kakao"), "naver");
+  assert.equal(MapLocation.normalizeProvider("google"), "google");
+});
+
+test("a geocoder that never answers is reported as unavailable instead of searching forever", async () => {
+  const silent = { Geocoder: class { geocode() {} } };
+  await assert.rejects(
+    MapLocation.resolve(silent, "Paris", "", { provider: "google", timeoutMs: 20 }),
+    { code: "SERVICE_UNAVAILABLE" }
+  );
+});

@@ -197,13 +197,16 @@ const validateStops = (stops) => {
 const validateKnownInvitationFields = (invitation) => {
   for (const key of [
     "templateId", "layoutFamily", "introEffect", "particleEffect", "particleSize",
-    "englishFont", "koreanFont", "naverMapClientId", "title", "subtitle",
+    "englishFont", "koreanFont", "naverMapClientId", "googleMapsApiKey", "mapProvider", "title", "subtitle",
     "dateLabel", "host", "location", "mapUrl", "message"
   ]) {
     optionalString(invitation[key], `$.invitation.${key}`);
   }
   optionalStringOrNumber(invitation.particleScale, "$.invitation.particleScale");
   optionalStringOrNumber(invitation.particleAmount, "$.invitation.particleAmount");
+  if (invitation.mapProvider !== undefined && !["naver", "google"].includes(invitation.mapProvider)) {
+    throw badRequest("$.invitation.mapProvider must be naver or google");
+  }
   optionalBooleanInput(invitation.mapEnabled, "$.invitation.mapEnabled");
   optionalStringOrNumber(invitation.mapLatitude, "$.invitation.mapLatitude");
   optionalStringOrNumber(invitation.mapLongitude, "$.invitation.mapLongitude");

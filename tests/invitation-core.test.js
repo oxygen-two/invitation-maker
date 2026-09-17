@@ -973,3 +973,70 @@ test("standalone HTML preserves selected English and Korean fonts", () => {
   assert.match(html, /"koreanFont":"gmarket-sans"/);
   assert.match(html, /GmarketSansMedium\.woff/);
 });
+
+test("map provider defaults to NAVER for invitations saved before Google support", () => {
+  assert.equal(normalizeInvitation({}).mapProvider, "naver");
+  assert.equal(normalizeInvitation({ mapProvider: "google" }).mapProvider, "google");
+  assert.equal(normalizeInvitation({ mapProvider: "kakao" }).mapProvider, "naver");
+  assert.equal(normalizeInvitation({ googleMapsApiKey: "AIza_valid-Key123" }).googleMapsApiKey, "AIza_valid-Key123");
+  assert.equal(normalizeInvitation({ googleMapsApiKey: "bad key\"><script>" }).googleMapsApiKey, "");
+});
+
+test("standalone HTML draws Google maps through the real-URL map page, never in the srcdoc document", () => {
+  const html = buildStandaloneHtml({
+    mapProvider: "google",
+    naverMapClientId: "public-client-id",
+    googleMapsApiKey: "AIzaPublicKey",
+    location: "Tour Eiffel",
+    mapEnabled: true,
+    mapLatitude: 48.8583701,
+    mapLongitude: 2.2944813,
+    stops: [{ time: "18:00", label: "DINNER", place: "Le Jules Verne", mapEnabled: true, mapLatitude: 48.8582, mapLongitude: 2.2945 }]
+  }, { language: "en" });
+
+  // Loading Google directly in an about:srcdoc invitation fails authorization.
+  assert.doesNotMatch(html, /maps\.googleapis\.com/);
+  assert.doesNotMatch(html, /oapi\.map\.naver\.com/);
+  assert.match(html, /\/assets\/integrations\/google-map\.html/);
+  assert.match(html, /key: "AIzaPublicKey"/);
+  assert.match(html, /lang: "en"/);
+  assert.match(html, /event\.data\?\.type !== "invitation-map"/);
+  assert.match(html, /location\.protocol === "file:"/);
+  assert.equal((html.match(/data-map-provider="google"/g) || []).length, 2);
+  assert.match(html, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=Tour%20Eiffel/);
+  assert.match(html, /https:\/\/www\.google\.com\/maps\/search\/\?api=1&amp;query=Le%20Jules%20Verne/);
+  assert.doesNotMatch(html, /map\.naver\.com\/p\/search/);
+});
+
+test("the Google map page keeps one-finger scrolling and reports its state to the invitation", () => {
+  const page = read("assets/integrations/google-map.html");
+  assert.match(page, /gestureHandling: "cooperative"/);
+  assert.match(page, /window\.gm_authFailure = \(\) => report\("failed"\)/);
+  assert.match(page, /type: "invitation-map", state/);
+  assert.match(page, /location\.hash/);
+  assert.match(page, /<meta name="robots" content="noindex">/);
+});
+
+test("a Google invitation without a key shows the button fallback instead of a loader", () => {
+  const html = buildStandaloneHtml({
+    mapProvider: "google",
+    naverMapClientId: "public-client-id",
+    location: "",
+    mapEnabled: true,
+    mapLatitude: 48.8583701,
+    mapLongitude: 2.2944813
+  });
+  assert.doesNotMatch(html, /maps\.googleapis\.com|oapi\.map\.naver\.com/);
+  // No label: the guest's button still opens the pinned coordinates.
+  assert.match(html, /query=48\.8583701%2C2\.2944813/);
+});
+
+test("an author's own map link wins over the provider search link", () => {
+  const html = buildStandaloneHtml({
+    mapProvider: "google",
+    location: "Somewhere",
+    mapUrl: "https://map.naver.com/?lat=37.5&lng=127"
+  });
+  assert.match(html, /https:\/\/map\.naver\.com\/\?lat=37\.5&amp;lng=127/);
+  assert.doesNotMatch(html, /google\.com\/maps\/search\/\?api=1&amp;query=Somewhere/);
+});

@@ -976,6 +976,76 @@ input, textarea, select { scroll-margin-block:120px 160px; }
   accent-color: var(--wine-800);
 }
 
+.map-provider-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.map-provider-field legend {
+  padding: 0;
+  margin-bottom: 6px;
+  color: var(--wine-700);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.map-provider-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.editor-form .map-provider-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  cursor: pointer;
+  text-align: center;
+}
+
+/* The radio stays in the accessibility tree and keyboard order; only its
+   default dot is replaced by the whole pill reading as selected. */
+.editor-form .map-provider-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.editor-form .map-provider-option span {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.editor-form .map-provider-option:has(input:checked) {
+  border-color: var(--wine-800);
+  background: var(--wine-800);
+}
+
+.editor-form .map-provider-option:has(input:checked) span {
+  color: var(--cream-50);
+}
+
+.editor-form .map-provider-option:has(input:focus-visible) {
+  outline: 3px solid rgba(217, 172, 84, .45);
+  outline-offset: 2px;
+}
+
 .map-settings {
   display: grid;
   gap: 6px;

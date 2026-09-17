@@ -42,3 +42,10 @@ test("dirty comparison uses canonical normalized invitations", () => {
 test("rejects malformed presets before creating a replacement", () => {
   assert.throws(() => PresetApplication.prepare({ current: {}, preset: { id: "broken", defaults: null } }), /invalid preset/);
 });
+
+test("applying a design keeps the author's map service and passes the Google key through", () => {
+  const current = { title: "Paris trip", mapProvider: "google", items: [] };
+  const { next } = PresetApplication.prepare({ current, preset, googleMapsApiKey: "AIzaPublicKey" });
+  assert.equal(next.mapProvider, "google");
+  assert.equal(next.googleMapsApiKey, "AIzaPublicKey");
+});
