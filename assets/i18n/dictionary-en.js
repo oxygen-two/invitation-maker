@@ -273,7 +273,7 @@
       ready: "Location confirmed.",
       empty: "Enter a place or address.",
       pending: "Finish typing the place and we will look it up.",
-      notFound: "That place was not found. Try a street address. For a place outside Korea, switch the map service to Google Maps.",
+      notFound: "That place was not found. NAVER Map only finds addresses. Enter a street address, or switch the map service to Google Maps for a place name or a place outside Korea.",
       notFoundGoogle: "That place was not found. Add more of the address or paste a map link.",
       serviceUnavailable: "Location lookup is unavailable. Check the NAVER Geocoding settings.",
       serviceUnavailableGoogle: "Location lookup is unavailable. Check the Google Maps Geocoding API settings.",

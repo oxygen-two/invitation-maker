@@ -1091,8 +1091,10 @@ const loadNaverMaps = () => {
   naverMapsPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     let timeoutId;
+    let geocoderPollId;
     const finish = (callback, value) => {
       clearTimeout(timeoutId);
+      clearTimeout(geocoderPollId);
       script.onload = null;
       script.onerror = null;
       script.remove();
@@ -1100,9 +1102,22 @@ const loadNaverMaps = () => {
     };
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}&submodules=geocoder`;
     script.async = true;
-    script.onload = () => window.naver?.maps
-      ? finish(resolve, window.naver.maps)
-      : finish(reject, new Error("NAVER Maps failed to initialize"));
+    /* maps.js fires onload before its geocoder submodule has arrived:
+       naver.maps.Service does not exist yet. Resolving then made the first
+       address lookup after opening the studio report "geocoding unavailable"
+       every time, while the same lookup a moment later succeeded. Wait for
+       the Service itself; the overall timeout still bounds the wait. */
+    script.onload = () => {
+      if (!window.naver?.maps) {
+        finish(reject, new Error("NAVER Maps failed to initialize"));
+        return;
+      }
+      const waitForGeocoder = () => {
+        if (typeof window.naver.maps.Service?.geocode === "function") finish(resolve, window.naver.maps);
+        else geocoderPollId = setTimeout(waitForGeocoder, 50);
+      };
+      waitForGeocoder();
+    };
     script.onerror = () => finish(reject, new Error("NAVER Maps failed to load"));
     timeoutId = setTimeout(
       () => finish(reject, new Error("NAVER Maps timed out")),
@@ -1313,11 +1328,20 @@ const mapSignature = (panel) => {
 const cleanupPreviewMap = (canvas) => {
   const instance = previewMapInstances.get(canvas);
   if (!instance) return;
-  instance.marker?.setMap?.(null);
-  const events = instance.events || previewMapsNamespace?.Event;
-  events?.clearInstanceListeners?.(instance.marker);
-  events?.clearInstanceListeners?.(instance.map);
   previewMapInstances.delete(canvas);
+  /* Best effort only. NAVER's Marker.setMap(null) can throw inside the SDK
+     ("reading 'capitalize'") for a map whose panel is being replaced, and an
+     exception here aborted updatePreviewMarkup, freezing the preview for the
+     rest of the session. Switching map service replaces every panel, so it
+     hit this reliably. */
+  try {
+    instance.marker?.setMap?.(null);
+    const events = instance.events || previewMapsNamespace?.Event;
+    events?.clearInstanceListeners?.(instance.marker);
+    events?.clearInstanceListeners?.(instance.map);
+  } catch {
+    // The panel is discarded either way.
+  }
 };
 
 const updatePreviewMarkup = (html) => {
