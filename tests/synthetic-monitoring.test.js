@@ -152,7 +152,9 @@ test("a robots.txt that stopped disallowing /i/ fails", async () => {
 
 test("a truncated sitemap fails on unbalanced tags", async () => {
   const results = await runAgainst(
-    withPatchedBody("GET /sitemap.xml", (body) => body.replace("</urlset>", "").replace("</url>", ""))
+    // The sitemap now lists three <url> entries (/, /guide, /studio), so
+    // every </url> close tag has to go to still prove 0 closes against N opens.
+    withPatchedBody("GET /sitemap.xml", (body) => body.replace("</urlset>", "").replace(/<\/url>/g, ""))
   );
 
   const failures = failuresFor(results, "sitemap-is-well-formed");

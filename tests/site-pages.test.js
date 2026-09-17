@@ -167,3 +167,32 @@ test("the guide has the anchors the landing and the studio link to", () => {
   assert.equal((guide.match(/<details>/g) || []).length, 8);
   assert.doesNotMatch(guide, /<script>\s*try \{/, "the guide never redirects");
 });
+
+test("site media and the sample invitation are checked in", () => {
+  const files = [
+    "assets/media/site/hero-sample@2x.png",
+    ...["bloom-portrait", "wedding", "first-chapter", "golden-years", "botanical", "midnight-cinema"].map((id) => `assets/media/site/design-${id}@2x.png`),
+    "assets/media/site/guide-step-01@2x.png",
+    "assets/media/site/guide-step-02@2x.png",
+    "assets/media/site/guide-step-03@2x.png",
+    "sample.html"
+  ];
+  for (const file of files) assert.ok(fs.statSync(path.join(root, file)).size > 1000, `${file} is missing or empty`);
+  const sample = read("sample.html");
+  assert.match(sample, /<meta name="robots" content="noindex">/);
+  assert.match(sample, /class="invitation-card"/);
+  assert.match(sample, /data-template="bloom-portrait"/);
+});
+
+test("the sitemap lists the landing, the guide, and the studio but not the sample", () => {
+  const sitemap = read("sitemap.xml");
+  for (const url of ["/", "/guide", "/studio"]) assert.match(sitemap, new RegExp(`<loc>https://invitation-maker-one\\.vercel\\.app${url}</loc>`));
+  assert.doesNotMatch(sitemap, /\/sample/);
+});
+
+test("build-public copies sample.html", () => {
+  const pattern = /^(?:index|viewer|shared|[0-9A-Za-z_-]+)\.html$/;
+  assert.ok(pattern.test("sample.html"));
+  assert.ok(pattern.test("studio.html"));
+  assert.ok(pattern.test("guide.html"));
+});
