@@ -28,6 +28,7 @@
 - 검색 콘솔 인증 태그(`google-site-verification`, `naver-site-verification`)는 `index.html`에만 있다. `studio.html`로 옮기거나 복사하면 안 된다 — 이 두 태그가 확인하는 것은 도메인 소유권이지 특정 페이지의 인기가 아니고, 스튜디오는 검색 노출 대상이 아니었던 적이 없다(canonical만 `/studio`로 바뀐다).
 - 에러 페이지 11개와 `shared.html`의 `href="/"`는 그대로 둔다. 상태 분기 덕분에 `/`는 처음 온 사람에겐 랜딩, 써본 사람에겐 스튜디오이므로 "스튜디오로 돌아가기" 같은 기존 문구는 여전히 참이다.
 - 정책 숫자(보관 만료 7일, 발행 후 최대 30일, 링크 공유 용량 2MB)는 `server/config/publishing.cjs`와 `assets/publishing/publishing.js`의 실제 상수와 테스트로 묶여 있다(`tests/site-pages.test.js`의 "guide policy numbers match the shipped defaults"). 설명서 문장만 고쳐서 숫자가 실제 동작과 어긋나는 일이 생기지 않도록, 숫자를 바꿀 때는 반드시 코드 쪽 상수부터 바꾸고 테스트가 새 숫자를 확인하게 한다.
+- 위 테스트는 기본값에만 묶여 있다. 운영 환경에서 `PUBLISH_IDLE_WINDOW_DAYS` / `PUBLISH_MAX_LIFETIME_DAYS` / `PUBLISH_MAX_BYTES`를 오버라이드하면 설명서의 7일/30일/2MB가 실제 값과 달라지고, 테스트는 그 불일치를 잡아내지 못한다. 이 값들을 오버라이드할 때는 설명서도 함께 고친다.
 - `sample.html`은 생성물이다. 직접 편집하지 않는다 — 다음 `build-site-media.cjs` 실행이 덮어쓴다. 내용을 바꾸려면 스튜디오의 `bloom-portrait` 디자인 자체를 바꾼다.
 
 ## 4. 재생성
@@ -76,10 +77,10 @@ node scripts/verify-site-pages.cjs
 랜딩과 설명서는 스튜디오와 같은 `analytics/config.js`, `analytics.js`, `ga4.js`를 그대로 싣는다. 이번에 새로 남는 이벤트는 세 가지다.
 
 - `site_page_viewed { page: "landing" | "guide" }` — 페이지 조회.
-- `landing_cta_clicked { placement: "header" | "hero" | "gallery" | "footer" }` — "초대장 만들기" 버튼 클릭 위치.
+- `landing_cta_clicked { page: "landing" | "guide", placement: "header" | "hero" | "gallery" | "footer" }` — "초대장 만들기" 버튼 클릭 위치.
 - `landing_sample_opened` — "완성된 초대장 먼저 보기" 링크 클릭(새 탭으로 `/sample`을 엶).
 
-PostHog에서 보게 될 가장 중요한 비율은 `landing_cta_clicked` 합계를 `site_page_viewed{page:landing}`으로 나눈 값 — 즉 랜딩에서 스튜디오로 넘어간 비율이다. 배포 전에는 이 비율의 기준선이 없으므로(설계 문서의 열린 질문), 배포 후 2주간 이 값을 관찰하고 낮으면 히어로 카피나 버튼 위치를 조정하는 근거로 쓴다.
+PostHog에서 보게 될 가장 중요한 비율은 `landing_cta_clicked{page:landing}` 합계를 `site_page_viewed{page:landing}`으로 나눈 값 — 즉 랜딩에서 스튜디오로 넘어간 비율이다. 배포 전에는 이 비율의 기준선이 없으므로(설계 문서의 열린 질문), 배포 후 2주간 이 값을 관찰하고 낮으면 히어로 카피나 버튼 위치를 조정하는 근거로 쓴다.
 
 ## 7. 이번에 하지 않은 것
 

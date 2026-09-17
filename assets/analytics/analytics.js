@@ -162,7 +162,7 @@
     ],
     landing_viewed: ["campaign", "flow_id", "medium", "source"],
     site_page_viewed: ["campaign", "flow_id", "medium", "page", "source"],
-    landing_cta_clicked: ["campaign", "flow_id", "medium", "placement", "source"],
+    landing_cta_clicked: ["campaign", "flow_id", "medium", "page", "placement", "source"],
     landing_sample_opened: ["campaign", "flow_id", "medium", "source"],
     template_selected: ["campaign", "flow_id", "layout_family", "medium", "occasion", "source", "template_id"],
     editing_started: ["campaign", "field_group", "flow_id", "medium", "occasion", "source", "template_id"],

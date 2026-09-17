@@ -27,7 +27,7 @@
     track("site_page_viewed", { page: document.body.dataset.sitePage });
     for (const element of document.querySelectorAll("[data-site-event]")) {
       element.addEventListener("click", () => {
-        track(element.dataset.siteEvent, { placement: element.dataset.sitePlacement });
+        track(element.dataset.siteEvent, { placement: element.dataset.sitePlacement, page: document.body.dataset.sitePage });
       });
     }
   };
