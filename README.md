@@ -49,11 +49,13 @@ npm start
 
 Open [http://127.0.0.1:4173](http://127.0.0.1:4173). `/` is the landing page; the editor is at `/studio` (a browser that has opened the studio is sent there automatically).
 
-To preview only the static editor:
+To preview only the static files, with no server-side routing:
 
 ```bash
 python3 -m http.server 4173
 ```
+
+Open `/studio.html` directly (and `/index.html?welcome` for the landing page) — plain static serving has no clean URLs, and `/` redirects a browser that has already visited the studio straight to `/studio`.
 
 `npm start`, `npm run admin`, `npm run dev`, and `npm run dev:admin` are all local-developer commands — none of them run in production. Production never runs `server/index.cjs`; it deploys through `api/*.js` serverless functions and `scripts/build-public.cjs`, configured entirely from Vercel's environment variables. For a second local config (e.g. a different local database), copy `.env.example` to `.env.dev` and run `npm run dev` (or `npm run dev:admin`) — `npm start`/`npm run admin` keep loading `.env` unchanged. Both `.env` and `.env.dev` should point at your own machine; both entry points print the database name and host they connect to at startup, and warn loudly if that host isn't loopback.
 
