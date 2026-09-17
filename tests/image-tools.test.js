@@ -290,7 +290,7 @@ test("image tools expose the encoded limit and browser compression boundary", ()
 });
 
 test("the browser loads ImageTools before app.js", () => {
-  const index = fs.readFileSync(path.resolve(__dirname, "..", "index.html"), "utf8");
+  const index = fs.readFileSync(path.resolve(__dirname, "..", "studio.html"), "utf8");
   const imageToolsIndex = index.indexOf('<script src="assets/media/image-tools.js"></script>');
   const appIndex = index.indexOf('<script src="assets/studio/app.js"></script>');
 

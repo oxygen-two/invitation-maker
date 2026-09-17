@@ -45,7 +45,7 @@ const MISSING_PUBLIC_ID = "zzzzSyntheticCanary404";
 // there but carrying somebody else's token fails verification just as silently
 // as a deleted one, and the failure is invisible until the reports stop
 // arriving weeks later. If a property is ever re-verified with a new token,
-// update index.html and this constant together.
+// update index.html (the landing page) and this constant together.
 const SEARCH_CONSOLE_TAGS = Object.freeze([
   {
     name: "google-site-verification",

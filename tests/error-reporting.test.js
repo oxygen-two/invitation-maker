@@ -523,7 +523,7 @@ test("PostHog's before_send hook re-sanitizes a client_error on its way out", ()
    that script fails to parse, which is the exact failure this phase exists
    for — so the ORDER is part of the contract. */
 test("every page installs the reporter before the scripts it watches", () => {
-  for (const [page, prefix] of [["index.html", "assets"], ["shared.html", "/assets"], ["viewer.html", "assets"]]) {
+  for (const [page, prefix] of [["studio.html", "assets"], ["shared.html", "/assets"], ["viewer.html", "assets"]]) {
     const html = read(page);
     const analyticsIndex = html.indexOf(`src="${prefix}/analytics/analytics.js"`);
     const reporterIndex = html.indexOf(`src="${prefix}/analytics/error-reporting.js"`);
@@ -543,7 +543,7 @@ test("every page installs the reporter before the scripts it watches", () => {
 });
 
 test("the pages that can fail in a console-less in-app browser all carry the reporter", () => {
-  for (const page of ["index.html", "shared.html", "viewer.html"]) {
+  for (const page of ["studio.html", "shared.html", "viewer.html"]) {
     assert.match(read(page), /analytics\/error-reporting\.js/, `${page} must report its own failures`);
   }
 });
@@ -551,7 +551,7 @@ test("the pages that can fail in a console-less in-app browser all carry the rep
 test("every local browser script is represented by a safe diagnostic path", () => {
   const { reporting } = loadReporting();
   const sources = new Set();
-  for (const page of ["index.html", "shared.html", "viewer.html"]) {
+  for (const page of ["studio.html", "shared.html", "viewer.html"]) {
     for (const match of read(page).matchAll(/<script[^>]+src="(\/?assets\/[^"?]+\.js)"/g)) {
       sources.add(`/${match[1].replace(/^\//, "")}`);
     }

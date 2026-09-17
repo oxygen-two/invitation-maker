@@ -23,7 +23,10 @@ const staticFileFor = (staticRoot, requestPath) => {
   } catch {
     return null;
   }
-  if (decoded === "/" || decoded === "") decoded = "/index.html";
+  // Clean URLs. Keep this list identical to the `routes` in vercel.json so a
+  // page that works under `npm start` also works in production.
+  const CLEAN_URLS = { "/": "/index.html", "": "/index.html", "/welcome": "/index.html", "/studio": "/studio.html", "/guide": "/guide.html", "/sample": "/sample.html" };
+  if (Object.hasOwn(CLEAN_URLS, decoded)) decoded = CLEAN_URLS[decoded];
   if (decoded === "/i" || decoded.startsWith("/i/")) decoded = "/shared.html";
   if (decoded.includes("\0") || decoded.split("/").includes("..")) return null;
   if (/\/\./.test(decoded)) return null;
