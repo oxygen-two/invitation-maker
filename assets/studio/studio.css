@@ -113,6 +113,7 @@ body[data-studio-stage="library"] .app-shell { display: block; max-width: 820px;
 @media (max-width: 900px) {
   .studio-bar { padding: 16px 20px; }
   .studio-bar a { font-size: 18px; }
+  .studio-bar a.studio-guide-link { font-size: 12px; }
   #draft-status { max-width: 130px; font-size: 11px; text-align: right; }
   .studio-language::before { font-size: 12px; }
   /* Touch target stays at the 44px guideline on phones even though the control
@@ -229,6 +230,7 @@ body[data-studio-stage="finish"] #open-share-dialog-button {
 }
 body[data-studio-stage="finish"] #save-status { order: 2; flex: 1 1 100%; margin: 0; }
 body[data-studio-stage="finish"] .finish-persistence-note { order: 3; flex: 1 1 100%; }
+body[data-studio-stage="finish"] .finish-compare { order: 4; flex: 1 1 100%; }
 .finish-persistence-note { margin: 0; padding: 14px 16px; border: 1px solid #e7dcc0; border-radius: 12px; background: #fbf6ea; color: #5b4c26; font-size: 13px; line-height: 1.6; }
 .finish-persistence-note strong { display: block; margin-bottom: 4px; color: #4a3c1c; }
 .finish-choice-row > [hidden], .finish-actions > [hidden] { display: none; }
@@ -326,7 +328,7 @@ body[data-studio-stage="library"] .studio-footer {
 }
 @media (prefers-reduced-motion: reduce) { .studio-steps *, .maker-panel * { scroll-behavior: auto; } }
 @media (prefers-reduced-motion: reduce) { .studio-dialog, .studio-dialog::backdrop { animation: none; } }
-.studio-guide-link { font-size: 12px; color: #314e41; font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+.studio-bar a.studio-guide-link { font-size: 12px; color: #314e41; font-weight: 600; letter-spacing: 0; min-height: 44px; display: inline-flex; align-items: center; }
 .finish-compare { margin: 6px 0 0; font-size: 13px; }
 .finish-compare a { color: #314e41; font-weight: 600; }
 .studio-footer-links { display: flex; gap: 14px; }
