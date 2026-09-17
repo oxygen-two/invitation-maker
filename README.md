@@ -26,7 +26,8 @@ The diagram currently uses Korean labels. Download the HTML and open it in a bro
 
 ```text
 invitation-maker/
-├── index.html + assets/   # Editor
+├── index.html / guide.html   # Landing page and user guide
+├── studio.html + assets/   # Editor
 ├── shared.html           # Public invitation viewer
 ├── api/ + server/        # Publishing API
 ├── admin/                # Local admin service
@@ -46,7 +47,9 @@ cp .env.example .env
 npm start
 ```
 
-Open [http://127.0.0.1:4173](http://127.0.0.1:4173). To preview only the static editor:
+Open [http://127.0.0.1:4173](http://127.0.0.1:4173). `/` is the landing page; the editor is at `/studio` (a browser that has opened the studio is sent there automatically).
+
+To preview only the static editor:
 
 ```bash
 python3 -m http.server 4173

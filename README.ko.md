@@ -23,7 +23,8 @@
 
 ```text
 초대장 메이커
-├── 제작기        index.html + assets/
+├── 랜딩/가이드    index.html / guide.html
+├── 제작기        studio.html + assets/
 ├── 공개 뷰어      shared.html
 ├── 공개 API       api/ + server/
 ├── 로컬 관리자    admin/
@@ -43,7 +44,7 @@ cp .env.example .env
 npm start
 ```
 
-제작 화면은 [http://127.0.0.1:4173](http://127.0.0.1:4173)에서 엽니다. 정적 제작 화면만 확인할 때는 다음 명령도 사용할 수 있습니다.
+[http://127.0.0.1:4173](http://127.0.0.1:4173)을 엽니다. `/`는 랜딩 페이지이고, 제작기는 `/studio`에 있습니다(제작기를 한 번이라도 연 브라우저는 `/`에서 자동으로 `/studio`로 이동합니다). 정적 제작 화면만 확인할 때는 다음 명령도 사용할 수 있습니다.
 
 ```bash
 python3 -m http.server 4173

@@ -91,5 +91,14 @@ details p { margin: 0 0 16px; color: var(--muted); }
   .hero .actions .site-cta { width: 100%; }
   .site-footer { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
-@media (max-width: 350px) { .site-cta { width: 100%; } .site-nav { gap: 8px; } }
+@media (max-width: 350px) {
+  .site-cta { width: 100%; }
+  .site-nav { gap: 8px; }
+  /* Below 350px the brand name plus the language switcher and header CTA no
+     longer fit one row (verify-site-pages.cjs caught the 320px overflow this
+     causes); wrapping the nav below the brand keeps every control reachable
+     without shrinking tap targets. */
+  .site-header { flex-wrap: wrap; row-gap: 8px; }
+  .site-header .site-nav { width: 100%; justify-content: flex-end; }
+}
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

@@ -195,3 +195,10 @@ test("build-public copies sample.html", () => {
   assert.ok(pattern.test("studio.html"));
   assert.ok(pattern.test("guide.html"));
 });
+
+test("the studio links to the guide and the landing", () => {
+  const studio = read("studio.html");
+  assert.match(studio, /<a class="studio-guide-link" href="\/guide" data-i18n="header\.guideLink">사용법<\/a>/);
+  assert.match(studio, /<a href="\/welcome" data-i18n="header\.aboutLink">소개<\/a>/);
+  assert.match(studio, /<a href="\/guide#finish" data-i18n="finish\.compareLink">세 가지 방식의 차이 보기<\/a>/);
+});

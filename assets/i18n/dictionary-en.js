@@ -39,7 +39,9 @@
 
     header: {
       tagline: "Make the small days special.",
-      footerNote: "Small invitations, lasting moments."
+      footerNote: "Small invitations, lasting moments.",
+      guideLink: "How it works",
+      aboutLink: "About"
     },
 
     nav: {
@@ -298,6 +300,7 @@
     },
 
     finish: {
+      compareLink: "See how the three differ",
       persistenceLead: "The library lives in this browser only.",
       persistenceBody: "Clearing your browser data or using private mode removes the drafts in your library along with it. To keep one for the long term, save it as a file or make a link below.",
       saveTitle: "Save to library",
