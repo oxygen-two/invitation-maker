@@ -88,7 +88,8 @@
           three: "A link can only be revoked from the studio in the browser that published it. If that browser is gone, the link stays until it expires.",
           four: "Public links are not indexed by search engines.",
           five: "We use visit analytics. They respect your browser's do-not-track setting, and invitation content is never sent to them.",
-          six: "If you received an invitation and want a link with your details removed, ask the sender to revoke it."
+          six: "If you received an invitation and want a link with your details removed, ask the sender to revoke it.",
+          seven: "Clearing this browser's storage also erases your drafts and library. Download a file first if you want to keep them."
         },
         faq: {
           title: "Questions",

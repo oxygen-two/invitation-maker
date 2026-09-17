@@ -153,3 +153,17 @@ test("both site pages share the exact same header and footer markup", () => {
   };
   assert.deepEqual(chrome("index.html"), chrome("guide.html"));
 });
+
+test("the guide is fully translatable and its Korean copy matches the dictionary", () => {
+  assertPageIsTranslatable("guide.html", 70);
+});
+
+test("the guide has the anchors the landing and the studio link to", () => {
+  const guide = read("guide.html");
+  for (const id of ["steps", "finish", "data", "faq"]) assert.match(guide, new RegExp(`<section[^>]* id="${id}"`));
+  assert.match(guide, /<meta name="robots" content="index, follow">/);
+  assert.match(guide, /<link rel="canonical" href="https:\/\/invitation-maker-one\.vercel\.app\/guide">/);
+  assert.doesNotMatch(guide, /google-site-verification/);
+  assert.equal((guide.match(/<details>/g) || []).length, 8);
+  assert.doesNotMatch(guide, /<script>\s*try \{/, "the guide never redirects");
+});
