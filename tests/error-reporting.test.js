@@ -399,8 +399,13 @@ test("browser environment and page identity are closed vocabularies", () => {
   assert.equal(reporting.browserEnvironment(""), "unknown");
   assert.equal(reporting.browserEnvironment("something entirely new"), "other");
 
-  assert.equal(reporting.pageKind({ pathname: "/" }), "studio");
-  assert.equal(reporting.pageKind({ pathname: "/index.html" }), "studio");
+  assert.equal(reporting.pageKind({ pathname: "/" }), "landing");
+  assert.equal(reporting.pageKind({ pathname: "/index.html" }), "landing");
+  assert.equal(reporting.pageKind({ pathname: "/welcome" }), "landing");
+  assert.equal(reporting.pageKind({ pathname: "/studio" }), "studio");
+  assert.equal(reporting.pageKind({ pathname: "/studio.html" }), "studio");
+  assert.equal(reporting.pageKind({ pathname: "/guide" }), "guide");
+  assert.equal(reporting.pageKind({ pathname: "/sample" }), "sample");
   assert.equal(reporting.pageKind({ pathname: "/viewer.html" }), "viewer");
   assert.equal(reporting.pageKind({ pathname: `/i/${INVITATION_ID}` }), "shared");
   assert.equal(reporting.pageKind({ pathname: "/unknown/route" }), "other");
@@ -523,12 +528,12 @@ test("PostHog's before_send hook re-sanitizes a client_error on its way out", ()
    that script fails to parse, which is the exact failure this phase exists
    for — so the ORDER is part of the contract. */
 test("every page installs the reporter before the scripts it watches", () => {
-  for (const [page, prefix] of [["index.html", "assets"], ["shared.html", "/assets"], ["viewer.html", "assets"]]) {
+  for (const [page, prefix] of [["studio.html", "assets"], ["shared.html", "/assets"], ["viewer.html", "assets"], ["index.html", "/assets"], ["guide.html", "/assets"]]) {
     const html = read(page);
     const analyticsIndex = html.indexOf(`src="${prefix}/analytics/analytics.js"`);
     const reporterIndex = html.indexOf(`src="${prefix}/analytics/error-reporting.js"`);
     const configIndex = html.indexOf(`src="${prefix}/analytics/config.js"`);
-    const watched = [...html.matchAll(/src="[^"]*\/(?:invitation|studio|publishing|media|storage|integrations)\/[^"]+"/g)]
+    const watched = [...html.matchAll(/<script[^>]+src="[^"]*\/(?:invitation|studio|publishing|media|storage|integrations|site)\/[^"]+"/g)]
       .map((match) => match.index);
 
     assert.ok(configIndex >= 0, `${page} must load the analytics config`);
@@ -543,7 +548,7 @@ test("every page installs the reporter before the scripts it watches", () => {
 });
 
 test("the pages that can fail in a console-less in-app browser all carry the reporter", () => {
-  for (const page of ["index.html", "shared.html", "viewer.html"]) {
+  for (const page of ["studio.html", "shared.html", "viewer.html", "index.html", "guide.html"]) {
     assert.match(read(page), /analytics\/error-reporting\.js/, `${page} must report its own failures`);
   }
 });
@@ -551,7 +556,7 @@ test("the pages that can fail in a console-less in-app browser all carry the rep
 test("every local browser script is represented by a safe diagnostic path", () => {
   const { reporting } = loadReporting();
   const sources = new Set();
-  for (const page of ["index.html", "shared.html", "viewer.html"]) {
+  for (const page of ["studio.html", "shared.html", "viewer.html", "index.html", "guide.html"]) {
     for (const match of read(page).matchAll(/<script[^>]+src="(\/?assets\/[^"?]+\.js)"/g)) {
       sources.add(`/${match[1].replace(/^\//, "")}`);
     }

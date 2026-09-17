@@ -181,7 +181,7 @@ test("open closes a database connection that succeeds after a blocked rejection"
 });
 
 test("browser pages load storage before their consumers", () => {
-  const indexScripts = [...read("index.html").matchAll(/<script src="([^"]+)"(?: defer)?><\/script>/g)]
+  const indexScripts = [...read("studio.html").matchAll(/<script src="([^"]+)"(?: defer)?><\/script>/g)]
     .map((match) => match[1]);
   const viewerScripts = [...read("viewer.html").matchAll(/<script src="([^"]+)"(?: defer)?><\/script>/g)]
     .map((match) => match[1]);

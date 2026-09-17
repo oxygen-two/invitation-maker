@@ -108,3 +108,11 @@
 - The preview column is sticky (`position: sticky`, full viewport height minus the top bar) during the edit and finish stages, so it stays visible while a long form scrolls.
 - The gallery/edit/finish stages share one alignment and grid structure (`body[data-studio-stage="..."]` selectors in `assets/studio/studio.css`) instead of each stage having its own bespoke layout, so switching stages no longer reflows unrelated panels.
 - The language switcher (`#language-select`) lives in the top bar, clear of the three-stage nav, sized for touch.
+
+## Landing and guide — 2026-09-18
+
+- Entry policy: `/` is state-aware — a browser that has never opened the studio sees the landing, one that has is sent straight to `/studio` (query string preserved) via an inline pre-stylesheet script guarded by `try/catch`. `/welcome` is the same document without that branch, so the studio footer's "소개" link and any shared "revisit the landing" copy stay true even for returning users.
+- Palette reuse: the landing/guide chrome (`assets/site/site.css`) reuses the error-page and social-card palette — paper `#f7f7f4`, ink `#282b29`, green `#314e41`, muted `#59645e`, line `#dce1d8` — deliberately kept independent of `assets/studio/studio.css` so no invitation palette leaks into site chrome.
+- No external fonts: system font stack only, matching the studio and error pages; only the invitation designs themselves carry custom typography, and that lives inside the screenshots.
+- Static screenshots come from the studio itself: `scripts/build-site-media.cjs` drives the real `/studio` with Playwright and captures the gallery/edit/finish stages and the six design cards, so the guide and landing can never show chrome the studio doesn't actually have. Re-run this script (and `--check`) whenever studio chrome changes.
+- The guide's "내 데이터는 어디에" (`#data`) section is the honest answer to the audit's A-8 finding (no data-handling explanation existed): what stays local, what reaches the server, and the same 7/30-day expiry and 2MB limits already enforced in `server/config/publishing.cjs`, stated as fact rather than as a policy document.

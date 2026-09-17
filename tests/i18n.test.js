@@ -43,7 +43,7 @@ const parseTagAttributes = (tag) => {
 };
 
 /* The whole scheme rests on two duplications being kept honest by test:
-   index.html repeats the Korean copy inline (so the page renders correctly
+   studio.html repeats the Korean copy inline (so the page renders correctly
    before a single script runs, and so crawlers see real text), and the
    English dictionary repeats the Korean key structure. Both are checked
    below, which is what lets the runtime fallback stay a last resort instead
@@ -194,20 +194,20 @@ test("storage that throws cannot stop the studio from choosing a language", () =
   }
 });
 
-test("index.html inline copy is exactly what the Korean dictionary says", () => {
-  const index = read("index.html");
+test("studio.html inline copy is exactly what the Korean dictionary says", () => {
+  const index = read("studio.html");
   const bindings = [...index.matchAll(/<([a-z0-9]+)\b([^>]*\bdata-i18n="[^"]+"[^>]*)>([^<]*)</gi)];
 
   assert.ok(bindings.length > 60, "most of the page should be translatable");
   for (const [, , attributes, text] of bindings) {
     const key = parseTagAttributes(`<x ${attributes}>`)["data-i18n"];
     assert.equal(text, InvitationI18n.t(key, undefined, "ko"),
-      `index.html text for ${key} has drifted from dictionary-ko.js`);
+      `studio.html text for ${key} has drifted from dictionary-ko.js`);
   }
 });
 
-test("every data-i18n and data-i18n-attr binding in index.html names a real key", () => {
-  const index = read("index.html");
+test("every data-i18n and data-i18n-attr binding in studio.html names a real key", () => {
+  const index = read("studio.html");
   const keys = [
     ...[...index.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]),
     ...[...index.matchAll(/data-i18n-attr="([^"]+)"/g)]
@@ -223,8 +223,8 @@ test("every data-i18n and data-i18n-attr binding in index.html names a real key"
   }
 });
 
-test("index.html serves the default language and lets the engine correct it", () => {
-  const index = read("index.html");
+test("studio.html serves the default language and lets the engine correct it", () => {
+  const index = read("studio.html");
 
   assert.match(index, /<html lang="ko">/);
   // The engine must run before the body so <html lang> is right for the first
@@ -559,7 +559,7 @@ test("a page can name its own tab title instead of borrowing the studio's", () =
   // the operator console. One shared meta.title would be wrong on two of them.
   assert.match(read("shared.html"), /<html lang="ko" data-i18n-title="shared\.documentTitle">/);
   assert.match(read("viewer.html"), /<html lang="ko" data-i18n-title="viewer\.documentTitle">/);
-  assert.doesNotMatch(read("index.html"), /data-i18n-title/, "the studio keeps the default meta.title");
+  assert.doesNotMatch(read("studio.html"), /data-i18n-title/, "the studio keeps the default meta.title");
 
   const titled = (key) => {
     const documentElement = {

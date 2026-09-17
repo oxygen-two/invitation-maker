@@ -993,7 +993,7 @@ test("saved invitations open through a same-origin viewer", () => {
 });
 
 test("maker and viewer each use exactly one inline favicon", () => {
-  for (const page of ["index.html", "viewer.html"]) {
+  for (const page of ["studio.html", "viewer.html"]) {
     const faviconLinks = getFaviconLinks(read(page));
 
     assert.equal(faviconLinks.length, 1, `${page} must declare exactly one favicon link`);
@@ -1449,7 +1449,12 @@ test("durable deletion updates local state when repository refresh fails", async
 test("library implementation uses IndexedDB outside resumable migration and accepts exactly 10 MiB", () => {
   const app = read("assets/studio/app.js");
   const migration = app.match(/const migrateLegacySaved = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
-  const appWithoutMigration = app.replace(migration, "");
+  // The studio also drops a same-origin flag so the landing page knows this
+  // browser has opened it before. That is unrelated to the saved-invitations
+  // library this test guards, so it is excluded the same way the legacy
+  // migration is.
+  const visitedFlag = app.match(/try \{ localStorage\.setItem\("invitation-studio:visited"[^\n]*\n/)?.[0] || "";
+  const appWithoutMigration = app.replace(migration, "").replace(visitedFlag, "");
 
   assert.match(app, /const MAX_UPLOAD_BYTES = 10 \* 1024 \* 1024/);
   // The over-size message moved into the dictionary; assert the guard still
@@ -1594,7 +1599,7 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
 });
 
 test("editor exposes mobile view tabs and selected template state", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const app = read("assets/studio/app.js");
 
   assert.match(index, /class="mobile-view-tabs"/);
@@ -1852,7 +1857,7 @@ test("mobile tab pointer capture preserves scroll before browser focus moves the
 });
 
 test("editor groups related controls and keeps mobile export actions reachable", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const css = read("assets/studio/style.css");
 
   for (const group of ["style", "details", "location", "content"]) {
@@ -1866,7 +1871,7 @@ test("editor groups related controls and keeps mobile export actions reachable",
 });
 
 test("map controls use place geocoding without exposing coordinates or zoom", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const app = read("assets/studio/app.js");
 
   assert.doesNotMatch(index, /<span>위도<\/span>|<span>경도<\/span>|<span>지도 줌<\/span>/);
@@ -1936,7 +1941,7 @@ test("course map settings span the full card width", () => {
 });
 
 test("editor exposes one ordered content shell and constrained photo picker", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const photoInput = index.match(/<input[^>]+id="photo-input"[^>]*>/)?.[0] || "";
   const scriptOrder = [
     "assets/invitation/core.js",
@@ -1958,7 +1963,7 @@ test("editor exposes one ordered content shell and constrained photo picker", ()
 });
 
 test("editor exposes a separate single-file hero background tool before invitation core", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const heroInput = index.match(/<input[^>]+id="hero-image-input"[^>]*>/)?.[0] || "";
   const bodyPhotoInput = index.match(/<input[^>]+id="photo-input"[^>]*>/)?.[0] || "";
   const heroModuleIndex = index.indexOf('src="assets/media/hero-image.js"');
@@ -2111,7 +2116,7 @@ test("template undo restores the custom hero image and crop", async () => {
 });
 
 test("editor and viewer load intro effects before invitation core", () => {
-  for (const page of ["index.html", "viewer.html"]) {
+  for (const page of ["studio.html", "viewer.html"]) {
     const html = read(page);
     const introIndex = html.indexOf('src="assets/invitation/intro-effects.js"');
     const coreIndex = html.indexOf('src="assets/invitation/core.js"');
@@ -2123,7 +2128,7 @@ test("editor and viewer load intro effects before invitation core", () => {
 });
 
 test("maker and viewer load TemplateCatalog and TemplateRenderers before InvitationCore for browser family rendering", () => {
-  for (const page of ["index.html", "viewer.html"]) {
+  for (const page of ["studio.html", "viewer.html"]) {
     const html = read(page);
     const catalogIndex = html.indexOf('src="assets/invitation/template-catalog.js"');
     const artIndex = html.indexOf('src="assets/invitation/template-art.js"');
@@ -2614,7 +2619,7 @@ test("ordered editor controls and thumbnails stay bounded on narrow screens", ()
 });
 
 test("editor offers six English fonts and six Korean fonts", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const app = read("assets/studio/app.js");
   const englishSelect = index.match(/<select name="englishFont"[\s\S]*?<\/select>/)?.[0] || "";
   const koreanSelect = index.match(/<select name="koreanFont"[\s\S]*?<\/select>/)?.[0] || "";
@@ -2629,7 +2634,7 @@ test("editor offers six English fonts and six Korean fonts", () => {
 });
 
 test("editor exposes particle size and amount as percentage scales", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const app = read("assets/studio/app.js");
 
   assert.match(index, /<input[^>]+name="particleScale"[^>]+type="range"[^>]+min="50"[^>]+max="200"[^>]+step="5"/);
@@ -2670,7 +2675,7 @@ const assertLocalizedChoice = ({ text, "data-i18n": key }, value) => {
 };
 
 test("particle selector groups every effect profile in the editor", () => {
-  const index = read("index.html");
+  const index = read("studio.html");
   const select = index.match(/<select name="particleEffect"[\s\S]*?<\/select>/)?.[0] || "";
   const groups = readOptgroups(select);
 
@@ -2701,7 +2706,7 @@ test("particle selector groups every effect profile in the editor", () => {
 });
 
 test("editor exposes grouped intro choices and replay control", () => {
-  const html = read("index.html");
+  const html = read("studio.html");
   const select = html.match(/<select id="intro-effect"[\s\S]*?<\/select>/)?.[0] || "";
   assert.match(html, /name="introEffect"/);
   assert.match(html, /id="replay-intro-button"/);

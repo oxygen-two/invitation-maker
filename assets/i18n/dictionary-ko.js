@@ -41,7 +41,10 @@
 
     header: {
       tagline: "작은 날도, 특별하게.",
-      footerNote: "작은 초대, 소중한 순간."
+      footerNote: "작은 초대, 소중한 순간.",
+      guideLink: "사용법",
+      aboutLink: "소개",
+      footerNavLabel: "바닥글 링크"
     },
 
     nav: {
@@ -304,6 +307,7 @@
     },
 
     finish: {
+      compareLink: "세 가지 방식의 차이 보기",
       persistenceLead: "보관함은 이 브라우저에만 저장돼요.",
       persistenceBody: "브라우저 데이터를 지우거나 시크릿(프라이빗) 모드를 쓰면 보관함의 초안이 함께 사라져요. 오래 보관하고 싶다면 아래에서 파일로 저장하거나 링크를 만들어 두세요.",
       saveTitle: "보관함에 저장",

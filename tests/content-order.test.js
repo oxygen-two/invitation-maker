@@ -58,7 +58,7 @@ test("does not mutate input and preserves unaffected item identities", () => {
 });
 
 test("loads before app.js and exposes the browser global", () => {
-  const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const index = fs.readFileSync(path.join(root, "studio.html"), "utf8");
   const contentOrderScript = index.indexOf('src="assets/studio/content-order.js"');
   const appScript = index.indexOf('src="assets/studio/app.js"');
 

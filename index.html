@@ -1,13 +1,25 @@
 <!doctype html>
-<!-- lang is the served default; assets/i18n/i18n.js rewrites it to the
-     resolved language before first paint so screen readers and browser
-     translation both see the language actually on screen. -->
-<html lang="ko">
+<!-- The landing page. "/" is state-aware: a browser that has opened the
+     studio before is sent to /studio by the inline script below, before any
+     stylesheet loads. "/welcome" is the same document without that redirect.
+     Crawlers have no localStorage and always see this page. -->
+<html lang="ko" data-i18n-title="site.meta.landingTitle">
 <head>
   <meta charset="utf-8">
+  <script>
+    try {
+      var isRoot = location.pathname === "/" || location.pathname === "/index.html";
+      var stay = new URLSearchParams(location.search).has("welcome");
+      if (isRoot && !stay && localStorage.getItem("invitation-studio:visited")) {
+        // location.hash is deliberately not carried over: the landing has no
+        // anchors that mean anything on /studio.
+        location.replace("/studio" + location.search);
+      }
+    } catch (error) { /* No storage, no redirect: show the landing. */ }
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f7f7f4">
-  <meta name="description" data-i18n-attr="content:meta.description" content="마음에 드는 디자인에 나만의 이야기를 담아보세요. 생일부터 소중한 모임까지, 나만의 초대장을 만드는 Invitation Studio.">
+  <meta name="description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
   <!-- Ownership proofs for the two search consoles this site is registered
        with. Both are re-checked periodically rather than once, so deleting
        either tag silently drops that verification and the reports with it. -->
@@ -17,8 +29,8 @@
   <meta property="og:type" content="website">
   <meta property="og:locale" data-i18n-attr="content:meta.ogLocale" content="ko_KR">
   <meta property="og:site_name" content="Invitation Studio">
-  <meta property="og:title" data-i18n-attr="content:meta.ogTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
-  <meta property="og:description" data-i18n-attr="content:meta.ogDescription" content="마음에 드는 디자인에 나만의 이야기를 담아보세요. 생일부터 소중한 모임까지, 나만의 초대장을 만들어보세요.">
+  <meta property="og:title" data-i18n-attr="content:site.meta.landingTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
+  <meta property="og:description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
   <meta property="og:url" content="https://invitation-maker-one.vercel.app/">
   <meta property="og:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
   <meta property="og:image:type" content="image/png">
@@ -26,8 +38,8 @@
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" data-i18n-attr="content:meta.ogImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" data-i18n-attr="content:meta.twitterTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
-  <meta name="twitter:description" data-i18n-attr="content:meta.twitterDescription" content="마음에 드는 디자인에 나만의 이야기를 담아 나만의 초대장을 만들어보세요.">
+  <meta name="twitter:title" data-i18n-attr="content:site.meta.landingTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
+  <meta name="twitter:description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
   <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
   <meta name="twitter:image:alt" data-i18n-attr="content:meta.twitterImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
   <!-- Structured data stays in the served default language on purpose: a
@@ -52,322 +64,98 @@
     }
   }
   </script>
-  <title>Invitation Studio</title>
+  <title>Invitation Studio · 작은 초대, 소중한 순간</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/studio/style.css">
-  <link rel="stylesheet" href="assets/studio/studio.css">
-  <!-- Loaded in <head>, before the body paints, so the resolved language is
-       applied in the same frame rather than flashing Korean at an English
-       visitor. The dictionaries register themselves onto the engine. -->
-  <script src="assets/i18n/i18n.js"></script>
-  <script src="assets/i18n/dictionary-ko.js"></script>
-  <script src="assets/i18n/dictionary-en.js"></script>
+  <link rel="stylesheet" href="/assets/site/site.css">
+  <!-- The engine sets <html lang> and the title in <head>. Body copy is
+       translated by site.js as soon as the document is parsed, so an
+       English visitor may briefly see Korean body text if the network is slow. -->
+  <script src="/assets/i18n/i18n.js"></script>
+  <script src="/assets/i18n/dictionary-ko.js"></script>
+  <script src="/assets/i18n/dictionary-en.js"></script>
+  <script src="/assets/i18n/dictionary-site-ko.js"></script>
+  <script src="/assets/i18n/dictionary-site-en.js"></script>
   <script>InvitationI18n.init();</script>
 </head>
-<body data-mobile-view="editor" data-studio-stage="gallery">
-  <header class="studio-bar">
-    <a href="./">Invitation Studio<span data-i18n="header.tagline">작은 날도, 특별하게.</span></a>
-    <div class="studio-bar-meta">
-      <p id="draft-status" role="status" data-i18n="status.draftKept">이 기기에 초안을 보관합니다</p>
-      <!-- Sits in the top bar, clear of .studio-steps, so the three-stage nav
-           keeps reading as the one row of primary navigation. A <select> is
-           used rather than a pair of toggles because it stays one control at
-           any number of languages, and it is keyboard-reachable and
-           state-announcing natively. Options are built from the engine's
-           language registry, so a new language needs no markup change. -->
-      <div class="studio-language">
-        <label for="language-select" data-i18n="lang.switcherDescription">스튜디오 표시 언어</label>
-        <select id="language-select" data-i18n-attr="aria-label:lang.switcherLabel" aria-label="언어 선택"></select>
+<body data-site-page="landing">
+  <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="site-brand" href="/welcome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio<span data-i18n="site.header.tagline">작은 날도, 특별하게.</span></a>
+    <nav class="site-nav" aria-label="사이트" data-i18n-attr="aria-label:site.header.navLabel">
+      <a href="/guide" data-i18n="site.header.guide">사용법</a>
+      <div class="site-language">
+        <label for="language-select" data-i18n="site.header.langDescription">표시 언어</label>
+        <select id="language-select" data-i18n-attr="aria-label:site.header.langLabel" aria-label="언어 선택"></select>
       </div>
-    </div>
+      <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="header" data-i18n="site.header.cta">초대장 만들기</a>
+    </nav>
   </header>
-  <nav class="studio-steps" data-i18n-attr="aria-label:nav.stepsLabel" aria-label="제작 단계">
-    <button type="button" data-studio-stage="gallery" aria-pressed="true" data-i18n="nav.gallery">01 디자인</button>
-    <button type="button" data-studio-stage="edit" aria-pressed="false" data-i18n="nav.edit">02 내용 편집</button>
-    <button type="button" data-studio-stage="finish" aria-pressed="false" data-i18n="nav.finish">03 완성</button>
-    <button type="button" data-studio-stage="library" aria-pressed="false" data-i18n="nav.library">보관함</button>
-  </nav>
-  <nav class="mobile-view-tabs" data-i18n-attr="aria-label:nav.viewsLabel" aria-label="화면 전환">
-    <button type="button" data-mobile-view="editor" aria-pressed="true" data-i18n="nav.viewEditor">제작</button>
-    <button type="button" data-mobile-view="preview" aria-pressed="false" data-i18n="nav.viewPreview">미리보기</button>
-    <button type="button" data-mobile-view="library" aria-pressed="false" data-i18n="nav.viewLibrary">보관함</button>
-  </nav>
-  <main class="app-shell">
-    <section class="maker-panel">
-      <div class="maker-header">
-        <p class="eyebrow" data-i18n="maker.eyebrow">Make it personal</p>
-        <h1 id="studio-heading" data-i18n="maker.headingGallery">어떤 날을 초대할까요?</h1>
-        <p data-i18n="maker.intro">마음에 드는 디자인에 나만의 이야기를 담아보세요.</p>
-      </div>
-
-      <section class="template-picker" data-i18n-attr="aria-label:gallery.pickerLabel" aria-label="초대장 템플릿 선택">
-        <span class="picker-label" data-i18n="gallery.occasionQuestion">어떤 날인가요?</span>
-        <div id="occasion-list" class="occasion-list" data-i18n-attr="aria-label:gallery.occasionListLabel" aria-label="행사 유형"></div>
-        <div class="template-picker-heading"><h2 class="picker-label" data-i18n="gallery.designLabel">디자인 선택</h2><button id="toggle-templates-button" type="button" aria-controls="template-list" aria-expanded="false" data-i18n="gallery.showAll">전체 보기</button></div>
-        <div id="template-list" class="template-list" data-i18n-attr="aria-label:gallery.designListLabel" aria-label="템플릿 디자인"></div>
-        <div class="template-apply-row">
-          <p id="template-summary" aria-live="polite"></p>
-          <button id="apply-template-button" type="button" data-i18n="gallery.apply">이 디자인으로 만들기</button>
-          <button id="undo-template-button" type="button" hidden data-i18n="gallery.undo">되돌리기</button>
-        </div>
-      </section>
-
-      <form id="invitation-form" class="editor-form">
-        <details class="editor-group" data-editor-group="details" open>
-          <summary><span data-i18n="editor.detailsTitle">기본 정보</span><small data-i18n="editor.detailsHint">제목 · 일정 · 메시지</small></summary>
-          <div class="editor-group-body">
-            <label class="full"><span data-i18n="editor.title">제목</span><input name="title" type="text" autocomplete="off"></label>
-            <label class="full"><span data-i18n="editor.subtitle">부제</span><input name="subtitle" type="text" autocomplete="off"></label>
-            <label><span data-i18n="editor.dateLabel">일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
-            <label><span data-i18n="editor.host">보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
-            <label class="full"><span data-i18n="editor.message">메시지</span><textarea name="message" rows="4"></textarea></label>
-          </div>
-        </details>
-
-        <details class="editor-group" data-editor-group="location" open>
-          <summary><span data-i18n="editor.locationTitle">대표 장소</span><small data-i18n="editor.locationHint">장소 · 지도</small></summary>
-          <div class="editor-group-body">
-            <!-- The service is chosen first because it decides what everything
-                 below means: which geocoder reads the address, which map the
-                 guest sees, and where the guest's map button opens. -->
-            <fieldset class="full map-provider-field">
-              <legend data-i18n="editor.mapProvider">지도 서비스</legend>
-              <div class="map-provider-options">
-                <label class="map-provider-option"><input name="mapProvider" type="radio" value="naver" checked><span data-i18n="editor.mapProviderNaver">네이버 지도</span></label>
-                <label class="map-provider-option"><input name="mapProvider" type="radio" value="google"><span data-i18n="editor.mapProviderGoogle">Google 지도</span></label>
-              </div>
-              <small data-i18n="editor.mapProviderHint">국내 장소는 네이버 지도, 해외 장소는 Google 지도가 정확해요. 손님의 지도 버튼도 이 서비스로 열립니다.</small>
-            </fieldset>
-            <label><span data-i18n="editor.location">장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
-            <label><span data-i18n="editor.mapUrl">지도 링크</span><input name="mapUrl" type="url" autocomplete="off" data-i18n-attr="placeholder:editor.mapUrlPlaceholder" placeholder="네이버 지도 또는 Google 지도 링크 (선택)"></label>
-            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span data-i18n="editor.mapEnabled">대표 장소에 지도 넣기</span></label>
-            <div class="full map-settings" data-map-settings hidden>
-              <input name="mapLatitude" type="hidden">
-              <input name="mapLongitude" type="hidden">
-              <input name="mapZoom" type="hidden" value="16">
-              <small class="map-message" data-map-message role="status" aria-live="polite"></small>
-            </div>
-          </div>
-        </details>
-
-        <details class="editor-group" data-editor-group="style">
-          <summary><span data-i18n="editor.styleTitle">스타일과 효과</span><small data-i18n="editor.styleHint">인트로 · 파티클 · 폰트</small></summary>
-          <div class="editor-group-body">
-            <div class="full intro-effect-field">
-              <label for="intro-effect"><span data-i18n="editor.introEffect">인트로 효과</span></label>
-              <select id="intro-effect" name="introEffect" data-i18n-attr="aria-label:editor.introEffect" aria-label="인트로 효과">
-                <option value="none" data-i18n="effects.introNone">사용 안 함</option>
-                <optgroup label="클래식" data-i18n-attr="label:effects.introGroupClassic"><option value="envelope" data-i18n="effects.introEnvelope">봉투 열기</option><option value="card-shrink" data-i18n="effects.introCardShrink">전체 화면 카드</option></optgroup>
-                <optgroup label="시네마틱" data-i18n-attr="label:effects.introGroupCinematic"><option value="dawn" data-i18n="effects.introDawn">어둠에서 밝아지기</option><option value="curtain" data-i18n="effects.introCurtain">커튼 열기</option><option value="spotlight" data-i18n="effects.introSpotlight">스포트라이트</option></optgroup>
-                <optgroup label="축하" data-i18n-attr="label:effects.introGroupCelebration"><option value="fireworks" data-i18n="effects.introFireworks">골드 폭죽</option></optgroup>
-                <optgroup label="로맨틱" data-i18n-attr="label:effects.introGroupRomantic"><option value="petals" data-i18n="effects.introPetals">꽃잎 사이로</option></optgroup>
-                <optgroup label="사진" data-i18n-attr="label:effects.introGroupPhoto"><option value="photo-focus" data-i18n="effects.introPhotoFocus">사진 초점 전환</option></optgroup>
-              </select>
-              <button id="replay-intro-button" class="replay-intro-button" type="button" data-i18n-attr="title:editor.replayIntro;aria-label:editor.replayIntro" title="인트로 다시 보기" aria-label="인트로 다시 보기" disabled>&#8635;</button>
-            </div>
-            <label class="full effect-field">
-              <span data-i18n="editor.particleEffect">파티클 효과</span>
-              <select name="particleEffect" data-i18n-attr="aria-label:editor.particleEffect" aria-label="파티클 효과">
-                <option value="none" data-i18n="effects.particleNone">효과 없음</option>
-                <optgroup label="로맨틱" data-i18n-attr="label:effects.particleGroupRomantic"><option value="petals" data-i18n="effects.particlePetals">꽃잎</option><option value="hearts" data-i18n="effects.particleHearts">하트</option></optgroup>
-                <optgroup label="분위기" data-i18n-attr="label:effects.particleGroupMood"><option value="sparkle" data-i18n="effects.particleSparkle">빛가루</option><option value="fireflies" data-i18n="effects.particleFireflies">반딧불</option><option value="bubbles" data-i18n="effects.particleBubbles">버블</option></optgroup>
-                <optgroup label="계절" data-i18n-attr="label:effects.particleGroupSeason"><option value="snow" data-i18n="effects.particleSnow">눈</option><option value="leaves" data-i18n="effects.particleLeaves">나뭇잎</option></optgroup>
-                <optgroup label="축하" data-i18n-attr="label:effects.particleGroupCelebration"><option value="confetti" data-i18n="effects.particleConfetti">컨페티</option></optgroup>
-              </select>
-            </label>
-            <label class="range-field">
-              <span class="range-heading"><span data-i18n="editor.particleScale">파티클 크기</span><output data-particle-scale-output for="particle-scale">100%</output></span>
-              <input id="particle-scale" name="particleScale" type="range" min="50" max="200" step="5" value="100" data-i18n-attr="aria-label:editor.particleScaleLabel" aria-label="파티클 크기 스케일">
-            </label>
-            <label class="range-field">
-              <span class="range-heading"><span data-i18n="editor.particleAmount">파티클 양</span><output data-particle-amount-output for="particle-amount">100%</output></span>
-              <input id="particle-amount" name="particleAmount" type="range" min="25" max="500" step="25" value="100" data-i18n-attr="aria-label:editor.particleAmountLabel" aria-label="파티클 양 스케일">
-            </label>
-            <label>
-              <span data-i18n="editor.englishFont">영문 폰트</span>
-              <select name="englishFont" data-i18n-attr="aria-label:editor.englishFont" aria-label="영문 폰트">
-                <option value="cormorant-garamond">Cormorant Garamond</option><option value="playfair-display">Playfair Display</option><option value="dm-serif-display">DM Serif Display</option><option value="libre-baskerville">Libre Baskerville</option><option value="great-vibes">Great Vibes</option><option value="gmarket-sans">Gmarket Sans</option>
-              </select>
-            </label>
-            <label>
-              <span data-i18n="editor.koreanFont">한글 폰트</span>
-              <select name="koreanFont" data-i18n-attr="aria-label:editor.koreanFont" aria-label="한글 폰트">
-                <option value="gowun-batang" data-i18n="fonts.gowunBatang">고운바탕</option><option value="noto-serif-kr" data-i18n="fonts.notoSerifKr">노토 명조</option><option value="nanum-myeongjo" data-i18n="fonts.nanumMyeongjo">나눔명조</option><option value="nanum-gothic" data-i18n="fonts.nanumGothic">나눔고딕</option><option value="song-myung" data-i18n="fonts.songMyung">송명</option><option value="gmarket-sans">Gmarket Sans</option>
-              </select>
-            </label>
-          </div>
-        </details>
-
-        <details class="editor-group" data-editor-group="hero-image">
-          <summary><span data-i18n="editor.heroTitle">첫 화면 배경</span><small data-i18n="editor.heroHint">사진 · 위치 · 확대</small></summary>
-          <div class="editor-group-body">
-            <section id="hero-image-editor" class="full hero-image-editor" data-layout-family="romantic-story">
-              <div id="hero-image-frame" class="hero-image-frame" tabindex="0" role="img" data-i18n-attr="aria-label:hero.frameLabel" aria-label="첫 화면 배경 사진 위치 조정">
-                <img id="hero-image-preview" alt="" draggable="false" hidden>
-                <span id="hero-image-empty" class="hero-image-empty" data-i18n="hero.empty">템플릿 기본 배경</span>
-              </div>
-              <div class="hero-image-toolbar">
-                <button id="hero-image-select-button" class="hero-image-select-button" type="button" data-i18n="hero.add">배경 사진 추가</button>
-                <div id="hero-image-adjustments" class="hero-image-adjustments" hidden>
-                  <label class="range-field" for="hero-image-scale">
-                    <span class="range-heading"><span data-i18n="hero.scale">확대</span><output id="hero-image-scale-output" for="hero-image-scale">100%</output></span>
-                    <input id="hero-image-scale" type="range" min="100" max="250" step="5" value="100" data-i18n-attr="aria-label:hero.scaleLabel" aria-label="배경 사진 확대">
-                  </label>
-                  <div class="hero-image-actions">
-                    <button id="hero-image-reset-button" type="button" data-i18n-attr="title:hero.resetTitle" title="배경 사진 위치 초기화" data-i18n="hero.reset">초기화</button>
-                    <button id="hero-image-remove-button" type="button" data-i18n-attr="title:hero.removeTitle" title="배경 사진 삭제" data-i18n="hero.remove">삭제</button>
-                  </div>
-                </div>
-              </div>
-              <input id="hero-image-input" type="file" accept="image/jpeg,image/png,image/webp" data-i18n-attr="aria-label:hero.fileLabel" aria-label="첫 화면 배경 사진 파일 선택" hidden>
-              <p id="hero-image-status" class="hero-image-status" role="status" aria-live="polite"></p>
-            </section>
-          </div>
-        </details>
-
-        <details class="editor-group" data-editor-group="content" open>
-          <summary><span data-i18n="editor.contentTitle">초대장 항목</span><small data-i18n="editor.contentHint">↑ ↓ 로 순서 변경</small></summary>
-          <div class="editor-group-body editor-content-body">
-            <section class="full content-editor-section" data-i18n-attr="aria-label:content.sectionLabel" aria-label="초대장 항목">
-              <div class="content-editor-header">
-                <div class="content-editor-commands">
-                  <button id="add-course-button" class="add-item-button" type="button" data-i18n="content.addCourse">+ 코스</button>
-                  <button id="add-photo-button" class="add-item-button" type="button" data-i18n="content.addPhoto">+ 사진</button>
-                  <button class="add-item-button" type="button" data-add-item="notice" data-i18n="content.addNotice">+ 안내</button>
-                  <button class="add-item-button" type="button" data-add-item="profile" data-i18n="content.addProfile">+ 인물 소개</button>
-                  <button class="add-item-button" type="button" data-add-item="link" data-i18n="content.addLink">+ 연락처·링크</button>
-                  <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple data-i18n-attr="aria-label:content.photoFileLabel" aria-label="초대장 사진 파일 선택" hidden>
-                </div>
-              </div>
-              <div id="content-editor" class="content-editor"></div>
-            </section>
-          </div>
-        </details>
-      </form>
-
-      <div class="action-row">
-        <button id="review-button" class="primary-button" type="button" data-i18n="editor.reviewButton">완성 미리보기</button>
-        <button id="start-template-button" class="primary-button" type="button" hidden data-i18n="gallery.start">이 디자인으로 시작</button>
-        <button id="keep-draft-button" class="secondary-button" type="button" hidden data-i18n="gallery.keepDraft">현재 초안 유지</button>
-      </div>
-      <p id="save-status" class="save-status" role="status" aria-live="polite"></p>
-
-      <div class="finish-actions">
-        <p class="finish-persistence-note">
-          <strong data-i18n="finish.persistenceLead">보관함은 이 브라우저에만 저장돼요.</strong>
-          <span data-i18n="finish.persistenceBody">브라우저 데이터를 지우거나 시크릿(프라이빗) 모드를 쓰면 보관함의 초안이 함께 사라져요. 오래 보관하고 싶다면 아래에서 파일로 저장하거나 링크를 만들어 두세요.</span>
-        </p>
-        <div class="finish-choice-row">
-          <button id="save-button" class="finish-choice-card" type="button">
-            <span class="finish-choice-icon" aria-hidden="true">🗂</span>
-            <span class="finish-choice-copy">
-              <span class="finish-choice-title" data-i18n="finish.saveTitle">보관함에 저장</span>
-              <span class="finish-choice-desc" data-i18n="finish.saveDesc">이 브라우저의 보관함에 넣어 두고 이어서 고쳐요.</span>
-            </span>
-          </button>
-          <button id="open-download-dialog-button" class="finish-choice-card" type="button" aria-haspopup="dialog" aria-controls="download-dialog">
-            <span class="finish-choice-icon" aria-hidden="true">⬇</span>
-            <span class="finish-choice-copy">
-              <span class="finish-choice-title" data-i18n="finish.downloadTitle">파일로 저장</span>
-              <span class="finish-choice-desc" data-i18n="finish.downloadDesc">사진이 담긴 HTML 파일 하나로 내려받아요.</span>
-            </span>
-          </button>
-          <button id="open-share-dialog-button" class="finish-choice-card" type="button" aria-haspopup="dialog" aria-controls="share-dialog">
-            <span class="finish-choice-icon" aria-hidden="true">🔗</span>
-            <span class="finish-choice-copy">
-              <span class="finish-choice-title" data-i18n="finish.shareTitle">링크로 공유</span>
-              <span class="finish-choice-desc" data-i18n="finish.shareDesc">누구나 열어볼 수 있는 공개 페이지를 만들어요.</span>
-            </span>
-          </button>
+  <main id="main" tabindex="-1">
+    <section class="hero">
+      <div>
+        <p class="eyebrow" data-i18n="site.landing.hero.eyebrow">회원가입 없음 · 무료</p>
+        <h1 data-i18n="site.landing.hero.title">작은 초대, 소중한 순간.</h1>
+        <p class="lead" data-i18n="site.landing.hero.lead">디자인을 고르고, 내용을 채우고, 파일이나 링크로 보내세요.</p>
+        <div class="actions">
+          <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="hero" data-i18n="site.landing.hero.cta">초대장 만들기</a>
+          <a class="text-link" href="/sample" target="_blank" rel="noopener" data-site-event="landing_sample_opened" data-i18n="site.landing.hero.sample">완성된 초대장 먼저 보기</a>
         </div>
       </div>
-
-      <dialog id="download-dialog" class="studio-dialog" aria-labelledby="download-dialog-title">
-        <div class="studio-dialog-header">
-          <h2 id="download-dialog-title" data-i18n="finish.downloadTitle">파일로 저장</h2>
-          <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
-        </div>
-        <div class="studio-dialog-body">
-          <p><span data-i18n="finish.downloadDialogLead">사진까지 하나로 묶은 HTML 파일을 내려받아요.</span> <strong data-i18n="finish.downloadDialogStrong">이 파일이 끝까지 남는 사본</strong><span data-i18n="finish.downloadDialogTail">이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.</span></p>
-          <button id="download-button" class="primary-button studio-dialog-primary" type="button" data-i18n="finish.downloadButton">HTML 다운로드</button>
-        </div>
-      </dialog>
-
-      <dialog id="share-dialog" class="studio-dialog" aria-labelledby="share-dialog-title">
-        <div class="studio-dialog-header">
-          <h2 id="share-dialog-title" data-i18n="finish.shareTitle">링크로 공유</h2>
-          <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
-        </div>
-        <div class="studio-dialog-body">
-          <p><span data-i18n="finish.shareDialogLead">공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만</span> <strong data-i18n="finish.shareDialogStrong">링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만</strong><span data-i18n="finish.shareDialogTail">저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</span></p>
-          <section id="publishing-panel" class="publishing-panel" data-i18n-attr="aria-label:finish.shareDialogPanelLabel" aria-label="공개 링크 발행"></section>
-        </div>
-      </dialog>
+      <div class="hero-media">
+        <div class="phone"><img src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="휴대폰 화면에 열린 완성 초대장 예시" data-i18n-attr="alt:site.landing.hero.imageAlt"></div>
+      </div>
     </section>
-
-    <section class="preview-panel">
-      <div class="panel-title">
-        <p class="eyebrow" data-i18n="preview.eyebrow">Preview</p>
-        <h2 data-i18n="preview.heading">미리보기</h2>
+    <section aria-labelledby="steps-title">
+      <h2 id="steps-title" data-i18n="site.landing.steps.title">세 단계면 됩니다</h2>
+      <div class="steps">
+        <article class="step"><h3 data-i18n="site.landing.steps.one.title">01 디자인 고르기</h3><p data-i18n="site.landing.steps.one.text">생일, 결혼, 돌잔치, 모임. 행사에 맞는 디자인을 고르면 샘플이 바로 보입니다.</p></article>
+        <article class="step"><h3 data-i18n="site.landing.steps.two.title">02 내용 채우기</h3><p data-i18n="site.landing.steps.two.text">제목, 일정, 장소, 메시지를 적고 사진을 더하세요. 미리보기는 하객이 받는 화면 그대로입니다.</p></article>
+        <article class="step"><h3 data-i18n="site.landing.steps.three.title">03 보관 · 파일 · 링크</h3><p data-i18n="site.landing.steps.three.text">이 브라우저에 보관하거나, 파일 하나로 내려받거나, 공개 링크로 보내세요.</p></article>
       </div>
-      <div id="pending-preview-notice" class="pending-preview-notice" hidden>
-        <p id="pending-preview-text" role="status"></p>
-        <button id="preview-apply-button" type="button" data-i18n="preview.apply">선택한 디자인 적용</button>
-      </div>
-      <!-- The invitation renders inside its own document (see mountPreviewFrame
-           in assets/studio/app.js). Two reasons: the invitation's own <h1> and
-           <header> stay out of the studio's page outline, and the frame runs the
-           exact standalone document a guest receives, so the preview can no
-           longer drift from the export by inheriting studio CSS. -->
-      <iframe id="preview" class="preview-frame" data-i18n-attr="title:preview.frameTitle" title="초대장 미리보기" referrerpolicy="no-referrer"></iframe>
     </section>
-
-    <section class="library-panel">
-      <div class="panel-title">
-        <p class="eyebrow" data-i18n="library.eyebrow">Library</p>
-        <h2 data-i18n="library.heading">나의 초대장</h2>
+    <section aria-labelledby="designs-title">
+      <h2 id="designs-title" data-i18n="site.landing.gallery.title">디자인</h2>
+      <p class="lead" data-i18n="site.landing.gallery.lead">취향으로 고르세요. 행사 유형마다 여러 디자인이 있습니다.</p>
+      <!-- Alt text stays static Korean rather than data-i18n-attr: these are
+           screenshots of Korean-language sample invitations, so describing
+           them in English would misdescribe what the image actually shows. -->
+      <div class="designs">
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 생일"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-wedding-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 결혼"><figcaption data-i18n="site.landing.gallery.wedding">결혼</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-first-chapter-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 돌잔치"><figcaption data-i18n="site.landing.gallery.firstChapter">돌잔치</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-golden-years-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 환갑"><figcaption data-i18n="site.landing.gallery.goldenYears">환갑</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-botanical-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 데이트"><figcaption data-i18n="site.landing.gallery.botanical">데이트</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-midnight-cinema-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 행사"><figcaption data-i18n="site.landing.gallery.midnightCinema">행사</figcaption></figure>
       </div>
-      <div class="upload-box">
-        <label for="html-upload" data-i18n="library.uploadLabel">다운로드된 HTML 등록</label>
-        <input id="html-upload" type="file" accept=".html,text/html">
-        <p id="upload-status" class="upload-status" role="status" aria-live="polite"></p>
+      <div class="actions"><a class="site-cta secondary" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="gallery" data-i18n="site.landing.gallery.cta">디자인 전체 보기</a></div>
+    </section>
+    <section aria-labelledby="trust-title">
+      <h2 id="trust-title" data-i18n="site.landing.trust.title">안심하고 쓰세요</h2>
+      <div class="trust">
+        <article><h3 data-i18n="site.landing.trust.one.title">회원가입도 앱 설치도 없습니다</h3><p data-i18n="site.landing.trust.one.text">브라우저에서 열어 바로 만듭니다. 이메일도 전화번호도 묻지 않습니다.</p></article>
+        <article><h3 data-i18n="site.landing.trust.two.title">초안은 내 브라우저에만 남습니다</h3><p data-i18n="site.landing.trust.two.text">쓰는 동안 자동으로 저장되지만, 서버로 보내지 않습니다.</p></article>
+        <article><h3 data-i18n="site.landing.trust.three.title">파일은 영원히, 링크는 내가 정합니다</h3><p data-i18n="site.landing.trust.three.text">파일로 받으면 계속 내 것입니다. 공개 링크는 시간이 지나면 만료되고, 원할 때 취소할 수 있습니다.</p></article>
       </div>
-      <div id="saved-list" class="saved-list"></div>
+      <a class="text-link" href="/guide#data" data-i18n="site.landing.trust.link">내 데이터는 어디에 저장되나요</a>
+    </section>
+    <section class="closing" aria-labelledby="closing-title">
+      <h2 id="closing-title" data-i18n="site.landing.closing.title">지금 만들어 보세요</h2>
+      <div class="actions"><a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="footer" data-i18n="site.landing.closing.cta">초대장 만들기</a></div>
     </section>
   </main>
-  <aside id="gallery-dock" data-i18n-attr="aria-label:gallery.dockLabel" aria-label="선택한 디자인">
-    <span id="gallery-selection" aria-live="polite"></span>
-    <div><button id="gallery-back" type="button" data-i18n="gallery.dockBack">디자인 목록</button><button id="gallery-create" type="button" data-i18n="gallery.apply">이 디자인으로 만들기</button></div>
-  </aside>
-
-  <footer class="studio-footer">
-    <span>INVITATION STUDIO</span>
-    <span class="studio-footer-note" data-i18n="header.footerNote">작은 초대, 소중한 순간.</span>
+  <footer class="site-footer">
+    <span data-i18n="site.footer.brand">INVITATION STUDIO</span>
+    <nav aria-label="바닥글 링크" data-i18n-attr="aria-label:site.footer.navLabel"><a href="/welcome" data-i18n="site.footer.about">소개</a><a href="/guide" data-i18n="site.footer.guide">사용법</a><a href="/guide#data" data-i18n="site.footer.data">내 데이터</a></nav>
+    <span class="site-footer-note" data-i18n="site.footer.note">작은 초대, 소중한 순간.</span>
   </footer>
-
   <!-- Analytics first, and error-reporting.js immediately after it, because a
        script that dies while PARSING can only be reported by handlers that are
        already installed. Everything below this line is a file whose failure we
        want to hear about; everything above it would have to fail silently. -->
-  <script src="assets/analytics/config.js"></script>
-  <script src="assets/analytics/analytics.js"></script>
-  <script src="assets/analytics/error-reporting.js"></script>
-  <script type="module" src="assets/analytics/ga4.js"></script>
-  <script src="assets/invitation/intro-effects.js"></script>
-  <script src="assets/invitation/template-catalog.js"></script>
-  <script src="assets/invitation/template-art.js"></script>
-  <script src="assets/invitation/template-renderers.js"></script>
-  <script src="assets/media/hero-image.js"></script>
-  <script src="assets/invitation/core.js"></script>
-  <script src="assets/studio/preset-application.js"></script>
-  <script src="assets/media/image-tools.js"></script>
-  <script src="assets/studio/content-order.js"></script>
-  <script src="assets/storage/invitation-storage.js"></script>
-  <script src="assets/integrations/map-location.js"></script>
-  <script src="assets/publishing/publishing.js"></script>
-  <script src="assets/studio/app.js"></script>
+  <script defer src="/assets/analytics/config.js"></script>
+  <script defer src="/assets/analytics/analytics.js"></script>
+  <script defer src="/assets/analytics/error-reporting.js"></script>
+  <script type="module" src="/assets/analytics/ga4.js"></script>
+  <script defer src="/assets/site/site.js"></script>
 </body>
 </html>

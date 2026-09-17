@@ -45,7 +45,7 @@ const MISSING_PUBLIC_ID = "zzzzSyntheticCanary404";
 // there but carrying somebody else's token fails verification just as silently
 // as a deleted one, and the failure is invisible until the reports stop
 // arriving weeks later. If a property is ever re-verified with a new token,
-// update index.html and this constant together.
+// update index.html (the landing page) and this constant together.
 const SEARCH_CONSOLE_TAGS = Object.freeze([
   {
     name: "google-site-verification",
@@ -104,14 +104,14 @@ const expectWellFormedSitemap = (response) => {
 const READ_ONLY_CHECKS = Object.freeze([
   {
     id: "landing-page-renders",
-    title: "Landing page returns 200 and rendered the studio, not an error shell",
+    title: "Landing page returns 200 and rendered the landing page, not an error shell",
     method: "GET",
     path: "/",
     verify: (response) => [
       ...expectStatus(response, 200),
       ...expectHeaderContains(response, "content-type", "text/html"),
       ...expectBodyContains(response, "<h1", "an <h1> element"),
-      ...expectBodyContains(response, 'id="studio-heading"', "the studio heading"),
+      ...expectBodyContains(response, 'data-site-page="landing"', "the landing page marker"),
       ...expectNotAnErrorShell(response)
     ]
   },

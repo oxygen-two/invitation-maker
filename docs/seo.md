@@ -4,7 +4,7 @@ This is a separate document rather than a section of `docs/publishing.md` becaus
 
 ## What is indexable, and what is not
 
-Only the landing page (`/`) is meant to appear in search results.
+The landing page (`/`), the guide (`/guide`) and the studio (`/studio`) are indexable; `/sample` carries `noindex`.
 
 `robots.txt`:
 
@@ -17,7 +17,7 @@ Disallow: /api/
 Sitemap: https://invitation-maker-one.vercel.app/sitemap.xml
 ```
 
-`sitemap.xml` lists exactly one URL — the landing page — with `changefreq: monthly` and `priority: 1.0`. There is no per-invitation sitemap and there should never be one.
+`sitemap.xml` lists three URLs — the landing page, the guide, and the studio — with `changefreq: monthly` and priorities `1.0`, `0.7`, and `0.8` respectively. `/sample` is deliberately absent from the sitemap: it is a generated demo page (see [`docs/landing-and-guide.md`](landing-and-guide.md)), not a page meant to rank on its own, and its own `<meta name="robots" content="noindex">` keeps a crawler that finds it anyway from indexing it. There is no per-invitation sitemap and there should never be one.
 
 ## Why published invitations stay noindex
 

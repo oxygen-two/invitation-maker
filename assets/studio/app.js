@@ -2188,6 +2188,11 @@ const loadInitialData = async () => {
 };
 
 const init = async () => {
+  // The landing page at "/" sends anyone who has opened the studio before
+  // straight back here. This flag is the only thing it reads; it is not the
+  // draft, and losing it (private mode, cleared storage) just shows the
+  // landing again.
+  try { localStorage.setItem("invitation-studio:visited", new Date().toISOString()); } catch { /* storage unavailable */ }
   try { window.InvitationAnalytics?.init(); } catch { /* Optional analytics. */ }
   try { window.InvitationErrorReporting?.init(); } catch { /* Optional diagnostics. */ }
   trackAnalytics("landing_viewed", {}, "landing");

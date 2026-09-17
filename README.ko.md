@@ -23,7 +23,8 @@
 
 ```text
 초대장 메이커
-├── 제작기        index.html + assets/
+├── 랜딩/가이드    index.html / guide.html
+├── 제작기        studio.html + assets/
 ├── 공개 뷰어      shared.html
 ├── 공개 API       api/ + server/
 ├── 로컬 관리자    admin/
@@ -43,11 +44,13 @@ cp .env.example .env
 npm start
 ```
 
-제작 화면은 [http://127.0.0.1:4173](http://127.0.0.1:4173)에서 엽니다. 정적 제작 화면만 확인할 때는 다음 명령도 사용할 수 있습니다.
+[http://127.0.0.1:4173](http://127.0.0.1:4173)을 엽니다. `/`는 랜딩 페이지이고, 제작기는 `/studio`에 있습니다(제작기를 한 번이라도 연 브라우저는 `/`에서 자동으로 `/studio`로 이동합니다). 서버 라우팅 없이 정적 파일만 확인할 때는 다음 명령도 사용할 수 있습니다.
 
 ```bash
 python3 -m http.server 4173
 ```
+
+이때는 `/studio.html`을 직접 열고(랜딩 페이지는 `/index.html?welcome`), `/`가 아닌 주소로 접속하세요 — 정적 서빙에는 클린 URL이 없고, `/`는 제작기를 이미 연 브라우저를 곧장 `/studio`로 이동시킵니다.
 
 `npm start`, `npm run admin`, `npm run dev`, `npm run dev:admin`은 모두 로컬 개발자용 명령이며, 그중 어느 것도 운영 환경에서 실행되지 않습니다. 운영 환경은 `server/index.cjs`를 전혀 실행하지 않고, `api/*.js` 서버리스 함수와 `scripts/build-public.cjs`를 통해 배포되며, 설정은 전적으로 Vercel의 환경 변수에서 옵니다. 별도의 로컬 설정(예: 다른 로컬 데이터베이스)이 필요하면 `.env.example`을 `.env.dev`로 복사하고 `npm run dev`(관리자 서비스는 `npm run dev:admin`)를 사용하세요. `npm start`/`npm run admin`은 기존대로 `.env`를 사용합니다. `.env`와 `.env.dev` 모두 자신의 로컬 환경을 가리켜야 하며, 두 진입점 모두 시작 시 연결할 데이터베이스 이름과 호스트를 출력하고, 호스트가 로컬(loopback)이 아니면 눈에 띄게 경고합니다.
 

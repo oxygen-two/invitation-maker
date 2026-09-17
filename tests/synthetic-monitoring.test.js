@@ -115,7 +115,7 @@ test("a landing page replaced by an error shell fails even though it is 200 HTML
 
   const failures = failuresFor(results, "landing-page-renders");
   assert.ok(failures.some((failure) => failure.includes("data-error-code")));
-  assert.ok(failures.some((failure) => failure.includes("studio heading")));
+  assert.ok(failures.some((failure) => failure.includes("landing page marker")));
 });
 
 test("a landing page that lost its <h1> fails", async () => {
@@ -152,7 +152,9 @@ test("a robots.txt that stopped disallowing /i/ fails", async () => {
 
 test("a truncated sitemap fails on unbalanced tags", async () => {
   const results = await runAgainst(
-    withPatchedBody("GET /sitemap.xml", (body) => body.replace("</urlset>", "").replace("</url>", ""))
+    // The sitemap now lists three <url> entries (/, /guide, /studio), so
+    // every </url> close tag has to go to still prove 0 closes against N opens.
+    withPatchedBody("GET /sitemap.xml", (body) => body.replace("</urlset>", "").replace(/<\/url>/g, ""))
   );
 
   const failures = failuresFor(results, "sitemap-is-well-formed");

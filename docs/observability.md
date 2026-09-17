@@ -15,7 +15,7 @@ SYNTHETIC_ORIGIN=http://127.0.0.1:4173 npm run monitor:synthetic
 
 The eight checks (see `scripts/synthetic/checks.cjs`):
 
-1. The landing page returns 200, is HTML, and renders the studio heading rather than an error shell.
+1. The landing page returns 200, is HTML, and renders the landing page rather than an error shell.
 2. Both search-console verification `<meta>` tags are present *and still carry their verified token* — a tag that is still there but holding somebody else's token fails as silently as a deleted one.
 3. `robots.txt` still disallows `/i/` and `/api/`.
 4. `sitemap.xml` parses (a shape check: declaration present, `urlset`/`url`/`loc` tags balanced).

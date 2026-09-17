@@ -38,6 +38,8 @@
     "/assets/analytics/ga4.js",
     "/assets/i18n/dictionary-en.js",
     "/assets/i18n/dictionary-ko.js",
+    "/assets/i18n/dictionary-site-en.js",
+    "/assets/i18n/dictionary-site-ko.js",
     "/assets/i18n/i18n.js",
     "/assets/integrations/map-location.js",
     "/assets/invitation/core.js",
@@ -50,6 +52,7 @@
     "/assets/media/image-tools.js",
     "/assets/publishing/publishing.js",
     "/assets/publishing/shared-invitation.js",
+    "/assets/site/site.js",
     "/assets/storage/invitation-storage.js",
     "/assets/studio/app.js",
     "/assets/studio/content-order.js",
@@ -109,11 +112,17 @@
     return frames.join("\n");
   };
 
+  // The root ("/") is the landing page; the editor itself now lives at
+  // /studio. Keep this mapping in sync with the clean URLs in vercel.json
+  // and server/http/static.cjs.
   const pageKind = (location) => {
     const pathname = String((location && location.pathname) || "");
     if (/^\/i\//.test(pathname)) return "shared";
     if (/viewer\.html$/.test(pathname)) return "viewer";
-    if (pathname === "" || pathname === "/" || /(^|\/)index\.html$/.test(pathname)) return "studio";
+    if (pathname === "/studio" || /studio\.html$/.test(pathname)) return "studio";
+    if (pathname === "" || pathname === "/" || pathname === "/welcome" || /(^|\/)index\.html$/.test(pathname)) return "landing";
+    if (pathname === "/guide" || /guide\.html$/.test(pathname)) return "guide";
+    if (pathname === "/sample" || /sample\.html$/.test(pathname)) return "sample";
     return "other";
   };
 

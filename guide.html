@@ -1,0 +1,135 @@
+<!doctype html>
+<!-- The user guide. Static, crawlable, and never redirects. -->
+<html lang="ko" data-i18n-title="site.meta.guideTitle">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="robots" content="index, follow">
+  <meta name="description" data-i18n-attr="content:site.meta.guideDescription" content="디자인 고르기, 내용 채우기, 완성 방식 세 가지, 내 데이터가 저장되는 곳까지 한 페이지에.">
+  <link rel="canonical" href="https://invitation-maker-one.vercel.app/guide">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" data-i18n-attr="content:meta.ogLocale" content="ko_KR">
+  <meta property="og:site_name" content="Invitation Studio">
+  <meta property="og:title" data-i18n-attr="content:site.meta.guideTitle" content="사용법 · Invitation Studio">
+  <meta property="og:description" data-i18n-attr="content:site.meta.guideDescription" content="디자인 고르기, 내용 채우기, 완성 방식 세 가지, 내 데이터가 저장되는 곳까지 한 페이지에.">
+  <meta property="og:url" content="https://invitation-maker-one.vercel.app/guide">
+  <meta property="og:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" data-i18n-attr="content:meta.ogImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" data-i18n-attr="content:site.meta.guideTitle" content="사용법 · Invitation Studio">
+  <meta name="twitter:description" data-i18n-attr="content:site.meta.guideDescription" content="디자인 고르기, 내용 채우기, 완성 방식 세 가지, 내 데이터가 저장되는 곳까지 한 페이지에.">
+  <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <title>사용법 · Invitation Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/site/site.css">
+  <!-- The engine sets <html lang> and the title in <head>. Body copy is
+       translated by site.js as soon as the document is parsed, so an
+       English visitor may briefly see Korean body text if the network is slow. -->
+  <script src="/assets/i18n/i18n.js"></script>
+  <script src="/assets/i18n/dictionary-ko.js"></script>
+  <script src="/assets/i18n/dictionary-en.js"></script>
+  <script src="/assets/i18n/dictionary-site-ko.js"></script>
+  <script src="/assets/i18n/dictionary-site-en.js"></script>
+  <script>InvitationI18n.init();</script>
+</head>
+<body data-site-page="guide">
+  <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="site-brand" href="/welcome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio<span data-i18n="site.header.tagline">작은 날도, 특별하게.</span></a>
+    <nav class="site-nav" aria-label="사이트" data-i18n-attr="aria-label:site.header.navLabel">
+      <a href="/guide" data-i18n="site.header.guide">사용법</a>
+      <div class="site-language">
+        <label for="language-select" data-i18n="site.header.langDescription">표시 언어</label>
+        <select id="language-select" data-i18n-attr="aria-label:site.header.langLabel" aria-label="언어 선택"></select>
+      </div>
+      <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="header" data-i18n="site.header.cta">초대장 만들기</a>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <section>
+      <h1 data-i18n="site.guide.title">사용법</h1>
+      <p class="lead" data-i18n="site.guide.lead">디자인을 고르고, 내용을 채우고, 원하는 방식으로 전하면 됩니다.</p>
+      <ul class="toc">
+        <li><a href="#steps" data-i18n="site.guide.toc.steps">세 단계</a></li>
+        <li><a href="#finish" data-i18n="site.guide.toc.finish">완성 방식 세 가지</a></li>
+        <li><a href="#data" data-i18n="site.guide.toc.data">내 데이터는 어디에</a></li>
+        <li><a href="#faq" data-i18n="site.guide.toc.faq">자주 묻는 질문</a></li>
+      </ul>
+    </section>
+    <section id="steps" aria-labelledby="steps-title">
+      <h2 id="steps-title" data-i18n="site.guide.steps.title">세 단계</h2>
+      <article class="guide-step">
+        <div><h3 data-i18n="site.guide.steps.one.title">01 디자인</h3><p data-i18n="site.guide.steps.one.text">먼저 행사 유형을 고르고, 마음에 드는 디자인 카드를 누르면 샘플이 크게 보입니다. 마음에 들면 '이 디자인으로 만들기'를 누르세요. 나중에 디자인을 바꿔도 이미 쓴 내용은 그대로 남습니다.</p></div>
+        <img loading="lazy" src="/assets/media/site/guide-step-01-2x.jpg" width="2880" height="1800" alt="스튜디오의 디자인 선택 화면" data-i18n-attr="alt:site.guide.steps.one.alt">
+      </article>
+      <article class="guide-step">
+        <div><h3 data-i18n="site.guide.steps.two.title">02 내용 편집</h3><p data-i18n="site.guide.steps.two.text">제목, 일정, 메시지 같은 기본 정보를 먼저 채우세요. 장소와 지도 링크는 그 아래에 있고, 사진과 효과는 접혀 있는 항목을 열면 나옵니다. 오른쪽 미리보기는 하객이 받는 문서와 정확히 같습니다.</p></div>
+        <img loading="lazy" src="/assets/media/site/guide-step-02-2x.jpg" width="2880" height="1800" alt="스튜디오의 내용 편집 화면" data-i18n-attr="alt:site.guide.steps.two.alt">
+      </article>
+      <article class="guide-step">
+        <div><h3 data-i18n="site.guide.steps.three.title">03 완성</h3><p data-i18n="site.guide.steps.three.text">세 가지 방식 중 하나를 고릅니다. 초안은 쓰는 동안 이 브라우저에 자동 저장되니, 완성 화면에 오기 전에 닫아도 이어서 만들 수 있습니다.</p></div>
+        <img loading="lazy" src="/assets/media/site/guide-step-03-2x.jpg" width="2880" height="1800" alt="스튜디오의 완성 화면" data-i18n-attr="alt:site.guide.steps.three.alt">
+      </article>
+    </section>
+    <section id="finish" aria-labelledby="finish-title">
+      <h2 id="finish-title" data-i18n="site.guide.finish.title">완성 방식 세 가지</h2>
+      <p class="lead" data-i18n="site.guide.finish.lead">셋 중 무엇을 골라도 되고, 여러 개를 함께 써도 됩니다. 차이는 어디에 남느냐입니다.</p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="완성 방식 비교 표" data-i18n-attr="aria-label:site.guide.finish.tableLabel"><table>
+        <thead><tr><th scope="col" data-i18n="site.guide.finish.head.method">방식</th><th scope="col" data-i18n="site.guide.finish.head.where">남는 곳</th><th scope="col" data-i18n="site.guide.finish.head.switch">브라우저를 바꾸면</th><th scope="col" data-i18n="site.guide.finish.head.undo">되돌리기</th></tr></thead>
+        <tbody>
+          <tr><td data-i18n="site.guide.finish.library.method">보관함에 저장</td><td data-i18n="site.guide.finish.library.where">이 브라우저</td><td data-i18n="site.guide.finish.library.switch">사라짐</td><td data-i18n="site.guide.finish.library.undo">목록에서 삭제</td></tr>
+          <tr><td data-i18n="site.guide.finish.file.method">파일로 저장</td><td data-i18n="site.guide.finish.file.where">내 기기의 HTML 파일</td><td data-i18n="site.guide.finish.file.switch">파일은 그대로</td><td data-i18n="site.guide.finish.file.undo">파일 삭제</td></tr>
+          <tr><td data-i18n="site.guide.finish.link.method">링크로 공유</td><td data-i18n="site.guide.finish.link.where">서버</td><td data-i18n="site.guide.finish.link.switch">링크는 살아 있고, 취소 권한은 이 브라우저에만</td><td data-i18n="site.guide.finish.link.undo">스튜디오에서 취소</td></tr>
+        </tbody>
+      </table></div>
+      <h3 data-i18n="site.guide.finish.fileTitle">HTML 파일은 어떻게 쓰나요</h3>
+      <p data-i18n="site.guide.finish.fileText">사진까지 하나로 담긴 파일이라 어떤 브라우저에서든 열립니다. 메신저나 메일에 파일로 첨부해도 되고, 나중에 보관함에 다시 불러와 고칠 수도 있습니다.</p>
+    </section>
+    <section id="data" aria-labelledby="data-title">
+      <h2 id="data-title" data-i18n="site.guide.data.title">내 데이터는 어디에</h2>
+      <ul class="data-list">
+        <li data-i18n="site.guide.data.one">초안과 보관함은 이 브라우저의 저장소에만 있습니다. 서버로 보내지 않습니다.</li>
+        <li data-i18n="site.guide.data.two">공개 링크만 서버에 저장됩니다. 마지막으로 열린 뒤 7일이 지나면 만료되고, 아무리 자주 열려도 발행 후 30일이 지나면 만료됩니다. 만료된 링크는 열리지 않습니다.</li>
+        <li data-i18n="site.guide.data.three">링크 취소는 발행한 브라우저의 스튜디오에서만 할 수 있습니다. 그 브라우저를 잃었다면 만료를 기다리는 수밖에 없습니다.</li>
+        <li data-i18n="site.guide.data.four">공개 링크는 검색엔진에 색인되지 않습니다.</li>
+        <li data-i18n="site.guide.data.five">방문 통계 도구를 씁니다. 브라우저의 추적 거부 설정을 존중하고, 초대장 내용은 통계로 보내지 않습니다.</li>
+        <li data-i18n="site.guide.data.six">초대장을 받은 분이 자기 정보가 담긴 링크를 지우고 싶다면, 보낸 분에게 취소를 요청해 주세요.</li>
+        <li data-i18n="site.guide.data.seven">브라우저 저장소를 지우면 초안과 보관함도 함께 사라집니다. 지우기 전에 파일로 내려받아 두세요.</li>
+      </ul>
+    </section>
+    <section id="faq" aria-labelledby="faq-title">
+      <h2 id="faq-title" data-i18n="site.guide.faq.title">자주 묻는 질문</h2>
+      <details><summary data-i18n="site.guide.faq.q1">사진은 몇 장까지 넣을 수 있나요?</summary><p data-i18n="site.guide.faq.a1">링크로 공유할 때는 초대장 전체가 2MB 안에 들어가야 합니다. 보통 사진 서너 장 정도입니다. 파일로 저장할 때는 제한이 없습니다.</p></details>
+      <details><summary data-i18n="site.guide.faq.q2">사진이 안 올라가요.</summary><p data-i18n="site.guide.faq.a2">너무 큰 사진이거나 지원하지 않는 형식일 수 있습니다. 휴대폰에서 찍은 JPG, PNG는 대부분 됩니다. 다른 사진으로 다시 시도해 보세요.</p></details>
+      <details><summary data-i18n="site.guide.faq.q3">디자인을 바꾸면 쓴 내용이 사라지나요?</summary><p data-i18n="site.guide.faq.a3">아니요. 제목, 일정, 사진, 항목 순서는 그대로 남고 디자인만 바뀝니다. 마음에 안 들면 되돌리기를 누르세요.</p></details>
+      <details><summary data-i18n="site.guide.faq.q4">지도 링크는 어떤 걸 넣나요?</summary><p data-i18n="site.guide.faq.a4">지도 앱에서 장소를 찾은 뒤 '공유'로 복사한 링크를 붙여 넣으세요. 링크가 없으면 하객은 장소 이름으로 지도를 검색하게 됩니다.</p></details>
+      <details><summary data-i18n="site.guide.faq.q5">초대장 언어와 화면 언어는 다른가요?</summary><p data-i18n="site.guide.faq.a5">네. 화면 언어는 이 도구의 메뉴와 안내에만 적용됩니다. 초대장에 쓴 내용은 쓴 그대로 하객에게 보입니다.</p></details>
+      <details><summary data-i18n="site.guide.faq.q6">여러 개 만들 수 있나요?</summary><p data-i18n="site.guide.faq.a6">네. 보관함에 여러 초대장을 저장하고 골라서 이어 만들 수 있습니다.</p></details>
+      <details><summary data-i18n="site.guide.faq.q7">다른 기기에서 이어서 만들 수 있나요?</summary><p data-i18n="site.guide.faq.a7">파일로 저장해 다른 기기로 옮긴 뒤, 그 기기의 보관함에 불러오세요. 초안은 브라우저마다 따로 있어 자동으로 옮겨지지 않습니다.</p></details>
+      <details><summary data-i18n="site.guide.faq.q8">만료된 링크를 다시 살릴 수 있나요?</summary><p data-i18n="site.guide.faq.a8">아니요. 보관함이나 파일에서 초대장을 열어 새 링크로 다시 발행하세요.</p></details>
+    </section>
+    <section class="closing" aria-labelledby="closing-title">
+      <h2 id="closing-title" data-i18n="site.guide.closing.title">이제 만들어 볼까요</h2>
+      <div class="actions"><a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="footer" data-i18n="site.guide.closing.cta">초대장 만들기</a></div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <span data-i18n="site.footer.brand">INVITATION STUDIO</span>
+    <nav aria-label="바닥글 링크" data-i18n-attr="aria-label:site.footer.navLabel"><a href="/welcome" data-i18n="site.footer.about">소개</a><a href="/guide" data-i18n="site.footer.guide">사용법</a><a href="/guide#data" data-i18n="site.footer.data">내 데이터</a></nav>
+    <span class="site-footer-note" data-i18n="site.footer.note">작은 초대, 소중한 순간.</span>
+  </footer>
+  <!-- Analytics first, and error-reporting.js immediately after it, because a
+       script that dies while PARSING can only be reported by handlers that are
+       already installed. Everything below this line is a file whose failure we
+       want to hear about; everything above it would have to fail silently. -->
+  <script defer src="/assets/analytics/config.js"></script>
+  <script defer src="/assets/analytics/analytics.js"></script>
+  <script defer src="/assets/analytics/error-reporting.js"></script>
+  <script type="module" src="/assets/analytics/ga4.js"></script>
+  <script defer src="/assets/site/site.js"></script>
+</body>
+</html>

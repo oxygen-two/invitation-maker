@@ -37,14 +37,14 @@ const readMetaTags = (html) => [...html.matchAll(/<meta\b[^>]*>/g)]
   .map((attributes) => [attributes.property || attributes.name, attributes.content]);
 
 test('initial HTML exposes one complete social card without running JavaScript', () => {
-  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8').split('</head>')[0];
+  const html = fs.readFileSync(path.join(root, 'studio.html'), 'utf8').split('</head>')[0];
   const tags = readMetaTags(html);
   const metadata = Object.fromEntries(tags);
   for (const key of ['og:title', 'og:description', 'og:type', 'og:url', 'og:image', 'og:image:alt', 'twitter:card', 'twitter:image']) {
     assert.equal(tags.filter(([name]) => name === key).length, 1, key);
     assert.ok(metadata[key].length > 0);
   }
-  assert.equal(metadata['og:url'], 'https://invitation-maker-one.vercel.app/');
+  assert.equal(metadata['og:url'], 'https://invitation-maker-one.vercel.app/studio');
   assert.equal(metadata['og:type'], 'website');
   assert.equal(metadata['twitter:card'], 'summary_large_image');
   assert.equal(metadata['twitter:image'], metadata['og:image']);
