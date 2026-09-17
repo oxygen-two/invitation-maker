@@ -656,27 +656,23 @@
     const key = mapKeyFor(invitation);
     if (!hasDynamicMaps || !key) return "";
 
-    /* Both paths share the same failure contract: a rejected key, a load
-       error or a ten second silence leaves the "use the button below"
-       status in place of the map.
-
-       Google maps are not drawn in this document. Invitations are shown
-       inside about:srcdoc frames (studio preview, published viewer), and
-       Google authorizes a referrer-restricted key with a delayed call that,
-       from an srcdoc document, reports the site as "null" and fails about
-       forty seconds after the map appears. Each map is therefore a frame of
-       assets/integrations/google-map.html, which has a real URL; that page
-       reports back with postMessage. Coordinates and the public key travel
-       in the fragment, which is never sent to a server. */
-    const google = provider === "google";
-    const apiUrl = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
-    const googleFrameLabel = scriptLiteral(t("invitation.mapRegionLabel", language));
-    if (google) {
-      return `<script>
+    /* Maps are never drawn in this document. Invitations are shown inside
+       about:srcdoc frames (studio preview, published viewer), and both map
+       services reject that page when they authorize the key:
+       - NAVER sends "about:srcdoc" as the page URL and answers
+         "Open API 인증이 실패했습니다" (500).
+       - Google reports the site as "null" in a delayed check about forty
+         seconds after the map appears (RefererNotAllowedMapError).
+       Each map is therefore a frame of assets/integrations/naver-map.html or
+       google-map.html, which have a real URL, and reports back with
+       postMessage. Coordinates and the public key travel in the fragment,
+       which is never sent to a server. A rejected key, a load error or
+       fifteen seconds of silence leaves the "use the button below" status. */
+    const page = provider === "google" ? "google-map.html" : "naver-map.html";
+    return `<script>
 (() => {
   const canvases = [...document.querySelectorAll("[data-dynamic-map]")];
   const fail = (canvas) => {
-    if (canvas.dataset.mapState === "ready") return;
     canvas.dataset.mapState = "fallback";
     const status = canvas.nextElementSibling;
     if (status) status.textContent = ${scriptLiteral(t("map.unavailable", language))};
@@ -689,8 +685,8 @@
   window.addEventListener("message", (event) => {
     const canvas = frames.get(event.source);
     if (!canvas || event.data?.type !== "invitation-map") return;
-    if (event.data.state === "ready") canvas.dataset.mapState = "ready";
-    else { canvas.dataset.mapState = ""; fail(canvas); }
+    if (event.data.state === "ready" && canvas.dataset.mapState !== "fallback") canvas.dataset.mapState = "ready";
+    else if (event.data.state === "failed") fail(canvas);
   });
   canvases.forEach((canvas) => {
     const frame = document.createElement("iframe");
@@ -701,69 +697,14 @@
       lang: ${scriptLiteral(language)},
       key: ${scriptLiteral(key)}
     });
-    frame.src = new URL("/assets/integrations/google-map.html", document.baseURI).href + "#" + hash;
-    frame.title = ${googleFrameLabel};
+    frame.src = new URL(${scriptLiteral(`/assets/integrations/${page}`)}, document.baseURI).href + "#" + hash;
+    frame.title = ${scriptLiteral(t("invitation.mapRegionLabel", language))};
     frame.loading = "lazy";
     frame.style.cssText = "display:block;width:100%;height:100%;border:0";
     canvas.append(frame);
     frames.set(frame.contentWindow, canvas);
     setTimeout(() => { if (!canvas.dataset.mapState) fail(canvas); }, 15000);
   });
-})();
-</script>`;
-    }
-    const mountBody = `  const mount = () => {
-    canvases.forEach((canvas) => {
-      try {
-        const position = new window.naver.maps.LatLng(
-          Number(canvas.dataset.latitude),
-          Number(canvas.dataset.longitude)
-        );
-        const map = new window.naver.maps.Map(canvas, {
-          center: position,
-          zoom: Number(canvas.dataset.zoom)
-        });
-        new window.naver.maps.Marker({ map, position });
-        canvas.dataset.mapState = "ready";
-      } catch (error) {
-        fail(canvas);
-      }
-    });
-  };`;
-    const loadHandlers = `  script.onload = () => finish(mount);
-  script.onerror = () => finish(failAll);`;
-    return `<script>
-(() => {
-  const canvases = [...document.querySelectorAll("[data-dynamic-map]")];
-  const fail = (canvas) => {
-    if (canvas) canvas.dataset.mapState = "fallback";
-    const status = canvas?.nextElementSibling;
-    if (status) status.textContent = ${scriptLiteral(t("map.unavailable", language))};
-  };
-  const failAll = () => canvases.forEach(fail);
-${mountBody}
-  let timeoutId;
-  let settled = false;
-  const finish = (callback) => {
-    if (settled) return;
-    settled = true;
-    clearTimeout(timeoutId);
-    script.onload = null;
-    script.onerror = null;
-    script.remove();
-    callback();
-  };
-  window.navermap_authFailure = failAll;
-  if (!canvases.length || location.protocol === "file:") {
-    failAll();
-    return;
-  }
-  const script = document.createElement("script");
-  script.src = "${apiUrl}";
-  script.async = true;
-${loadHandlers}
-  timeoutId = setTimeout(() => finish(failAll), 10000);
-  document.head.append(script);
 })();
 </script>`;
   };

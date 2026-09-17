@@ -20,10 +20,14 @@ test("the NAVER loader waits for the geocoder submodule before the first lookup"
   assert.match(loader, /clearTimeout\(geocoderPollId\)/);
 });
 
-test("a map SDK error while discarding a preview map cannot freeze the preview", () => {
+test("preview maps live in their own frames, so discarding one cannot throw from a map SDK", () => {
   // NAVER's Marker.setMap(null) threw during a map service switch and aborted
-  // updatePreviewMarkup for the rest of the session.
+  // updatePreviewMarkup for the rest of the session. Preview maps no longer
+  // create SDK objects in the preview document at all.
   const cleanup = body("cleanupPreviewMap");
-  assert.match(cleanup, /previewMapInstances\.delete\(canvas\);\s*\/\*[\s\S]*?\*\/\s*try \{/);
-  assert.match(cleanup, /catch \{/);
+  assert.doesNotMatch(cleanup, /setMap|clearInstanceListeners/);
+  const mount = body("mountPreviewMaps");
+  assert.match(mount, /naver-map\.html/);
+  assert.match(mount, /google-map\.html/);
+  assert.doesNotMatch(app, /loadPreviewNaverMaps/);
 });

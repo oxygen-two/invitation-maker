@@ -552,7 +552,7 @@ test("standalone canonical JSON stores items without stops and preserves Base64 
   assert.equal(invitationData.items[1].src, SAFE_WEBP);
 });
 
-test("mixed canonical item maps use one shared NAVER loader", () => {
+test("mixed canonical item maps share one NAVER map-frame script", () => {
   const html = buildStandaloneHtml({
     naverMapClientId: "public-client-id",
     items: [
@@ -580,7 +580,8 @@ test("mixed canonical item maps use one shared NAVER loader", () => {
   const secondMapIndex = html.indexOf('data-map-key="stop-1"');
 
   assert.equal((html.match(/data-dynamic-map data-latitude/g) || []).length, 2);
-  assert.equal((html.match(/oapi\.map\.naver\.com\/openapi\/v3\/maps\.js/g) || []).length, 1);
+  assert.equal((html.match(/\/assets\/integrations\/naver-map\.html/g) || []).length, 1);
+  assert.doesNotMatch(html, /oapi\.map\.naver\.com/);
   assert.notEqual(firstMapIndex, -1);
   assert.notEqual(photoIndex, -1);
   assert.notEqual(secondMapIndex, -1);
@@ -832,7 +833,7 @@ test("particle palettes adapt to each template and render above all invitation c
   }
 });
 
-test("standalone HTML conditionally embeds NAVER Dynamic Map", () => {
+test("standalone HTML conditionally embeds NAVER maps through the real-URL map page", () => {
   const enabledHtml = buildStandaloneHtml({
     naverMapClientId: "public-client-id",
     clientSecret: "must-not-be-embedded",
@@ -849,20 +850,22 @@ test("standalone HTML conditionally embeds NAVER Dynamic Map", () => {
 
   assert.match(enabledHtml, /data-dynamic-map/);
   assert.match(enabledHtml, /data-map-status role="status" aria-live="polite"/);
-  assert.match(enabledHtml, /oapi\.map\.naver\.com\/openapi\/v3\/maps\.js\?ncpKeyId=public-client-id/);
+  // Loading NAVER in the about:srcdoc invitation fails authorization.
+  assert.doesNotMatch(enabledHtml, /oapi\.map\.naver\.com/);
+  assert.match(enabledHtml, /\/assets\/integrations\/naver-map\.html/);
+  assert.match(enabledHtml, /key: "public-client-id"/);
   assert.match(enabledHtml, /37\.5446/);
   assert.match(enabledHtml, /127\.0559/);
   assert.match(enabledHtml, /location\.protocol === "file:"/);
-  assert.match(enabledHtml, /window\.navermap_authFailure = fail/);
-  assert.match(enabledHtml, /script\.onerror = \(\) => finish\(failAll\)/);
-  assert.match(enabledHtml, /setTimeout\(\(\) => finish\(failAll\), 10000\)/);
+  assert.match(enabledHtml, /event\.data\.state === "failed"\) fail\(canvas\)/);
+  assert.match(enabledHtml, /if \(!canvas\.dataset\.mapState\) fail\(canvas\); \}, 15000\)/);
   assert.match(enabledHtml, /https:\/\/map\.naver\.com\/example/);
   assert.match(enabledHtml, /id="invitation-data" type="application\/json"/);
   assert.doesNotMatch(enabledHtml, /must-not-be-embedded|clientSecret/);
-  assert.doesNotMatch(disabledHtml, /oapi\.map\.naver\.com/);
+  assert.doesNotMatch(disabledHtml, /naver-map\.html|oapi\.map\.naver\.com/);
 });
 
-test("standalone HTML renders multiple course maps with one shared API loader", () => {
+test("standalone HTML renders multiple course maps with one shared map-frame script", () => {
   const html = buildStandaloneHtml({
     naverMapClientId: "public-client-id",
     stops: [
@@ -890,7 +893,7 @@ test("standalone HTML renders multiple course maps with one shared API loader", 
   });
 
   assert.equal((html.match(/data-dynamic-map data-latitude/g) || []).length, 2);
-  assert.equal((html.match(/oapi\.map\.naver\.com\/openapi\/v3\/maps\.js/g) || []).length, 1);
+  assert.equal((html.match(/\/assets\/integrations\/naver-map\.html/g) || []).length, 1);
   assert.match(html, /data-latitude="37\.5446"/);
   assert.match(html, /data-latitude="37\.548"/);
   assert.match(html, /https:\/\/map\.naver\.com\/first/);
@@ -1039,4 +1042,13 @@ test("an author's own map link wins over the provider search link", () => {
   });
   assert.match(html, /https:\/\/map\.naver\.com\/\?lat=37\.5&amp;lng=127/);
   assert.doesNotMatch(html, /google\.com\/maps\/search\/\?api=1&amp;query=Somewhere/);
+});
+
+test("the NAVER map page reports authorization failures to the invitation", () => {
+  const page = read("assets/integrations/naver-map.html");
+  assert.match(page, /window\.navermap_authFailure = \(\) => report\("failed"\)/);
+  assert.match(page, /oapi\.map\.naver\.com\/openapi\/v3\/maps\.js\?ncpKeyId=/);
+  assert.match(page, /type: "invitation-map", state/);
+  assert.match(page, /location\.hash/);
+  assert.match(page, /<meta name="robots" content="noindex">/);
 });
