@@ -20,8 +20,8 @@
 | `sample.html` | `/sample` | 완성 초대장 실물 — 빌드 산출물, `noindex` |
 | `assets/site/site.css` | — | 랜딩·설명서 공용 스타일. `assets/studio/studio.css`와 독립 |
 | `assets/i18n/dictionary-site-ko.js`, `dictionary-site-en.js` | — | `site` 네임스페이스. 랜딩·설명서 카피 전부 |
-| `assets/media/site/design-<id>@2x.jpg` (6장) | — | 갤러리·히어로용 디자인 캡처 |
-| `assets/media/site/guide-step-0{1,2,3}@2x.jpg` | — | 설명서 세 단계(디자인·편집·완성) 캡처 |
+| `assets/media/site/design-<id>-2x.jpg` (6장) | — | 갤러리·히어로용 디자인 캡처. 별도 히어로 파일은 없음 — 히어로는 `design-bloom-portrait-2x.jpg`를 그대로 재사용 |
+| `assets/media/site/guide-step-0{1,2,3}-2x.jpg` | — | 설명서 세 단계(디자인·편집·완성) 캡처 |
 
 ## 3. 바꾸면 안 되는 것
 
@@ -50,10 +50,12 @@ node scripts/build-site-media.cjs --check   # 산출물 존재·용량만 확인
 
 | 파일 | 픽셀 크기 | 비고 |
 | --- | --- | --- |
-| `design-<id>@2x.jpg` (6장 공통) | 668×1374 | `#preview` iframe을 `deviceScaleFactor: 2`로 캡처 |
-| `guide-step-0{1,2,3}@2x.jpg` | 2880×1800 | 1440×900 데스크톱 뷰포트를 2배로 캡처 |
+| `design-<id>-2x.jpg` (6장 공통) | 668×1374 | `#preview` iframe을 `deviceScaleFactor: 2`로 캡처 |
+| `guide-step-0{1,2,3}-2x.jpg` | 2880×1800 | 1440×900 데스크톱 뷰포트를 2배로 캡처 |
 
-`index.html`/`guide.html`의 `<img width height>`는 이 실측 픽셀 크기와 같아야 한다 — 다르면 레이아웃 시프트(CLS)가 생기고, `sips -g pixelWidth -g pixelHeight <파일>`로 언제든 재확인할 수 있다. 스튜디오 UI가 바뀌어 캡처 구도가 달라지면(예: 상단 바에 링크가 하나 늘어 높이가 바뀌는 경우) 반드시 재생성 후 이 크기를 다시 재고 HTML의 `width`/`height` 속성도 같이 맞춘다 — 이번 작업에서 스튜디오 상단 바에 "사용법" 링크를 추가한 뒤 `guide-step-*` 세 장을 다시 찍은 것이 그 예다.
+파일명 접미사는 `-2x`이고 `@` 문자는 쓰지 않는다 — `server/http/static.cjs`의 정적 파일 허용 정규식이 `[0-9A-Za-z_./-]`만 통과시켜 `@`가 들어간 경로는 404가 나기 때문이다(라우팅 정규식을 완화하는 대신 파일명을 URL 안전한 문자로 맞췄다). 새 이미지를 추가할 때도 이 규칙을 따른다. 히어로 전용 이미지 파일은 따로 없다 — 히어로가 보여주는 것은 갤러리 첫 카드와 같은 `bloom-portrait` 디자인이라 `design-bloom-portrait-2x.jpg`를 그대로 재사용한다.
+
+`index.html`/`guide.html`의 `<img width height>`는 이 실측 픽셀 크기와 같아야 한다 — 다르면 레이아웃 시프트(CLS)가 생기고, `sips -g pixelWidth -g pixelHeight <파일>`로 언제든 재확인할 수 있다. 스튜디오 UI가 바뀌어 캡처 구도가 달라지면(예: 상단 바에 링크가 하나 늘어 높이가 바뀌는 경우) 반드시 재생성 후 이 크기를 다시 재고 HTML의 `width`/`height` 속성도 같이 맞춘다 — 이번 작업에서 스튜디오 상단 바에 "사용법" 링크를 추가한 뒤 `guide-step-*` 세 장을 다시 찍은 것이 그 예다. 데스크톱 캡처 세 장은 각각 찍기 직전에 `window.scrollTo(0, 0)`으로 맨 위로 되돌린다 — Playwright가 클릭한 요소를 자동으로 화면에 스크롤해 넣는 동작 때문에, 스크롤을 되돌리지 않으면 상단 바(와 "사용법" 링크)가 프레임 밖으로 밀려날 수 있다.
 
 ## 5. 검증
 

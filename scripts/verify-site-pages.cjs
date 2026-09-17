@@ -30,8 +30,28 @@ const countKoreanOutsideLanguageSwitcher = () => {
         const errors = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.goto(`${baseUrl}${route}`);
+        await page.waitForLoadState("networkidle");
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route}@${width}: horizontal overflow`);
-        assert.ok(await page.locator(".site-cta").first().evaluate((el) => el.getBoundingClientRect().top < innerHeight), `${route}@${width}: CTA not in first viewport`);
+        // The header CTA is hidden on phones (see site.css); the hero CTA is
+        // the one guaranteed to sit in the first viewport there, so check
+        // whichever .site-cta is actually visible, not just the first match.
+        assert.ok(await page.locator(".site-cta:visible").first().evaluate((el) => el.getBoundingClientRect().top < innerHeight), `${route}@${width}: CTA not in first viewport`);
+        // The gallery images carry loading="lazy" and sit below the fold, so
+        // "networkidle" alone doesn't make them start fetching — force every
+        // <img> to load eagerly and await its outcome before checking, or
+        // this would flag legitimately-deferred off-screen images as broken
+        // (or worse, pass/fail depending on how far Chromium's lazy-load
+        // distance threshold happened to reach that run).
+        await page.evaluate(() => Promise.all([...document.images].map((img) => {
+          if (img.complete) return undefined;
+          img.loading = "eager";
+          return new Promise((resolve) => {
+            img.addEventListener("load", resolve, { once: true });
+            img.addEventListener("error", resolve, { once: true });
+          });
+        })));
+        const broken = await page.evaluate(() => [...document.images].filter((img) => !img.complete || img.naturalWidth === 0).map((img) => img.getAttribute("src")));
+        assert.deepEqual(broken, [], `${route}@${width}: broken images`);
         assert.deepEqual(errors, [], `${route}@${width}: page errors`);
         await page.close();
       }

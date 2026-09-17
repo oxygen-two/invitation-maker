@@ -31,11 +31,11 @@ const DESIGNS = [
 // screenshot() supports it natively).
 const JPEG_OPTIONS = { type: "jpeg", quality: 82 };
 // The hero image on the landing is the same bloom-portrait design as the
-// gallery's first card, so it reuses design-bloom-portrait@2x.jpg instead of
+// gallery's first card, so it reuses design-bloom-portrait-2x.jpg instead of
 // shipping a second, near-identical download.
 const OUTPUTS = [
-  ...DESIGNS.map(({ id }) => `design-${id}@2x.jpg`),
-  "guide-step-01@2x.jpg", "guide-step-02@2x.jpg", "guide-step-03@2x.jpg"
+  ...DESIGNS.map(({ id }) => `design-${id}-2x.jpg`),
+  "guide-step-01-2x.jpg", "guide-step-02-2x.jpg", "guide-step-03-2x.jpg"
 ].map((name) => path.join(mediaDir, name)).concat(path.join(root, "sample.html"));
 
 if (process.argv.includes("--check")) {
@@ -96,7 +96,7 @@ const applyDesign = async (page, { id, occasion }, width) => {
       await phone.goto(`${baseUrl}/studio`);
       await applyDesign(phone, design, phoneWidth);
       await phone.locator('.mobile-view-tabs [data-mobile-view="preview"]').click();
-      await phone.locator("#preview").screenshot({ path: path.join(mediaDir, `design-${design.id}@2x.jpg`), ...JPEG_OPTIONS });
+      await phone.locator("#preview").screenshot({ path: path.join(mediaDir, `design-${design.id}-2x.jpg`), ...JPEG_OPTIONS });
       if (design.id === "bloom-portrait") {
         // #preview is seeded ONCE with a generic placeholder document (see
         // mountPreviewFrame in assets/studio/app.js: "the frame is seeded
@@ -129,17 +129,24 @@ const applyDesign = async (page, { id, occasion }, width) => {
     await desktop.locator('[data-occasion-id="birthday"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').waitFor({ state: "visible" });
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01@2x.jpg"), ...JPEG_OPTIONS });
+    // Playwright auto-scrolls the clicked template card into view, which can
+    // leave the top bar (and its new "사용법" link) scrolled out of frame;
+    // scroll back to the top before every capture so the studio chrome is
+    // always in the shot.
+    await desktop.evaluate(() => window.scrollTo(0, 0));
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01-2x.jpg"), ...JPEG_OPTIONS });
     await desktop.locator("#preview-apply-button").click();
     await desktop.frameLocator("#preview").locator(".invitation-card").waitFor();
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-02@2x.jpg"), ...JPEG_OPTIONS });
+    await desktop.evaluate(() => window.scrollTo(0, 0));
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-02-2x.jpg"), ...JPEG_OPTIONS });
     await desktop.locator('.studio-steps [data-studio-stage="finish"]').click();
     // "#save-button" is the "보관함에 저장" choice card in .finish-choice-row —
     // waiting for it (rather than a timeout) proves the finish stage's own
     // markup, not just the stage-nav button, has actually rendered.
     await desktop.locator("#save-button").waitFor({ state: "visible" });
     await desktop.waitForTimeout(300); // let fonts settle
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-03@2x.jpg"), ...JPEG_OPTIONS });
+    await desktop.evaluate(() => window.scrollTo(0, 0));
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-03-2x.jpg"), ...JPEG_OPTIONS });
     console.log(`Wrote ${OUTPUTS.length} outputs under ${path.relative(root, mediaDir)} and sample.html`);
   } finally {
     await browser.close();
