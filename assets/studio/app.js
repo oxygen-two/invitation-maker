@@ -65,14 +65,13 @@ const state = {
   appliedBaseline: {},
   undoSnapshot: null,
   naverMapClientId: "",
+  googleMapsApiKey: "",
   heroImage: null,
   invitation: {},
   saved: []
 };
 
 let naverMapsPromise;
-let previewMapsPromise;
-let previewMapsNamespace;
 let previewRenderId = 0;
 let previewMapTimer;
 let pendingPreviewMapKey = null;
@@ -80,7 +79,6 @@ let photoSelectionPending = false;
 let heroImageSelectionPending = false;
 let heroImageDragState = null;
 let saveWritePending = false;
-const previewMapInstances = new WeakMap();
 const mobileViewScrollPositions = { editor: 0, preview: 0, library: 0 };
 let mobileViewScrollCaptured = false;
 const mapLookupVersions = new Map();
@@ -241,7 +239,6 @@ const handlePreviewClick = (event) => {
   delete canvas.dataset.mapState;
   status.textContent = t("map.loading");
   naverMapsPromise = undefined;
-  previewMapsPromise = undefined;
   previewRenderId += 1;
   mountPreviewMaps(previewRenderId);
 };
@@ -470,7 +467,7 @@ const renderCourseFields = (item, bodyId, isOpen) => {
       </label>
       <label class="full">
         <span>${escapeAttribute(t("content.courseMapUrl"))}</span>
-        <input data-course-field="mapUrl" type="url" value="${escapeAttribute(item.mapUrl)}" placeholder="https://map.naver.com/" autocomplete="off">
+        <input data-course-field="mapUrl" type="url" value="${escapeAttribute(item.mapUrl)}" placeholder="${escapeAttribute(t("content.courseMapUrlPlaceholder"))}" autocomplete="off">
       </label>
       <label class="full checkbox-field">
         <input data-course-field="mapEnabled" type="checkbox"${checked}>
@@ -811,7 +808,7 @@ const parseInvitationHtml = (html) => {
   }
   return InvitationCore.normalizeInvitation({
     ...data,
-    naverMapClientId: state.naverMapClientId
+    naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
   });
 };
 
@@ -828,12 +825,13 @@ const getFormData = () => {
     particleAmount: data.get("particleAmount"),
     englishFont: data.get("englishFont"),
     koreanFont: data.get("koreanFont"),
-    naverMapClientId: state.naverMapClientId,
+    naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey,
     title: data.get("title"),
     subtitle: data.get("subtitle"),
     dateLabel: data.get("dateLabel"),
     host: data.get("host"),
     location: data.get("location"),
+    mapProvider: data.get("mapProvider"),
     mapUrl: data.get("mapUrl"),
     mapEnabled: data.has("mapEnabled"),
     mapLatitude: data.get("mapLatitude"),
@@ -909,6 +907,7 @@ const fillForm = (invitation) => {
   dom.form.elements.dateLabel.value = invitation.dateLabel || "";
   dom.form.elements.host.value = invitation.host || "";
   dom.form.elements.location.value = invitation.location || "";
+  if (dom.form.elements.mapProvider) dom.form.elements.mapProvider.value = invitation.mapProvider || "naver";
   dom.form.elements.mapUrl.value = invitation.mapUrl || "";
   dom.form.elements.mapEnabled.checked = Boolean(invitation.mapEnabled);
   dom.form.elements.mapLatitude.value = invitation.mapLatitude ?? "";
@@ -1010,8 +1009,71 @@ const setMapFallback = (canvas, status, canRetry = false) => {
   }
 };
 
-window.navermap_authFailure = () => {
-  previewHost?.querySelectorAll("[data-dynamic-map]").forEach((canvas) => setMapFallback(canvas));
+
+/* A fresh invitation starts on the map service its author most likely needs:
+   the English studio is the one people abroad use. It is only a starting
+   point — the author's explicit choice is saved with the invitation and is
+   never changed by switching the studio language afterwards. */
+const defaultMapProvider = () => (I18n?.getLanguage?.() === "en" ? "google" : "naver");
+
+const currentMapProvider = () => MapLocation.normalizeProvider(
+  dom.form.elements.mapProvider?.value || state.invitation?.mapProvider
+);
+
+/* Address lookup for Google runs in assets/integrations/google-geocoder.html,
+   a sandboxed frame without allow-same-origin. The reasons are recorded in
+   that page: a Google copy with a real URL that shares this origin's
+   localStorage breaks the preview frame's map, and the geocoder in the
+   srcdoc preview itself never answers. The returned object mimics the part
+   of google.maps.Geocoder that MapLocation uses. */
+let googleGeocoderFrame;
+let googleGeocoderReady;
+let googleGeocoderRequest = 0;
+const googleGeocoderCallbacks = new Map();
+
+window.addEventListener("message", (event) => {
+  if (!googleGeocoderFrame || event.source !== googleGeocoderFrame.contentWindow) return;
+  const data = event.data || {};
+  if (data.type !== "geocode-result" || !googleGeocoderCallbacks.has(data.id)) return;
+  const callback = googleGeocoderCallbacks.get(data.id);
+  googleGeocoderCallbacks.delete(data.id);
+  const latitude = Number(data.latitude);
+  const longitude = Number(data.longitude);
+  const results = data.status === "OK" && Number.isFinite(latitude) && Number.isFinite(longitude)
+    ? [{ geometry: { location: { lat: latitude, lng: longitude } } }]
+    : [];
+  callback(results, String(data.status || "UNKNOWN_ERROR"));
+});
+
+const loadGoogleGeocoder = () => {
+  if (!state.googleMapsApiKey) return Promise.reject(new Error("Google Maps API key is missing"));
+  if (!googleGeocoderFrame?.isConnected) {
+    googleGeocoderFrame = document.createElement("iframe");
+    googleGeocoderFrame.setAttribute("sandbox", "allow-scripts");
+    googleGeocoderFrame.setAttribute("aria-hidden", "true");
+    googleGeocoderFrame.tabIndex = -1;
+    googleGeocoderFrame.title = "";
+    googleGeocoderFrame.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+    googleGeocoderReady = new Promise((resolve) => googleGeocoderFrame.addEventListener("load", resolve, { once: true }));
+    googleGeocoderFrame.src = "assets/integrations/google-geocoder.html";
+    document.body.append(googleGeocoderFrame);
+  }
+  return googleGeocoderReady.then(() => ({
+    Geocoder: class {
+      geocode({ address }, callback) {
+        googleGeocoderRequest += 1;
+        const id = `geocode-${googleGeocoderRequest}`;
+        googleGeocoderCallbacks.set(id, callback);
+        googleGeocoderFrame.contentWindow.postMessage({
+          type: "geocode",
+          id,
+          address: String(address || ""),
+          key: state.googleMapsApiKey,
+          language: I18n?.getLanguage?.() || "ko"
+        }, "*");
+      }
+    }
+  }));
 };
 
 const loadNaverMaps = () => {
@@ -1022,8 +1084,10 @@ const loadNaverMaps = () => {
   naverMapsPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     let timeoutId;
+    let geocoderPollId;
     const finish = (callback, value) => {
       clearTimeout(timeoutId);
+      clearTimeout(geocoderPollId);
       script.onload = null;
       script.onerror = null;
       script.remove();
@@ -1031,9 +1095,22 @@ const loadNaverMaps = () => {
     };
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}&submodules=geocoder`;
     script.async = true;
-    script.onload = () => window.naver?.maps
-      ? finish(resolve, window.naver.maps)
-      : finish(reject, new Error("NAVER Maps failed to initialize"));
+    /* maps.js fires onload before its geocoder submodule has arrived:
+       naver.maps.Service does not exist yet. Resolving then made the first
+       address lookup after opening the studio report "geocoding unavailable"
+       every time, while the same lookup a moment later succeeded. Wait for
+       the Service itself; the overall timeout still bounds the wait. */
+    script.onload = () => {
+      if (!window.naver?.maps) {
+        finish(reject, new Error("NAVER Maps failed to initialize"));
+        return;
+      }
+      const waitForGeocoder = () => {
+        if (typeof window.naver.maps.Service?.geocode === "function") finish(resolve, window.naver.maps);
+        else geocoderPollId = setTimeout(waitForGeocoder, 50);
+      };
+      waitForGeocoder();
+    };
     script.onerror = () => finish(reject, new Error("NAVER Maps failed to load"));
     timeoutId = setTimeout(
       () => finish(reject, new Error("NAVER Maps timed out")),
@@ -1049,56 +1126,6 @@ const loadNaverMaps = () => {
   return naverMapsPromise;
 };
 
-/* Preview maps load their SDK inside the frame rather than borrowing the
-   studio's. The studio copy stays for address lookup (it is the one carrying
-   the geocoder submodule), but a map is an interactive surface: driving one
-   from the parent window would leave its drag and wheel handlers bound to the
-   parent document while the pointer events happen in the frame. Loading it in
-   the frame is also what the standalone export does, so the preview and the
-   guest's invitation run the same code. */
-const loadPreviewNaverMaps = () => {
-  if (!previewDoc) return loadNaverMaps().then((maps) => { previewMapsNamespace = maps; return maps; });
-
-  const frameWindow = previewDoc.defaultView;
-  if (frameWindow?.naver?.maps) {
-    previewMapsNamespace = frameWindow.naver.maps;
-    return Promise.resolve(previewMapsNamespace);
-  }
-  if (!state.naverMapClientId) return Promise.reject(new Error("NAVER Maps Client ID is missing"));
-  if (previewMapsPromise) return previewMapsPromise;
-
-  previewMapsPromise = new Promise((resolve, reject) => {
-    if (!frameWindow) {
-      reject(new Error("Preview frame is unavailable"));
-      return;
-    }
-    frameWindow.navermap_authFailure = window.navermap_authFailure;
-    const script = previewDoc.createElement("script");
-    let timeoutId;
-    const finish = (callback, value) => {
-      clearTimeout(timeoutId);
-      script.onload = null;
-      script.onerror = null;
-      script.remove();
-      callback(value);
-    };
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(state.naverMapClientId)}`;
-    script.async = true;
-    script.onload = () => frameWindow.naver?.maps
-      ? finish(resolve, frameWindow.naver.maps)
-      : finish(reject, new Error("NAVER Maps failed to initialize"));
-    script.onerror = () => finish(reject, new Error("NAVER Maps failed to load"));
-    timeoutId = setTimeout(() => finish(reject, new Error("NAVER Maps timed out")), MAP_LOAD_TIMEOUT_MS);
-    previewDoc.head.append(script);
-  });
-
-  previewMapsPromise.then((maps) => { previewMapsNamespace = maps; }).catch(() => {
-    previewMapsPromise = undefined;
-  });
-
-  return previewMapsPromise;
-};
-
 const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, message, mapKey }) => {
   const normalizedQuery = String(query || "").trim();
   const version = (mapLookupVersions.get(key) || 0) + 1;
@@ -1108,10 +1135,13 @@ const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, messa
   message.dataset.mapLookupState = "loading";
   message.textContent = t("map.searching");
 
+  const provider = currentMapProvider();
   try {
     const hasUrl = String(mapUrl || "").trim() || /^https?:\/\//i.test(normalizedQuery);
-    const maps = hasUrl ? null : await loadNaverMaps();
-    const coordinates = await MapLocation.resolve(maps, normalizedQuery, mapUrl);
+    const maps = hasUrl || !normalizedQuery
+      ? null
+      : provider === "google" ? await loadGoogleGeocoder() : await loadNaverMaps();
+    const coordinates = await MapLocation.resolve(maps, normalizedQuery, mapUrl, { provider });
     if (mapLookupVersions.get(key) !== version) return;
     latitude.value = String(coordinates.latitude);
     longitude.value = String(coordinates.longitude);
@@ -1121,14 +1151,18 @@ const resolveMapFields = async ({ key, query, mapUrl, latitude, longitude, messa
   } catch (error) {
     if (mapLookupVersions.get(key) !== version) return;
     message.dataset.mapLookupState = "error";
-    if (error.code === "URL_LOCATION_UNAVAILABLE" || error.code === "INVALID_MAP_URL") {
-      message.textContent = error.message;
+    if (error.code === "URL_LOCATION_UNAVAILABLE") {
+      message.textContent = t("map.urlUnavailable");
+    } else if (error.code === "INVALID_MAP_URL") {
+      message.textContent = t("map.invalidUrl");
     } else if (error.code === "SERVICE_UNAVAILABLE") {
       // Invalid addresses are expected; service outages are not.
       reportFault("map_lookup", error);
-      message.textContent = t("map.serviceUnavailable");
+      message.textContent = provider === "google" ? t("map.serviceUnavailableGoogle") : t("map.serviceUnavailable");
+    } else if (!normalizedQuery) {
+      message.textContent = t("map.empty");
     } else {
-      message.textContent = t(normalizedQuery ? "map.notFound" : "map.empty");
+      message.textContent = provider === "google" ? t("map.notFoundGoogle") : t("map.notFound");
     }
   }
   renderPreview();
@@ -1166,41 +1200,62 @@ const mountPreviewMaps = async (renderId) => {
     return;
   }
 
-  try {
-    const maps = await loadPreviewNaverMaps();
-    if (renderId !== previewRenderId) return;
+  /* Same nested real-URL map pages the exported invitation uses; see
+     renderStandaloneMapScript in core.js for why neither NAVER nor Google can
+     be drawn directly in this srcdoc frame. */
+  const google = currentMapProvider() === "google";
+  const key = google ? state.googleMapsApiKey : state.naverMapClientId;
+  if (!key) {
+    canvases.forEach((canvas) => setMapFallback(canvas, null, false));
+  } else {
+    const frameWindow = previewDoc?.defaultView || window;
+    if (!frameWindow.__invitationMapListener) {
+      frameWindow.__invitationMapListener = true;
+      frameWindow.addEventListener("message", (event) => {
+        if (event.data?.type !== "invitation-map") return;
+        const canvas = [...(previewHost?.querySelectorAll("[data-dynamic-map]") || [])]
+          .find((candidate) => candidate.querySelector("iframe")?.contentWindow === event.source);
+        if (!canvas) return;
+        if (event.data.state === "ready" && canvas.dataset.mapState === "loading") canvas.dataset.mapState = "ready";
+        else if (event.data.state === "failed" && canvas.dataset.mapState !== "fallback") setMapFallback(canvas, null, true);
+      });
+    }
+    const page = google ? "google-map.html" : "naver-map.html";
     canvases.forEach((canvas) => {
       if (!canvas.isConnected) return;
-      const position = new maps.LatLng(
-        Number(canvas.dataset.latitude),
-        Number(canvas.dataset.longitude)
-      );
-      const map = new maps.Map(canvas, {
-        center: position,
-        zoom: Number(canvas.dataset.zoom)
+      canvas.querySelector("iframe")?.remove();
+      const frame = (previewDoc || document).createElement("iframe");
+      const hash = new URLSearchParams({
+        lat: canvas.dataset.latitude,
+        lng: canvas.dataset.longitude,
+        zoom: canvas.dataset.zoom,
+        lang: I18n?.getLanguage?.() || "ko",
+        key
       });
-      const marker = new maps.Marker({ map, position });
-      previewMapInstances.set(canvas, { map, marker });
-      canvas.dataset.mapState = "ready";
+      frame.src = `${new URL(`assets/integrations/${page}`, window.location.href).href}#${hash}`;
+      frame.title = t("invitation.mapRegionLabel");
+      frame.style.cssText = "display:block;width:100%;height:100%;border:0";
+      canvas.append(frame);
+      canvas.dataset.mapState = "loading";
+      setTimeout(() => {
+        if (canvas.isConnected && canvas.dataset.mapState === "loading") setMapFallback(canvas, null, true);
+      }, 15000);
     });
-  } catch {
-    canvases.forEach((canvas) => setMapFallback(canvas, null, true));
   }
   if (renderId === previewRenderId) revealPendingPreviewMap();
 };
 
 const mapSignature = (panel) => {
   const canvas = panel.querySelector("[data-dynamic-map]");
-  return [panel.dataset.mapKey, canvas?.dataset.latitude, canvas?.dataset.longitude, canvas?.dataset.zoom].join(":");
+  return [panel.dataset.mapKey, panel.dataset.mapProvider, canvas?.dataset.latitude, canvas?.dataset.longitude, canvas?.dataset.zoom].join(":");
 };
 
+/* Preview maps live in their own frames, so discarding a panel discards its
+   map. There is no SDK object in this document to tear down — which is also
+   why a map service switch can no longer throw from inside NAVER's
+   Marker.setMap(null) and freeze the preview. */
 const cleanupPreviewMap = (canvas) => {
-  const instance = previewMapInstances.get(canvas);
-  if (!instance) return;
-  instance.marker.setMap?.(null);
-  previewMapsNamespace?.Event?.clearInstanceListeners?.(instance.marker);
-  previewMapsNamespace?.Event?.clearInstanceListeners?.(instance.map);
-  previewMapInstances.delete(canvas);
+  canvas.querySelector("iframe")?.remove();
 };
 
 const updatePreviewMarkup = (html) => {
@@ -1405,7 +1460,7 @@ const applyPendingTemplate = () => {
       current,
       preset,
       preserveContent: personalDraft || PresetApplication.isDirty(current, state.appliedBaseline),
-      naverMapClientId: state.naverMapClientId
+      naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
     });
     state.undoSnapshot = previous;
     state.appliedBaseline = next;
@@ -2110,10 +2165,12 @@ const loadInitialData = async () => {
   state.rawData = await response.json();
   const data = await applyContentLanguage();
   state.naverMapClientId = String(data.site?.naverMapClientId || "").trim();
+  state.googleMapsApiKey = String(data.site?.googleMapsApiKey || "").trim();
   state.activeTemplate = data.site?.defaultTemplate || state.templates[0]?.id || "royal";
   state.invitation = InvitationCore.normalizeInvitation({
     ...data.defaultInvitation,
-    naverMapClientId: state.naverMapClientId
+    mapProvider: defaultMapProvider(),
+    naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
   });
   state.activeTemplate = state.invitation.templateId || state.activeTemplate;
   if (!TemplateCatalog.getPreset(state.catalog, state.activeTemplate)) {
@@ -2121,7 +2178,7 @@ const loadInitialData = async () => {
     state.invitation = InvitationCore.normalizeInvitation({
       ...state.invitation,
       templateId: state.activeTemplate,
-      naverMapClientId: state.naverMapClientId
+      naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
     });
   }
   state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
@@ -2248,6 +2305,24 @@ dom.form.addEventListener("input", (event) => {
 });
 
 dom.form.addEventListener("change", (event) => {
+  /* Switching service keeps coordinates that were already found: both
+     services use the same WGS84 positions, and re-geocoding a Korean venue
+     name through Google could quietly move a correct pin. Only maps that are
+     on but still have no position get a fresh lookup with the new service —
+     the usual case is a foreign address NAVER could not find. */
+  if (event.target.matches('[name="mapProvider"]')) {
+    if (dom.form.elements.mapEnabled.checked && dom.form.elements.mapLatitude.value === "") {
+      resolveRepresentativeMapLocation();
+    }
+    dom.contentEditor.querySelectorAll('[data-item-type="course"]').forEach((card) => {
+      if (card.querySelector('[data-course-field="mapEnabled"]')?.checked
+        && card.querySelector('[data-course-field="mapLatitude"]')?.value === "") {
+        resolveCourseMapLocation(card);
+      }
+    });
+    renderPreview();
+    return;
+  }
   if (event.target.matches("[data-course-label-preset]")) {
     syncCourseLabelPreset(event.target);
     renderPreview();
@@ -2533,8 +2608,9 @@ const handleLanguageChange = async () => {
     if (!personalDraft && state.localizedDefault) {
       state.invitation = InvitationCore.normalizeInvitation({
         ...state.localizedDefault,
+        mapProvider: defaultMapProvider(),
         templateId: state.activeTemplate,
-        naverMapClientId: state.naverMapClientId
+        naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
       });
       state.appliedBaseline = PresetApplication.snapshot(state.invitation);
       fillForm(state.invitation);

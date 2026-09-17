@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Map</title>
+  <style>html,body,#map{width:100%;height:100%;margin:0}</style>
+  <!--
+    One Google map, drawn in a document that has a real URL.
+
+    Invitations render inside about:srcdoc frames (the studio preview and the
+    published viewer). Google Maps authorizes a referrer-restricted key with
+    a delayed call roughly 30-40 seconds after the map appears, and from an
+    srcdoc document it reports the site as "null" (RefererNotAllowedMapError),
+    which no restriction can allow. Loaded from this page, the site is the
+    real origin the key is restricted to.
+
+    Everything arrives in the fragment, which is never sent to a server:
+    #lat=..&lng=..&zoom=..&lang=..&key=..
+    State is posted to the parent as {type: "invitation-map", state}.
+  -->
+</head>
+<body>
+<div id="map"></div>
+<script>
+(() => {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const latitude = Number(params.get("lat"));
+  const longitude = Number(params.get("lng"));
+  const zoom = Number(params.get("zoom")) || 16;
+  const key = params.get("key") || "";
+  const language = /^[a-z]{2}$/.test(params.get("lang") || "") ? params.get("lang") : "ko";
+  let reported = "";
+  const report = (state) => {
+    if (reported === "failed") return;
+    reported = state;
+    window.parent.postMessage({ type: "invitation-map", state }, "*");
+  };
+  if (!/^[A-Za-z0-9_-]+$/.test(key) || !Number.isFinite(latitude) || !Number.isFinite(longitude)
+    || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    report("failed");
+    return;
+  }
+  window.gm_authFailure = () => report("failed");
+  window.__invitationMapReady = async () => {
+    try {
+      const { Map } = await google.maps.importLibrary("maps");
+      const { Marker } = await google.maps.importLibrary("marker");
+      const position = { lat: latitude, lng: longitude };
+      const map = new Map(document.getElementById("map"), {
+        center: position,
+        zoom,
+        // One finger keeps scrolling the invitation; two fingers move the map.
+        gestureHandling: "cooperative",
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+      new Marker({ map, position });
+      report("ready");
+    } catch (error) {
+      report("failed");
+    }
+  };
+  const script = document.createElement("script");
+  script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(key)
+    + "&loading=async&callback=__invitationMapReady&language=" + encodeURIComponent(language);
+  script.async = true;
+  script.onerror = () => report("failed");
+  document.head.append(script);
+  setTimeout(() => { if (!reported) report("failed"); }, 10000);
+})();
+</script>
+</body>
+</html>

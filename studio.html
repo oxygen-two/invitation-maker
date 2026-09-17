@@ -124,11 +124,22 @@
         </details>
 
         <details class="editor-group" data-editor-group="location" open>
-          <summary><span data-i18n="editor.locationTitle">대표 장소</span><small data-i18n="editor.locationHint">장소 · 네이버 지도</small></summary>
+          <summary><span data-i18n="editor.locationTitle">대표 장소</span><small data-i18n="editor.locationHint">장소 · 지도</small></summary>
           <div class="editor-group-body">
+            <!-- The service is chosen first because it decides what everything
+                 below means: which geocoder reads the address, which map the
+                 guest sees, and where the guest's map button opens. -->
+            <fieldset class="full map-provider-field">
+              <legend data-i18n="editor.mapProvider">지도 서비스</legend>
+              <div class="map-provider-options">
+                <label class="map-provider-option"><input name="mapProvider" type="radio" value="naver" checked><span data-i18n="editor.mapProviderNaver">네이버 지도</span></label>
+                <label class="map-provider-option"><input name="mapProvider" type="radio" value="google"><span data-i18n="editor.mapProviderGoogle">Google 지도</span></label>
+              </div>
+              <small data-i18n="editor.mapProviderHint">국내 장소는 네이버 지도, 해외 장소는 Google 지도가 정확해요. 손님의 지도 버튼도 이 서비스로 열립니다.</small>
+            </fieldset>
             <label><span data-i18n="editor.location">장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
-            <label><span data-i18n="editor.mapUrl">지도 링크</span><input name="mapUrl" type="url" autocomplete="off"></label>
-            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span data-i18n="editor.mapEnabled">대표 동적 지도 표시</span></label>
+            <label><span data-i18n="editor.mapUrl">지도 링크</span><input name="mapUrl" type="url" autocomplete="off" data-i18n-attr="placeholder:editor.mapUrlPlaceholder" placeholder="네이버 지도 또는 Google 지도 링크 (선택)"></label>
+            <label class="full checkbox-field"><input name="mapEnabled" type="checkbox"><span data-i18n="editor.mapEnabled">대표 장소에 지도 넣기</span></label>
             <div class="full map-settings" data-map-settings hidden>
               <input name="mapLatitude" type="hidden">
               <input name="mapLongitude" type="hidden">

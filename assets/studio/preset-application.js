@@ -40,7 +40,7 @@
   const isDirty = (current, baseline) =>
     JSON.stringify(snapshot(current)) !== JSON.stringify(snapshot(baseline));
 
-  const prepare = ({ current, preset, naverMapClientId = "", preserveContent = false } = {}) => {
+  const prepare = ({ current, preset, naverMapClientId = "", googleMapsApiKey = "", preserveContent = false } = {}) => {
     assertValidPreset(preset);
     const previous = snapshot(current);
     const defaults = clone(preset.defaults);
@@ -51,7 +51,10 @@
       koreanFont: defaults.koreanFont,
       templateId: String(preset.id).trim(),
       layoutFamily: String(preset.familyId).trim(),
-      naverMapClientId
+      naverMapClientId,
+      googleMapsApiKey,
+      // The map service is the author's choice, not part of a template's look.
+      mapProvider: previous.mapProvider
     });
 
     return { previous, next };

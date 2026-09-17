@@ -2,7 +2,8 @@
   "site": {
     "title": "Invitation Maker",
     "defaultTemplate": "royal",
-    "naverMapClientId": "6qlfm6v8or"
+    "naverMapClientId": "6qlfm6v8or",
+    "googleMapsApiKey": "AIzaSyBQ1O3RXW037N5n5oiJMgcSuUsoNMrsG6c"
   },
   "occasions": [
     { "id": "date", "name": "데이트" },
