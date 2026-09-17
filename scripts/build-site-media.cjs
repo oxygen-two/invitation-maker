@@ -129,12 +129,29 @@ const applyDesign = async (page, { id, occasion }, width) => {
     await desktop.locator('[data-occasion-id="birthday"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').waitFor({ state: "visible" });
-    // Playwright auto-scrolls the clicked template card into view, which can
-    // leave the top bar (and its new "사용법" link) scrolled out of frame;
-    // scroll back to the top before every capture so the studio chrome is
-    // always in the shot.
-    await desktop.evaluate(() => window.scrollTo(0, 0));
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01-2x.jpg"), ...JPEG_OPTIONS });
+    // Step 01 illustrates picking a design AND applying it, so the capture
+    // must wait for both the enlarged sample card (in the gallery preview
+    // frame) and the apply button to actually be there before the shot is
+    // taken, not just for the clicked template card.
+    await desktop.locator("#preview-apply-button").waitFor({ state: "visible" });
+    // The gallery-stage preview renders the selected design into #preview
+    // but does not necessarily make the card visible there (it can be
+    // scrolled/clipped inside the panel) — attached to the DOM is the
+    // meaningful signal that the render has actually happened, same as the
+    // phone captures above.
+    await desktop.frameLocator("#preview").locator(".invitation-card").waitFor({ state: "attached" });
+    // The gallery grid at 1440x900 puts the selected card and the apply
+    // prompt below the fold together — scrolling back to (0,0) would hide
+    // #preview-apply-button entirely, and the button is the point of this
+    // step's screenshot (the guide's prose walks the reader through pressing
+    // it). scrollIntoViewIfNeeded() on the button also pushes the top bar
+    // well out of frame (checked: studio-bar's box goes to y < -700), so
+    // unlike steps 02/03 this capture does NOT reset scroll to the top —
+    // the studio-bar's 12px "사용법" link is still verified, just via the
+    // step 02/03 captures below and the direct Playwright check in the
+    // final-fix report, not this one.
+    await desktop.locator("#preview-apply-button").scrollIntoViewIfNeeded();
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01-2x.jpg"), fullPage: false, ...JPEG_OPTIONS });
     await desktop.locator("#preview-apply-button").click();
     await desktop.frameLocator("#preview").locator(".invitation-card").waitFor();
     await desktop.evaluate(() => window.scrollTo(0, 0));
