@@ -11,6 +11,8 @@
       var isRoot = location.pathname === "/" || location.pathname === "/index.html";
       var stay = new URLSearchParams(location.search).has("welcome");
       if (isRoot && !stay && localStorage.getItem("invitation-studio:visited")) {
+        // location.hash is deliberately not carried over: the landing has no
+        // anchors that mean anything on /studio.
         location.replace("/studio" + location.search);
       }
     } catch (error) { /* No storage, no redirect: show the landing. */ }
@@ -39,6 +41,7 @@
   <meta name="twitter:title" data-i18n-attr="content:site.meta.landingTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
   <meta name="twitter:description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
   <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <meta name="twitter:image:alt" data-i18n-attr="content:meta.twitterImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
   <!-- Structured data stays in the served default language on purpose: a
        crawler sees this document before any script runs, so describing it as
        anything other than what was served would be a lie to the indexer. -->
@@ -64,9 +67,9 @@
   <title>Invitation Studio · 작은 초대, 소중한 순간</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/site/site.css">
-  <!-- Loaded in <head>, before the body paints, so the resolved language is
-       applied in the same frame rather than flashing Korean at an English
-       visitor. The dictionaries register themselves onto the engine. -->
+  <!-- The engine sets <html lang> and the title in <head>. Body copy is
+       translated by site.js as soon as the document is parsed, so an
+       English visitor may briefly see Korean body text if the network is slow. -->
   <script src="/assets/i18n/i18n.js"></script>
   <script src="/assets/i18n/dictionary-ko.js"></script>
   <script src="/assets/i18n/dictionary-en.js"></script>
@@ -149,10 +152,10 @@
        script that dies while PARSING can only be reported by handlers that are
        already installed. Everything below this line is a file whose failure we
        want to hear about; everything above it would have to fail silently. -->
-  <script src="/assets/analytics/config.js"></script>
-  <script src="/assets/analytics/analytics.js"></script>
-  <script src="/assets/analytics/error-reporting.js"></script>
+  <script defer src="/assets/analytics/config.js"></script>
+  <script defer src="/assets/analytics/analytics.js"></script>
+  <script defer src="/assets/analytics/error-reporting.js"></script>
   <script type="module" src="/assets/analytics/ga4.js"></script>
-  <script src="/assets/site/site.js"></script>
+  <script defer src="/assets/site/site.js"></script>
 </body>
 </html>

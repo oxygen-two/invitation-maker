@@ -26,9 +26,9 @@
   <title>사용법 · Invitation Studio</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/assets/site/site.css">
-  <!-- Loaded in <head>, before the body paints, so the resolved language is
-       applied in the same frame rather than flashing Korean at an English
-       visitor. The dictionaries register themselves onto the engine. -->
+  <!-- The engine sets <html lang> and the title in <head>. Body copy is
+       translated by site.js as soon as the document is parsed, so an
+       English visitor may briefly see Korean body text if the network is slow. -->
   <script src="/assets/i18n/i18n.js"></script>
   <script src="/assets/i18n/dictionary-ko.js"></script>
   <script src="/assets/i18n/dictionary-en.js"></script>
@@ -78,8 +78,8 @@
     <section id="finish" aria-labelledby="finish-title">
       <h2 id="finish-title" data-i18n="site.guide.finish.title">완성 방식 세 가지</h2>
       <p class="lead" data-i18n="site.guide.finish.lead">셋 중 무엇을 골라도 되고, 여러 개를 함께 써도 됩니다. 차이는 어디에 남느냐입니다.</p>
-      <div class="table-wrap"><table>
-        <thead><tr><th data-i18n="site.guide.finish.head.method">방식</th><th data-i18n="site.guide.finish.head.where">남는 곳</th><th data-i18n="site.guide.finish.head.switch">브라우저를 바꾸면</th><th data-i18n="site.guide.finish.head.undo">되돌리기</th></tr></thead>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="완성 방식 비교 표" data-i18n-attr="aria-label:site.guide.finish.tableLabel"><table>
+        <thead><tr><th scope="col" data-i18n="site.guide.finish.head.method">방식</th><th scope="col" data-i18n="site.guide.finish.head.where">남는 곳</th><th scope="col" data-i18n="site.guide.finish.head.switch">브라우저를 바꾸면</th><th scope="col" data-i18n="site.guide.finish.head.undo">되돌리기</th></tr></thead>
         <tbody>
           <tr><td data-i18n="site.guide.finish.library.method">보관함에 저장</td><td data-i18n="site.guide.finish.library.where">이 브라우저</td><td data-i18n="site.guide.finish.library.switch">사라짐</td><td data-i18n="site.guide.finish.library.undo">목록에서 삭제</td></tr>
           <tr><td data-i18n="site.guide.finish.file.method">파일로 저장</td><td data-i18n="site.guide.finish.file.where">내 기기의 HTML 파일</td><td data-i18n="site.guide.finish.file.switch">파일은 그대로</td><td data-i18n="site.guide.finish.file.undo">파일 삭제</td></tr>
@@ -126,10 +126,10 @@
        script that dies while PARSING can only be reported by handlers that are
        already installed. Everything below this line is a file whose failure we
        want to hear about; everything above it would have to fail silently. -->
-  <script src="/assets/analytics/config.js"></script>
-  <script src="/assets/analytics/analytics.js"></script>
-  <script src="/assets/analytics/error-reporting.js"></script>
+  <script defer src="/assets/analytics/config.js"></script>
+  <script defer src="/assets/analytics/analytics.js"></script>
+  <script defer src="/assets/analytics/error-reporting.js"></script>
   <script type="module" src="/assets/analytics/ga4.js"></script>
-  <script src="/assets/site/site.js"></script>
+  <script defer src="/assets/site/site.js"></script>
 </body>
 </html>
