@@ -97,7 +97,7 @@
     "unknown",
     "window"
   ]);
-  const pageKinds = Object.freeze(["other", "shared", "studio", "viewer"]);
+  const pageKinds = Object.freeze(["guide", "landing", "other", "sample", "shared", "studio", "viewer"]);
   const browserEnvironments = Object.freeze([
     "android_webview",
     "chrome",

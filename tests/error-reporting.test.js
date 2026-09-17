@@ -399,8 +399,13 @@ test("browser environment and page identity are closed vocabularies", () => {
   assert.equal(reporting.browserEnvironment(""), "unknown");
   assert.equal(reporting.browserEnvironment("something entirely new"), "other");
 
-  assert.equal(reporting.pageKind({ pathname: "/" }), "studio");
-  assert.equal(reporting.pageKind({ pathname: "/index.html" }), "studio");
+  assert.equal(reporting.pageKind({ pathname: "/" }), "landing");
+  assert.equal(reporting.pageKind({ pathname: "/index.html" }), "landing");
+  assert.equal(reporting.pageKind({ pathname: "/welcome" }), "landing");
+  assert.equal(reporting.pageKind({ pathname: "/studio" }), "studio");
+  assert.equal(reporting.pageKind({ pathname: "/studio.html" }), "studio");
+  assert.equal(reporting.pageKind({ pathname: "/guide" }), "guide");
+  assert.equal(reporting.pageKind({ pathname: "/sample" }), "sample");
   assert.equal(reporting.pageKind({ pathname: "/viewer.html" }), "viewer");
   assert.equal(reporting.pageKind({ pathname: `/i/${INVITATION_ID}` }), "shared");
   assert.equal(reporting.pageKind({ pathname: "/unknown/route" }), "other");
