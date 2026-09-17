@@ -115,7 +115,7 @@ test("a landing page replaced by an error shell fails even though it is 200 HTML
 
   const failures = failuresFor(results, "landing-page-renders");
   assert.ok(failures.some((failure) => failure.includes("data-error-code")));
-  assert.ok(failures.some((failure) => failure.includes("studio heading")));
+  assert.ok(failures.some((failure) => failure.includes("landing page marker")));
 });
 
 test("a landing page that lost its <h1> fails", async () => {

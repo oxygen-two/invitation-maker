@@ -104,14 +104,14 @@ const expectWellFormedSitemap = (response) => {
 const READ_ONLY_CHECKS = Object.freeze([
   {
     id: "landing-page-renders",
-    title: "Landing page returns 200 and rendered the studio, not an error shell",
+    title: "Landing page returns 200 and rendered the landing page, not an error shell",
     method: "GET",
     path: "/",
     verify: (response) => [
       ...expectStatus(response, 200),
       ...expectHeaderContains(response, "content-type", "text/html"),
       ...expectBodyContains(response, "<h1", "an <h1> element"),
-      ...expectBodyContains(response, 'id="studio-heading"', "the studio heading"),
+      ...expectBodyContains(response, 'data-site-page="landing"', "the landing page marker"),
       ...expectNotAnErrorShell(response)
     ]
   },

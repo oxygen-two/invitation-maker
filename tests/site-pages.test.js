@@ -92,3 +92,64 @@ test("analytics allows the landing events and nothing more from them", () => {
   assert.match(source, /landing_sample_opened: \["campaign", "flow_id", "medium", "source"\]/);
   assert.match(source, /placement: 16/);
 });
+
+const parseTagAttributes = (tag) => Object.fromEntries([...tag.matchAll(/([a-zA-Z0-9-]+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+
+const assertPageIsTranslatable = (file, minimumBindings) => {
+  const I18n = loadI18n();
+  const html = read(file);
+  const bindings = [...html.matchAll(/<([a-z0-9]+)\b([^>]*\bdata-i18n="[^"]+"[^>]*)>([^<]*)</gi)];
+  assert.ok(bindings.length >= minimumBindings, `${file}: expected at least ${minimumBindings} translatable elements`);
+  for (const [, , attributes, text] of bindings) {
+    const key = parseTagAttributes(`<x ${attributes}>`)["data-i18n"];
+    assert.equal(text.trim(), I18n.t(key, undefined, "ko"), `${file} text for ${key} has drifted from dictionary-site-ko.js`);
+  }
+  const keys = [
+    ...[...html.matchAll(/data-i18n="([^"]+)"/g)].map((m) => m[1]),
+    ...[...html.matchAll(/data-i18n-attr="([^"]+)"/g)].flatMap((m) => m[1].split(";")).map((pair) => pair.split(":")[1])
+  ].filter(Boolean).map((key) => key.trim());
+  for (const key of keys) {
+    for (const language of I18n.SUPPORTED) assert.equal(I18n.hasKey(key, language), true, `${language} has no ${key}`);
+  }
+};
+
+test("the landing page is fully translatable and its Korean copy matches the dictionary", () => {
+  assertPageIsTranslatable("index.html", 40);
+});
+
+test("the landing page owns the root's search metadata", () => {
+  const landing = read("index.html");
+  assert.match(landing, /<meta name="google-site-verification" content="k0bGP9otm9hmWB_sAZmrRd4dF6ClSKZCx5s_IkHjVeM">/);
+  assert.match(landing, /<meta name="naver-site-verification" content="323c12e50a81986273c33141f5fcdf9cae3c2ef6">/);
+  assert.match(landing, /<link rel="canonical" href="https:\/\/invitation-maker-one\.vercel\.app\/">/);
+  assert.match(landing, /"@type": "WebApplication"/);
+  assert.match(landing, /og:image" content="https:\/\/invitation-maker-one\.vercel\.app\/assets\/media\/social-preview-v1\.png"/);
+});
+
+test("the landing page sends returning studio users straight to /studio, but never from /welcome", () => {
+  const landing = read("index.html");
+  const script = landing.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.match(script, /invitation-studio:visited/);
+  assert.match(script, /location\.replace\("\/studio" \+ location\.search\)/);
+  assert.match(script, /welcome/);
+  assert.match(script, /try \{/);
+  // It must run before any stylesheet so a returning user never paints the landing.
+  assert.ok(landing.indexOf("<script>") < landing.indexOf('<link rel="stylesheet"'));
+});
+
+test("landing links use canonical clean URLs and the sample opens in a new tab", () => {
+  const landing = read("index.html");
+  assert.match(landing, /href="\/studio"[^>]*data-site-event="landing_cta_clicked" data-site-placement="hero"/);
+  assert.match(landing, /href="\/sample" target="_blank" rel="noopener"[^>]*data-site-event="landing_sample_opened"/);
+  assert.match(landing, /href="\/guide#data"/);
+  assert.doesNotMatch(landing, /href="[^"]*\.html"/);
+  assert.doesNotMatch(landing, /fonts\.googleapis\.com/);
+});
+
+test("both site pages share the exact same header and footer markup", () => {
+  const chrome = (file) => {
+    const html = read(file);
+    return [html.match(/<header class="site-header">[\s\S]*?<\/header>/)[0], html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)[0]];
+  };
+  assert.deepEqual(chrome("index.html"), chrome("guide.html"));
+});

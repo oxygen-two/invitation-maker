@@ -1,0 +1,158 @@
+<!doctype html>
+<!-- The landing page. "/" is state-aware: a browser that has opened the
+     studio before is sent to /studio by the inline script below, before any
+     stylesheet loads. "/welcome" is the same document without that redirect.
+     Crawlers have no localStorage and always see this page. -->
+<html lang="ko" data-i18n-title="site.meta.landingTitle">
+<head>
+  <meta charset="utf-8">
+  <script>
+    try {
+      var isRoot = location.pathname === "/" || location.pathname === "/index.html";
+      var stay = new URLSearchParams(location.search).has("welcome");
+      if (isRoot && !stay && localStorage.getItem("invitation-studio:visited")) {
+        location.replace("/studio" + location.search);
+      }
+    } catch (error) { /* No storage, no redirect: show the landing. */ }
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
+  <!-- Ownership proofs for the two search consoles this site is registered
+       with. Both are re-checked periodically rather than once, so deleting
+       either tag silently drops that verification and the reports with it. -->
+  <meta name="google-site-verification" content="k0bGP9otm9hmWB_sAZmrRd4dF6ClSKZCx5s_IkHjVeM">
+  <meta name="naver-site-verification" content="323c12e50a81986273c33141f5fcdf9cae3c2ef6">
+  <link rel="canonical" href="https://invitation-maker-one.vercel.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" data-i18n-attr="content:meta.ogLocale" content="ko_KR">
+  <meta property="og:site_name" content="Invitation Studio">
+  <meta property="og:title" data-i18n-attr="content:site.meta.landingTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
+  <meta property="og:description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
+  <meta property="og:url" content="https://invitation-maker-one.vercel.app/">
+  <meta property="og:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" data-i18n-attr="content:meta.ogImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" data-i18n-attr="content:site.meta.landingTitle" content="Invitation Studio · 작은 초대, 소중한 순간">
+  <meta name="twitter:description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
+  <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <!-- Structured data stays in the served default language on purpose: a
+       crawler sees this document before any script runs, so describing it as
+       anything other than what was served would be a lie to the indexer. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Invitation Studio",
+    "url": "https://invitation-maker-one.vercel.app/",
+    "description": "생일, 결혼, 모임 등 소중한 날을 위한 모바일 초대장을 무료로 만드는 웹 앱입니다. 회원가입 없이 디자인을 고르고 내용을 채워 사진이 담긴 HTML 파일로 내려받거나, 원하면 링크로도 공유할 수 있습니다.",
+    "inLanguage": "ko",
+    "applicationCategory": "DesignApplication",
+    "operatingSystem": "Any (web browser)",
+    "browserRequirements": "Requires JavaScript",
+    "isAccessibleForFree": true,
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "KRW"
+    }
+  }
+  </script>
+  <title>Invitation Studio · 작은 초대, 소중한 순간</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/site/site.css">
+  <!-- Loaded in <head>, before the body paints, so the resolved language is
+       applied in the same frame rather than flashing Korean at an English
+       visitor. The dictionaries register themselves onto the engine. -->
+  <script src="/assets/i18n/i18n.js"></script>
+  <script src="/assets/i18n/dictionary-ko.js"></script>
+  <script src="/assets/i18n/dictionary-en.js"></script>
+  <script src="/assets/i18n/dictionary-site-ko.js"></script>
+  <script src="/assets/i18n/dictionary-site-en.js"></script>
+  <script>InvitationI18n.init();</script>
+</head>
+<body data-site-page="landing">
+  <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="site-brand" href="/welcome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio<span data-i18n="site.header.tagline">작은 날도, 특별하게.</span></a>
+    <nav class="site-nav" aria-label="사이트" data-i18n-attr="aria-label:site.header.navLabel">
+      <a href="/guide" data-i18n="site.header.guide">사용법</a>
+      <div class="site-language">
+        <label for="language-select" data-i18n="site.header.langDescription">표시 언어</label>
+        <select id="language-select" data-i18n-attr="aria-label:site.header.langLabel" aria-label="언어 선택"></select>
+      </div>
+      <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="header" data-i18n="site.header.cta">초대장 만들기</a>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <section class="hero">
+      <div>
+        <p class="eyebrow" data-i18n="site.landing.hero.eyebrow">회원가입 없음 · 무료</p>
+        <h1 data-i18n="site.landing.hero.title">작은 초대, 소중한 순간.</h1>
+        <p class="lead" data-i18n="site.landing.hero.lead">디자인을 고르고, 내용을 채우고, 파일이나 링크로 보내세요.</p>
+        <div class="actions">
+          <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="hero" data-i18n="site.landing.hero.cta">초대장 만들기</a>
+          <a class="text-link" href="/sample" target="_blank" rel="noopener" data-site-event="landing_sample_opened" data-i18n="site.landing.hero.sample">완성된 초대장 먼저 보기</a>
+        </div>
+      </div>
+      <div class="hero-media">
+        <div class="phone"><img src="/assets/media/site/hero-sample@2x.png" width="780" height="1688" alt="휴대폰 화면에 열린 완성 초대장 예시" data-i18n-attr="alt:site.landing.hero.imageAlt"></div>
+      </div>
+    </section>
+    <section aria-labelledby="steps-title">
+      <h2 id="steps-title" data-i18n="site.landing.steps.title">세 단계면 됩니다</h2>
+      <div class="steps">
+        <article class="step"><h3 data-i18n="site.landing.steps.one.title">01 디자인 고르기</h3><p data-i18n="site.landing.steps.one.text">생일, 결혼, 돌잔치, 모임. 행사에 맞는 디자인을 고르면 샘플이 바로 보입니다.</p></article>
+        <article class="step"><h3 data-i18n="site.landing.steps.two.title">02 내용 채우기</h3><p data-i18n="site.landing.steps.two.text">제목, 일정, 장소, 메시지를 적고 사진을 더하세요. 미리보기는 하객이 받는 화면 그대로입니다.</p></article>
+        <article class="step"><h3 data-i18n="site.landing.steps.three.title">03 보관 · 파일 · 링크</h3><p data-i18n="site.landing.steps.three.text">이 브라우저에 보관하거나, 파일 하나로 내려받거나, 공개 링크로 보내세요.</p></article>
+      </div>
+    </section>
+    <section aria-labelledby="designs-title">
+      <h2 id="designs-title" data-i18n="site.landing.gallery.title">디자인</h2>
+      <p class="lead" data-i18n="site.landing.gallery.lead">취향으로 고르세요. 행사 유형마다 여러 디자인이 있습니다.</p>
+      <!-- Alt text stays static Korean rather than data-i18n-attr: these are
+           screenshots of Korean-language sample invitations, so describing
+           them in English would misdescribe what the image actually shows. -->
+      <div class="designs">
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-bloom-portrait@2x.png" width="780" height="1688" alt="초대장 디자인 예시 · 생일"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-wedding@2x.png" width="780" height="1688" alt="초대장 디자인 예시 · 결혼"><figcaption data-i18n="site.landing.gallery.wedding">결혼</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-first-chapter@2x.png" width="780" height="1688" alt="초대장 디자인 예시 · 돌잔치"><figcaption data-i18n="site.landing.gallery.firstChapter">돌잔치</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-golden-years@2x.png" width="780" height="1688" alt="초대장 디자인 예시 · 환갑"><figcaption data-i18n="site.landing.gallery.goldenYears">환갑</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-botanical@2x.png" width="780" height="1688" alt="초대장 디자인 예시 · 데이트"><figcaption data-i18n="site.landing.gallery.botanical">데이트</figcaption></figure>
+        <figure class="design"><img loading="lazy" src="/assets/media/site/design-midnight-cinema@2x.png" width="780" height="1688" alt="초대장 디자인 예시 · 행사"><figcaption data-i18n="site.landing.gallery.midnightCinema">행사</figcaption></figure>
+      </div>
+      <div class="actions"><a class="site-cta secondary" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="gallery" data-i18n="site.landing.gallery.cta">디자인 전체 보기</a></div>
+    </section>
+    <section aria-labelledby="trust-title">
+      <h2 id="trust-title" data-i18n="site.landing.trust.title">안심하고 쓰세요</h2>
+      <div class="trust">
+        <article><h3 data-i18n="site.landing.trust.one.title">회원가입도 앱 설치도 없습니다</h3><p data-i18n="site.landing.trust.one.text">브라우저에서 열어 바로 만듭니다. 이메일도 전화번호도 묻지 않습니다.</p></article>
+        <article><h3 data-i18n="site.landing.trust.two.title">초안은 내 브라우저에만 남습니다</h3><p data-i18n="site.landing.trust.two.text">쓰는 동안 자동으로 저장되지만, 서버로 보내지 않습니다.</p></article>
+        <article><h3 data-i18n="site.landing.trust.three.title">파일은 영원히, 링크는 내가 정합니다</h3><p data-i18n="site.landing.trust.three.text">파일로 받으면 계속 내 것입니다. 공개 링크는 시간이 지나면 만료되고, 원할 때 취소할 수 있습니다.</p></article>
+      </div>
+      <a class="text-link" href="/guide#data" data-i18n="site.landing.trust.link">내 데이터는 어디에 저장되나요</a>
+    </section>
+    <section class="closing" aria-labelledby="closing-title">
+      <h2 id="closing-title" data-i18n="site.landing.closing.title">지금 만들어 보세요</h2>
+      <div class="actions"><a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="footer" data-i18n="site.landing.closing.cta">초대장 만들기</a></div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <span data-i18n="site.footer.brand">INVITATION STUDIO</span>
+    <nav aria-label="바닥글 링크" data-i18n-attr="aria-label:site.footer.navLabel"><a href="/welcome" data-i18n="site.footer.about">소개</a><a href="/guide" data-i18n="site.footer.guide">사용법</a><a href="/guide#data" data-i18n="site.footer.data">내 데이터</a></nav>
+    <span class="site-footer-note" data-i18n="site.footer.note">작은 초대, 소중한 순간.</span>
+  </footer>
+  <!-- Analytics first, and error-reporting.js immediately after it, because a
+       script that dies while PARSING can only be reported by handlers that are
+       already installed. Everything below this line is a file whose failure we
+       want to hear about; everything above it would have to fail silently. -->
+  <script src="/assets/analytics/config.js"></script>
+  <script src="/assets/analytics/analytics.js"></script>
+  <script src="/assets/analytics/error-reporting.js"></script>
+  <script type="module" src="/assets/analytics/ga4.js"></script>
+  <script src="/assets/site/site.js"></script>
+</body>
+</html>
