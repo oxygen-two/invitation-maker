@@ -4,6 +4,15 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, "public");
 
+// Exported so tests can assert against the real predicate instead of a
+// re-typed copy of it drifting out of sync with what actually ships.
+const shouldCopyRootFile = (name) =>
+  /^(?:index|viewer|shared|[0-9A-Za-z_-]+)\.html$/.test(name) ||
+  /^[0-9]{3}\.html$/.test(name) ||
+  name === "invitation-data.json" ||
+  name === "robots.txt" ||
+  name === "sitemap.xml";
+
 const copyFile = (source, destination) => {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.copyFileSync(source, destination);
@@ -23,19 +32,24 @@ const copyDir = (source, destination) => {
   }
 };
 
-fs.rmSync(output, { recursive: true, force: true });
-fs.mkdirSync(output, { recursive: true });
+const build = () => {
+  fs.rmSync(output, { recursive: true, force: true });
+  fs.mkdirSync(output, { recursive: true });
 
-for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-  if (!entry.isFile()) continue;
-  if (/^(?:index|viewer|shared|[0-9A-Za-z_-]+)\.html$/.test(entry.name) || /^[0-9]{3}\.html$/.test(entry.name)) {
-    copyFile(path.join(root, entry.name), path.join(output, entry.name));
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (shouldCopyRootFile(entry.name)) {
+      copyFile(path.join(root, entry.name), path.join(output, entry.name));
+    }
   }
-  if (entry.name === "invitation-data.json" || entry.name === "robots.txt" || entry.name === "sitemap.xml") {
-    copyFile(path.join(root, entry.name), path.join(output, entry.name));
-  }
+
+  copyDir(path.join(root, "assets"), path.join(output, "assets"));
+
+  console.log(`Built public static output at ${path.relative(root, output)}`);
+};
+
+if (require.main === module) {
+  build();
 }
 
-copyDir(path.join(root, "assets"), path.join(output, "assets"));
-
-console.log(`Built public static output at ${path.relative(root, output)}`);
+module.exports = { shouldCopyRootFile };

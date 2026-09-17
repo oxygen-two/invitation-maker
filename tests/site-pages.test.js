@@ -6,6 +6,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const { staticFileFor } = require("../server/http/static.cjs");
+const { shouldCopyRootFile } = require("../scripts/build-public.cjs");
 
 test("clean URLs resolve to the right static files on the local server", () => {
   assert.equal(staticFileFor(root, "/"), path.join(root, "index.html"));
@@ -88,7 +89,7 @@ test("guide policy numbers match the shipped defaults", () => {
 test("analytics allows the landing events and nothing more from them", () => {
   const source = read("assets/analytics/analytics.js");
   assert.match(source, /site_page_viewed: \["campaign", "flow_id", "medium", "page", "source"\]/);
-  assert.match(source, /landing_cta_clicked: \["campaign", "flow_id", "medium", "placement", "source"\]/);
+  assert.match(source, /landing_cta_clicked: \["campaign", "flow_id", "medium", "page", "placement", "source"\]/);
   assert.match(source, /landing_sample_opened: \["campaign", "flow_id", "medium", "source"\]/);
   assert.match(source, /placement: 16/);
 });
@@ -190,10 +191,9 @@ test("the sitemap lists the landing, the guide, and the studio but not the sampl
 });
 
 test("build-public copies sample.html", () => {
-  const pattern = /^(?:index|viewer|shared|[0-9A-Za-z_-]+)\.html$/;
-  assert.ok(pattern.test("sample.html"));
-  assert.ok(pattern.test("studio.html"));
-  assert.ok(pattern.test("guide.html"));
+  assert.ok(shouldCopyRootFile("sample.html"));
+  assert.ok(shouldCopyRootFile("studio.html"));
+  assert.ok(shouldCopyRootFile("guide.html"));
 });
 
 test("the studio links to the guide and the landing", () => {
