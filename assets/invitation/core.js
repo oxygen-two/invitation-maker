@@ -137,6 +137,8 @@
     englishFont: "cormorant-garamond",
     koreanFont: "gowun-batang",
     naverMapClientId: "",
+    googleMapsApiKey: "",
+    mapProvider: "naver",
     mapEnabled: false,
     mapLatitude: null,
     mapLongitude: null,
@@ -212,6 +214,12 @@
     const clientId = String(value || "").trim();
     return /^[A-Za-z0-9_-]+$/.test(clientId) ? clientId : "";
   };
+
+  /* Which service draws the invitation's maps and answers its "open in maps"
+     buttons. Absent on every invitation saved before Google support existed,
+     and all of those were NAVER, so absence means NAVER. */
+  const mapProviders = Object.freeze(["naver", "google"]);
+  const normalizeMapProvider = (value) => (mapProviders.includes(value) ? value : "naver");
 
   const normalizeMapUrl = (value, fallback = "") => {
     const mapUrl = String(value || "").trim();
@@ -416,6 +424,8 @@
       englishFont: normalizeFont(input.englishFont, englishFonts, defaultInvitation.englishFont),
       koreanFont: normalizeFont(input.koreanFont, koreanFonts, defaultInvitation.koreanFont),
       naverMapClientId: normalizeClientId(input.naverMapClientId),
+      googleMapsApiKey: normalizeClientId(input.googleMapsApiKey),
+      mapProvider: normalizeMapProvider(input.mapProvider),
       title: input.title ?? defaultInvitation.title,
       subtitle: input.subtitle ?? defaultInvitation.subtitle,
       dateLabel: input.dateLabel ?? sampleDateLabel(),
@@ -460,13 +470,17 @@
     return `<div class="particle-layer" data-effect="${effect}" data-scale="${scale}" data-amount="${amount}" style="--particle-scale:${scale / 100}" aria-hidden="true">${particles}</div>`;
   };
 
+  const mapKeyFor = (settings) => normalizeMapProvider(settings.mapProvider) === "google"
+    ? settings.googleMapsApiKey
+    : settings.naverMapClientId;
+
   const renderDynamicMap = (mapSettings, variant = "global", mapKey = "representative", language = DEFAULT_CHROME_LANGUAGE) => {
     if (!mapSettings.mapEnabled) return "";
 
-    const status = escapeHtml(t(mapSettings.naverMapClientId ? "map.loading" : "map.unavailable", language));
+    const status = escapeHtml(t(mapKeyFor(mapSettings) ? "map.loading" : "map.unavailable", language));
     const variantClass = variant === "stop" ? " is-stop-map" : "";
     return `
-        <section class="invite-map-panel${variantClass}" data-map-key="${mapKey}" aria-label="${escapeHtml(t("invitation.mapRegionLabel", language))}">
+        <section class="invite-map-panel${variantClass}" data-map-key="${mapKey}" data-map-provider="${normalizeMapProvider(mapSettings.mapProvider)}" aria-label="${escapeHtml(t("invitation.mapRegionLabel", language))}">
           <div class="invite-map-canvas" data-dynamic-map data-latitude="${mapSettings.mapLatitude}" data-longitude="${mapSettings.mapLongitude}" data-zoom="${mapSettings.mapZoom}"></div>
           <p class="invite-map-status" data-map-status role="status" aria-live="polite">${status}</p>
         </section>
@@ -477,11 +491,25 @@
     ? `<a class="${className}" href="${escapeHtml(mapUrl)}" target="_blank" rel="noopener noreferrer">${label}</a>`
     : "";
 
-  const getMapFallbackUrl = (mapSettings, place) => mapSettings.mapUrl || (place
-    ? `https://map.naver.com/p/search/${encodeURIComponent(place)}`
-    : mapSettings.mapEnabled
-      ? "https://map.naver.com/"
-      : "");
+  /* The button a guest taps. An author's own link always wins; otherwise the
+     search goes to the invitation's map service, because a guest abroad has
+     no use for a NAVER search page and a guest in Korea is best served by it.
+     Google search also accepts a bare coordinate pair, so a map with no label
+     still opens on the pinned spot instead of the world map. */
+  const getMapFallbackUrl = (mapSettings, place, provider = "naver") => {
+    if (mapSettings.mapUrl) return mapSettings.mapUrl;
+    const hasCoordinates = mapSettings.mapEnabled
+      && mapSettings.mapLatitude !== null && mapSettings.mapLongitude !== null;
+    if (normalizeMapProvider(provider) === "google") {
+      const query = place || (hasCoordinates ? `${mapSettings.mapLatitude},${mapSettings.mapLongitude}` : "");
+      return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : "";
+    }
+    return place
+      ? `https://map.naver.com/p/search/${encodeURIComponent(place)}`
+      : mapSettings.mapEnabled
+        ? "https://map.naver.com/"
+        : "";
+  };
 
   const renderInvitationItems = (invitation, language = DEFAULT_CHROME_LANGUAGE) => {
     let courseNumber = 0;
@@ -537,8 +565,8 @@
           <p class="invite-stop-time">${escapeHtml(item.time)} · ${escapeHtml(item.label)}</p>
           <h3>${escapeHtml(item.place)}</h3>
           <p>${escapeHtml(item.note)}</p>
-          ${renderDynamicMap({ ...item, naverMapClientId: invitation.naverMapClientId }, "stop", `stop-${courseIndex}`, language)}
-          ${renderMapLink(getMapFallbackUrl(item, item.place), "invite-stop-map-link", escapeHtml(t("invitation.openMap", language)))}
+          ${renderDynamicMap({ ...item, naverMapClientId: invitation.naverMapClientId, googleMapsApiKey: invitation.googleMapsApiKey, mapProvider: invitation.mapProvider }, "stop", `stop-${courseIndex}`, language)}
+          ${renderMapLink(getMapFallbackUrl(item, item.place, invitation.mapProvider), "invite-stop-map-link", escapeHtml(t("invitation.openMap", language)))}
         </div>
       </article>
       `;
@@ -585,7 +613,7 @@
       `,
       items: renderInvitationItems(invitation, chrome),
       map: renderDynamicMap(invitation, "global", "representative", chrome),
-      mapLink: renderMapLink(getMapFallbackUrl(invitation, invitation.location), "invite-map", escapeHtml(t("invitation.openMainMap", chrome)))
+      mapLink: renderMapLink(getMapFallbackUrl(invitation, invitation.location, invitation.mapProvider), "invite-map", escapeHtml(t("invitation.openMainMap", chrome)))
     };
 
     return TemplateRenderers.render(invitation.layoutFamily, slots);
@@ -624,19 +652,67 @@
   const renderStandaloneMapScript = (invitation, language = DEFAULT_CHROME_LANGUAGE) => {
     const hasDynamicMaps = invitation.mapEnabled
       || invitation.items.some((item) => item.type === "course" && item.mapEnabled);
-    if (!hasDynamicMaps || !invitation.naverMapClientId) return "";
+    const provider = normalizeMapProvider(invitation.mapProvider);
+    const key = mapKeyFor(invitation);
+    if (!hasDynamicMaps || !key) return "";
 
-    const apiUrl = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(invitation.naverMapClientId)}`;
-    return `<script>
+    /* Both paths share the same failure contract: a rejected key, a load
+       error or a ten second silence leaves the "use the button below"
+       status in place of the map.
+
+       Google maps are not drawn in this document. Invitations are shown
+       inside about:srcdoc frames (studio preview, published viewer), and
+       Google authorizes a referrer-restricted key with a delayed call that,
+       from an srcdoc document, reports the site as "null" and fails about
+       forty seconds after the map appears. Each map is therefore a frame of
+       assets/integrations/google-map.html, which has a real URL; that page
+       reports back with postMessage. Coordinates and the public key travel
+       in the fragment, which is never sent to a server. */
+    const google = provider === "google";
+    const apiUrl = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
+    const googleFrameLabel = scriptLiteral(t("invitation.mapRegionLabel", language));
+    if (google) {
+      return `<script>
 (() => {
   const canvases = [...document.querySelectorAll("[data-dynamic-map]")];
   const fail = (canvas) => {
-    if (canvas) canvas.dataset.mapState = "fallback";
-    const status = canvas?.nextElementSibling;
+    if (canvas.dataset.mapState === "ready") return;
+    canvas.dataset.mapState = "fallback";
+    const status = canvas.nextElementSibling;
     if (status) status.textContent = ${scriptLiteral(t("map.unavailable", language))};
   };
-  const failAll = () => canvases.forEach(fail);
-  const mount = () => {
+  if (!canvases.length || location.protocol === "file:") {
+    canvases.forEach(fail);
+    return;
+  }
+  const frames = new Map();
+  window.addEventListener("message", (event) => {
+    const canvas = frames.get(event.source);
+    if (!canvas || event.data?.type !== "invitation-map") return;
+    if (event.data.state === "ready") canvas.dataset.mapState = "ready";
+    else { canvas.dataset.mapState = ""; fail(canvas); }
+  });
+  canvases.forEach((canvas) => {
+    const frame = document.createElement("iframe");
+    const hash = new URLSearchParams({
+      lat: canvas.dataset.latitude,
+      lng: canvas.dataset.longitude,
+      zoom: canvas.dataset.zoom,
+      lang: ${scriptLiteral(language)},
+      key: ${scriptLiteral(key)}
+    });
+    frame.src = new URL("/assets/integrations/google-map.html", document.baseURI).href + "#" + hash;
+    frame.title = ${googleFrameLabel};
+    frame.loading = "lazy";
+    frame.style.cssText = "display:block;width:100%;height:100%;border:0";
+    canvas.append(frame);
+    frames.set(frame.contentWindow, canvas);
+    setTimeout(() => { if (!canvas.dataset.mapState) fail(canvas); }, 15000);
+  });
+})();
+</script>`;
+    }
+    const mountBody = `  const mount = () => {
     canvases.forEach((canvas) => {
       try {
         const position = new window.naver.maps.LatLng(
@@ -653,9 +729,24 @@
         fail(canvas);
       }
     });
+  };`;
+    const loadHandlers = `  script.onload = () => finish(mount);
+  script.onerror = () => finish(failAll);`;
+    return `<script>
+(() => {
+  const canvases = [...document.querySelectorAll("[data-dynamic-map]")];
+  const fail = (canvas) => {
+    if (canvas) canvas.dataset.mapState = "fallback";
+    const status = canvas?.nextElementSibling;
+    if (status) status.textContent = ${scriptLiteral(t("map.unavailable", language))};
   };
+  const failAll = () => canvases.forEach(fail);
+${mountBody}
   let timeoutId;
+  let settled = false;
   const finish = (callback) => {
+    if (settled) return;
+    settled = true;
     clearTimeout(timeoutId);
     script.onload = null;
     script.onerror = null;
@@ -670,8 +761,7 @@
   const script = document.createElement("script");
   script.src = "${apiUrl}";
   script.async = true;
-  script.onload = () => finish(mount);
-  script.onerror = () => finish(failAll);
+${loadHandlers}
   timeoutId = setTimeout(() => finish(failAll), 10000);
   document.head.append(script);
 })();
