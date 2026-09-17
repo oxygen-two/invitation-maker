@@ -4,7 +4,7 @@
    of marketing and FAQ text it cannot display. The engine's register()
    replaces a language's dictionary wholesale, so this file re-registers the
    main dictionary with the `site` namespace merged on top. Load order:
-   i18n.js → dictionary-ko.js → dictionary-en.js → this file → the Korean one. */
+   i18n.js → dictionary-ko.js → dictionary-en.js → the Korean site dictionary → this file. */
 (function exposeSiteDictionaryEn(root, factory) {
   const dictionary = factory();
 
@@ -18,17 +18,17 @@
   return {
     site: {
       meta: {
-        landingTitle: "Invitation Studio · Small invitations, big moments",
+        landingTitle: "Invitation Studio · Small invitations, lasting moments",
         landingDescription: "Free mobile invitations with no sign-up: pick a design, fill it in, send it as a file or a link.",
         guideTitle: "How it works · Invitation Studio",
         guideDescription: "Choosing a design, filling it in, the three ways to finish, and where your data lives — on one page."
       },
-      header: { tagline: "Make small days special.", guide: "How it works", cta: "Make an invitation", skip: "Skip to content", langLabel: "Language", langDescription: "Display language", navLabel: "Site" },
-      footer: { brand: "INVITATION STUDIO", about: "About", guide: "How it works", data: "Your data", note: "Small invitations, big moments.", navLabel: "Footer links" },
+      header: { tagline: "Make the small days special.", guide: "How it works", cta: "Make an invitation", skip: "Skip to content", langLabel: "Language", langDescription: "Display language", navLabel: "Site" },
+      footer: { brand: "INVITATION STUDIO", about: "About", guide: "How it works", data: "Your data", note: "Small invitations, lasting moments.", navLabel: "Footer links" },
       landing: {
         hero: {
           eyebrow: "No sign-up · Free",
-          title: "Small invitations, big moments.",
+          title: "Small invitations, lasting moments.",
           lead: "Pick a design, fill it in, send it as a file or a link.",
           cta: "Make an invitation",
           sample: "See a finished invitation first",
@@ -49,8 +49,7 @@
           firstChapter: "First birthday",
           goldenYears: "60th birthday",
           botanical: "Date",
-          midnightCinema: "Event",
-          altPrefix: "Invitation design sample"
+          midnightCinema: "Event"
         },
         trust: {
           title: "Use it with confidence",
@@ -74,6 +73,7 @@
         finish: {
           title: "Three ways to finish",
           lead: "Any of them works, and you can use more than one. The difference is where the invitation ends up.",
+          tableLabel: "Comparison of the three ways to finish",
           head: { method: "Method", where: "Where it lives", switch: "If you change browsers", undo: "Undo" },
           library: { method: "Save to library", where: "This browser", switch: "Gone", undo: "Delete from the list" },
           file: { method: "Save as a file", where: "An HTML file on your device", switch: "The file stays", undo: "Delete the file" },

@@ -43,7 +43,8 @@
       tagline: "작은 날도, 특별하게.",
       footerNote: "작은 초대, 소중한 순간.",
       guideLink: "사용법",
-      aboutLink: "소개"
+      aboutLink: "소개",
+      footerNavLabel: "바닥글 링크"
     },
 
     nav: {

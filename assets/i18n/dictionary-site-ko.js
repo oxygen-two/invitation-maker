@@ -64,8 +64,7 @@
           firstChapter: "돌잔치",
           goldenYears: "환갑",
           botanical: "데이트",
-          midnightCinema: "행사",
-          altPrefix: "초대장 디자인 예시"
+          midnightCinema: "행사"
         },
         trust: {
           title: "안심하고 쓰세요",
@@ -104,6 +103,7 @@
         finish: {
           title: "완성 방식 세 가지",
           lead: "셋 중 무엇을 골라도 되고, 여러 개를 함께 써도 됩니다. 차이는 어디에 남느냐입니다.",
+          tableLabel: "완성 방식 비교 표",
           head: { method: "방식", where: "남는 곳", switch: "브라우저를 바꾸면", undo: "되돌리기" },
           library: { method: "보관함에 저장", where: "이 브라우저", switch: "사라짐", undo: "목록에서 삭제" },
           file: { method: "파일로 저장", where: "내 기기의 HTML 파일", switch: "파일은 그대로", undo: "파일 삭제" },

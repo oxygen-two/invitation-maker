@@ -41,7 +41,8 @@
       tagline: "Make the small days special.",
       footerNote: "Small invitations, lasting moments.",
       guideLink: "How it works",
-      aboutLink: "About"
+      aboutLink: "About",
+      footerNavLabel: "Footer links"
     },
 
     nav: {
