@@ -170,11 +170,10 @@ test("the guide has the anchors the landing and the studio link to", () => {
 
 test("site media and the sample invitation are checked in", () => {
   const files = [
-    "assets/media/site/hero-sample@2x.png",
-    ...["bloom-portrait", "wedding", "first-chapter", "golden-years", "botanical", "midnight-cinema"].map((id) => `assets/media/site/design-${id}@2x.png`),
-    "assets/media/site/guide-step-01@2x.png",
-    "assets/media/site/guide-step-02@2x.png",
-    "assets/media/site/guide-step-03@2x.png",
+    ...["bloom-portrait", "wedding", "first-chapter", "golden-years", "botanical", "midnight-cinema"].map((id) => `assets/media/site/design-${id}@2x.jpg`),
+    "assets/media/site/guide-step-01@2x.jpg",
+    "assets/media/site/guide-step-02@2x.jpg",
+    "assets/media/site/guide-step-03@2x.jpg",
     "sample.html"
   ];
   for (const file of files) assert.ok(fs.statSync(path.join(root, file)).size > 1000, `${file} is missing or empty`);

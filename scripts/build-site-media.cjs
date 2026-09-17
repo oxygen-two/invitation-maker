@@ -24,10 +24,18 @@ const DESIGNS = [
   { id: "botanical", occasion: "date" },
   { id: "midnight-cinema", occasion: "date" }
 ];
+// Lossless PNG screenshots of full invitation cards and studio chrome are
+// heavy (hero-only landing images were 445 KB, guide steps 621-753 KB each);
+// these are marketing photos, not pixel-diffed fixtures, so JPEG at a high
+// quality is the right tradeoff and needs no extra dependency (Playwright's
+// screenshot() supports it natively).
+const JPEG_OPTIONS = { type: "jpeg", quality: 82 };
+// The hero image on the landing is the same bloom-portrait design as the
+// gallery's first card, so it reuses design-bloom-portrait@2x.jpg instead of
+// shipping a second, near-identical download.
 const OUTPUTS = [
-  "hero-sample@2x.png",
-  ...DESIGNS.map(({ id }) => `design-${id}@2x.png`),
-  "guide-step-01@2x.png", "guide-step-02@2x.png", "guide-step-03@2x.png"
+  ...DESIGNS.map(({ id }) => `design-${id}@2x.jpg`),
+  "guide-step-01@2x.jpg", "guide-step-02@2x.jpg", "guide-step-03@2x.jpg"
 ].map((name) => path.join(mediaDir, name)).concat(path.join(root, "sample.html"));
 
 if (process.argv.includes("--check")) {
@@ -65,7 +73,8 @@ const applyDesign = async (page, { id, occasion }, width) => {
   fs.mkdirSync(mediaDir, { recursive: true });
   const browser = await chromium.launch({ channel: "chrome", headless: true });
   try {
-    // Phone-sized frames: one per design, plus the hero and sample.html.
+    // Phone-sized frames: one per design (the first, bloom-portrait, also
+    // doubles as the landing's hero image and produces sample.html).
     // Each design gets its own browser context (fresh storage), not just a
     // fresh page: the studio autosaves the in-progress draft (title, message,
     // etc.) and, once a template has been applied once, deliberately
@@ -87,9 +96,8 @@ const applyDesign = async (page, { id, occasion }, width) => {
       await phone.goto(`${baseUrl}/studio`);
       await applyDesign(phone, design, phoneWidth);
       await phone.locator('.mobile-view-tabs [data-mobile-view="preview"]').click();
-      await phone.locator("#preview").screenshot({ path: path.join(mediaDir, `design-${design.id}@2x.png`) });
+      await phone.locator("#preview").screenshot({ path: path.join(mediaDir, `design-${design.id}@2x.jpg`), ...JPEG_OPTIONS });
       if (design.id === "bloom-portrait") {
-        await phone.locator("#preview").screenshot({ path: path.join(mediaDir, "hero-sample@2x.png") });
         // #preview is seeded ONCE with a generic placeholder document (see
         // mountPreviewFrame in assets/studio/app.js: "the frame is seeded
         // ONCE ... every later render patches only the body inside it") —
@@ -113,18 +121,25 @@ const applyDesign = async (page, { id, occasion }, width) => {
       }
       await phoneContext.close();
     }
-    // Desktop screenshots of the three stages for the guide.
+    // Desktop screenshots of the three stages for the guide. Each screenshot
+    // waits for a real element of the stage it is capturing rather than a
+    // bare timeout, which was flaky on slower machines.
     const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: "ko-KR" });
     await desktop.goto(`${baseUrl}/studio`);
     await desktop.locator('[data-occasion-id="birthday"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').click();
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01@2x.png") });
+    await desktop.locator('[data-template-id="bloom-portrait"]').waitFor({ state: "visible" });
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01@2x.jpg"), ...JPEG_OPTIONS });
     await desktop.locator("#preview-apply-button").click();
     await desktop.frameLocator("#preview").locator(".invitation-card").waitFor();
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-02@2x.png") });
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-02@2x.jpg"), ...JPEG_OPTIONS });
     await desktop.locator('.studio-steps [data-studio-stage="finish"]').click();
-    await desktop.waitForTimeout(300);
-    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-03@2x.png") });
+    // "#save-button" is the "보관함에 저장" choice card in .finish-choice-row —
+    // waiting for it (rather than a timeout) proves the finish stage's own
+    // markup, not just the stage-nav button, has actually rendered.
+    await desktop.locator("#save-button").waitFor({ state: "visible" });
+    await desktop.waitForTimeout(300); // let fonts settle
+    await desktop.screenshot({ path: path.join(mediaDir, "guide-step-03@2x.jpg"), ...JPEG_OPTIONS });
     console.log(`Wrote ${OUTPUTS.length} outputs under ${path.relative(root, mediaDir)} and sample.html`);
   } finally {
     await browser.close();
