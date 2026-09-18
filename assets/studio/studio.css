@@ -90,6 +90,10 @@ body[data-studio-stage="finish"] .preview-panel { height: calc(100vh - 48px); }
    #occasion-list scrolls underneath it. */
 .occasion-list-row { position: relative; }
 .occasion-chip { background: var(--studio-surface-alt); color: var(--studio-ink-muted); border-color: transparent; }
+/* W2-1: the occasion group labels and their divider are editor chrome, not
+   invitation palette (they would otherwise inherit --ink-soft / --line). */
+.occasion-group-label { color: var(--studio-ink-muted); }
+.occasion-group + .occasion-group { border-left-color: var(--studio-line); }
 .occasion-chip.is-active { background: var(--studio-accent); color: var(--studio-surface); border-color: var(--studio-accent); }
 .template-card { border-color: var(--studio-line-strong); box-shadow: none; border-radius: 14px; }
 .template-card.is-active { border-color: var(--studio-accent); box-shadow: 0 0 0 2px var(--studio-accent); }

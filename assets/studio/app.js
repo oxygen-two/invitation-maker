@@ -1585,15 +1585,41 @@ const syncTemplateThumbnailScales = () => {
   });
 };
 
-const renderTemplates = () => {
-  dom.occasions.innerHTML = state.catalog.occasions.map((occasion) => {
-    const isActive = occasion.id === state.activeOccasion;
-    return `
+/* One dictionary key per occasion group. The groups themselves live in the
+   catalog (TemplateCatalog.GROUP_IDS); this is only how the studio names
+   them, so a group can never be printed from raw data. */
+const OCCASION_GROUP_LABEL_KEYS = Object.freeze({
+  celebrate: "gallery.groupCelebrate",
+  milestone: "gallery.groupMilestone",
+  family: "gallery.groupFamily",
+  gather: "gallery.groupGather"
+});
+
+const renderOccasionChip = (occasion) => {
+  const isActive = occasion.id === state.activeOccasion;
+  return `
       <button class="occasion-chip${isActive ? " is-active" : ""}" type="button" data-occasion-id="${escapeAttribute(occasion.id)}" aria-pressed="${isActive}">
         ${escapeAttribute(occasion.name)}
       </button>
     `;
+};
+
+const renderTemplates = () => {
+  /* Twelve occasions read as four short lists rather than one long row, so
+     the chips are grouped by what the day is with a small label above each
+     cluster. The row is still a single horizontal scroller: the phone fade
+     lives on .occasion-list-row and the focusin scrollIntoView below still
+     keeps a keyboard-focused chip clear of it. */
+  dom.occasions.innerHTML = TemplateCatalog.getOccasionsByGroup(state.catalog).map(({ group, occasions }) => {
+    const label = t(OCCASION_GROUP_LABEL_KEYS[group] || "gallery.occasionListLabel");
+    return `
+      <div class="occasion-group" role="group" aria-label="${escapeAttribute(label)}">
+        <span class="occasion-group-label" aria-hidden="true">${escapeAttribute(label)}</span>
+        <div class="occasion-group-chips">${occasions.map(renderOccasionChip).join("")}</div>
+      </div>
+    `;
   }).join("");
+  dom.occasions.querySelector(".occasion-chip.is-active")?.scrollIntoView({ inline: "nearest", block: "nearest" });
 
   const presets = TemplateCatalog.getPresetsForOccasion(state.catalog, state.activeOccasion);
   dom.templates.innerHTML = presets.map((template) => {

@@ -457,6 +457,14 @@ textarea {
   color: var(--wine-600);
 }
 
+/* The row is a grid item of .template-picker, so it needs min-width: 0 to be
+   allowed to be narrower than its own content — without it the item grows to
+   the full width of the chips, .template-picker clips the overflow, and the
+   last occasions can never be reached on a phone however far you swipe. */
+.occasion-list-row {
+  min-width: 0;
+}
+
 .occasion-list {
   display: flex;
   gap: 6px;
@@ -465,6 +473,36 @@ textarea {
   overscroll-behavior-inline: contain;
   padding-bottom: 2px;
   -webkit-overflow-scrolling: touch;
+}
+
+/* The row scrolls as one strip; each occasion group is a column inside it,
+   its label above its own chips, so twelve occasions still read as four
+   short lists. */
+.occasion-group {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 10px;
+}
+
+.occasion-group + .occasion-group {
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+}
+
+.occasion-group-label {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.occasion-group-chips {
+  display: flex;
+  gap: 6px;
 }
 
 .occasion-chip {

@@ -125,6 +125,7 @@ const loadEditorHarness = ({
   const windowEvents = makeEventTarget();
   const matchMediaCalls = [];
   const scrollCalls = [];
+  const scrollIntoViewCalls = [];
   const animationFrames = [];
   const document = {
     ...documentEvents,
@@ -408,6 +409,9 @@ const loadEditorHarness = ({
         if (selector === "[data-occasion-id]" && this.dataset.occasionId) return this;
         return null;
       },
+      scrollIntoView(options) {
+        scrollIntoViewCalls.push({ node: this, options });
+      },
       setAttribute(name, valueToSet) {
         this.attrs[name] = String(valueToSet);
       }
@@ -447,6 +451,13 @@ const loadEditorHarness = ({
   const makeListNode = () => ({
     ...genericNode(),
     buttons: [],
+    querySelector(selector) {
+      if (selector === ".occasion-chip.is-active") {
+        return this.buttons.find((button) =>
+          button.classList.contains("occasion-chip") && button.classList.contains("is-active")) || null;
+      }
+      return null;
+    },
     querySelectorAll(selector) {
       if (selector === "[data-template-id]") return this.buttons.filter((button) => button.dataset.templateId);
       if (selector === "[data-occasion-id]") return this.buttons.filter((button) => button.dataset.occasionId);
@@ -551,6 +562,7 @@ const loadEditorHarness = ({
     getFormData,
     getItemsData,
     getMobileTabs: () => dom.mobileTabs,
+    OCCASION_GROUP_LABEL_KEYS,
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handleHeroImageSelection: typeof handleHeroImageSelection === "function" ? handleHeroImageSelection : undefined,
     handlePhotoSelection,
@@ -638,6 +650,7 @@ const loadEditorHarness = ({
       while (animationFrames.length) animationFrames.shift()();
     },
     scrollCalls,
+    scrollIntoViewCalls,
     terminal(type, event) {
       document.dispatch(type, event);
       window.dispatch(type, event);
@@ -1715,6 +1728,38 @@ test("the occasion row scrolls a focused chip into view, clear of the fade overl
   assert.match(app, /dom\.occasions\.addEventListener\("focusin"[\s\S]{0,400}?scrollIntoView\(\{\s*inline:\s*"nearest",\s*block:\s*"nearest"\s*\}\)/);
 });
 
+test("clicking an occasion chip re-renders the row and scrolls the newly active chip into view", async () => {
+  const harness = loadEditorHarness();
+
+  await harness.api.loadInitialData();
+  harness.api.renderTemplates();
+
+  harness.node("#occasion-list").dispatch("click", {
+    target: harness.node("#occasion-list").buttons.find((button) => button.dataset.occasionId === "wedding")
+  });
+
+  const activeChip = harness.node("#occasion-list").buttons
+    .find((button) => button.dataset.occasionId === "wedding");
+  assert.ok(activeChip.classList.contains("is-active"));
+
+  const lastScroll = harness.scrollIntoViewCalls.at(-1);
+  assert.equal(lastScroll.node, activeChip);
+  // lastScroll.options is a plain object literal built inside the vm sandbox
+  // (a separate realm), so it is compared field by field rather than with
+  // deepEqual: the two realms' Object prototypes are never reference-equal
+  // even when the shapes match.
+  assert.equal(lastScroll.options.inline, "nearest");
+  assert.equal(lastScroll.options.block, "nearest");
+});
+
+test("OCCASION_GROUP_LABEL_KEYS names exactly the catalog's groups", () => {
+  const harness = loadEditorHarness();
+  assert.deepEqual(
+    Object.keys(harness.api.OCCASION_GROUP_LABEL_KEYS).sort(),
+    [...TemplateCatalog.GROUP_IDS].sort()
+  );
+});
+
 test("editor exposes mobile view tabs and selected template state", () => {
   const index = read("studio.html");
   const app = read("assets/studio/app.js");
@@ -1738,8 +1783,8 @@ test("current picker boot path exposes eight birthday presets and keeps the orig
 
   await harness.api.loadInitialData();
 
-  assert.equal(harness.api.state.catalog.occasions.length, 9);
-  assert.equal(harness.api.state.catalog.templates.length, 24);
+  assert.equal(harness.api.state.catalog.occasions.length, 12);
+  assert.equal(harness.api.state.catalog.templates.length, 30);
   for (const occasion of harness.api.state.catalog.occasions) {
     assert.equal(
       TemplateCatalog.getPresetsForOccasion(harness.api.state.catalog, occasion.id).length,
@@ -1758,6 +1803,46 @@ test("current picker boot path exposes eight birthday presets and keeps the orig
       "midnight-toast", "bloom-portrait", "signature-birthday"
     ]
   );
+});
+
+test("the occasion chips are grouped under a label per group and stay one scrollable row", async () => {
+  const harness = loadEditorHarness();
+  const style = read("assets/studio/style.css");
+  const chrome = read("assets/studio/studio.css");
+
+  await harness.api.loadInitialData();
+  harness.api.renderTemplates();
+  const markup = harness.node("#occasion-list").innerHTML;
+
+  // One labelled group per catalog group, in GROUP_IDS order, and every
+  // occasion still a chip with the behaviour the click handler expects.
+  for (const [group, key, members] of [
+    ["celebrate", "gallery.groupCelebrate", ["birthday", "anniversary"]],
+    ["milestone", "gallery.groupMilestone", ["wedding", "gohui", "hwangap", "first-birthday", "graduation"]],
+    ["family", "gallery.groupFamily", ["kindergarten", "baby-shower"]],
+    ["gather", "gallery.groupGather", ["date", "event", "housewarming"]]
+  ]) {
+    assert.ok(markup.includes(`aria-label="${ko(key)}"`), `${group} has no group label`);
+    assert.notEqual(ko(key), key, `${key} missing from dictionary-ko.js`);
+    assert.notEqual(en(key), key, `${key} missing from dictionary-en.js`);
+    for (const occasion of members) {
+      assert.match(markup, new RegExp(`data-occasion-id="${occasion}"`), `${occasion} has no chip`);
+    }
+  }
+  assert.equal((markup.match(/class="occasion-group"/g) || []).length, 4);
+  assert.deepEqual(
+    harness.node("#occasion-list").buttons.map((button) => button.dataset.occasionId),
+    ["birthday", "anniversary", "wedding", "gohui", "hwangap", "first-birthday",
+      "graduation", "kindergarten", "baby-shower", "date", "event", "housewarming"]
+  );
+
+  // Twelve occasions no longer fit a phone, so the row has to be reachable by
+  // swiping: .occasion-list scrolls, and its row is allowed to be narrower
+  // than its own content (it is a grid item of .template-picker, which clips).
+  assert.match(style, /\.occasion-list\s*\{[^}]*overflow-x:\s*auto/);
+  assert.match(style, /\.occasion-list-row\s*\{[^}]*min-width:\s*0/);
+  // The group label is editor chrome, never an invitation palette colour.
+  assert.match(chrome, /\.occasion-group-label\s*\{[^}]*color:\s*var\(--studio-ink-muted\)/);
 });
 
 test("occasion and preset browsing update pending selection without filling the draft and preserve template focus", async () => {

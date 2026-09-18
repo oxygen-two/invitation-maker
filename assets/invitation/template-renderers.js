@@ -42,7 +42,13 @@
     "signature-birthday": {
       ornament: "",
       extra: '<span class="invite-signature-line" aria-hidden="true"></span>'
-    }
+    },
+    "baby-cloud": { ornament: "☁" },
+    "baby-garden": { ornament: "✿" },
+    "grad-cap": { ornament: "❖" },
+    "grad-bold": { ornament: "✶" },
+    "home-key": { ornament: "⌂" },
+    "home-warm": { ornament: "" }
   });
 
   const slot = (slots, name) => String(slots?.[name] ?? "");
@@ -265,6 +271,12 @@
     .invitation-card[data-template="midnight-toast"]{--paper:#f6f2e8;--ink:#1b1916;--soft:#6d6659;--deep:#0e0e0d;--mid:#3c3932;--gold:#cdb477;--line:rgba(205,180,119,.26);--cream-100:#eae3d2;--gold-300:#ead8a6;--rose-100:#eee4d3;--particle-alt:#8b826d}
     .invitation-card[data-template="bloom-portrait"]{--paper:#f5f1e7;--ink:#40273a;--soft:#6c645b;--deep:#4b2344;--mid:#697b5b;--gold:#b59b67;--line:rgba(75,35,68,.2);--cream-100:#e8eadc;--gold-300:#dcc79a;--rose-100:#e8d6df;--particle-alt:#7c906c}
     .invitation-card[data-template="signature-birthday"]{--paper:#fbf3e7;--ink:#651f2b;--soft:#806269;--deep:#651f2b;--mid:#9b4855;--gold:#bd9962;--line:rgba(101,31,43,.2);--cream-100:#f2e4d3;--gold-300:#dec18d;--rose-100:#efd8d8;--particle-alt:#906e72}
+    .invitation-card[data-template="baby-cloud"]{--paper:#f7fbff;--ink:#2f4a63;--soft:#63798f;--deep:#3a6d96;--mid:#6ea7cf;--gold:#e3b96d;--line:rgba(58,109,150,.18);--cream-100:#e6f2fb;--gold-300:#f6dca8;--rose-100:#fdeef0;--particle-alt:#f0aec1}
+    .invitation-card[data-template="baby-garden"]{--paper:#f9faf1;--ink:#31492f;--soft:#64785c;--deep:#2f5a3f;--mid:#6d9a63;--gold:#c8a95c;--line:rgba(47,90,63,.2);--cream-100:#e9f1da;--gold-300:#ecd89b;--rose-100:#f6e7dd;--particle-alt:#dba4b4}
+    .invitation-card[data-template="grad-cap"]{--paper:#f7f5ee;--ink:#1b2440;--soft:#5b6478;--deep:#131b33;--mid:#33406b;--gold:#c8a552;--line:rgba(19,27,51,.2);--cream-100:#e6e3d6;--gold-300:#eed9a2;--rose-100:#eeeae0;--particle-alt:#8f98b5}
+    .invitation-card[data-template="grad-bold"]{--paper:#fffdf4;--ink:#14261f;--soft:#4d6157;--deep:#0f5c4a;--mid:#e0592f;--gold:#f2c230;--line:rgba(15,92,74,.2);--cream-100:#d7f2c9;--gold-300:#ffe082;--rose-100:#ffeed8;--particle-alt:#1f9c86}
+    .invitation-card[data-template="home-key"]{--paper:#fff7f0;--ink:#4a2a20;--soft:#836055;--deep:#7c3c26;--mid:#bd6a47;--gold:#cf9a5c;--line:rgba(124,60,38,.2);--cream-100:#f7e5d4;--gold-300:#eec89a;--rose-100:#f8ddcd;--particle-alt:#7d8f6a}
+    .invitation-card[data-template="home-warm"]{--paper:#faf4e6;--ink:#3b3324;--soft:#736a53;--deep:#5a4a2c;--mid:#95793f;--gold:#c6a052;--line:rgba(90,74,44,.2);--cream-100:#efe5cd;--gold-300:#e6cd92;--rose-100:#f2e3cf;--particle-alt:#7f9070}
 
     .invitation-card[data-layout-family][data-design="botanical"] .invite-hero{min-height:520px;align-content:center;padding-inline:42px;background:linear-gradient(145deg,#edf1d9,#fbfbef);color:#102018}
     .invitation-card[data-layout-family][data-design="botanical"] .invite-hero::after{background:rgba(251,251,239,.78)}
@@ -391,6 +403,36 @@
     .invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero h1[data-title-script="ko"]{font-style:normal}
     .invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero-details{margin-top:78px;font-size:15px;letter-spacing:.04em}
     .invitation-card[data-layout-family][data-design="signature-birthday"] .invite-signature-line{position:absolute;z-index:1;right:38px;bottom:42px;width:128px;height:48px;border-bottom:2px solid #651f2b;border-radius:50%;transform:rotate(-7deg)}
+    .invitation-card[data-layout-family][data-design="baby-cloud"] .invite-hero{min-height:490px;align-content:center;padding-inline:36px;background:linear-gradient(180deg,#e6f2fb,#f7fbff);color:#2f4a63}
+    .invitation-card[data-layout-family][data-design="baby-cloud"] .invite-hero::after{background:radial-gradient(circle at 76% 18%,rgba(255,255,255,.92) 0 88px,rgba(247,251,255,.74) 90px)}
+    .invitation-card[data-layout-family][data-design="baby-cloud"] .invite-hero-art:not([data-custom-hero-image]){display:none}
+    .invitation-card[data-layout-family][data-design="baby-cloud"] .invite-hero-ornament{margin:12px auto 18px;font-size:78px}
+    .invitation-card[data-layout-family][data-design="baby-cloud"] .invite-hero-details{display:inline-grid;padding:10px 20px;border-radius:999px;background:rgba(255,255,255,.82)}
+    .invitation-card[data-layout-family][data-design="baby-garden"] .invite-hero{min-height:530px;align-content:end;padding:36px 34px 48px;text-align:left;background:#e9f1da;color:#31492f}
+    .invitation-card[data-layout-family][data-design="baby-garden"] .invite-hero::after{background:linear-gradient(180deg,rgba(233,241,218,.38),rgba(233,241,218,.9))}
+    .invitation-card[data-layout-family][data-design="baby-garden"] .invite-hero-ornament{width:96px;height:96px;margin:0 0 16px;padding:14px;border:1px solid #7d9a6c;border-radius:50%;font-size:56px;line-height:1.2}
+    .invitation-card[data-layout-family][data-design="baby-garden"] .invite-hero-details{padding-top:14px;border-top:1px solid rgba(47,90,63,.36)}
+    .invitation-card[data-layout-family][data-design="grad-cap"] .invite-hero{min-height:540px;align-content:center;background:#131b33;color:#eed9a2}
+    .invitation-card[data-layout-family][data-design="grad-cap"] .invite-hero::after{inset:26px;border:1px solid rgba(238,217,162,.5);background:linear-gradient(180deg,rgba(19,27,51,.3),rgba(19,27,51,.74))}
+    .invitation-card[data-layout-family][data-design="grad-cap"] .invite-hero-art:not([data-custom-hero-image]){display:none}
+    .invitation-card[data-layout-family][data-design="grad-cap"] .invite-kicker{letter-spacing:.3em}
+    .invitation-card[data-layout-family][data-design="grad-cap"] .invite-hero-ornament{font-size:52px}
+    .invitation-card[data-layout-family][data-design="grad-cap"] .invite-hero-details{margin-inline:auto;padding-top:18px;border-top:1px solid rgba(238,217,162,.5)}
+    .invitation-card[data-layout-family][data-design="grad-bold"] .invite-hero{min-height:480px;align-content:start;padding:36px;text-align:left;background:#d7f2c9;color:#0f5c4a}
+    .invitation-card[data-layout-family][data-design="grad-bold"] .invite-hero::after{background:rgba(215,242,201,.78)}
+    .invitation-card[data-layout-family][data-design="grad-bold"] .invite-hero-art:not([data-custom-hero-image]){display:none}
+    .invitation-card[data-layout-family][data-design="grad-bold"] .invite-hero h1{max-width:340px;margin-top:50px;font-family:var(--font-en,sans-serif),var(--font-ko,sans-serif),sans-serif;font-size:clamp(40px,11vw,52px);font-weight:900;line-height:.92;letter-spacing:-2px;text-transform:uppercase}
+    .invitation-card[data-layout-family][data-design="grad-bold"] .invite-hero-ornament{position:absolute;top:228px;right:20px;color:#e0592f;font-size:92px;transform:rotate(-14deg)}
+    .invitation-card[data-layout-family][data-design="grad-bold"] .invite-hero-details{font-family:var(--font-en,sans-serif),var(--font-ko,sans-serif),sans-serif;font-size:15px;font-weight:800}
+    .invitation-card[data-layout-family][data-design="home-key"] .invite-hero{min-height:510px;align-content:center;background:#7c3c26;color:#f7e5d4}
+    .invitation-card[data-layout-family][data-design="home-key"] .invite-hero::after{background:radial-gradient(circle at 50% 30%,rgba(207,154,92,.26),rgba(58,26,16,.56))}
+    .invitation-card[data-layout-family][data-design="home-key"] .invite-hero-art:not([data-custom-hero-image]){display:none}
+    .invitation-card[data-layout-family][data-design="home-key"] .invite-kicker{padding-block:10px;border-block:1px solid rgba(247,229,212,.46)}
+    .invitation-card[data-layout-family][data-design="home-key"] .invite-hero-ornament{font-size:70px}
+    .invitation-card[data-layout-family][data-design="home-warm"] .invite-hero{min-height:560px;align-content:end;padding:46px 32px;text-align:left;background:linear-gradient(180deg,#5a4a2c,#3b3324);color:#faf4e6}
+    .invitation-card[data-layout-family][data-design="home-warm"] .invite-hero::after{background:linear-gradient(180deg,rgba(40,30,16,.2) 22%,rgba(36,27,14,.86))}
+    .invitation-card[data-layout-family][data-design="home-warm"] .invite-hero h1{font-size:clamp(34px,9vw,44px);line-height:1.08}
+    .invitation-card[data-layout-family][data-design="home-warm"] .invite-hero-details{padding-top:15px;border-top:1px solid rgba(250,244,230,.5)}
     .invitation-card[data-template="cherry-muse"] .invite-meta span{color:var(--cream-50)}
     .invitation-card[data-template="silver-afterglow"] .invite-meta span{color:var(--cream-50)}
     .invitation-card[data-template="midnight-toast"] .invite-meta span{color:var(--cream-50)}

@@ -25,7 +25,8 @@ const presetIds = [
   "botanical", "midnight-cinema", "modern", "color-pop", "royal", "memory-film",
   "black-tie", "gallery-notice", "sunny-classroom", "little-forest", "wedding", "modern-vow",
   "blue-porcelain", "peony-tribute", "red-silk", "golden-years", "first-chapter", "little-star",
-  "cherry-muse", "silver-afterglow", "peach-table", "midnight-toast", "bloom-portrait", "signature-birthday"
+  "cherry-muse", "silver-afterglow", "peach-table", "midnight-toast", "bloom-portrait", "signature-birthday",
+  "baby-cloud", "baby-garden", "grad-cap", "grad-bold", "home-key", "home-warm"
 ];
 const birthdayPresets = [
   { id: "cherry-muse", family: "celebration-poster", composition: "invite-cherry-motif" },
@@ -67,7 +68,7 @@ test("unknown families fall back to romantic-story", () => {
   assert.match(TemplateRenderers.render("unknown", slots), /data-layout-family="romantic-story"/);
 });
 
-test("all 24 canonical presets render a unique trusted hero design", () => {
+test("all 30 canonical presets render a unique trusted hero design", () => {
   const designs = presetIds.map((templateId) => {
     const html = TemplateRenderers.render("romantic-story", { ...slots, templateId });
     const design = html.match(/data-design="([^"]+)"/)?.[1];
@@ -80,7 +81,7 @@ test("all 24 canonical presets render a unique trusted hero design", () => {
     return design;
   });
 
-  assert.equal(new Set(designs).size, 24);
+  assert.equal(new Set(designs).size, 30);
 });
 
 test("birthday presets keep their approved families and genuinely distinct hero compositions", () => {
@@ -391,4 +392,63 @@ test("every fixed hero title size becomes a clamp so 390px never forces a mid-wo
     .map(([, selector]) => selector.trim());
 
   assert.deepEqual(fixed, []);
+});
+
+/* The catalog is the source of truth for which designs exist, so this test
+   walks it rather than a list retyped here: every template in
+   invitation-data.json has to survive the three code paths a design is seen
+   through (the gallery thumbnail and the preview both render the body; the
+   export renders the standalone document) without throwing, and has to name
+   a family and an occasion the catalog actually knows. */
+test("every template in the production catalog renders through every path", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const TemplateCatalog = require("../assets/invitation/template-catalog.js");
+  const data = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../invitation-data.json"), "utf8"));
+  const catalog = TemplateCatalog.normalizeCatalog(data);
+  const occasionIds = new Set(catalog.occasions.map(({ id }) => id));
+
+  // Normalization silently drops a template whose family or occasion is
+  // unknown, so comparing the raw file against the catalog is what catches a
+  // typo in either field.
+  assert.deepEqual(
+    data.templates.map(({ id }) => id),
+    catalog.templates.map(({ id }) => id),
+    "a template was dropped by catalog normalization"
+  );
+  assert.equal(new Set(data.templates.map(({ id }) => id)).size, data.templates.length, "duplicate template id");
+
+  for (const preset of catalog.templates) {
+    assert.ok(TemplateCatalog.FAMILY_IDS.includes(preset.familyId), `${preset.id} names an unknown family`);
+    assert.ok(occasionIds.has(preset.occasionId), `${preset.id} names an unknown occasion`);
+
+    const invitation = InvitationCore.normalizeInvitation({
+      ...preset.defaults,
+      templateId: preset.id,
+      layoutFamily: preset.familyId
+    });
+
+    // Gallery thumbnail and preview: the rendered body.
+    const body = InvitationCore.renderInvitationBody(invitation, { language: "en" });
+    assert.match(body, new RegExp(`data-template="${preset.id}"`));
+    assert.match(body, new RegExp(`data-layout-family="${preset.familyId}"`));
+    assert.match(body, new RegExp(`data-design="${preset.id}"`), `${preset.id} has no trusted hero design`);
+    // Standalone export.
+    const standalone = InvitationCore.buildStandaloneHtml(invitation, { language: "en" });
+    assert.match(standalone, new RegExp(`data-template="${preset.id}"`));
+    assert.ok(standalone.includes(preset.id));
+    // And the renderer called directly, the way a thumbnail does it.
+    assert.doesNotThrow(() => TemplateRenderers.render(preset.familyId, { ...slots, templateId: preset.id }));
+  }
+});
+
+test("the six new occasion designs carry their own palette and hero rules", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+
+  for (const id of ["baby-cloud", "baby-garden", "grad-cap", "grad-bold", "home-key", "home-warm"]) {
+    assert.match(css, new RegExp(`\\.invitation-card\\[data-template="${id}"\\]\\{[^}]*--paper:`), `${id} palette`);
+    const heroRule = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-hero`);
+    assert.match(heroRule, /min-height:/);
+    assert.match(heroRule, /color:#/);
+  }
 });

@@ -453,6 +453,31 @@ test("the content overlay translates every Korean leaf without touching structur
   assert.deepEqual(leaked, [], "structural fields must never appear in a translation overlay");
 });
 
+test("the English samples and defaults name no Korean-only place or phone format", () => {
+  /* A-3: the English studio used to open on Hongdae, Cheongdam and
+     010-0000-0000, which tells a reader outside Korea that the product is
+     not for them before they have typed anything. English sample content is
+     region-neutral instead ("Rooftop lounge", "Riverside park", "+1 555 010
+     0000"); the Korean samples in invitation-data.json are untouched, and so
+     are the Korean-tradition occasions' own names and dishes. */
+  const overlay = read("assets/i18n/content-en.json");
+  const englishDefaults = Object.entries(dictionaryEn.invitation || {})
+    .filter(([key]) => key.startsWith("default"))
+    .map(([, value]) => value)
+    .join("\n");
+
+  for (const term of ["Hongdae", "Cheongdam", "Hannam", "Seongsu", "Bukchon", "Euljiro", "Yeonnam", "Seochon", "Seoul", "Gangnam", "010-"]) {
+    const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    assert.doesNotMatch(overlay, pattern, `content-en.json still names ${term}`);
+    assert.doesNotMatch(englishDefaults, pattern, `the English invitation defaults still name ${term}`);
+  }
+
+  // The Korean samples are the original and stay exactly as designed.
+  const korean = read("invitation-data.json");
+  assert.match(korean, /성수역/);
+  assert.match(korean, /010-0000-0000/);
+});
+
 test("every sample invitation carries a language-neutral instant matching its designed label", () => {
   const base = readJson("invitation-data.json");
   const samples = [...base.templates.map((template) => [template.id, template.defaults]),
