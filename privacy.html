@@ -69,9 +69,9 @@
       </ul>
     </section>
     <section id="browser" aria-labelledby="browser-title">
-      <p class="eyebrow" data-i18n="site.privacy.browser.eyebrow">IN THIS BROWSER</p>
+      <p class="eyebrow" data-i18n="site.privacy.browser.eyebrow">01</p>
       <h2 id="browser-title" data-i18n="site.privacy.browser.title">브라우저에 남는 것</h2>
-      <p class="lead" data-i18n="site.privacy.browser.lead">아래 항목은 이 브라우저의 저장소에만 있습니다. 서버로 보내지 않고, 다른 기기에서는 보이지 않습니다.</p>
+      <p class="lead" data-i18n="site.privacy.browser.lead">아래 항목은 이 브라우저의 저장소에만 있습니다. 어느 것도 서버로 보내지 않고, 다른 기기에서는 보이지 않습니다. 이 브라우저를 떠나는 저장값은 아래 방문 통계에 적은 분석 식별자 하나뿐이고, 그것도 동의한 뒤에만 보냅니다.</p>
       <ul class="data-list">
         <li data-i18n="site.privacy.browser.one">작성 중인 초안. 쓰는 동안 자동으로 저장됩니다.</li>
         <li data-i18n="site.privacy.browser.two">보관함에 저장한 초대장. 제목, 일정, 장소, 메시지, 사진이 모두 이 브라우저 안에 있습니다.</li>
@@ -81,7 +81,7 @@
       <p class="legal-note" data-i18n="site.privacy.browser.note">브라우저 저장소를 지우면 위 항목이 모두 사라집니다. 이미 발행한 공개 링크는 그대로 남지만, 그 링크를 취소할 방법은 함께 사라집니다.</p>
     </section>
     <section id="server" aria-labelledby="server-title">
-      <p class="eyebrow" data-i18n="site.privacy.server.eyebrow">ON THE SERVER</p>
+      <p class="eyebrow" data-i18n="site.privacy.server.eyebrow">02</p>
       <h2 id="server-title" data-i18n="site.privacy.server.title">서버에 저장되는 것</h2>
       <p class="lead" data-i18n="site.privacy.server.lead">링크로 공유를 눌렀을 때만 초대장 사본 하나가 서버에 저장됩니다. 저장되는 항목은 그 초대장에 직접 적은 내용입니다.</p>
       <ul class="data-list">
@@ -95,18 +95,18 @@
       <p class="legal-note" data-i18n="site.privacy.server.note">링크를 아는 사람은 누구나 초대장을 볼 수 있습니다. 검색엔진에 색인되지는 않지만 비밀번호로 보호되지도 않습니다. 하객 모두가 봐도 괜찮은 내용만 적어 주세요.</p>
     </section>
     <section id="retention" aria-labelledby="retention-title">
-      <p class="eyebrow" data-i18n="site.privacy.retention.eyebrow">HOW LONG</p>
+      <p class="eyebrow" data-i18n="site.privacy.retention.eyebrow">03</p>
       <h2 id="retention-title" data-i18n="site.privacy.retention.title">공개 링크의 보관 기간</h2>
-      <p class="lead" data-i18n="site.privacy.retention.lead">공개 링크는 열릴 때마다 수명이 밀리는 방식으로 만료됩니다.</p>
+      <p class="lead" data-i18n="site.privacy.retention.lead">공개 링크는 열릴 때 수명이 밀리는 방식으로 만료됩니다.</p>
       <ul class="data-list">
         <li data-i18n="site.privacy.retention.one">발행하면 7일 뒤에 만료되도록 표시됩니다.</li>
-        <li data-i18n="site.privacy.retention.two">누군가 링크를 열 때마다 만료 시점이 그때로부터 다시 7일 뒤로 밀립니다.</li>
+        <li data-i18n="site.privacy.retention.two">누군가 링크를 열면 만료 시점이 그때로부터 7일 뒤로 밀립니다. 이 갱신은 6시간에 한 번까지만 일어나므로, 짧은 시간에 여러 번 열려도 한 번으로 셉니다.</li>
         <li data-i18n="site.privacy.retention.three">아무리 자주 열려도 발행일로부터 30일을 넘기지 않습니다.</li>
       </ul>
       <p class="legal-note" data-i18n="site.privacy.retention.note">7일과 30일은 현재 운영 기본값이며 운영자가 바꿀 수 있습니다. 만료된 링크는 더 이상 열리지 않습니다.</p>
     </section>
     <section id="analytics" aria-labelledby="analytics-title">
-      <p class="eyebrow" data-i18n="site.privacy.analytics.eyebrow">ANALYTICS</p>
+      <p class="eyebrow" data-i18n="site.privacy.analytics.eyebrow">04</p>
       <h2 id="analytics-title" data-i18n="site.privacy.analytics.title">방문 통계</h2>
       <p class="lead" data-i18n="site.privacy.analytics.lead">통계 도구는 동의를 누른 뒤에만 불러옵니다. 처음 방문했을 때 화면 아래에 뜨는 배너에서 필수만 사용을 고르면 통계 스크립트는 아예 실행되지 않습니다.</p>
       <ul class="data-list">
@@ -114,11 +114,12 @@
         <li data-i18n="site.privacy.analytics.two">보내는 값은 미리 정한 목록뿐입니다. 어떤 화면을 봤는지, 어떤 디자인을 골랐는지, 저장이나 다운로드를 했는지 같은 것들입니다.</li>
         <li data-i18n="site.privacy.analytics.three">초대장에 쓴 제목, 이름, 연락처, 사진, 장소는 보내지 않습니다. 공개 링크 주소와 관리 토큰도 보내지 않습니다.</li>
         <li data-i18n="site.privacy.analytics.four">브라우저의 추적 거부(DNT)나 Global Privacy Control이 켜져 있으면 동의와 상관없이 통계는 꺼집니다.</li>
+        <li data-i18n="site.privacy.analytics.five">방문 단위 식별자(flow_id)를 만들어 이 브라우저의 저장소에 보관합니다. 흩어진 이벤트를 한 번의 방문으로 읽기 위한 무작위 값이고 이름이나 계정과 연결되지 않으며, 동의한 뒤 제품 이벤트와 함께만 전송됩니다. Google Analytics 4와 PostHog은 불러온 뒤 각자의 쿠키나 저장소를 따로 설정합니다.</li>
       </ul>
       <div class="actions"><button type="button" class="site-cta secondary" data-consent-settings data-i18n="site.privacy.analytics.settings">쿠키 · 분석 설정 다시 열기</button></div>
     </section>
     <section id="diagnostics" aria-labelledby="diagnostics-title">
-      <p class="eyebrow" data-i18n="site.privacy.diagnostics.eyebrow">DIAGNOSTICS</p>
+      <p class="eyebrow" data-i18n="site.privacy.diagnostics.eyebrow">05</p>
       <h2 id="diagnostics-title" data-i18n="site.privacy.diagnostics.title">오류 진단</h2>
       <p class="lead" data-i18n="site.privacy.diagnostics.lead">화면이 깨졌을 때 원인을 찾기 위한 진단 기록은 동의와 상관없이 보냅니다. 서비스를 정상적으로 제공하는 데 필요한 최소한의 기록으로 보기 때문입니다.</p>
       <ul class="data-list">
@@ -127,7 +128,7 @@
       </ul>
     </section>
     <section id="deletion" aria-labelledby="deletion-title">
-      <p class="eyebrow" data-i18n="site.privacy.deletion.eyebrow">DELETION</p>
+      <p class="eyebrow" data-i18n="site.privacy.deletion.eyebrow">06</p>
       <h2 id="deletion-title" data-i18n="site.privacy.deletion.title">삭제 요청</h2>
       <p class="lead" data-i18n="site.privacy.deletion.lead">서버에 남는 것은 공개 링크 하나뿐이라, 지우는 방법도 간단합니다.</p>
       <ul class="data-list">
@@ -138,7 +139,7 @@
       <p class="legal-note" data-i18n="site.privacy.deletion.note">브라우저에만 있는 초안과 보관함은 저희가 지울 수 없습니다. 보관함 목록에서 직접 삭제하시면 됩니다.</p>
     </section>
     <section id="children" aria-labelledby="children-title">
-      <p class="eyebrow" data-i18n="site.privacy.children.eyebrow">CHILDREN</p>
+      <p class="eyebrow" data-i18n="site.privacy.children.eyebrow">07</p>
       <h2 id="children-title" data-i18n="site.privacy.children.title">어린이 정보</h2>
       <p class="lead" data-i18n="site.privacy.children.lead">이 서비스는 어린이를 대상으로 하지 않으며, 만드는 사람의 나이를 묻거나 수집하지 않습니다.</p>
       <ul class="data-list">
@@ -147,7 +148,7 @@
       </ul>
     </section>
     <section id="contact" aria-labelledby="contact-title">
-      <p class="eyebrow" data-i18n="site.privacy.contact.eyebrow">CONTACT</p>
+      <p class="eyebrow" data-i18n="site.privacy.contact.eyebrow">08</p>
       <h2 id="contact-title" data-i18n="site.privacy.contact.title">문의</h2>
       <p class="lead" data-i18n="site.privacy.contact.lead">이 서비스의 운영자는 [OPERATOR]입니다. 개인정보에 관한 문의나 삭제 요청은 [CONTACT_EMAIL]로 보내 주세요.</p>
       <p class="legal-note" data-i18n="site.privacy.contact.note">이 방침이 바뀌면 이 페이지 위쪽의 수정 날짜도 함께 바뀝니다.</p>

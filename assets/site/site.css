@@ -61,7 +61,12 @@
 
 * { box-sizing: border-box; }
 html { background: var(--paper); }
-body { margin: 0; background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; min-height: 100svh; display: flex; flex-direction: column; word-break: keep-all; }
+/* `padding-bottom` reserves room for the consent banner, which assets/site/
+   consent.js fixes to the bottom of the viewport and measures onto <html> as
+   --consent-height while it is open. Without the property this is exactly 0,
+   so a visitor who has already answered pays nothing; with it the footer —
+   including the privacy link the banner points at — stays reachable. */
+body { margin: 0; padding-bottom: var(--consent-height, 0px); background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; min-height: 100svh; display: flex; flex-direction: column; word-break: keep-all; }
 a { color: inherit; }
 a:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
 .skip { position: absolute; left: 20px; top: -80px; background: var(--card); color: var(--ink); padding: 10px; z-index: 5; }

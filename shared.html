@@ -91,6 +91,10 @@
        instead of floating over a short error panel. */
     body {
       margin: 0;
+      /* Room for the consent banner, which consent.js fixes to the bottom of
+         the viewport and publishes as --consent-height while it is open. 0
+         once the visitor has answered. */
+      padding-bottom: var(--consent-height, 0px);
       /* svh overrides vh where supported: on mobile Safari 100vh counts the
          collapsing browser chrome and overshoots the visible area. */
       min-height: 100vh;

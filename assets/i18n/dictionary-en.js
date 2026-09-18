@@ -57,8 +57,7 @@
       message: "May we turn on visit analytics? What you write in an invitation is never sent to them.",
       privacyLink: "Read the privacy policy",
       accept: "Accept analytics",
-      deny: "Essential only",
-      settings: "Cookie & analytics settings"
+      deny: "Essential only"
     },
 
     nav: {

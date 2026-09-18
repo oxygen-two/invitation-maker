@@ -33,6 +33,21 @@ const deniedStorage = () => ({
    createElement/append/querySelector for the banner to be built and read
    back. `document: null` exercises the no-DOM path (the module must still
    expose its API rather than throwing). */
+const makeStyle = () => {
+  const properties = new Map();
+  return {
+    setProperty(name, value) {
+      properties.set(name, String(value));
+    },
+    removeProperty(name) {
+      properties.delete(name);
+    },
+    getPropertyValue(name) {
+      return properties.has(name) ? properties.get(name) : "";
+    }
+  };
+};
+
 const makeElement = (tagName) => {
   const element = {
     tagName,
@@ -70,6 +85,7 @@ const makeElement = (tagName) => {
     }
   };
   element.dataset = {};
+  element.style = makeStyle();
   return element;
 };
 
@@ -88,9 +104,11 @@ const matches = (node, selector) => {
 const makeDocument = ({ settingsControls = [] } = {}) => {
   const body = makeElement("body");
   const head = makeElement("head");
+  const documentElement = makeElement("html");
   const documentRef = {
     readyState: "complete",
     body,
+    documentElement,
     head,
     createElement: makeElement,
     createTextNode: (text) => ({ text }),
@@ -99,13 +117,14 @@ const makeDocument = ({ settingsControls = [] } = {}) => {
     querySelectorAll: (selector) => (selector === "[data-consent-settings]" ? settingsControls : []),
     addEventListener: () => {}
   };
-  return { body, documentRef, head };
+  return { body, documentElement, documentRef, head };
 };
 
-const loadConsent = ({ localStorage = makeStorage(), documentRef, i18n, analytics, ga4 } = {}) => {
+const loadConsent = ({ localStorage = makeStorage(), documentRef, i18n, analytics, ga4, location } = {}) => {
   const rootObject = {
     localStorage,
     document: documentRef || null,
+    location,
     InvitationI18n: i18n,
     InvitationAnalytics: analytics,
     InvitationAnalyticsGA4: ga4,
@@ -247,6 +266,56 @@ test("the banner appears once, unasked, and is a labelled region with two 44px b
   assert.equal(body.children.length, 1);
 });
 
+/* The banner is fixed to the bottom of the viewport, where the studio also
+   parks #gallery-dock and, on a phone, .action-row. Reserving room by writing
+   body.style.paddingBottom said nothing those bars could read, so they stayed
+   underneath it; the height now travels as a custom property on <html> that
+   studio.css offsets them by. Both halves of that contract are asserted here:
+   the property is set while the banner is open and gone when it closes, and
+   the file never reaches for body padding again. */
+test("the banner publishes its height as --consent-height and drops it on close", () => {
+  const { body, documentElement, documentRef } = makeDocument();
+  const { consent } = loadConsent({ documentRef });
+
+  const banner = documentRef.getElementById("invitation-consent");
+  assert.ok(banner, "the banner should be appended on a first visit");
+  banner.offsetHeight = 72;
+  consent.open();
+  assert.equal(documentElement.style.getPropertyValue("--consent-height"), "72px");
+  assert.equal(body.style.getPropertyValue("padding-bottom"), "", "the body must not be padded");
+  assert.equal(body.style.paddingBottom, undefined, "the body must not be padded");
+
+  consent.set("denied");
+  assert.equal(banner.hidden, true);
+  assert.equal(documentElement.style.getPropertyValue("--consent-height"), "", "the property must be removed, not zeroed");
+});
+
+test("consent.js never writes body padding and names the custom property once", () => {
+  const source = read("assets/site/consent.js");
+  // `padding-bottom` still appears in the banner's own CSS (its safe-area
+  // inset); what must never come back is a write to the body's style object.
+  assert.doesNotMatch(source, /paddingBottom/, "reserving space must not touch body padding");
+  assert.doesNotMatch(source, /body\.style/, "the body's style object is not this file's to write");
+  assert.match(source, /"--consent-height"/, "the reserved height must travel as --consent-height");
+  assert.match(source, /documentElement/, "the property belongs on <html>, not on <body>");
+});
+
+test("a page opened from the filesystem gets a relative privacy link", () => {
+  const { documentRef } = makeDocument();
+  loadConsent({ documentRef, location: { protocol: "file:" } });
+  const banner = documentRef.getElementById("invitation-consent");
+  const link = descendants(banner).find((node) => node.tagName === "a");
+  // viewer.html is downloaded and opened from disk, where "/privacy" points
+  // at the filesystem root.
+  assert.equal(link.href, "privacy.html");
+
+  const served = makeDocument();
+  loadConsent({ documentRef: served.documentRef, location: { protocol: "https:" } });
+  const servedLink = descendants(served.documentRef.getElementById("invitation-consent"))
+    .find((node) => node.tagName === "a");
+  assert.equal(servedLink.href, "/privacy");
+});
+
 test("an answer already stored means no banner at all", () => {
   for (const stored of ["granted", "denied"]) {
     const { documentRef } = makeDocument();
@@ -292,7 +361,7 @@ test("the banner copy is bound to the dictionaries rather than hard-coded", () =
   const ko = require("../assets/i18n/dictionary-ko.js");
   const en = require("../assets/i18n/dictionary-en.js");
   for (const dictionary of [ko, en]) {
-    for (const name of ["regionLabel", "message", "privacyLink", "accept", "deny", "settings"]) {
+    for (const name of ["regionLabel", "message", "privacyLink", "accept", "deny"]) {
       assert.equal(typeof dictionary.consent[name], "string", `consent.${name} missing`);
       assert.ok(dictionary.consent[name].trim().length > 0);
     }

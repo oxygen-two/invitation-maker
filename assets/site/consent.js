@@ -18,10 +18,14 @@
    so they are treated as necessary to keep the service working. The privacy
    page says so in its own words.
 
-   Colours come from whichever token layer the host page defines — the site
-   chrome's --card/--ink/--line/--green (which flip for dark mode) or the
-   studio's --studio-* (which are light-only by design). The literal at the
-   end of each var() chain is the last resort for a page with neither. */
+   Colours come from whichever token layer the host page defines. The studio's
+   --studio-* come first: on /studio the site names --card/--ink/--line/--green
+   are *also* defined, but there they carry the selected invitation's palette,
+   so a loud template would otherwise repaint this banner. Everywhere else the
+   --studio-* are absent and the site chrome's own tokens (which flip for dark
+   mode) win. The literal at the end of each var() chain is the last resort for
+   a page with neither. The tail of studio.css pins the same three roles again
+   by selector, so the rule survives an edit to this chain. */
 (function exposeConsent(root) {
   const STORAGE_KEY = "invitation-maker.consent";
   const GRANTED = "granted";
@@ -33,7 +37,6 @@
 
   const listeners = new Set();
   let banner = null;
-  let previousBodyPadding = null;
 
   const documentRef = () => root.document || null;
 
@@ -127,9 +130,9 @@
   margin: 0;
   padding: 12px 20px;
   padding-bottom: max(12px, env(safe-area-inset-bottom));
-  background: var(--card, var(--studio-surface, #ffffff));
-  color: var(--ink, var(--studio-ink, #282b29));
-  border-top: 1px solid var(--line, var(--studio-line, #dce1d8));
+  background: var(--studio-surface, var(--card, #ffffff));
+  color: var(--studio-ink, var(--ink, #282b29));
+  border-top: 1px solid var(--studio-line, var(--line, #dce1d8));
   box-shadow: 0 -10px 30px rgba(0, 0, 0, .14);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
@@ -139,7 +142,7 @@
 #${BANNER_ID}[hidden] { display: none; }
 #${BANNER_ID} .invitation-consent-text { margin: 0; flex: 1 1 320px; }
 #${BANNER_ID} a {
-  color: var(--green, var(--studio-accent, #314e41));
+  color: var(--studio-accent, var(--green, #314e41));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -155,17 +158,17 @@
   cursor: pointer;
 }
 #${BANNER_ID} .invitation-consent-accept {
-  background: var(--green, var(--studio-accent, #314e41));
-  color: var(--accent-ink, var(--studio-accent-ink, #ffffff));
+  background: var(--studio-accent, var(--green, #314e41));
+  color: var(--studio-accent-ink, var(--accent-ink, #ffffff));
 }
 #${BANNER_ID} .invitation-consent-deny {
   background: transparent;
   color: inherit;
-  border-color: var(--ring, var(--studio-control-line, #b7c3b5));
+  border-color: var(--studio-control-line, var(--ring, #b7c3b5));
 }
 #${BANNER_ID} a:focus-visible,
 #${BANNER_ID} button:focus-visible {
-  outline: 3px solid var(--green, var(--studio-accent, #314e41));
+  outline: 3px solid var(--studio-accent, var(--green, #314e41));
   outline-offset: 3px;
 }
 @media (max-width: 600px) {
@@ -207,7 +210,10 @@
       doc.createTextNode(" ")
     );
     const link = doc.createElement("a");
-    link.href = "/privacy";
+    /* viewer.html is opened from the filesystem at least as often as over
+       HTTP, and there a root-absolute href points at the disk root rather
+       than at the folder the downloaded page sits in. */
+    link.href = root.location?.protocol === "file:" ? "privacy.html" : "/privacy";
     text.append(bind(link, "consent.privacyLink", "Read the privacy policy"));
 
     const actions = doc.createElement("div");
@@ -230,21 +236,29 @@
   };
 
   /* The banner is fixed to the bottom of the viewport, which on a short page
-     sits on top of the footer — including the privacy link it points at. So
-     while it is open the body reserves exactly its height, and gives that
-     space back when it closes. An inline style rather than a class because
-     the six pages that load this file lay their bodies out three different
-     ways and none of them should have to know about this element. */
+     sits on top of the footer — including the privacy link it points at — and
+     on /studio on top of the two bars the editor fixes there (the gallery dock
+     and the phone action row), which no z-index of theirs can outrank.
+
+     So while the banner is open its measured height is published on <html> as
+     --consent-height, and the property is removed again when it closes. A
+     custom property rather than a body padding of our own: the six pages that
+     load this file lay their bodies out three different ways, and a page with
+     its own fixed furniture has to be able to read the same number to sit
+     above the banner instead of under it (see the tail of studio.css).
+     Absent the property `var(--consent-height, 0px)` is exactly 0, so a
+     visitor who has already answered pays nothing for it. */
+  const HEIGHT_PROPERTY = "--consent-height";
+
   const reserveSpace = (open) => {
-    const body = documentRef()?.body;
-    if (!body?.style) return;
+    const element = documentRef()?.documentElement;
+    if (!element?.style?.setProperty) return;
     if (!open) {
-      body.style.paddingBottom = previousBodyPadding;
+      element.style.removeProperty(HEIGHT_PROPERTY);
       return;
     }
-    if (previousBodyPadding === null) previousBodyPadding = body.style.paddingBottom || "";
     const height = Number(banner?.offsetHeight) || 0;
-    if (height > 0) body.style.paddingBottom = `${height}px`;
+    if (height > 0) element.style.setProperty(HEIGHT_PROPERTY, `${height}px`);
   };
 
   const hide = () => {

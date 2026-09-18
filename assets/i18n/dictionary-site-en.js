@@ -144,9 +144,9 @@
           contact: "Contact"
         },
         browser: {
-          eyebrow: "IN THIS BROWSER",
+          eyebrow: "01",
           title: "In this browser",
-          lead: "These live only in this browser's storage. They are never sent to a server and are invisible on your other devices.",
+          lead: "The items below live only in this browser's storage: none of them is ever sent to a server, and none shows up on your other devices. The one stored value that does leave this browser is the analytics identifier described under Analytics, and only after you accept.",
           one: "The draft you are working on. It is saved as you write.",
           two: "Invitations you saved to the library. Title, date, place, message and photos are all held in this browser.",
           three: "The management token that revokes a public link. It is stored only in the browser that published the link and never appears in the link itself.",
@@ -154,7 +154,7 @@
           note: "Clearing this browser's storage erases all of the above. A public link you already published stays alive, but the only way to revoke it disappears with the storage."
         },
         server: {
-          eyebrow: "ON THE SERVER",
+          eyebrow: "02",
           title: "On the server",
           lead: "One copy of an invitation is stored on our server only when you press Share a link. What is stored is what you wrote into that invitation.",
           one: "The title and the message",
@@ -166,33 +166,34 @@
           note: "Anyone who has the link can read the invitation. It is not indexed by search engines, but it is not password protected either. Only write what every guest may see."
         },
         retention: {
-          eyebrow: "HOW LONG",
+          eyebrow: "03",
           title: "How long a link lasts",
-          lead: "A public link expires on a sliding window: every time it is opened, its life is pushed forward.",
+          lead: "A public link expires on a sliding window: opening it pushes the expiry forward.",
           one: "Publishing sets the link to expire 7 days later.",
-          two: "Every time someone opens the link, the expiry moves to 7 days from that moment.",
+          two: "When the link is opened, the expiry moves to 7 days from then. That refresh is throttled to at most once every 6 hours, so a burst of visits counts as one.",
           three: "However often it is opened, it never lives longer than 30 days from the day it was published.",
           note: "The 7 and 30 days are today's operating defaults and the operator can change them. An expired link no longer opens."
         },
         analytics: {
-          eyebrow: "ANALYTICS",
+          eyebrow: "04",
           title: "Analytics",
           lead: "Analytics tools are loaded only after you accept them. If you choose Essential only in the banner on your first visit, no analytics script runs at all.",
           one: "The tools are Google Analytics 4, PostHog and Vercel Web Analytics.",
           two: "Only a fixed list of values is sent: which screen you looked at, which design you chose, whether you saved or downloaded.",
           three: "The title, names, contacts, photos and places you wrote into an invitation are never sent. Neither is a public link's address or its management token.",
           four: "If your browser sends Do Not Track or Global Privacy Control, analytics stay off whatever you chose here.",
+          five: "A per-visit identifier called flow_id is created and kept in this browser's storage so separate events can be read as one visit. It is a random value tied to no name and no account, it is sent only with product events and only after you accept, and Google Analytics 4 and PostHog set cookies or storage of their own once they load.",
           settings: "Reopen cookie & analytics settings"
         },
         diagnostics: {
-          eyebrow: "DIAGNOSTICS",
+          eyebrow: "05",
           title: "Error diagnostics",
           lead: "Diagnostic reports about a broken screen are sent whatever you chose, because they are the minimum we need to keep the service working.",
           one: "A report carries a fixed error category, the script file and line where it happened, and the browser and operating system family.",
           two: "The raw error message, the page address and any invitation content are never sent. At most eight reports are recorded per page."
         },
         deletion: {
-          eyebrow: "DELETION",
+          eyebrow: "06",
           title: "Deletion requests",
           lead: "A public link is the only thing we hold, so deleting it is simple.",
           one: "Open the studio in the browser that published the link and revoke it. The server copy is deleted straight away.",
@@ -201,14 +202,14 @@
           note: "We cannot delete drafts or library entries for you: they never left your browser. Remove them from the library list yourself."
         },
         children: {
-          eyebrow: "CHILDREN",
+          eyebrow: "07",
           title: "Children's data",
           lead: "This service is not directed at children, and we neither ask for nor collect the age of the person making an invitation.",
           one: "When a child's name or photo goes into an invitation — a first birthday or a kindergarten party — the adult making the invitation decides whether to publish it.",
           two: "To have a link containing a child's details removed, follow the deletion steps above."
         },
         contact: {
-          eyebrow: "CONTACT",
+          eyebrow: "08",
           title: "Contact",
           lead: "This service is operated by [OPERATOR]. Send privacy questions and deletion requests to [CONTACT_EMAIL].",
           note: "If this policy changes, the date at the top of this page changes with it."
@@ -228,21 +229,21 @@
           contact: "Contact and changes"
         },
         service: {
-          eyebrow: "THE SERVICE",
+          eyebrow: "01",
           title: "What this is",
           lead: "A free tool for making a mobile invitation in your browser and sending it as a file or as a public link.",
           one: "The invitation is built inside your browser. Saving it to the library or downloading it as an HTML file involves no server at all.",
           two: "Only when you press Share a link is a copy stored on our server and given a public address."
         },
         account: {
-          eyebrow: "NO ACCOUNT",
+          eyebrow: "02",
           title: "There is no account",
           lead: "No sign-up, no login. That convenience comes with a hard limit.",
           one: "This browser is your identity. Clear its storage and there is no way to recover your drafts, your library, or the right to revoke a link.",
           two: "There is no account recovery, so download an HTML file of anything you want to keep."
         },
         content: {
-          eyebrow: "YOUR CONTENT",
+          eyebrow: "03",
           title: "Your content, your responsibility",
           lead: "What goes into an invitation is yours, and so is the responsibility for it.",
           one: "To put another person's name, photo or phone number into an invitation and publish it, you must have the right to share it. Ask the people in the photos and the owners of the contacts first.",
@@ -251,7 +252,7 @@
           four: "We do not review what is published in advance. We may take a link down after a report."
         },
         prohibited: {
-          eyebrow: "NOT ALLOWED",
+          eyebrow: "04",
           title: "What you may not publish",
           lead: "The following may not be published. We take such links down without notice when we find them.",
           one: "Other people's personal details published without their consent",
@@ -262,7 +263,7 @@
           six: "Anything that disrupts the service, such as automated bulk publishing"
         },
         availability: {
-          eyebrow: "AS IS",
+          eyebrow: "05",
           title: "Availability and warranty",
           lead: "This service is free and provided as it is.",
           one: "It can stop at any time for maintenance or a fault, and features may change or disappear.",
@@ -270,15 +271,15 @@
           three: "To the extent the law allows, we are not liable for loss caused by data disappearing or a link failing to open. Download an HTML file of anything that matters."
         },
         expiry: {
-          eyebrow: "LINK LIFETIME",
+          eyebrow: "06",
           title: "How long a public link lives",
           lead: "A public link is not permanent storage.",
-          one: "It expires 7 days after it was last opened, and every visit pushes that forward.",
+          one: "It expires 7 days after it was last opened. Opening it pushes that forward, at most once every 6 hours.",
           two: "However often it is opened, it expires 30 days after publishing.",
           three: "The 7 and 30 days are today's operating defaults and the operator can change them. An expired or revoked link cannot be restored; open the invitation again and publish a new one."
         },
         contact: {
-          eyebrow: "CONTACT",
+          eyebrow: "07",
           title: "Contact and changes",
           lead: "This service is operated by [OPERATOR]. Send questions, reports and deletion requests to [CONTACT_EMAIL].",
           note: "If these terms change, the date at the top of this page changes with them. Continuing to use the service after a change means you accept it."
