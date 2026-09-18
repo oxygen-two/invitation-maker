@@ -124,7 +124,8 @@
       particleAmountLabel: "Particle amount scale",
       particleAmountValue: "Particle amount {value}",
       englishFont: "Latin font",
-      koreanFont: "Korean font",
+      scriptFont: "Text font",
+      scriptFontHint: "Applies to the invitation's body script.",
 
       heroTitle: "Cover background",
       heroHint: "Photo · position · zoom",

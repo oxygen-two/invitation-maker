@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
-const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, getInvitationStyle, normalizeInvitation } = require("../assets/invitation/core.js");
+const { MAX_ITEMS, MAX_PHOTOS, MAX_STOPS, buildStandaloneHtml, buildFontsUrl, englishFonts, koreanFonts, getInvitationStyle, normalizeInvitation } = require("../assets/invitation/core.js");
 const InvitationIntro = require("../assets/invitation/intro-effects.js");
 const InvitationCore = require("../assets/invitation/core.js");
 const TemplateCatalog = require("../assets/invitation/template-catalog.js");
@@ -83,8 +83,11 @@ test("standalone intro inherits the selected template palette and fonts from its
     koreanFont: "gmarket-sans"
   });
 
-  assert.equal(getInvitationStyle({ englishFont: "great-vibes", koreanFont: "gmarket-sans" }), "--font-en:'Great Vibes';--font-ko:'Gmarket Sans'");
-  assert.match(html, /<body[^>]*data-template="botanical"[^>]*style="--font-en:'Great Vibes';--font-ko:'Gmarket Sans'"/);
+  assert.equal(
+    getInvitationStyle({ englishFont: "great-vibes", koreanFont: "gmarket-sans" }),
+    "--font-en:'Great Vibes', 'Brush Script MT', cursive;--font-ko:'Gmarket Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif"
+  );
+  assert.match(html, /<body[^>]*data-template="botanical"[^>]*style="--font-en:'Great Vibes', 'Brush Script MT', cursive;--font-ko:'Gmarket Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif"/);
   assert.match(html, /var\(--paper,var\(--cream-50,#fffaf2\)\)/);
   assert.match(html, /var\(--deep,var\(--wine-900,#42101f\)\)/);
   assert.match(html, /var\(--font-en,var\(--font-ko,serif\)\)/);
@@ -693,7 +696,10 @@ test("Gmarket Sans remains an editable English display-font choice", () => {
   const invitation = normalizeInvitation({ englishFont: "gmarket-sans" });
 
   assert.equal(invitation.englishFont, "gmarket-sans");
-  assert.equal(getInvitationStyle(invitation), "--font-en:'Gmarket Sans';--font-ko:'Gowun Batang'");
+  assert.equal(
+    getInvitationStyle(invitation),
+    "--font-en:'Gmarket Sans', system-ui, sans-serif;--font-ko:'Gowun Batang', 'Nanum Myeongjo', Batang, AppleMyungjo, serif"
+  );
 });
 
 test("normalizeInvitation clamps particle scales and migrates legacy particle sizes", () => {
@@ -955,6 +961,7 @@ test("standalone HTML preserves the preview typography", () => {
   assert.match(html, /fonts\.googleapis\.com\/css2\?family=Cormorant\+Garamond/);
   assert.match(html, /family=Gowun\+Batang/);
   assert.match(html, /family=Noto\+Sans\+KR/);
+  assert.doesNotMatch(html, /family=Playfair|family=DM\+Serif|family=Great\+Vibes|family=Libre\+Baskerville|family=Nanum|family=Song\+Myung|family=Noto\+Serif/);
   assert.match(html, /body\{[^}]*font-family:"Noto Sans KR",sans-serif/);
   assert.match(html, /--font-en:'Cormorant Garamond'/);
   assert.match(html, /--font-ko:'Gowun Batang'/);
@@ -975,6 +982,48 @@ test("standalone HTML preserves selected English and Korean fonts", () => {
   assert.match(html, /"englishFont":"great-vibes"/);
   assert.match(html, /"koreanFont":"gmarket-sans"/);
   assert.match(html, /GmarketSansMedium\.woff/);
+});
+
+test("buildFontsUrl requests only the invitation's two families plus Noto Sans KR", () => {
+  const url = buildFontsUrl({ englishFont: "cormorant-garamond", koreanFont: "gowun-batang" });
+
+  assert.match(url, /^https:\/\/fonts\.googleapis\.com\/css2\?/);
+  assert.match(url, /family=Cormorant\+Garamond/);
+  assert.match(url, /family=Gowun\+Batang/);
+  assert.match(url, /family=Noto\+Sans\+KR/);
+  assert.equal((url.match(/family=/g) || []).length, 3, `expected exactly 3 families, got: ${url}`);
+});
+
+test("buildFontsUrl never requests Gmarket Sans, which is self-hosted", () => {
+  const url = buildFontsUrl({ englishFont: "gmarket-sans", koreanFont: "gmarket-sans" });
+
+  assert.doesNotMatch(url, /Gmarket/);
+  assert.equal((url.match(/family=/g) || []).length, 1, `expected only the chrome font, got: ${url}`);
+});
+
+test("the standalone document's fonts link carries no family beyond the two chosen plus chrome", () => {
+  const html = buildStandaloneHtml({
+    templateId: "royal",
+    englishFont: "cormorant-garamond",
+    koreanFont: "gowun-batang"
+  });
+  const [, fontsHref] = html.match(/<link href="([^"]+fonts\.googleapis\.com[^"]+)" rel="stylesheet">/) || [];
+  assert.ok(fontsHref, "fonts stylesheet link not found");
+  const fontsUrl = fontsHref.replace(/&amp;/g, "&");
+
+  assert.equal((fontsUrl.match(/family=/g) || []).length, 3, `expected exactly 3 families, got: ${fontsUrl}`);
+});
+
+test("every font id maps to a fallback stack ending in a generic family", () => {
+  const genericFamilies = new Set(["serif", "sans-serif", "cursive"]);
+  for (const fonts of [englishFonts, koreanFonts]) {
+    for (const [id, { family, fallback }] of Object.entries(fonts)) {
+      assert.ok(family, `${id} has no family name`);
+      assert.ok(fallback, `${id} has no fallback stack`);
+      const lastLink = fallback.split(",").map((part) => part.trim()).pop();
+      assert.ok(genericFamilies.has(lastLink), `${id}'s fallback "${fallback}" does not end in a generic family`);
+    }
+  }
 });
 
 test("map provider defaults to NAVER for invitations saved before Google support", () => {
