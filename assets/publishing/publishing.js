@@ -375,14 +375,15 @@
     };
     /* The message an author actually sends: the invitation's own title and date
        label — authored content, never translated — next to the link, so pasting
-       it into a chat says what the link is. */
+       it into a chat says what the link is. Built from parts rather than a
+       fixed template so a blank date (no dateLabel on the invitation) drops
+       out cleanly instead of leaving a bare "· ·" between title and url. */
     const copyMessage = async () => {
       if (!latestUrl) return;
-      const message = t("messageTemplate", {
-        date: latestDate,
-        title: latestTitle || t("defaultTitle"),
-        url: absoluteUrl(latestUrl)
-      });
+      const parts = [latestTitle || t("defaultTitle"), latestDate, absoluteUrl(latestUrl)]
+        .map((part) => String(part ?? "").trim())
+        .filter(Boolean);
+      const message = parts.join(" · ");
       try {
         await clipboard?.writeText?.(message);
         setStatus(t("messageCopied"));

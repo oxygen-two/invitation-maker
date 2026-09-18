@@ -380,7 +380,6 @@
       copyLink: "링크 복사",
       share: "공유 시트 열기",
       copyMessage: "초대 메시지 복사",
-      messageTemplate: "{title} · {date} · {url}",
       qrLabel: "공개 링크 QR 코드",
       revokeLink: "취소",
       listTitle: "이 브라우저의 발행 목록",

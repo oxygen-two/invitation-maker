@@ -242,15 +242,40 @@ test("a published link comes with a QR code, the share sheet and a ready-made me
 
   harness.click("#copy-publication-message");
   await Promise.resolve();
-  assert.deepEqual(copied, [publishCopy("messageTemplate", {
-    date: "2026.10.03 SAT 17:00",
-    title: "Garden party",
-    url: "https://example.test/i/qr1"
-  })]);
+  assert.deepEqual(copied, ["Garden party · 2026.10.03 SAT 17:00 · https://example.test/i/qr1"]);
   assert.match(copied[0], /Garden party/);
   assert.match(copied[0], /2026\.10\.03 SAT 17:00/);
   assert.match(copied[0], /https:\/\/example\.test\/i\/qr1/);
   assert.equal(harness.status.textContent, publishCopy("messageCopied"));
+});
+
+/* The invitation's own date label is optional — an author who never set one
+   still gets a message worth sending, and it should read as two parts, not
+   three with a hole punched in the middle. Checked in both languages: the
+   parts themselves (title, url) are the author's own content and never
+   translated, but the join has to behave the same regardless of which
+   dictionary is active. */
+test("the copied message skips an empty date instead of leaving a blank segment", async () => {
+  for (const language of InvitationI18n.SUPPORTED) {
+    InvitationI18n.setLanguage(language, { persist: false });
+    try {
+      const copied = [];
+      const harness = createPublishingMountHarness({
+        client: { list: () => [], publish: async () => ({ id: "qr-no-date", url: "/i/qr-no-date", expiresAt: null }) },
+        clipboard: { writeText: async (text) => { copied.push(text); } },
+        getValue: () => ({ title: "Garden party", dateLabel: "" })
+      });
+
+      await harness.clickPublish();
+      harness.click("#copy-publication-message");
+      await Promise.resolve();
+
+      assert.deepEqual(copied, ["Garden party · https://example.test/i/qr-no-date"], `${language}: no empty date segment`);
+      assert.doesNotMatch(copied[0], /·\s*·/, `${language}: no adjacent separators from a dropped part`);
+    } finally {
+      InvitationI18n.setLanguage("ko", { persist: false });
+    }
+  }
 });
 
 test("the QR code encodes the absolute public link a guest would scan", async () => {

@@ -568,9 +568,13 @@ a:focus-visible { outline-color: var(--studio-focus); }
 /* Share dialog QR code and pre-publish copy (audit B-9, task W1-7). The panel
    lost its own header row, so the three sentences that now open it are plain
    blocks; the canvas is painted by assets/publishing/qr.js at five device
-   pixels per module and is only scaled DOWN, never up, so the symbol stays
-   crisp enough for a phone camera. */
+   pixels per module. It is capped at 320px rather than 100% of the panel so
+   a narrow phone never nearest-neighbour-downscales a large symbol (more
+   modules for a long URL means a bigger source canvas) below its own pixel
+   grid, which used to soften or moire the finder patterns a camera relies on;
+   `image-rendering: auto` lets the browser's normal downscale filter handle
+   the rare case where the source is still wider than the cap. */
 .publishing-consent + .publishing-expiry { margin-top: 6px; }
 .publishing-qr { display: flex; justify-content: center; margin: 14px 0 4px; padding: 12px; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-surface-alt); }
 .publishing-qr[hidden] { display: none; }
-.publishing-qr-canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
+.publishing-qr-canvas { width: min(100%, 320px); height: auto; image-rendering: auto; }

@@ -301,6 +301,11 @@
     [true, false, true, true, true, false, true, false, false, false, false],
     [false, false, false, false, true, false, true, true, true, false, true]
   ];
+  /* Rule 3 (clause 7.8.3): scanned within the row/column itself, with no
+     light-module border padding added at either end before matching the
+     finder-like pattern. The spec's reference implementations vary on this
+     detail; every mask below still decodes correctly under this
+     interpretation, which is what the scorer needs it for. */
   const finderPenalty = (line) => {
     let penalty = 0;
     for (let start = 0; start + 11 <= line.length; start += 1) {
@@ -330,6 +335,9 @@
       }
     }
     const percent = (dark * 100) / (size * size);
+    // Rule 4: the 5% step uses Math.floor rather than round/ceil on
+    // Math.abs(percent - 50) / 5 — again one of several valid readings of the
+    // spec's wording, and every mask still decodes correctly under it.
     score += Math.floor(Math.abs(percent - 50) / 5) * 10;
     return score;
   };

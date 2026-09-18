@@ -376,7 +376,6 @@
       copyLink: "Copy link",
       share: "Share…",
       copyMessage: "Copy invitation message",
-      messageTemplate: "{title} · {date} · {url}",
       qrLabel: "QR code for the public link",
       revokeLink: "Revoke",
       listTitle: "Published from this browser",
