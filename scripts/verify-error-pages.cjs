@@ -2,6 +2,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const ko = require('../assets/i18n/dictionary-ko.js').errorPages;
+const en = require('../assets/i18n/dictionary-en.js').errorPages;
+
+// Every context below pins a locale, because these pages now read one: the
+// browser's own language decides what a visitor sees, and an unpinned context
+// would quietly test whichever language the machine running this happens to use.
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome' });
@@ -10,7 +16,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   fs.mkdirSync(output, { recursive: true });
   try {
     for (const width of [320, 390, 768, 1440]) {
-      const context = await browser.newContext({ viewport: { width, height: 900 } });
+      const context = await browser.newContext({ locale: 'ko-KR', viewport: { width, height: 900 } });
       const page = await context.newPage();
       const failures = [];
       page.on('pageerror', error => failures.push(error.message));
@@ -26,8 +32,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         assert.ok(!(await page.locator('body').textContent()).includes('PRIVATE_SENTINEL'));
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${code}/${width}: overflow`);
         assert.ok(requests.every(url => url.startsWith(origin + '/')), 'no third-party dependencies or analytics');
-        const retry = page.getByRole('button', { name: '다시 시도' });
+        const retry = page.locator('button[data-retry]');
         assert.equal(await retry.count(), [408, 429, 500, 502, 503, 504].includes(code) ? 1 : 0);
+        if (await retry.count()) assert.equal(await retry.textContent(), ko[code].reload, `${code}: reload label`);
         for (const box of await page.locator('.actions a, .actions button').evaluateAll(elements => elements.map(el => ({ height: el.getBoundingClientRect().height })))) {
           assert.ok(box.height >= 44, 'touch target');
         }
@@ -41,33 +48,67 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       assert.equal(await page.evaluate(() => document.activeElement.id), 'main');
       await context.setOffline(true);
       await page.waitForFunction(() => !document.querySelector('[data-offline]').hidden);
-      await page.getByRole('button', { name: '다시 시도' }).click();
-      assert.equal(await page.getByRole('button', { name: '다시 시도' }).isEnabled(), true);
+      await page.getByRole('button', { name: ko[503].reload }).click();
+      assert.equal(await page.getByRole('button', { name: ko[503].reload }).isEnabled(), true);
       await context.setOffline(false);
       await page.waitForFunction(() => document.querySelector('[data-offline]').hidden);
-      await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: '다시 시도' }).click()]);
+      await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: ko[503].reload }).click()]);
       await page.locator('a.primary').click();
       assert.equal(new URL(page.url()).pathname, '/');
       assert.deepEqual(failures, []);
       await context.close();
     }
-    const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 640 } });
+    // An English browser with no JavaScript: the served Korean is all there is,
+    // and it still has to be a readable page with a working way home.
+    const context = await browser.newContext({ javaScriptEnabled: false, locale: 'en-US', viewport: { width: 320, height: 640 } });
     const page = await context.newPage();
     for (const code of [404, 503]) {
       await page.goto(`${origin}/${code}.html`);
       assert.equal(await page.locator('h1').isVisible(), true);
+      assert.equal(await page.locator('h1').textContent(), ko[code].title, `${code}: no-JS reads Korean`);
+      assert.equal(await page.getAttribute('html', 'lang'), 'ko');
       assert.equal(await page.locator('a.primary').isVisible(), true);
       assert.equal(await page.locator('button').isVisible(), false);
     }
     await context.close();
+
+    // With JavaScript, the language follows the visitor: the browser's own
+    // preference first, and an explicit ?lang above it either way.
+    for (const [locale, expected] of [['en-US', 'en'], ['ko-KR', 'ko']]) {
+      const languageContext = await browser.newContext({ locale, viewport: { width: 390, height: 844 } });
+      const languagePage = await languageContext.newPage();
+      for (const code of [404, 503]) {
+        const copy = expected === 'en' ? en : ko;
+        await languagePage.goto(`${origin}/${code}.html`);
+        assert.equal(await languagePage.getAttribute('html', 'lang'), expected, `${code}/${locale}: <html lang>`);
+        assert.equal(await languagePage.getAttribute('html', 'data-error-lang'), expected);
+        assert.equal(await languagePage.locator('h1').textContent(), copy[code].title);
+        assert.equal(await languagePage.locator('.hint').first().textContent(), copy[code].hint);
+        assert.ok((await languagePage.title()).includes(copy[code].title));
+
+        for (const [query, forced] of [['?lang=en', en], ['?lang=ko', ko]]) {
+          await languagePage.goto(`${origin}/${code}.html${query}`);
+          assert.equal(await languagePage.locator('h1').textContent(), forced[code].title, `${code}${query}`);
+        }
+        // A language chosen for one page view is never remembered.
+        assert.equal(await languagePage.evaluate(() => localStorage.length), 0, 'error pages must not write storage');
+      }
+      await languageContext.close();
+    }
     const luminance = hex => {
       const channels = hex.match(/\w\w/g).map(c => parseInt(c, 16) / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4);
       return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
     };
-    for (const [foreground, background] of [['59645e', 'f7f7f4'], ['314e41', 'f7f7f4'], ['ffffff', '314e41']]) {
+    const pairs = [
+      ['59645e', 'f7f7f4'], ['314e41', 'f7f7f4'], ['ffffff', '314e41'],
+      // The same three readings again in the dark palette, which the site
+      // chrome task does not cover because these pages are standalone.
+      ['a9b5ac', '15181a'], ['9ec9ab', '15181a'], ['10211a', '9ec9ab']
+    ];
+    for (const [foreground, background] of pairs) {
       const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
       assert.ok((values[0] + .05) / (values[1] + .05) >= 4.5, 'text contrast');
     }
-    console.log('PASS: 11 error pages × 4 widths; recovery, privacy, offline and no-JS checks');
+    console.log('PASS: 11 error pages × 4 widths; recovery, privacy, offline, language and no-JS checks');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
