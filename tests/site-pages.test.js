@@ -362,13 +362,16 @@ test("the privacy page states the shipped retention defaults and calls them defa
   assert.match(en.site.privacy.retention.note, /defaults/, "en must say these are defaults");
 });
 
-test("the privacy page keeps its operator placeholders until someone fills them in", () => {
+test("the privacy page names the real operator and contact address", () => {
   for (const dictionary of [require("../assets/i18n/dictionary-site-ko.js"), require("../assets/i18n/dictionary-site-en.js")]) {
-    assert.match(dictionary.site.privacy.contact.lead, /\[OPERATOR\]/);
-    assert.match(dictionary.site.privacy.contact.lead, /\[CONTACT_EMAIL\]/);
-    assert.match(dictionary.site.privacy.deletion.two, /\[CONTACT_EMAIL\]/);
-    assert.match(dictionary.site.terms.contact.lead, /\[OPERATOR\]/);
-    assert.match(dictionary.site.terms.contact.lead, /\[CONTACT_EMAIL\]/);
+    assert.match(dictionary.site.privacy.contact.lead, /오재성/);
+    assert.match(dictionary.site.privacy.contact.lead, /rojae@kakao\.com/);
+    assert.match(dictionary.site.privacy.deletion.two, /rojae@kakao\.com/);
+    assert.match(dictionary.site.terms.contact.lead, /오재성/);
+    assert.match(dictionary.site.terms.contact.lead, /rojae@kakao\.com/);
+    assert.doesNotMatch(dictionary.site.privacy.contact.lead, /\[OPERATOR\]|\[CONTACT_EMAIL\]/);
+    assert.doesNotMatch(dictionary.site.privacy.deletion.two, /\[CONTACT_EMAIL\]/);
+    assert.doesNotMatch(dictionary.site.terms.contact.lead, /\[OPERATOR\]|\[CONTACT_EMAIL\]/);
   }
 });
 

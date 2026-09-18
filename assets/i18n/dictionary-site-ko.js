@@ -161,9 +161,8 @@
           cta: "초대장 만들기"
         }
       },
-      /* The two legal pages. Full drafts: `[OPERATOR]` and `[CONTACT_EMAIL]`
-         are placeholders and must be replaced with the real operator name and
-         address before this is deployed to the public. The retention numbers
+      /* The two legal pages. Full drafts naming the real operator, `오재성`,
+         and the real contact address, `rojae@kakao.com`. The retention numbers
          repeat the shipped defaults from docs/publishing.md and are checked
          against server/config/publishing.cjs by tests/site-pages.test.js. */
       privacy: {
@@ -234,7 +233,7 @@
           title: "삭제 요청",
           lead: "서버에 남는 것은 공개 링크 하나뿐이라, 지우는 방법도 간단합니다.",
           one: "링크를 발행한 브라우저에서 스튜디오를 열고 링크를 취소하면 서버 사본이 바로 지워집니다.",
-          two: "그 브라우저를 잃었거나 초대장을 받은 쪽이라면 [CONTACT_EMAIL]로 링크 주소와 함께 삭제를 요청해 주세요. 확인한 뒤 지워 드립니다.",
+          two: "그 브라우저를 잃었거나 초대장을 받은 쪽이라면 rojae@kakao.com로 링크 주소와 함께 삭제를 요청해 주세요. 확인한 뒤 지워 드립니다.",
           three: "이미 내려받은 HTML 파일이나 화면 캡처는 회수할 수 없습니다.",
           note: "브라우저에만 있는 초안과 보관함은 저희가 지울 수 없습니다. 보관함 목록에서 직접 삭제하시면 됩니다."
         },
@@ -248,7 +247,7 @@
         contact: {
           eyebrow: "08",
           title: "문의",
-          lead: "이 서비스의 운영자는 [OPERATOR]입니다. 개인정보에 관한 문의나 삭제 요청은 [CONTACT_EMAIL]로 보내 주세요.",
+          lead: "이 서비스의 운영자는 오재성입니다. 개인정보에 관한 문의나 삭제 요청은 rojae@kakao.com로 보내 주세요.",
           note: "이 방침이 바뀌면 이 페이지 위쪽의 수정 날짜도 함께 바뀝니다."
         }
       },
@@ -318,7 +317,7 @@
         contact: {
           eyebrow: "07",
           title: "문의와 약관 변경",
-          lead: "이 서비스의 운영자는 [OPERATOR]입니다. 약관과 관련한 문의, 신고, 삭제 요청은 [CONTACT_EMAIL]로 보내 주세요.",
+          lead: "이 서비스의 운영자는 오재성입니다. 약관과 관련한 문의, 신고, 삭제 요청은 rojae@kakao.com로 보내 주세요.",
           note: "약관이 바뀌면 이 페이지 위쪽의 수정 날짜도 함께 바뀝니다. 변경 후에도 서비스를 계속 쓰면 바뀐 약관에 동의한 것으로 봅니다."
         }
       }

@@ -15,7 +15,7 @@ A static-first invitation editor with live previews, standalone HTML downloads, 
 - A separate local admin service for search, pagination, details, and revocation
 - Korean and English studio, viewer, and admin UI, with dependency-free `Intl`-backed date/number formatting and dark mode for the site chrome
 - Optional GA4 and PostHog analytics, inert until the visitor accepts the consent banner
-- Privacy policy and terms pages at `/privacy` and `/terms`, translated like the rest of the site chrome — replace the `[OPERATOR]`/`[CONTACT_EMAIL]` placeholders before deploying publicly (see [Legal pages](#legal-pages))
+- Privacy policy and terms pages at `/privacy` and `/terms`, translated like the rest of the site chrome — the pages name the operator and a contact address (see [Legal pages](#legal-pages))
 - Landing page indexed by search engines; published invitations deliberately are not
 
 ## Architecture
@@ -118,7 +118,7 @@ Product analytics also wait for an explicit choice. `assets/site/consent.js` sho
 
 ## Legal pages
 
-> **Before deploying publicly:** `privacy.html` and `terms.html` are complete drafts carrying two placeholders, `[OPERATOR]` and `[CONTACT_EMAIL]`. They live in the `site.privacy.*` and `site.terms.*` namespaces of `assets/i18n/dictionary-site-ko.js` and `assets/i18n/dictionary-site-en.js` — replace them in **both** dictionaries with the real operator name and a monitored address, then regenerate the inline Korean copy in the two HTML files so `tests/site-pages.test.js` still matches. A test asserts the placeholders are present, so it will fail once they are filled in and must be updated in the same commit.
+> `privacy.html` and `terms.html` name the real operator (오재성) and contact address (rojae@kakao.com). The copy lives in the `site.privacy.*` and `site.terms.*` namespaces of `assets/i18n/dictionary-site-ko.js` and `assets/i18n/dictionary-site-en.js`, plus the matching inline Korean text in the two HTML files — change it in **all four** places if the operator or contact address ever changes, so `tests/site-pages.test.js` still matches.
 
 The retention numbers the privacy page states (7-day idle window, 30-day ceiling) are read from the shipped defaults in `server/config/publishing.cjs` and described as defaults; a test keeps the copy and the config in sync.
 
