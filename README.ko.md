@@ -154,6 +154,8 @@ npm run verify:publishing-mongo
 
 모바일 편집기 회귀 검증은 로컬 서버와 Chrome을 준비한 뒤 `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/verify-mobile-editor.cjs`로 실행합니다. 한국어·영어, 320–1440px의 여섯 화면 폭에서 카드·버튼·입력의 실제 경계를 검사하여 상위 요소에 가려진 잘림도 탐지합니다. Playwright는 외부 QA 도구로 사용하며 서비스 의존성에는 추가하지 않습니다.
 
+초대장 제목 검증은 Chrome을 준비한 뒤 `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/verify-hero-wrap.cjs`로 실행합니다. 단독 문서를 메모리에서 직접 만들기 때문에 로컬 서버는 필요 없습니다. 제목의 단어가 단어 중간에서 잘렸거나 상자 밖으로 넘컬는지를 레이아웃 엔진에 직접 묻으며, 제목이 나타나는 두 곳 — 카드의 히어로와 인트로 오버레이 — 모두를 모든 디자인·모든 샘플 제목·한국어와 영어 문서·320–1440px의 열두 화면 폭에서 측정합니다. 제목과 문서 언어를 서로 교차해 검사하는 것은 의도적입니다. 내보낸 문서는 제목이 무엇으로 쓰였든 `lang="ko"`이므로, 한국어 문서 속 라틴 제목이 오히려 일반적인 경우이기 때문입니다. `HERO_WRAP_MATRIX=1`을 붙이면 디자인별 크기와 상자 폭 표가 출력됩니다.
+
 `.github/workflows/ci.yml`이 `main` 브랜치로의 push와 모든 PR마다 실행됩니다: `verify` 잡은 Node 22에서 `npm test`와 `npm run build:public`을 실행하고 빌드가 추적 파일을 건드리지 않았는지 확인하며, `publishing-mongo` 잡은 실제 `mongo:7` 서비스 컨테이너에 대해 `npm run verify:publishing-mongo`를 실행합니다. 이전에는 CI가 전혀 없었습니다.
 
 ## 문서 안내

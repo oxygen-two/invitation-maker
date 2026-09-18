@@ -460,3 +460,75 @@ test("reduced motion skips before an active overlay remains mounted", () => {
   InvitationIntro.play(fixture.host, { introEffect: "envelope", title: "Us" }, fixture.environment);
   assert.equal(fixture.host.querySelector("[data-intro-overlay]"), null);
 });
+
+/* B-4, second half — the overlay reprints the author's title, so it is under
+   the same contract as the hero and broke in the same two ways. `.intro-copy`
+   stops at 420px while `vw` does not, and the default `word-break:normal`
+   offers Korean a break between any two syllables, so a title too long for one
+   line came apart inside a word: 4354 measured failures against the shipped
+   samples, all of them cuts, every design affected.
+
+   Whether the words now fit is a question for a layout engine, and
+   scripts/verify-hero-wrap.cjs asks it for this element as well as the hero.
+   What is pinned here is the CSS half of the contract. */
+test("the intro title is sized against its own box and only Korean may break a word", () => {
+  const styles = InvitationIntro.getStyles().replace(/\s+/g, "");
+  const rule = (selector) => {
+    const start = styles.indexOf(`${selector}{`);
+    assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
+    return styles.slice(start, styles.indexOf("}", start) + 1);
+  };
+
+  const title = rule(".intro-copyh1");
+  assert.match(title, /word-break:keep-all/);
+  assert.match(title, /overflow-wrap:normal/);
+  // The container-relative declaration ships; the `vw` one in front of it is
+  // the fallback for browsers without container queries, so it must come
+  // first or it would win.
+  const sizes = [...title.matchAll(/font-size:([^;}]+)/g)].map((match) => match[1]);
+  assert.match(sizes.at(-1), /cqi/);
+  assert.match(rule(".intro-copy"), /container-type:inline-size/);
+
+  // Korean keeps the last resort, and it is the only scope allowed to break a
+  // word. The prose lines under the title keep `anywhere` on .intro-copy,
+  // which is why that rule is not part of this check.
+  assert.match(styles, /\.intro-copyh1\[data-title-script="ko"\]\{[^}]*overflow-wrap:anywhere/);
+  // Never the document's language: an export is lang="ko" whatever its title
+  // is written in, so `:lang(ko)` handed `anywhere` to Latin titles.
+  assert.doesNotMatch(styles, /\.intro-copyh1:lang\(/);
+  const offenders = [];
+  for (const [, selectorList, body] of styles.matchAll(/([^{}]*)\{([^}]*)\}/g)) {
+    if (!/(?:overflow-wrap|word-break):/.test(body)) continue;
+    const titleSelectors = selectorList.split(",").filter((one) => /\.intro-copyh1/.test(one));
+    if (!titleSelectors.length) continue;
+    if (!/overflow-wrap:normal|word-break:keep-all/.test(body)
+      && !titleSelectors.every((one) => /\[data-title-script="ko"\]/.test(one))) {
+      offenders.push(selectorList);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
+/* The overlay marks its title the same way the hero does, and for the same
+   reason: the fallback below it is keyed off the marker, so an unmarked title
+   would be treated as Latin and a Korean run would have nowhere to break. */
+test("the intro title is marked with the script it is written in", () => {
+  for (const effect of Object.keys(InvitationIntro.PRESETS ?? {
+    envelope: 1, "card-shrink": 1, dawn: 1, fireworks: 1, curtain: 1, petals: 1, spotlight: 1, "photo-focus": 1
+  })) {
+    const korean = InvitationIntro.renderMarkup({ introEffect: effect, title: "하린의 생일" });
+    const english = InvitationIntro.renderMarkup({ introEffect: effect, title: "BIRTHDAY PORTRAIT" });
+
+    assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/, `${effect} Korean title`);
+    assert.match(english, /<h1 data-title-script="en">BIRTHDAY PORTRAIT<\/h1>/, `${effect} English title`);
+  }
+
+  // Mixed scripts count as Korean, matching the hero's rule.
+  assert.match(InvitationIntro.renderMarkup({ introEffect: "dawn", title: "2026 하린" }), /data-title-script="ko"/);
+  // And the marker is escaped context, not a hole: a hostile title cannot
+  // reach the attribute, because only "ko" or "en" is ever written.
+  assert.match(
+    InvitationIntro.renderMarkup({ introEffect: "dawn", title: '"><script>bad</script>' }),
+    /<h1 data-title-script="en">/
+  );
+});

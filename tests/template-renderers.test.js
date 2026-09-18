@@ -162,10 +162,16 @@ test("birthday hero details stay readable and long English title words stay inta
     assert.match(details, /font-size:15px/, `${id} keeps date, place, and host at 15px`);
   }
 
+  /* These two designs used to carry `word-break:normal` of their own. It was
+     meant to protect long English words, but `normal` is precisely the value
+     that lets Korean break between any two syllables, so "축하해주세요" came
+     apart mid-word — 572 of the 1132 measured failures in B-4 were these two
+     designs' Korean titles. They now inherit `keep-all` from the base rule
+     like every other design, and must not re-declare a break behaviour. */
   for (const id of ["silver-afterglow", "midnight-toast"]) {
     const title = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-heroh1`);
-    assert.match(title, /word-break:normal/);
-    assert.match(title, /overflow-wrap:normal/);
+    assert.doesNotMatch(title, /word-break:/);
+    assert.doesNotMatch(title, /overflow-wrap:/);
   }
 });
 
@@ -186,21 +192,49 @@ test("birthday information labels and peach and bloom map links use accessible s
   }
 });
 
-test("bloom and signature use normal title styling only when the rendered title contains Hangul", () => {
-  for (const id of ["bloom-portrait", "signature-birthday"]) {
-    const family = birthdayPresets.find((preset) => preset.id === id).family;
-    const korean = TemplateRenderers.render(family, { ...slots, templateId: id, title: "하린의 생일" });
-    const english = TemplateRenderers.render(family, { ...slots, templateId: id, title: "BIRTHDAY PORTRAIT" });
+/* Every hero title says which script it is written in, for every design and
+   both scripts. It used to be emitted only for four designs and only for
+   Korean, which was enough for the font-style tweak it was invented for but
+   not for the wrap fallback that now depends on it: an unmarked Latin title in
+   a `lang="ko"` export was indistinguishable from a Korean one. */
+test("every hero title is marked with the script it is written in", () => {
+  const families = ["romantic-story", "celebration-poster", "kids-storybook", "wedding-editorial", "korean-heritage"];
 
-    assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/);
-    assert.match(english, /<h1>BIRTHDAY PORTRAIT<\/h1>/);
+  for (const id of presetIds) {
+    for (const family of families) {
+      const korean = TemplateRenderers.render(family, { ...slots, templateId: id, title: "하린의 생일" });
+      const english = TemplateRenderers.render(family, { ...slots, templateId: id, title: "BIRTHDAY PORTRAIT" });
+
+      assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/, `${id}/${family} Korean title`);
+      assert.match(english, /<h1 data-title-script="en">BIRTHDAY PORTRAIT<\/h1>/, `${id}/${family} English title`);
+    }
   }
 
+  // A title mixing the two counts as Korean: that is the one that needs the
+  // fallback, since the Korean run is the part with no break opportunity.
+  assert.match(
+    TemplateRenderers.render("celebration-poster", { ...slots, templateId: "cherry-muse", title: "2026 하린" }),
+    /data-title-script="ko"/
+  );
+});
+
+test("bloom and signature use normal title styling only when the rendered title contains Hangul", () => {
   const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
   for (const id of ["bloom-portrait", "signature-birthday"]) {
     const koreanTitle = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-heroh1[data-title-script="ko"]`);
     assert.match(koreanTitle, /font-style:normal/);
   }
+
+  /* The Korean type tweak used to be written `[data-design]` and was held to
+     four designs only by the marker being rare. Now that every title carries
+     one, it has to name those four itself or it would silently restyle the
+     Korean titles of all thirty. */
+  const scoped = css.match(/([^{}]*)\{font-style:normal;letter-spacing:-\.04em[^}]*\}/);
+  assert.notEqual(scoped, null, "the Korean hero type rule is gone");
+  assert.deepEqual(
+    [...scoped[1].matchAll(/data-design="([^"]+)"/g)].map((match) => match[1]).sort(),
+    ["bloom-portrait", "cherry-muse", "peach-table", "signature-birthday"]
+  );
 });
 
 test("unknown preset IDs retain the generic family hero without trusting the ID as a design marker", () => {
@@ -291,9 +325,11 @@ test("poster and storybook typography remain legible at the approved phone width
   const storybookArt = cssRule(css, '.invitation-card[data-layout-family][data-design="first-chapter"].invite-hero-art');
 
   assert.match(heading, /word-break:keep-all/);
-  // `anywhere` used to live here and broke Latin words mid-word (B-4).
-  assert.match(heading, /overflow-wrap:break-word/);
-  assert.match(posterTitle, /font-size:clamp\(/);
+  // `anywhere` used to live here and broke Latin words mid-word (B-4), and
+  // `break-word` replaced it without fixing the cause. Neither is needed now
+  // that the size is measured against the box the title actually gets.
+  assert.match(heading, /overflow-wrap:normal/);
+  assert.match(posterTitle, /font-size:min\(\d+px,[\d.]+cqi\)/);
   assert.match(storybookArt, /opacity:\.28/);
 });
 
@@ -351,38 +387,87 @@ test("renderer styles only use standalone-defined variables or explicit fallback
   assert.deepEqual([...new Set(unresolved)].sort(), []);
 });
 
-/* B-4 — a Latin word must never break mid-word in the hero title.
-   "HAPPY BIRTHDAY!" rendered as "BIRTHDA / Y!" on a phone because
-   `overflow-wrap: anywhere` offers a break opportunity between every pair of
-   characters, whether or not the word would have fitted. The narrow-width work
-   is done by a clamped font-size and hyphenation instead, and breaking inside a
-   word survives only as `break-word`: the last resort that fires when a single
-   word — or an unspaced Korean run under `word-break: keep-all` — is longer
-   than the line it sits on. `anywhere` is never used, because it also reports a
-   one-character min-content width, which collapses the `width: fit-content`
-   heroes (gallery-notice) that size themselves to their longest word. */
-test("hero titles keep Latin words whole and step their size down on narrow screens", () => {
+/* B-4 — a word in a hero title must never be cut in half.
+
+   Two earlier attempts treated this as a choice of `overflow-wrap` value.
+   `anywhere` offered a break between every pair of characters and produced
+   "BIRTHDA / Y!"; `break-word` replaced it and only breaks a word that cannot
+   fit, which sounded like the fix but changed nothing, because the words
+   genuinely did not fit. A title sized in `vw` kept growing after the card
+   stopped at 430px, so at 520px and wider a design asked for 72px of heavy
+   uppercase inside a 350px column.
+
+   So the contract has two halves, and this test pins the CSS half:
+
+     - the base rule settles wrapping for every design: `keep-all`, so Korean
+       never breaks between syllables, and `overflow-wrap:normal`, so no Latin
+       word is ever cut. Korean keeps `anywhere` as a last resort — an unspaced
+       Korean run offers no break opportunity at all — and that is the ONLY
+       scope in which a mid-word break may be re-enabled;
+     - every hero size is container-relative (`cqi` against the hero), so the
+       ratio of type size to box width no longer depends on the viewport.
+
+   The other half cannot be asserted from a string: whether the words actually
+   fit is a question for a layout engine, and scripts/verify-hero-wrap.cjs asks
+   it — 30 designs x 48 sample titles x ko/en x 320-1440px. */
+test("hero title wrapping is settled once on the base rule, and only Korean may break a word", () => {
   const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
   const base = cssRule(css, ".invitation-card[data-layout-family].invite-heroh1");
 
-  // Keeping a long Latin word whole until it truly cannot fit is the whole
-  // contract here: keep-all for Korean, break-word as the last resort, and a
-  // clamp so the size steps down before either has to. Hyphenation is not part
-  // of it — nothing in these documents asks a hyphenation dictionary for a
-  // break, so no rule declares one.
-  assert.match(base, /overflow-wrap:break-word/);
   assert.match(base, /word-break:keep-all/);
-  assert.match(base, /font-size:clamp\(/);
-  assert.doesNotMatch(base, /hyphens:/);
+  assert.match(base, /overflow-wrap:normal/);
+  // Hyphenation is not part of this: these titles are uppercase or mixed-
+  // language, where a hyphenation dictionary has nothing to offer.
+  assert.doesNotMatch(css, /invite-heroh1[^{}]*\{[^}]*hyphens:/);
 
-  const design = cssRule(css, ".invitation-card[data-layout-family][data-design].invite-heroh1");
-  assert.match(design, /overflow-wrap:break-word/);
-  assert.doesNotMatch(design, /hyphens:/);
-
-  // No hero title rule may re-enable unconditional mid-word breaking.
-  for (const [, selector] of css.matchAll(/([^{}]*invite-heroh1[^{}]*)\{[^}]*overflow-wrap:anywhere[^}]*\}/g)) {
-    assert.fail(`overflow-wrap:anywhere is back on ${selector}`);
+  /* Exactly two hero title rules may speak about wrapping: the base rule, and
+     the Korean last resort. A third one is a regression either way round — a
+     design re-enabling `break-word`/`anywhere` cuts Latin words again, and a
+     design re-declaring `normal` outranks the Korean rule (same specificity,
+     declared later) and silently drops the fallback for unspaced Korean. */
+  const wrapRules = [];
+  for (const [, selectorList, body] of css.matchAll(/([^{}]*)\{([^}]*)\}/g)) {
+    const wrap = body.match(/(?:overflow-wrap|word-break):[\w-]+/g);
+    // `.invite-hero` itself keeps `anywhere` for the subtitle and the location
+    // line, which are prose and may carry an unbreakable URL; only the title
+    // is under this contract.
+    if (!wrap || !selectorList.split(",").some((one) => /invite-heroh1/.test(one))) continue;
+    wrapRules.push(`${selectorList.split(",")[0]} -> ${wrap.join(" ")}`);
   }
+
+  assert.deepEqual(wrapRules, [
+    '.invitation-card[data-layout-family].invite-heroh1 -> word-break:keep-all overflow-wrap:normal',
+    '.invitation-card[data-layout-family].invite-heroh1[data-title-script="ko"] -> overflow-wrap:anywhere',
+    '.invitation-card[data-layout-family][data-design="bloom-portrait"].invite-heroh1[data-title-script="ko"] -> word-break:keep-all'
+  ]);
+
+  /* The document's language must not decide this. `:lang(ko)` reached every
+     element in an export — and exports default to lang="ko" — so it handed
+     `anywhere` to Latin titles in most documents and withheld it from Korean
+     titles in English ones. */
+  assert.doesNotMatch(css, /invite-heroh1:lang\(/);
+});
+
+/* The sizes are the half of the fix that does the work, so their shape is
+   pinned too: a `vw` fallback for browsers without container queries, then the
+   `cqi` declaration that actually ships. A design that reverts to a bare `vw`
+   size reintroduces B-4 exactly, and would otherwise do so silently. */
+test("every hero title size is measured against its own box, not the viewport", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const hero = cssRule(css, ".invitation-card[data-layout-family].invite-hero");
+  assert.match(hero, /container-type:inline-size/);
+
+  const viewportSized = [];
+  for (const [, selectorList, body] of css.matchAll(/([^{}]*invite-heroh1[^{}]*)\{([^}]*)\}/g)) {
+    if (!/font-size:/.test(body)) continue;
+    const sizes = [...body.matchAll(/font-size:([^;}]+)/g)].map((match) => match[1]);
+    if (!sizes.some((size) => size.includes("cqi"))) viewportSized.push(selectorList.trim());
+    // The container-relative declaration has to come last, or the `vw`
+    // fallback in front of it would win.
+    else if (!sizes.at(-1).includes("cqi")) viewportSized.push(`${selectorList.trim()} (cqi not last)`);
+  }
+
+  assert.deepEqual(viewportSized, []);
 });
 
 test("every fixed hero title size becomes a clamp so 390px never forces a mid-word break", () => {
