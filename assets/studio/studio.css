@@ -122,11 +122,10 @@ body[data-studio-stage="edit"] .template-picker,
 body[data-studio-stage="edit"] .library-panel { display: none; }
 /* 01 already shows every design as a live card. Repeating the selected one at
    full size below the grid added roughly a thousand pixels of scroll carrying
-   nothing new, so the frame itself is dropped here — the panel stays only to
-   host the "선택한 디자인 적용" prompt, which is the one thing on it the gallery
-   still needs. Below 900px the cards are two-up and small, and the full-size
-   view opens as the #sample-sheet bottom sheet on tap (B-3) — it was never
-   behind the 미리보기 tab, which is what the comment here used to claim. */
+   nothing new, so the preview frame is hidden on this stage — the panel stays
+   only to host the apply prompt, which is the one thing on it the gallery still
+   needs. Below 900px the cards are two-up and small, so tapping one raises the
+   design at full size in the #sample-sheet bottom sheet instead. */
 body[data-studio-stage="gallery"] .preview-panel {
   grid-column: 1;
   grid-row: auto;

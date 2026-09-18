@@ -667,10 +667,14 @@ const mountPublishing = () => {
 const syncTemplateAvailability = () => {
   const busy = hasPendingEditorOperation();
   const pending = globalThis.TemplateCatalog?.getPreset?.(state.catalog, state.pendingTemplateId);
+  // The sheet's apply button is the dock's apply button raised over a phone
+  // sample, so it carries the same label and the same availability.
+  const sheetApply = document.querySelector('#sample-sheet-apply');
   dom.occasions.querySelectorAll("[data-occasion-id]").forEach((button) => { button.disabled = busy; });
   dom.templates.querySelectorAll("[data-template-id]").forEach((button) => { button.disabled = busy; });
   dom.applyTemplate.disabled = busy || !pending;
   document.querySelector('#gallery-create').disabled = busy || !pending;
+  if (sheetApply) sheetApply.disabled = busy || !pending;
   document.querySelector('#gallery-back').disabled = busy;
   document.querySelector('#gallery-selection').textContent = pending
     ? t('gallery.dockSelected', { name: pending.name })
@@ -691,6 +695,7 @@ const syncTemplateAvailability = () => {
   const applyLabel = needsApply ? t("gallery.apply") : t("gallery.continueToEditor");
   dom.applyTemplate.textContent = applyLabel;
   document.querySelector('#gallery-create').textContent = applyLabel;
+  if (sheetApply) sheetApply.textContent = applyLabel;
 };
 
 const syncAddItemAvailability = (items) => {
@@ -1671,8 +1676,13 @@ const renderSamplePreview = ({ reveal = true } = {}) => {
 
    Two deliberate edits to that document: the intro effect is dropped, because
    an envelope animation covering the card is the opposite of "show me the
-   design", and maps are off, because a sample must not call a maps provider
-   once per card tap. Everything else is the sample the preview panel shows.
+   design", and the map keys are blanked, because a sample must not call a maps
+   provider once per card tap. A keyless map still renders its panel at full
+   height carrying its "use the button below instead" status — the state a guest
+   sees when a map cannot load — so the sheet stays honest about how tall the
+   design is. No preset ships a map today, so nothing looks different yet; what
+   changed is that the sheet no longer drops a section the design asked for.
+   Everything else is the sample the preview panel shows.
 
    Nothing opens above 900px: the desktop gallery already renders every design
    live and full width, so there is nothing a sheet would add. */
@@ -1693,7 +1703,7 @@ const openSampleSheet = (templateId) => {
   if (sampleSheetTitle) sampleSheetTitle.textContent = preset.name;
   if (sampleSheetFrame) {
     sampleSheetFrame.srcdoc = InvitationCore.buildStandaloneHtml(
-      { ...sample, introEffect: "none", mapEnabled: false },
+      { ...sample, introEffect: "none", naverMapClientId: "", googleMapsApiKey: "" },
       studioChrome()
     );
   }

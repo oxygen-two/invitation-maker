@@ -364,14 +364,19 @@ test("hero titles keep Latin words whole and step their size down on narrow scre
   const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
   const base = cssRule(css, ".invitation-card[data-layout-family].invite-heroh1");
 
+  // Keeping a long Latin word whole until it truly cannot fit is the whole
+  // contract here: keep-all for Korean, break-word as the last resort, and a
+  // clamp so the size steps down before either has to. Hyphenation is not part
+  // of it — nothing in these documents asks a hyphenation dictionary for a
+  // break, so no rule declares one.
   assert.match(base, /overflow-wrap:break-word/);
   assert.match(base, /word-break:keep-all/);
-  assert.match(base, /hyphens:auto/);
   assert.match(base, /font-size:clamp\(/);
+  assert.doesNotMatch(base, /hyphens:/);
 
   const design = cssRule(css, ".invitation-card[data-layout-family][data-design].invite-heroh1");
   assert.match(design, /overflow-wrap:break-word/);
-  assert.match(design, /hyphens:auto/);
+  assert.doesNotMatch(design, /hyphens:/);
 
   // No hero title rule may re-enable unconditional mid-word breaking.
   for (const [, selector] of css.matchAll(/([^{}]*invite-heroh1[^{}]*)\{[^}]*overflow-wrap:anywhere[^}]*\}/g)) {

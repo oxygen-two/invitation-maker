@@ -177,7 +177,7 @@
     .invitation-card[data-layout-family] .invite-hero-art{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--hero-image-x,50%) var(--hero-image-y,50%);transform:scale(var(--hero-image-scale,1));transform-origin:var(--hero-image-x,50%) var(--hero-image-y,50%);pointer-events:none}
     .invitation-card[data-layout-family] .invite-hero::after{position:absolute;z-index:0;inset:0;background:linear-gradient(180deg,rgba(45,11,22,.08),rgba(45,11,22,.42));content:""}
     .invitation-card[data-layout-family] .invite-hero-copy{position:relative;z-index:1;min-width:0}
-    .invitation-card[data-layout-family] .invite-hero h1{font-size:clamp(28px,9vw,40px);word-break:keep-all;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+    .invitation-card[data-layout-family] .invite-hero h1{font-size:clamp(28px,9vw,39px);word-break:keep-all;overflow-wrap:break-word}
     .invitation-card[data-layout-family] .invite-hero-ornament{display:block;margin:20px auto;color:currentColor;font-family:var(--font-en,serif);font-size:54px;line-height:1}
     .invitation-card[data-layout-family] .invite-hero-details{display:grid;gap:4px;margin-top:28px;font-size:13px;line-height:1.6}
     .invitation-card[data-layout-family] .invite-hero-date{font-weight:700;letter-spacing:.08em}
@@ -406,7 +406,7 @@
   `;
 
   const birthdayBodyStyles = `
-    .invitation-card[data-layout-family][data-design] .invite-hero h1{overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+    .invitation-card[data-layout-family][data-design] .invite-hero h1{overflow-wrap:break-word}
     .invitation-card[data-layout-family][data-design] .invite-hero h1[data-title-script="ko"]{font-style:normal;letter-spacing:-.04em;line-height:1.2;word-break:keep-all}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-message{padding:44px 30px;line-height:1.9;text-align:center}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-timeline{padding:20px 30px 40px;gap:28px}
