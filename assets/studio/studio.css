@@ -584,3 +584,107 @@ a:focus-visible { outline-color: var(--studio-focus); }
 .date-custom-field > summary:focus-visible { outline: 2px solid var(--studio-focus); outline-offset: 2px; }
 .date-custom-field > label { padding: 0 14px; }
 .date-custom-field > small { display: block; padding: 6px 14px 14px; color: var(--studio-ink-soft); }
+/* W1-8. Single gallery CTA, a library with a next step, and a calmer phone
+   header (B-5, B-8, B-10). Appended rather than edited into the sections
+   above so this task's diff stays out of the lines other wave-1 tasks are
+   touching in this same file; the mobile rules below intentionally repeat
+   `#draft-status` / `#language-select` / `.occasion-list` selectors declared
+   earlier in this file's own `@media (max-width: 900px)` block so the later
+   declaration — same specificity, later in the cascade — wins. */
+
+/* Library empty state: was a single "Nothing here yet." line with no next
+   step (B-8). The envelope keeps the illustration shared.html shows a guest,
+   recoloured through --studio-* tokens instead of the site's own palette. */
+.library-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 40px 24px;
+  text-align: center;
+}
+.library-empty-icon { width: 128px; height: auto; margin-bottom: 8px; }
+.library-empty-title { color: var(--studio-ink); font-size: 16px; font-weight: 700; }
+.library-empty-body { max-width: 34ch; color: var(--studio-ink-soft); font-size: 13px; line-height: 1.6; }
+.library-empty-start {
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 20px;
+  color: var(--studio-accent-ink);
+  border: 0;
+  border-radius: 999px;
+  background: var(--studio-accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.library-empty-start:hover { background: var(--studio-accent-deep); }
+
+/* The file input stays in the tab order and keeps its accessible name from
+   the <label for>, it just never paints — the label is the dropzone. Same
+   clip-path technique already used for `.studio-language label` above. */
+.upload-input-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+.upload-dropzone {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  text-align: center;
+  color: var(--studio-ink-muted);
+  border: 1px dashed var(--studio-control-line);
+  border-radius: 10px;
+  background: var(--studio-surface-alt);
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+.upload-dropzone:hover,
+.upload-dropzone.is-dragover {
+  color: var(--studio-accent-deep);
+  border-color: var(--studio-accent);
+  background: var(--studio-surface);
+}
+.upload-box:focus-within .upload-dropzone {
+  outline: 3px solid var(--studio-focus);
+  outline-offset: 2px;
+}
+
+/* Header status line. The check icon and short label exist in the markup at
+   every width; only the phone breakpoint below shows them — everywhere else
+   they stay display:none and the full sentence in #draft-status-text reads
+   normally, including to a screen reader at any width. */
+.draft-status-icon { display: none; flex: none; color: var(--studio-accent); }
+.draft-status-short { display: none; }
+
+@media (max-width: 900px) {
+  /* B-10: "Draft saved on this device" folded to two lines at 11px. An icon
+     plus a fixed short label reads at a glance and never wraps. */
+  #draft-status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: none;
+    font-size: 12px;
+  }
+  .draft-status-icon { display: inline-flex; }
+  #draft-status-text { display: none; }
+  .draft-status-short { display: inline; }
+  /* Was 11px, under the 12px floor this task sets for phone chrome text. */
+  #language-select { font-size: 12px; }
+  /* The occasion row is a horizontal scroller with no clipping hint (B-10);
+     the fade reads as "more chips this way" without a visible scrollbar. */
+  .occasion-list {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+}

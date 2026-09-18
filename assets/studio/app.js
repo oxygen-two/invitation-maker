@@ -136,19 +136,27 @@ const trackAnalyticsCompletion = (invitation) => {
   }, "completed");
 };
 
+// The header status line carries two readers at once: the full sentence for
+// #draft-status-text (and anyone using a screen reader, where it always
+// applies regardless of viewport) and, below 900px, a fixed icon + "Saved"
+// label that replaces it visually (B-10). Routing every update through one
+// helper keeps both in one place instead of three call sites drifting apart.
+const setDraftStatus = (key, values) => {
+  document.querySelector('#draft-status-text').textContent = t(key, values);
+};
+
 const saveDraft = () => {
   if (!draftReady) return;
   const invitation = PresetApplication.snapshot(state.invitation);
   const revision = ++draftRevision;
   const edited = analyticsEditRevision > 0;
-  const status = document.querySelector('#draft-status');
-  status.textContent = t('status.draftSaving');
+  setDraftStatus('status.draftSaving');
   draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation)).then(() => {
     if (edited) trackAnalytics("draft_saved", {}, "draft");
-    if (revision === draftRevision) status.textContent = t('status.draftSaved');
+    if (revision === draftRevision) setDraftStatus('status.draftSaved');
   }).catch((error) => {
     reportFault("draft_save", error);
-    if (revision === draftRevision) status.textContent = t('status.draftFailed');
+    if (revision === draftRevision) setDraftStatus('status.draftFailed');
   });
 };
 
@@ -186,9 +194,6 @@ const dom = {
   startTemplate: document.querySelector("#start-template-button"),
   keepDraft: document.querySelector("#keep-draft-button"),
   toggleTemplates: document.querySelector("#toggle-templates-button"),
-  pendingPreview: document.querySelector("#pending-preview-notice"),
-  pendingPreviewText: document.querySelector("#pending-preview-text"),
-  previewApply: document.querySelector("#preview-apply-button"),
   contentEditor: document.querySelector("#content-editor"),
   addCourse: document.querySelector("#add-course-button"),
   addPhoto: document.querySelector("#add-photo-button"),
@@ -217,6 +222,7 @@ const dom = {
   downloadDialog: document.querySelector("#download-dialog"),
   shareDialog: document.querySelector("#share-dialog"),
   upload: document.querySelector("#html-upload"),
+  uploadDropzone: document.querySelector(".upload-dropzone"),
   uploadStatus: document.querySelector("#upload-status"),
   savedList: document.querySelector("#saved-list"),
   particleScaleOutput: document.querySelector("[data-particle-scale-output]"),
@@ -658,7 +664,6 @@ const syncTemplateAvailability = () => {
   dom.openDownloadDialog.hidden = needsApply;
   dom.startTemplate.disabled = busy;
   dom.keepDraft.disabled = busy;
-  dom.previewApply.disabled = busy;
   dom.startTemplate.textContent = pending ? t("gallery.startNamed", { name: pending.name }) : t("gallery.start");
   // A card already badged as in-use sitting next to a button offering to apply
   // it reads as a contradiction. When the selection IS the applied design the
@@ -666,9 +671,6 @@ const syncTemplateAvailability = () => {
   const applyLabel = needsApply ? t("gallery.apply") : t("gallery.continueToEditor");
   dom.applyTemplate.textContent = applyLabel;
   document.querySelector('#gallery-create').textContent = applyLabel;
-  dom.pendingPreview.hidden = !needsApply;
-  dom.pendingPreviewText.textContent = needsApply
-    ? t("preview.pendingTemplate", { name: pending.name }) : "";
 };
 
 const syncAddItemAvailability = (items) => {
@@ -1627,11 +1629,12 @@ const renderSamplePreview = () => {
   const sample = PresetApplication.prepare({ current: getFormData(), preset }).next;
   applyPreviewPalette(sample);
   updatePreviewMarkup(InvitationCore.renderInvitationBody(sample, studioChrome()));
-  dom.pendingPreview.hidden = false;
-  dom.pendingPreviewText.textContent = t('preview.sample');
   setMobileView('preview');
   document.querySelector('.preview-panel').scrollIntoView({ block: 'start' });
-  dom.previewApply.focus({ preventScroll: true });
+  // The apply row is the one CTA now (B-5): what used to be a second
+  // "Apply this design" button in a preview notice is gone, so a card tap
+  // moves focus to the apply row's button instead.
+  dom.applyTemplate.focus({ preventScroll: true });
 };
 
 const focusPresetCard = (templateId) => {
@@ -1639,6 +1642,16 @@ const focusPresetCard = (templateId) => {
     .find((button) => button.dataset.templateId === templateId)
     ?.focus();
 };
+
+// B-8: a blank library was a dead end — no illustration, no next step, just
+// "Nothing here yet." The envelope here is the same artwork shared.html shows
+// a guest before their invitation loads, recoloured through the studio's own
+// tokens instead of the site's, so the empty library reads as this app's
+// chrome and not a leftover invitation palette.
+// fill/stroke as presentation attributes ("fill=\"var(...)\"") do not reliably
+// resolve custom properties once this markup is injected via innerHTML, so
+// the tokens are set through style="" instead, which always does.
+const LIBRARY_EMPTY_ENVELOPE_SVG = `<svg class="library-empty-icon" viewBox="0 0 360 330" aria-hidden="true"><path d="M24 144 180 32l156 112v153H24Z" style="fill:var(--studio-line-strong)"/><rect x="61" y="62" width="238" height="222" rx="5" style="fill:var(--studio-surface);stroke:var(--studio-line)"/><rect x="75" y="76" width="210" height="194" rx="2" style="fill:none;stroke:var(--studio-line)"/><path d="M180 153c-42-24-26-51-10-35l10 10 10-10c16-16 32 11-10 35Z" style="fill:var(--studio-accent)"/><path d="M133 180h94M152 195h56" style="fill:none;stroke:var(--studio-ink-soft)" stroke-width="2" stroke-linecap="round"/><path d="m24 144 156 96 156-96v153H24Z" style="fill:var(--studio-surface-alt);stroke:var(--studio-line-strong)"/><path d="m24 297 134-97c13-10 31-10 44 0l134 97" style="fill:var(--studio-surface-sunken);stroke:var(--studio-line-strong)"/></svg>`;
 
 const applyPendingTemplate = () => {
   if (hasPendingEditorOperation()) return;
@@ -1708,7 +1721,14 @@ const playPreviewIntro = () => {
 
 const renderSaved = () => {
   if (!state.saved.length) {
-    dom.savedList.innerHTML = `<p class="empty-state">${escapeAttribute(t("library.empty"))}</p>`;
+    dom.savedList.innerHTML = `
+      <div class="library-empty">
+        ${LIBRARY_EMPTY_ENVELOPE_SVG}
+        <p class="library-empty-title">${escapeAttribute(t("library.emptyTitle"))}</p>
+        <p class="library-empty-body">${escapeAttribute(t("library.emptyBody"))}</p>
+        <button type="button" class="library-empty-start" data-action="start-new">${escapeAttribute(t("library.startNew"))}</button>
+      </div>
+    `;
     return;
   }
 
@@ -1949,6 +1969,14 @@ const openSaved = (item) => {
 const handleSavedAction = async (event) => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
+
+  // The empty-state button has no saved item behind it — it is the way back
+  // to the gallery (B-8), so it is handled before the item lookup below,
+  // which every other action here needs.
+  if (button.dataset.action === "start-new") {
+    setStudioStage("gallery");
+    return;
+  }
 
   const item = state.saved.find((saved) => saved.id === button.dataset.id);
   if (!item) return;
@@ -2400,11 +2428,11 @@ const init = async () => {
         state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
         state.appliedBaseline = state.invitation;
         personalDraft = true;
-        document.querySelector('#draft-status').textContent = t('status.draftRestored');
+        setDraftStatus('status.draftRestored');
       }
     } catch (error) {
       reportFault("draft_load", error);
-      document.querySelector('#draft-status').textContent = t('status.draftUnavailable');
+      setDraftStatus('status.draftUnavailable');
     }
     renderTemplates();
     fillForm(state.invitation);
@@ -2777,9 +2805,6 @@ dom.keepDraft.addEventListener('click', () => {
   renderTemplates();
   dom.openDownloadDialog.focus();
 });
-dom.previewApply.addEventListener('click', () => {
-  if (applyPendingTemplate()) dom.form.querySelector('[name="title"]').focus();
-});
 document.querySelector('#gallery-create').addEventListener('click', () => {
   applyOrContinue();
 });
@@ -2827,6 +2852,22 @@ dom.download.addEventListener("click", () => {
 dom.save.addEventListener("click", saveCurrent);
 dom.savedList.addEventListener("click", handleSavedAction);
 dom.upload.addEventListener("change", () => registerUploadedHtml(dom.upload.files[0]));
+// B-8: the bare file input is now a styled dropzone label; dragging an .html
+// file onto it goes through the exact same upload path as picking one with
+// the input, so there is only one place that has to parse and store it.
+["dragenter", "dragover"].forEach((type) => dom.uploadDropzone.addEventListener(type, (event) => {
+  event.preventDefault();
+  dom.uploadDropzone.classList.add("is-dragover");
+}));
+["dragleave", "dragend"].forEach((type) => dom.uploadDropzone.addEventListener(type, () => {
+  dom.uploadDropzone.classList.remove("is-dragover");
+}));
+dom.uploadDropzone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dom.uploadDropzone.classList.remove("is-dragover");
+  const file = event.dataTransfer?.files?.[0];
+  if (file) registerUploadedHtml(file);
+});
 dom.mobileTabs.forEach((button) => {
   button.addEventListener("pointerdown", rememberMobileViewScroll);
   button.addEventListener("click", () => setMobileView(button.dataset.mobileView));
@@ -2882,7 +2923,7 @@ const handleLanguageChange = async () => {
   }
 
   renderSaved();
-  document.querySelector('#draft-status').textContent = t(draftReady ? 'status.draftSaved' : 'status.draftKept');
+  setDraftStatus(draftReady ? 'status.draftSaved' : 'status.draftKept');
 };
 
 if (I18n) {

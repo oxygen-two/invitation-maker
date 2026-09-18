@@ -1322,7 +1322,7 @@ test("autosave failures keep the localized status and report a draft-save fault"
   harness.api.saveDraft();
   await harness.api.waitForDraftWrite();
 
-  assert.equal(harness.node("#draft-status").textContent, ko("status.draftFailed"));
+  assert.equal(harness.node("#draft-status-text").textContent, ko("status.draftFailed"));
   assert.deepEqual(reports, [{ error: failure, context: "draft_save" }]);
 });
 
@@ -1608,6 +1608,60 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
   assert.ok(main.innerHTML.includes(ko("viewer.errorBody")), main.innerHTML);
   assert.ok(main.innerHTML.includes(ko("viewer.errorTitle")), main.innerHTML);
   assert.match(ko("viewer.errorBody"), /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+});
+
+test("gallery has one apply CTA, not a second button in the preview notice", () => {
+  const index = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  assert.doesNotMatch(index, /id="pending-preview-notice"/);
+  assert.doesNotMatch(index, /id="preview-apply-button"/);
+  assert.doesNotMatch(index, /id="pending-preview-text"/);
+  assert.doesNotMatch(app, /dom\.pendingPreview\b|dom\.previewApply\b/);
+  // The apply row stays the one CTA and the summary sentence appears once.
+  assert.match(index, /class="template-apply-row"[\s\S]*?id="template-summary"[\s\S]*?id="apply-template-button"/);
+});
+
+test("library empty state offers an illustration, copy and a way back to the gallery", async () => {
+  const harness = loadLibraryHarness();
+
+  await harness.api.refreshSaved();
+  const markup = harness.node("#saved-list").innerHTML;
+
+  assert.match(markup, /<svg[^>]*class="library-empty-icon"/);
+  assert.match(markup, new RegExp(escapeRegExp(ko("library.emptyTitle"))));
+  assert.match(markup, new RegExp(escapeRegExp(ko("library.emptyBody"))));
+  assert.match(markup, new RegExp(`data-action="start-new"[^>]*>${escapeRegExp(ko("library.startNew"))}`));
+
+  const app = read("assets/studio/app.js");
+  assert.match(app, /dataset\.action === "start-new"\)\s*\{\s*setStudioStage\("gallery"\);/);
+});
+
+test("the library upload input becomes a styled, drag-and-drop dropzone that stays keyboard focusable", () => {
+  const index = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  assert.match(index, /<label for="html-upload" class="upload-dropzone" data-i18n="library\.dropzone"/);
+  assert.match(index, /<input id="html-upload"[^>]*class="upload-input-visually-hidden"/);
+  const css = read("assets/studio/studio.css");
+  assert.match(css, /\.upload-input-visually-hidden\s*\{[^}]*position:\s*absolute[^}]*clip-path:\s*inset\(50%\)/s);
+  assert.match(app, /addEventListener\("drop"/);
+  assert.match(app, /registerUploadedHtml\(/g);
+});
+
+test("draft status collapses to an icon and a short label on phones, and the language select stays legible", () => {
+  const index = read("studio.html");
+  const css = read("assets/studio/studio.css");
+
+  assert.match(index, /<svg class="draft-status-icon"/);
+  assert.match(index, /<span id="draft-status-text" data-i18n="status\.draftKept">/);
+  assert.match(index, /<span class="draft-status-short" data-i18n="status\.draftSavedShort">/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#draft-status\s*\{[^}]*font-size:\s*1[2-9]px/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#language-select\s*\{[^}]*font-size:\s*1[2-9]px/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.occasion-list\s*\{[^}]*mask-image:/);
+  for (const translate of [ko, en]) {
+    assert.notEqual(translate("status.draftSavedShort"), "status.draftSavedShort");
+  }
 });
 
 test("editor exposes mobile view tabs and selected template state", () => {

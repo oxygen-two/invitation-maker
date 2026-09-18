@@ -431,6 +431,10 @@
       heading: "My invitations",
       uploadLabel: "Add a downloaded HTML file",
       empty: "Nothing here yet.",
+      emptyTitle: "No invitations yet",
+      emptyBody: "Finish a design here, or drop in an HTML file you downloaded, and it will show up in this list.",
+      startNew: "Start a new invitation",
+      dropzone: "Drop an HTML file here, or choose one",
       sourceUpload: "Imported",
       sourceGenerated: "Made here",
       open: "Open",
@@ -601,6 +605,9 @@
       draftFailed: "Autosave failed · download it as HTML",
       draftRestored: "Restored your previous draft",
       draftUnavailable: "Autosave unavailable · download it as HTML",
+      // B-10: the phone header collapses to this fixed icon + short label
+      // instead of whichever of the sentences above is current.
+      draftSavedShort: "Saved",
 
       saved: "Added to your library.",
       savedUnsynchronized: "Added, but the library could not finish tidying up.",
