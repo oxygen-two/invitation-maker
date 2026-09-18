@@ -354,6 +354,31 @@
       <div id="saved-list" class="saved-list"></div>
     </section>
   </main>
+  <!-- B-3. A phone shows the gallery two cards to a row, each thumbnail barely
+       160px across, and asks the author to commit to a design from that. The
+       sheet is the answer: tapping a card opens the design as the real
+       standalone document a guest receives, at the width they will hold it,
+       with "use this design" inside the sheet so the decision is made where
+       the evidence is. It is a modal <dialog> for the same reasons the
+       download and share dialogs are — top layer, Escape, focus trap and
+       inertness for free — and it opens only below 900px; above that the
+       gallery already renders every design live at card size. It lives here,
+       outside <main>, so no stage's layout rules apply to it. -->
+  <dialog id="sample-sheet" class="studio-sheet" aria-labelledby="sample-sheet-title">
+    <div class="studio-sheet-header">
+      <div class="studio-sheet-heading">
+        <p class="eyebrow" data-i18n="gallery.sheetTitle">디자인 미리보기</p>
+        <h2 id="sample-sheet-title"></h2>
+      </div>
+      <button type="button" class="studio-sheet-close" data-sheet-close data-i18n-attr="aria-label:gallery.sheetClose" aria-label="닫기">✕</button>
+    </div>
+    <iframe id="sample-sheet-frame" class="studio-sheet-frame" data-i18n-attr="title:gallery.sheetFrameTitle" title="디자인 샘플 미리보기" referrerpolicy="no-referrer"></iframe>
+    <div class="studio-sheet-actions">
+      <button type="button" class="secondary-button" data-sheet-close data-i18n="gallery.sheetClose">닫기</button>
+      <button id="sample-sheet-apply" type="button" class="primary-button" data-i18n="gallery.apply">이 디자인으로 만들기</button>
+    </div>
+  </dialog>
+
   <aside id="gallery-dock" data-i18n-attr="aria-label:gallery.dockLabel" aria-label="선택한 디자인">
     <span id="gallery-selection" aria-live="polite"></span>
     <div><button id="gallery-back" type="button" data-i18n="gallery.dockBack">디자인 목록</button><button id="gallery-create" type="button" data-i18n="gallery.apply">이 디자인으로 만들기</button></div>

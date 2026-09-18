@@ -509,7 +509,7 @@ const loadEditorHarness = ({
 
   let source = read("assets/studio/app.js");
   // Screen navigation and sample rendering are exercised in verify-studio.cjs.
-  source = source.replace(/const renderSamplePreview = \(\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
+  source = source.replace(/const renderSamplePreview = \([^)]*\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
   source = source.replace(/const setStudioStage = \(stage\) => \{[\s\S]*?\n\};/, 'const setStudioStage = () => {};');
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
@@ -3107,4 +3107,73 @@ test("a date the author picked fills the picker, and only their own words fill t
   fillForm(InvitationCore.normalizeInvitation({ dateLabel: "2026.09.12 SAT 14:00" }));
   assert.equal(form.elements.dateTime.value, "");
   assert.equal(form.elements.dateLabel.value, "2026.09.12 SAT 14:00");
+});
+
+/* B-3 / B-4 — the phone gallery ------------------------------------------
+   Two thumbnails per row, 160px wide, are all a phone author sees before the
+   biggest decision in the studio. Tapping a card has to open the real thing at
+   the real width, and the edit/finish preview has to stop lying about how wide
+   a phone is. */
+test("tapping a design card on a phone opens a full-size sample sheet", () => {
+  const html = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  const sheet = html.match(/<dialog id="sample-sheet"[\s\S]*?<\/dialog>/)?.[0] || "";
+  assert.match(sheet, /class="studio-sheet"/);
+  assert.match(sheet, /aria-labelledby="sample-sheet-title"/);
+  assert.match(sheet, /id="sample-sheet-title"/);
+  assert.match(sheet, /<iframe[^>]+id="sample-sheet-frame"/);
+  assert.match(sheet, /id="sample-sheet-apply"/);
+  // Two ways out of a modal that covers the screen: the 44px ✕ and a labelled
+  // button next to the one that commits.
+  assert.equal((sheet.match(/data-sheet-close/g) || []).length, 2);
+  assert.match(sheet, /data-i18n="gallery\.sheetTitle"/);
+  assert.match(sheet, /data-i18n="gallery\.sheetClose"/);
+
+  // The sheet shows the same standalone document the export writes, and only
+  // below 900px — above it the gallery already renders every design live.
+  assert.match(app, /const openSampleSheet[\s\S]{0,900}InvitationCore\.buildStandaloneHtml/);
+  assert.match(app, /const phoneViewport = window\.matchMedia\?\.\("\(max-width: 900px\)"\)/);
+  assert.match(app, /const openSampleSheet[\s\S]{0,120}phoneViewport\?\.matches/);
+  assert.match(app, /sampleSheet\.showModal/);
+  // "Use this design" inside the sheet is the same handler the dock uses.
+  assert.match(app, /sampleSheetApply[\s\S]{0,200}applyOrContinue\(\)/);
+  // Closing hands focus back to the card that opened the sheet.
+  assert.match(app, /sampleSheet\?\.addEventListener\("close"[\s\S]{0,300}focusPresetCard/);
+  // The card tap opens the sheet instead of yanking the phone to the preview tab.
+  assert.match(app, /openSampleSheet\(state\.pendingTemplateId\)[\s\S]{0,200}renderSamplePreview\(\{ reveal: !opened \}\)/);
+
+  for (const translate of [ko, en]) {
+    for (const key of ["gallery.sheetTitle", "gallery.sheetClose", "gallery.sheetFrameTitle"]) {
+      assert.notEqual(translate(key), key, `${key} is missing a translation`);
+    }
+  }
+});
+
+test("the sample sheet is a bottom sheet with a safe-area floor and no motion when motion is off", () => {
+  const css = read("assets/studio/studio.css");
+
+  assert.match(css, /\.studio-sheet\s*\{[^}]*height:\s*92vh/s);
+  assert.match(css, /\.studio-sheet\s*\{[^}]*margin:\s*auto auto 0/s);
+  assert.match(css, /\.studio-sheet\s*\{[^}]*border-radius:\s*20px 20px 0 0/s);
+  assert.match(css, /\.studio-sheet::backdrop\s*\{[^}]*background:\s*var\(--studio-scrim\)/s);
+  assert.match(css, /\.studio-sheet-close\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+  assert.match(css, /\.studio-sheet-actions\s*\{[^}]*env\(safe-area-inset-bottom\)/s);
+  assert.match(css, /\.studio-sheet-actions button\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[^}]*\{[^}]*\.studio-sheet[^}]*animation: none/s);
+  // The comment that promised a full-size view behind the 미리보기 tab described
+  // something that was never there (B-3); the sheet is what replaced it.
+  assert.doesNotMatch(css, /full-size view lives behind/);
+});
+
+test("the phone preview frame is as wide as the phone", () => {
+  const css = read("assets/studio/studio.css");
+  const mobile = css.slice(css.indexOf("/* Honest preview width (B-4)"));
+
+  assert.ok(mobile, "the B-4 block is missing");
+  assert.match(mobile, /\.preview-panel\s*\{[^}]*padding:\s*0/s);
+  assert.match(mobile, /\.preview-frame\s*\{[^}]*width:\s*100%/s);
+  // .app-shell keeps a 16px gutter on phones; the preview steps back out of it
+  // so a 390px phone previews at 390px rather than 358px.
+  assert.match(mobile, /margin-inline:\s*-16px/s);
 });

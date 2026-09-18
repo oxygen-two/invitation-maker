@@ -1644,17 +1644,67 @@ const applyPreviewPalette = (invitation) => {
   target.setAttribute("style", InvitationCore.getInvitationStyle(invitation));
 };
 
-const renderSamplePreview = () => {
+/* `reveal` is what the desktop gallery has always done: swap to the preview
+   and put the cursor on the apply button. On a phone the sample now opens in
+   #sample-sheet instead (B-3), and yanking the page to the preview tab behind
+   the sheet would leave the author somewhere they never asked to be — so the
+   panel is still kept in sync, quietly, and the sheet does the revealing. */
+const renderSamplePreview = ({ reveal = true } = {}) => {
   const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
   const sample = PresetApplication.prepare({ current: getFormData(), preset }).next;
   applyPreviewPalette(sample);
   updatePreviewMarkup(InvitationCore.renderInvitationBody(sample, studioChrome()));
+  if (!reveal) return;
   setMobileView('preview');
   document.querySelector('.preview-panel').scrollIntoView({ block: 'start' });
   // The apply row is the one CTA now (B-5): what used to be a second
   // "Apply this design" button in a preview notice is gone, so a card tap
   // moves focus to the apply row's button instead.
   dom.applyTemplate.focus({ preventScroll: true });
+};
+
+/* Gallery sample sheet (B-3) ---------------------------------------------
+   A phone gallery card is a 160px thumbnail, and the author is asked to pick a
+   design from it. Tapping one now raises the design as the real standalone
+   document — the same InvitationCore.buildStandaloneHtml a guest receives and
+   the export writes — at the width the phone actually has.
+
+   Two deliberate edits to that document: the intro effect is dropped, because
+   an envelope animation covering the card is the opposite of "show me the
+   design", and maps are off, because a sample must not call a maps provider
+   once per card tap. Everything else is the sample the preview panel shows.
+
+   Nothing opens above 900px: the desktop gallery already renders every design
+   live and full width, so there is nothing a sheet would add. */
+const sampleSheet = document.querySelector('#sample-sheet');
+const sampleSheetFrame = document.querySelector('#sample-sheet-frame');
+const sampleSheetTitle = document.querySelector('#sample-sheet-title');
+const sampleSheetApply = document.querySelector('#sample-sheet-apply');
+const phoneViewport = window.matchMedia?.("(max-width: 900px)");
+// Set while the sheet is open, to the card that opened it: closing returns
+// focus there, which is where the author's attention was.
+let sampleSheetCardId = "";
+
+const openSampleSheet = (templateId) => {
+  if (!sampleSheet?.showModal || !phoneViewport?.matches) return false;
+  const preset = TemplateCatalog.getPreset(state.catalog, templateId);
+  if (!preset) return false;
+  const sample = PresetApplication.prepare({ current: getFormData(), preset }).next;
+  if (sampleSheetTitle) sampleSheetTitle.textContent = preset.name;
+  if (sampleSheetFrame) {
+    sampleSheetFrame.srcdoc = InvitationCore.buildStandaloneHtml(
+      { ...sample, introEffect: "none", mapEnabled: false },
+      studioChrome()
+    );
+  }
+  sampleSheetCardId = templateId;
+  sampleSheet.showModal();
+  return true;
+};
+
+const closeSampleSheet = ({ returnFocus = true } = {}) => {
+  if (!returnFocus) sampleSheetCardId = "";
+  sampleSheet?.close?.();
 };
 
 const focusPresetCard = (templateId) => {
@@ -2803,7 +2853,8 @@ dom.templates.addEventListener("click", (event) => {
   if (!setPendingTemplate(button.dataset.templateId)) return;
   renderTemplates();
   focusPresetCard(state.pendingTemplateId);
-  renderSamplePreview();
+  const opened = openSampleSheet(state.pendingTemplateId);
+  renderSamplePreview({ reveal: !opened });
 });
 
 // Matches the gallery.continueToEditor / gallery.apply label swap in
@@ -2868,6 +2919,34 @@ const bindDialog = (dialog, trigger) => {
 };
 bindDialog(dom.downloadDialog, dom.openDownloadDialog);
 bindDialog(dom.shareDialog, dom.openShareDialog);
+
+/* The sheet is raised by a card tap rather than by one fixed trigger, so it
+   wires its own close/apply/return-focus instead of going through bindDialog.
+   Escape and the focus trap come from showModal for free. */
+sampleSheet?.querySelectorAll?.('[data-sheet-close]')?.forEach((button) => {
+  button.addEventListener('click', () => closeSampleSheet());
+});
+sampleSheet?.addEventListener('click', (event) => {
+  if (event.target === sampleSheet) closeSampleSheet();
+});
+sampleSheet?.addEventListener("close", () => {
+  const cardId = sampleSheetCardId;
+  sampleSheetCardId = "";
+  // A sample document left parsed in a hidden frame keeps its fonts, images
+  // and palette alive for nothing; the next open rebuilds it in a tick.
+  if (sampleSheetFrame) sampleSheetFrame.srcdoc = "";
+  if (cardId) focusPresetCard(cardId);
+});
+sampleSheetApply?.addEventListener('click', () => {
+  // Focus belongs in the editor the apply lands in, not back on the card.
+  closeSampleSheet({ returnFocus: false });
+  applyOrContinue();
+});
+// Rotating a tablet past 900px leaves a phone sheet on a desktop gallery that
+// never needed one, and the design it was showing is already the pending one.
+phoneViewport?.addEventListener?.('change', (event) => {
+  if (!event.matches) closeSampleSheet({ returnFocus: false });
+});
 
 dom.download.addEventListener("click", () => {
   if (photoSelectionPending || heroImageSelectionPending) return;
