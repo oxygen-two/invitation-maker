@@ -161,10 +161,11 @@
      label. */
   const getOccasionsByGroup = (catalog) => {
     const occasions = Array.isArray(catalog?.occasions) ? catalog.occasions : [];
+    const normalizedGroup = (occasion) => (GROUP_IDS.includes(occasion?.group) ? occasion.group : FALLBACK_GROUP);
     return GROUP_IDS
       .map((group) => ({
         group,
-        occasions: clone(occasions.filter((occasion) => occasion?.group === group))
+        occasions: clone(occasions.filter((occasion) => normalizedGroup(occasion) === group))
       }))
       .filter(({ occasions: members }) => members.length > 0);
   };

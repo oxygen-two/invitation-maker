@@ -24,10 +24,10 @@
         "title": "Shall we go for a walk?",
         "subtitle": "Let's take our time on a path where the green lingers.",
         "host": "From. Robin",
-        "location": "Main Street station, Exit 3",
+        "location": "Main Street station",
         "message": "Let's fold the busy day away for a while, walk to a cafe we love and along a small wooded path, and make an afternoon worth remembering.",
         "items": {
-          "course-1": { "place": "Main Street station, Exit 3", "note": "An easy meeting point to start the day from." },
+          "course-1": { "place": "Main Street station", "note": "An easy meeting point to start the day from." },
           "course-2": { "place": "Add the cafe name", "note": "Coffee and something sweet by the window." },
           "course-3": { "place": "Riverside park walking path", "note": "A slow walk through the colours of the season." }
         }
@@ -448,7 +448,7 @@
           "course-1": { "place": "The garden entrance", "note": "Come in through the glasshouse door and you will see us." },
           "course-2": { "place": "The glasshouse hall", "note": "Guess-the-name, and a wish card for the baby." },
           "course-3": { "place": "The long table", "note": "Cake and tea, and no reason to hurry." },
-          "link-1": { "label": "Questions", "value": "Get in touch with whoever is helping host" }
+          "link-1": { "label": "Questions", "value": "Message whoever is helping us host" }
         }
       }
     },
@@ -509,7 +509,7 @@
       "defaults": {
         "title": "Dinner at our place",
         "subtitle": "Opening the first season in a new home",
-        "host": "From. Us",
+        "host": "From. Both of us",
         "location": "The new place",
         "message": "With the boxes finally unpacked, we thought of the people we want around the table. Wear something comfortable and stay a while.",
         "items": {

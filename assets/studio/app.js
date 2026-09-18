@@ -1619,6 +1619,7 @@ const renderTemplates = () => {
       </div>
     `;
   }).join("");
+  dom.occasions.querySelector(".occasion-chip.is-active")?.scrollIntoView({ inline: "nearest", block: "nearest" });
 
   const presets = TemplateCatalog.getPresetsForOccasion(state.catalog, state.activeOccasion);
   dom.templates.innerHTML = presets.map((template) => {

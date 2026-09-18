@@ -96,10 +96,10 @@ test("the production catalog groups its twelve occasions for the gallery", () =>
   // Groups come out in GROUP_IDS order, each carrying its occasions in
   // catalog order, so the gallery never has to sort them itself.
   assert.deepEqual(groups.map(({ group, occasions }) => [group, occasions.map(({ id }) => id)]), [
-    ["celebrate", ["birthday", "anniversary", "event"]],
+    ["celebrate", ["birthday", "anniversary"]],
     ["milestone", ["wedding", "gohui", "hwangap", "first-birthday", "graduation"]],
     ["family", ["kindergarten", "baby-shower"]],
-    ["gather", ["date", "housewarming"]]
+    ["gather", ["date", "event", "housewarming"]]
   ]);
   assert.equal(groups.reduce((total, { occasions }) => total + occasions.length, 0), catalog.occasions.length);
 });
@@ -129,4 +129,25 @@ test("groups with no occasions are left out instead of printing an empty label",
   });
 
   assert.deepEqual(TemplateCatalog.getOccasionsByGroup(catalog).map(({ group }) => group), ["milestone"]);
+});
+
+test("getOccasionsByGroup falls back an occasion with an unrecognized group to gather instead of dropping it", () => {
+  // normalizeCatalog already repairs a bad group, so this feeds getOccasionsByGroup
+  // a raw, un-normalized catalog directly to prove the fallback lives in the
+  // grouping function itself: an occasion the caller never normalized still
+  // shows up in the gallery (under "gather"), rather than vanishing entirely.
+  const catalog = {
+    occasions: [
+      { id: "wedding", name: "결혼", group: "milestone" },
+      { id: "date", name: "데이트", group: "not-a-group" }
+    ]
+  };
+
+  assert.deepEqual(
+    TemplateCatalog.getOccasionsByGroup(catalog).map(({ group, occasions }) => [group, occasions.map(({ id }) => id)]),
+    [
+      ["milestone", ["wedding"]],
+      ["gather", ["date"]]
+    ]
+  );
 });

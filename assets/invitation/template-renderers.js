@@ -45,7 +45,7 @@
     },
     "baby-cloud": { ornament: "☁" },
     "baby-garden": { ornament: "✿" },
-    "grad-cap": { ornament: "✦" },
+    "grad-cap": { ornament: "❖" },
     "grad-bold": { ornament: "✶" },
     "home-key": { ornament: "⌂" },
     "home-warm": { ornament: "" }

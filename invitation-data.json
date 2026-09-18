@@ -9,7 +9,7 @@
     { "id": "date", "name": "데이트", "group": "gather" },
     { "id": "birthday", "name": "생일", "group": "celebrate" },
     { "id": "anniversary", "name": "기념일", "group": "celebrate" },
-    { "id": "event", "name": "행사", "group": "celebrate" },
+    { "id": "event", "name": "행사", "group": "gather" },
     { "id": "kindergarten", "name": "유치원", "group": "family" },
     { "id": "wedding", "name": "결혼", "group": "milestone" },
     { "id": "gohui", "name": "고희", "group": "milestone" },
