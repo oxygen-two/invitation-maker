@@ -731,9 +731,9 @@
      not escaped again. */
   const calendarText = (value) => String(value ?? "")
     .replace(/\\/g, "\\\\")
-    .replace(/\r\n|\r|\n/g, "\\n")
-    .replace(/;/g, "\;")
-    .replace(/,/g, "\\,");
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n");
 
   const utf8Length = (character) => {
     const code = character.codePointAt(0);
@@ -788,6 +788,11 @@
        clock those numbers belong to; with no zone they stay floating, which
        reads as "seven, wherever you are" — vague, but never the wrong hour. */
     const start = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+    /* This file carries a bare TZID with no accompanying VTIMEZONE component.
+       That is deliberate: the major calendar clients a guest is likely to use
+       to open this file (Google, Apple, Outlook) all resolve IANA zone names
+       like "Asia/Seoul" on their own, and shipping a hand-rolled VTIMEZONE
+       block would add real complexity for readers who already have it. */
     const zone = timeZone ? `;TZID=${timeZone}` : "";
     const identity = `${dateTime}|${timeZone}|${title}|${location}`;
     const lines = [
@@ -802,6 +807,11 @@
          the last one, which is what lets a generated file be checked in. */
       `DTSTAMP:${calendarStamp(start)}Z`,
       `DTSTART${zone}:${calendarStamp(start)}`,
+      /* DTEND is the wall-clock start plus two hours, added to the numeric
+         components rather than to a zone-aware instant. If a DST transition
+         falls inside that window, the event still reports as exactly two
+         hours long by the clock rather than by elapsed real time — a known
+         simplification, not an oversight. */
       `DTEND${zone}:${calendarStamp(start + CALENDAR_EVENT_MINUTES * 60000)}`,
       `SUMMARY:${calendarText(title)}`
     ];

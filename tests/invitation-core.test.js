@@ -1203,6 +1203,19 @@ test("a calendar link cannot break out of the document it travels in", () => {
   assert.match(ics, /LOCATION:A & B\\nsecond line/);
 });
 
+test("a calendar file escapes semicolons and backslashes, alongside the comma and newline it already escapes", () => {
+  const ics = calendarFileFrom(InvitationCore.renderCalendarLink({
+    dateTime: "2026-12-19T17:00",
+    title: "Rin; Jae",
+    location: "A\\B"
+  }, "en"));
+  // RFC 5545 §3.3.11: a bare semicolon inside a text value would otherwise be
+  // read as a parameter delimiter.
+  assert.match(ics, /SUMMARY:Rin\\; Jae/);
+  // A backslash must be doubled first, or it would escape whatever follows it.
+  assert.match(ics, /LOCATION:A\\\\B/);
+});
+
 test("a standalone document tells a guest whose clock disagrees which zone the times are in", () => {
   const html = buildStandaloneHtml({
     dateTime: "2026-12-19T17:00",
