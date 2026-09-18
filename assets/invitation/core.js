@@ -204,23 +204,73 @@
     default: ["var(--particle-accent)", "var(--particle-alt)", "var(--particle-light)"]
   });
   const legacyParticleScales = Object.freeze({ small: 70, medium: 100, large: 145 });
+  /* Every family is paired with a system fallback stack for its script, so a
+     blocked or slow font CDN still renders legible type instead of the
+     browser's tofu default. Each stack ends in a generic family (`serif`,
+     `sans-serif` or `cursive`) as CSS requires. */
+  /* Single-quoted (never double-quoted) because this stack is interpolated,
+     unescaped, straight into a double-quoted `style="..."` HTML attribute in
+     buildStandaloneHtml below — a double quote here would truncate the
+     attribute. */
+  const LATIN_SERIF_STACK = "Georgia, 'Times New Roman', serif";
+  const LATIN_SCRIPT_STACK = "'Brush Script MT', cursive";
+  const LATIN_SANS_STACK = "system-ui, sans-serif";
+  const KOREAN_SERIF_STACK = "'Nanum Myeongjo', Batang, AppleMyungjo, serif";
+  const KOREAN_SANS_STACK = "'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif";
+
   const englishFonts = Object.freeze({
-    "cormorant-garamond": "Cormorant Garamond",
-    "playfair-display": "Playfair Display",
-    "dm-serif-display": "DM Serif Display",
-    "libre-baskerville": "Libre Baskerville",
-    "great-vibes": "Great Vibes",
-    "gmarket-sans": "Gmarket Sans"
+    "cormorant-garamond": Object.freeze({ family: "Cormorant Garamond", fallback: LATIN_SERIF_STACK }),
+    "playfair-display": Object.freeze({ family: "Playfair Display", fallback: LATIN_SERIF_STACK }),
+    "dm-serif-display": Object.freeze({ family: "DM Serif Display", fallback: LATIN_SERIF_STACK }),
+    "libre-baskerville": Object.freeze({ family: "Libre Baskerville", fallback: LATIN_SERIF_STACK }),
+    "great-vibes": Object.freeze({ family: "Great Vibes", fallback: LATIN_SCRIPT_STACK }),
+    "gmarket-sans": Object.freeze({ family: "Gmarket Sans", fallback: LATIN_SANS_STACK })
   });
   const koreanFonts = Object.freeze({
-    "gowun-batang": "Gowun Batang",
-    "noto-serif-kr": "Noto Serif KR",
-    "nanum-myeongjo": "Nanum Myeongjo",
-    "nanum-gothic": "Nanum Gothic",
-    "song-myung": "Song Myung",
-    "gmarket-sans": "Gmarket Sans"
+    "gowun-batang": Object.freeze({ family: "Gowun Batang", fallback: KOREAN_SERIF_STACK }),
+    "noto-serif-kr": Object.freeze({ family: "Noto Serif KR", fallback: KOREAN_SERIF_STACK }),
+    "nanum-myeongjo": Object.freeze({ family: "Nanum Myeongjo", fallback: KOREAN_SERIF_STACK }),
+    "nanum-gothic": Object.freeze({ family: "Nanum Gothic", fallback: KOREAN_SANS_STACK }),
+    "song-myung": Object.freeze({ family: "Song Myung", fallback: KOREAN_SERIF_STACK }),
+    "gmarket-sans": Object.freeze({ family: "Gmarket Sans", fallback: KOREAN_SANS_STACK })
   });
-  const googleFontsUrl = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Serif+Display&family=Gowun+Batang:wght@400;700&family=Great+Vibes&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Nanum+Gothic:wght@400;700&family=Nanum+Myeongjo:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Song+Myung&display=swap";
+
+  /* Noto Sans KR is the chrome font (body copy, meta labels) on every
+     standalone document regardless of which two families the author picked,
+     so it always joins the fonts request. Gmarket Sans is intentionally
+     absent: it is self-hosted via @font-face in `standaloneCss` below, not
+     served from Google Fonts. */
+  const CHROME_FONT_FAMILY = "Noto Sans KR";
+  const googleFontSpecs = Object.freeze({
+    "Cormorant Garamond": "Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600",
+    "DM Serif Display": "DM+Serif+Display",
+    "Playfair Display": "Playfair+Display:ital,wght@0,500;0,600;1,500;1,600",
+    "Libre Baskerville": "Libre+Baskerville:ital,wght@0,400;0,700;1,400",
+    "Great Vibes": "Great+Vibes",
+    "Gowun Batang": "Gowun+Batang:wght@400;700",
+    "Noto Serif KR": "Noto+Serif+KR:wght@400;600;700",
+    "Nanum Myeongjo": "Nanum+Myeongjo:wght@400;700",
+    "Nanum Gothic": "Nanum+Gothic:wght@400;700",
+    "Song Myung": "Song+Myung",
+    [CHROME_FONT_FAMILY]: "Noto+Sans+KR:wght@400;500;600;700"
+  });
+
+  /* Only the families an invitation actually uses, plus the chrome font.
+     A family with no Google Fonts entry (Gmarket Sans) is skipped here; it
+     loads through its own @font-face block instead. */
+  const buildFontsUrl = (invitation) => {
+    const families = new Set();
+    for (const family of [
+      englishFonts[invitation.englishFont]?.family,
+      koreanFonts[invitation.koreanFont]?.family,
+      CHROME_FONT_FAMILY
+    ]) {
+      if (family && Object.hasOwn(googleFontSpecs, family)) families.add(family);
+    }
+
+    const query = [...families].sort().map((family) => `family=${googleFontSpecs[family]}`).join("&");
+    return `https://fonts.googleapis.com/css2?${query}&display=swap`;
+  };
   const MAX_ITEMS = 50;
   const MAX_PHOTOS = 8;
   const MAX_STOPS = MAX_ITEMS;
@@ -479,8 +529,10 @@
     };
   };
 
+  const fontDeclaration = (font) => `'${font.family}', ${font.fallback}`;
+
   const invitationStyleFrom = (invitation) =>
-    `--font-en:'${englishFonts[invitation.englishFont]}';--font-ko:'${koreanFonts[invitation.koreanFont]}'`;
+    `--font-en:${fontDeclaration(englishFonts[invitation.englishFont])};--font-ko:${fontDeclaration(koreanFonts[invitation.koreanFont])}`;
 
   const getInvitationStyle = (input = {}) => invitationStyleFrom(normalizeInvitation(input));
 
@@ -779,7 +831,7 @@
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="${googleFontsUrl.replace(/&/g, "&amp;")}" rel="stylesheet">
+  <link href="${buildFontsUrl(invitation).replace(/&/g, "&amp;")}" rel="stylesheet">
   <style>${standaloneCss}${standaloneTemplatePaletteCss}${TemplateRenderers.getStyles()}${introStyles}</style>
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" style="${invitationStyleFrom(invitation)}">
@@ -816,7 +868,10 @@ ${introRuntime}
     normalizeInvitation,
     readStandaloneLanguage,
     renderInvitationBody,
-    buildStandaloneHtml
+    buildStandaloneHtml,
+    buildFontsUrl,
+    englishFonts,
+    koreanFonts
   };
 
   if (typeof module !== "undefined" && module.exports) {

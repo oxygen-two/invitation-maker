@@ -126,7 +126,8 @@
       particleAmountLabel: "파티클 양 스케일",
       particleAmountValue: "파티클 양 {value}",
       englishFont: "영문 폰트",
-      koreanFont: "한글 폰트",
+      scriptFont: "본문 글꼴",
+      scriptFontHint: "초대장 본문에 사용되는 문자 체계의 글꼴입니다.",
 
       heroTitle: "첫 화면 배경",
       heroHint: "사진 · 위치 · 확대",

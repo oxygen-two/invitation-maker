@@ -1226,7 +1226,7 @@ test("active intro survives download import storage and viewer rebuild", async (
   assert.equal(written.length, 1);
   assert.equal(invitationDataFrom(written[0]).introEffect, "fireworks");
   assert.match(written[0], /data-template="botanical"/);
-  assert.match(written[0], /style="--font-en:'Great Vibes';--font-ko:'Gmarket Sans'"/);
+  assert.match(written[0], /style="--font-en:'Great Vibes', 'Brush Script MT', cursive;--font-ko:'Gmarket Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif"/);
   assert.match(written[0], /data-intro-effect="fireworks"/);
   assert.match(written[0], /data-intro-runtime/);
 });
@@ -2786,5 +2786,8 @@ test("preview host receives the selected invitation font variables", () => {
 
   harness.api.renderPreview();
 
-  assert.equal(harness.preview.attributes.style, "--font-en:'Great Vibes';--font-ko:'Gmarket Sans'");
+  assert.equal(
+    harness.preview.attributes.style,
+    "--font-en:'Great Vibes', 'Brush Script MT', cursive;--font-ko:'Gmarket Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif"
+  );
 });
