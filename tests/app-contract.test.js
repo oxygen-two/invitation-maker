@@ -1738,8 +1738,8 @@ test("current picker boot path exposes eight birthday presets and keeps the orig
 
   await harness.api.loadInitialData();
 
-  assert.equal(harness.api.state.catalog.occasions.length, 9);
-  assert.equal(harness.api.state.catalog.templates.length, 24);
+  assert.equal(harness.api.state.catalog.occasions.length, 12);
+  assert.equal(harness.api.state.catalog.templates.length, 30);
   for (const occasion of harness.api.state.catalog.occasions) {
     assert.equal(
       TemplateCatalog.getPresetsForOccasion(harness.api.state.catalog, occasion.id).length,
@@ -1758,6 +1758,46 @@ test("current picker boot path exposes eight birthday presets and keeps the orig
       "midnight-toast", "bloom-portrait", "signature-birthday"
     ]
   );
+});
+
+test("the occasion chips are grouped under a label per group and stay one scrollable row", async () => {
+  const harness = loadEditorHarness();
+  const style = read("assets/studio/style.css");
+  const chrome = read("assets/studio/studio.css");
+
+  await harness.api.loadInitialData();
+  harness.api.renderTemplates();
+  const markup = harness.node("#occasion-list").innerHTML;
+
+  // One labelled group per catalog group, in GROUP_IDS order, and every
+  // occasion still a chip with the behaviour the click handler expects.
+  for (const [group, key, members] of [
+    ["celebrate", "gallery.groupCelebrate", ["birthday", "anniversary", "event"]],
+    ["milestone", "gallery.groupMilestone", ["wedding", "gohui", "hwangap", "first-birthday", "graduation"]],
+    ["family", "gallery.groupFamily", ["kindergarten", "baby-shower"]],
+    ["gather", "gallery.groupGather", ["date", "housewarming"]]
+  ]) {
+    assert.ok(markup.includes(`aria-label="${ko(key)}"`), `${group} has no group label`);
+    assert.notEqual(ko(key), key, `${key} missing from dictionary-ko.js`);
+    assert.notEqual(en(key), key, `${key} missing from dictionary-en.js`);
+    for (const occasion of members) {
+      assert.match(markup, new RegExp(`data-occasion-id="${occasion}"`), `${occasion} has no chip`);
+    }
+  }
+  assert.equal((markup.match(/class="occasion-group"/g) || []).length, 4);
+  assert.deepEqual(
+    harness.node("#occasion-list").buttons.map((button) => button.dataset.occasionId),
+    ["birthday", "anniversary", "event", "wedding", "gohui", "hwangap", "first-birthday",
+      "graduation", "kindergarten", "baby-shower", "date", "housewarming"]
+  );
+
+  // Twelve occasions no longer fit a phone, so the row has to be reachable by
+  // swiping: .occasion-list scrolls, and its row is allowed to be narrower
+  // than its own content (it is a grid item of .template-picker, which clips).
+  assert.match(style, /\.occasion-list\s*\{[^}]*overflow-x:\s*auto/);
+  assert.match(style, /\.occasion-list-row\s*\{[^}]*min-width:\s*0/);
+  // The group label is editor chrome, never an invitation palette colour.
+  assert.match(chrome, /\.occasion-group-label\s*\{[^}]*color:\s*var\(--studio-ink-muted\)/);
 });
 
 test("occasion and preset browsing update pending selection without filling the draft and preserve template focus", async () => {

@@ -16,8 +16,24 @@
     "wedding",
     "gohui",
     "hwangap",
-    "first-birthday"
+    "first-birthday",
+    "baby-shower",
+    "graduation",
+    "housewarming"
   ]);
+
+  /* An occasion belongs to one group, and the gallery prints the groups in
+     this order. The groups are about what the day IS, not where it happens,
+     so the same four hold in every locale: a celebration, a milestone, a
+     family day, a get-together. An occasion with an unknown or missing group
+     falls back to "gather" rather than disappearing from the gallery. */
+  const GROUP_IDS = Object.freeze([
+    "celebrate",
+    "milestone",
+    "family",
+    "gather"
+  ]);
+  const FALLBACK_GROUP = "gather";
 
   const FAMILY_IDS = Object.freeze([
     "romantic-story",
@@ -55,10 +71,12 @@
     if (!occasion || typeof occasion !== "object") return null;
     const id = String(occasion.id || "").trim();
     if (!id || !OCCASION_IDS.includes(id)) return null;
+    const group = String(occasion.group || "").trim();
     return {
       ...clone(occasion),
       id,
-      name: String(occasion.name || id)
+      name: String(occasion.name || id),
+      group: GROUP_IDS.includes(group) ? group : FALLBACK_GROUP
     };
   };
 
@@ -137,10 +155,26 @@
       : "date";
   };
 
+  /* The gallery's chip rows: every group that actually has occasions, in
+     GROUP_IDS order, each carrying its occasions in catalog order. Groups
+     with no occasions are left out so the studio never prints an empty
+     label. */
+  const getOccasionsByGroup = (catalog) => {
+    const occasions = Array.isArray(catalog?.occasions) ? catalog.occasions : [];
+    return GROUP_IDS
+      .map((group) => ({
+        group,
+        occasions: clone(occasions.filter((occasion) => occasion?.group === group))
+      }))
+      .filter(({ occasions: members }) => members.length > 0);
+  };
+
   const api = Object.freeze({
     FAMILY_IDS,
+    GROUP_IDS,
     OCCASION_IDS,
     getOccasionForTemplate,
+    getOccasionsByGroup,
     getPreset,
     getPresetsForOccasion,
     normalizeCatalog,

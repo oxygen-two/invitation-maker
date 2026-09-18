@@ -6,15 +6,18 @@
     "googleMapsApiKey": "AIzaSyBQ1O3RXW037N5n5oiJMgcSuUsoNMrsG6c"
   },
   "occasions": [
-    { "id": "date", "name": "데이트" },
-    { "id": "birthday", "name": "생일" },
-    { "id": "anniversary", "name": "기념일" },
-    { "id": "event", "name": "행사" },
-    { "id": "kindergarten", "name": "유치원" },
-    { "id": "wedding", "name": "결혼" },
-    { "id": "gohui", "name": "고희" },
-    { "id": "hwangap", "name": "환갑" },
-    { "id": "first-birthday", "name": "돌잔치" }
+    { "id": "date", "name": "데이트", "group": "gather" },
+    { "id": "birthday", "name": "생일", "group": "celebrate" },
+    { "id": "anniversary", "name": "기념일", "group": "celebrate" },
+    { "id": "event", "name": "행사", "group": "celebrate" },
+    { "id": "kindergarten", "name": "유치원", "group": "family" },
+    { "id": "wedding", "name": "결혼", "group": "milestone" },
+    { "id": "gohui", "name": "고희", "group": "milestone" },
+    { "id": "hwangap", "name": "환갑", "group": "milestone" },
+    { "id": "first-birthday", "name": "돌잔치", "group": "milestone" },
+    { "id": "baby-shower", "name": "베이비 샤워", "group": "family" },
+    { "id": "graduation", "name": "졸업", "group": "milestone" },
+    { "id": "housewarming", "name": "집들이", "group": "gather" }
   ],
   "templates": [
     {
@@ -797,6 +800,207 @@
           { "id": "profile-1", "type": "profile", "name": "유준", "role": "첫돌 주인공", "description": "노래가 나오면 손을 흔드는 작은 스타입니다." },
           { "id": "notice-1", "type": "notice", "heading": "행사 순서", "body": "인사, 식사, 돌잡이 순서로 진행됩니다." },
           { "id": "course-1", "type": "course", "time": "11:30", "label": "BIRTHDAY", "place": "스타라운지", "note": "아기 의자와 가족석이 준비되어 있습니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 }
+        ]
+      }
+    },
+    {
+      "id": "baby-cloud",
+      "occasionId": "baby-shower",
+      "familyId": "kids-storybook",
+      "name": "구름 위의 작은 소식",
+      "note": "파스텔 구름과 둥근 글씨로 전하는 베이비 샤워",
+      "defaults": {
+        "title": "작은 구름이 찾아와요",
+        "subtitle": "아기를 기다리는 마음을 함께 나누는 오후",
+        "dateLabel": "2026.05.16 SAT 11:00",
+        "dateTime": "2026-05-16T11:00:00",
+        "host": "예린 · 준호",
+        "location": "햇살 브런치 하우스",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "아기를 기다리는 설레는 마음을 좋아하는 사람들과 나누고 싶어요. 부담 없이 오셔서 축하해 주세요.",
+        "introEffect": "dawn",
+        "particleEffect": "bubbles",
+        "particleScale": 95,
+        "particleAmount": 110,
+        "englishFont": "dm-serif-display",
+        "koreanFont": "gowun-batang",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "선물 안내", "body": "마음만 가져오셔도 충분해요. 준비하신다면 아기 옷이나 손수건이 좋아요." },
+          { "id": "course-1", "type": "course", "time": "11:00", "label": "WELCOME", "place": "햇살 브런치 하우스", "note": "입구에서 이름을 알려주시면 자리로 안내해 드려요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "11:40", "label": "GAMES", "place": "라운지 홀", "note": "아기 이름 맞히기와 작은 선물 게임을 준비했어요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-3", "type": "course", "time": "12:30", "label": "CAKE", "place": "창가 테이블", "note": "케이크를 자르고 함께 사진을 남겨요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "참석 회신", "value": "식사 준비를 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "baby-garden",
+      "occasionId": "baby-shower",
+      "familyId": "kids-storybook",
+      "name": "정원에서 기다려요",
+      "note": "초록 정원과 손그림 표식으로 꾸민 베이비 샤워",
+      "defaults": {
+        "title": "정원에서 기다리는 첫 인사",
+        "subtitle": "아기와 함께할 계절을 미리 축하하는 시간",
+        "dateLabel": "2026.06.06 SAT 10:30",
+        "dateTime": "2026-06-06T10:30:00",
+        "host": "서연 · 민재",
+        "location": "정원 카페 온실",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "곧 만날 아기에게 들려줄 이야기를 함께 모으고 싶어요. 편한 마음으로 오셔서 축하해 주세요.",
+        "introEffect": "card-shrink",
+        "particleEffect": "petals",
+        "particleScale": 100,
+        "particleAmount": 95,
+        "englishFont": "libre-baskerville",
+        "koreanFont": "nanum-myeongjo",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "준비 안내", "body": "가벼운 브런치와 계절 디저트가 준비됩니다. 선물은 마음만으로 충분해요." },
+          { "id": "course-1", "type": "course", "time": "10:30", "label": "MEET", "place": "정원 입구", "note": "온실 쪽 문으로 들어오시면 바로 보여요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "11:15", "label": "GAMES", "place": "온실 홀", "note": "아기 이름 맞히기와 축하 카드 쓰기를 함께 해요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-3", "type": "course", "time": "12:00", "label": "CAKE", "place": "긴 테이블", "note": "케이크와 차를 나누며 천천히 머물러요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "문의", "value": "준비를 돕는 사람에게 연락 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "grad-cap",
+      "occasionId": "graduation",
+      "familyId": "celebration-poster",
+      "name": "모자를 던지는 날",
+      "note": "감색과 금빛 활자로 정돈한 졸업 안내",
+      "defaults": {
+        "title": "졸업을 축하해 주세요",
+        "subtitle": "네 해의 기록을 마무리하는 자리",
+        "dateLabel": "2026.02.13 FRI 17:00",
+        "dateTime": "2026-02-13T17:00:00",
+        "host": "From. 서준",
+        "location": "대학 대강당",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "긴 공부의 끝에 서서, 함께 응원해 준 분들과 조용히 이 하루를 기념하고 싶습니다.",
+        "introEffect": "spotlight",
+        "particleEffect": "sparkle",
+        "particleScale": 85,
+        "particleAmount": 80,
+        "englishFont": "playfair-display",
+        "koreanFont": "song-myung",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "입장 안내", "body": "좌석은 선착순입니다. 시작 10분 전까지 도착해 주세요." },
+          { "id": "course-1", "type": "course", "time": "17:00", "label": "CEREMONY", "place": "대학 대강당", "note": "학위 수여식은 정시에 시작합니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "18:00", "label": "PHOTOS", "place": "본관 앞 정원", "note": "가족 사진과 단체 사진을 남겨요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-3", "type": "course", "time": "19:00", "label": "DINNER", "place": "예약한 저녁 식당", "note": "저녁 식사는 예약된 방에서 이어집니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 }
+        ]
+      }
+    },
+    {
+      "id": "grad-bold",
+      "occasionId": "graduation",
+      "familyId": "celebration-poster",
+      "name": "끝이자 시작",
+      "note": "굵은 타이포와 밝은 색으로 외치는 졸업 파티",
+      "defaults": {
+        "title": "WE DID IT!",
+        "subtitle": "졸업을 크게 축하하는 저녁",
+        "dateLabel": "2026.06.19 FRI 18:00",
+        "dateTime": "2026-06-19T18:00:00",
+        "host": "From. 다은",
+        "location": "캠퍼스 앞 루프탑",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "함께 밤을 새우고 함께 웃었던 사람들과 이 끝을 시원하게 축하하고 싶어요.",
+        "introEffect": "fireworks",
+        "particleEffect": "confetti",
+        "particleScale": 120,
+        "particleAmount": 165,
+        "englishFont": "gmarket-sans",
+        "koreanFont": "gmarket-sans",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "파티 안내", "body": "간단한 식사와 음료가 준비됩니다. 학위 가운은 입어도, 벗어도 좋아요." },
+          { "id": "course-1", "type": "course", "time": "18:00", "label": "OPEN", "place": "캠퍼스 앞 루프탑", "note": "입구에서 예약자 이름을 알려주세요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "20:00", "label": "PHOTOS", "place": "루프탑 전망대", "note": "단체 사진과 학사모 던지기를 진행해요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "참석 회신", "value": "인원 확인을 위해 회신해 주세요", "url": "" }
+        ]
+      }
+    },
+    {
+      "id": "home-key",
+      "occasionId": "housewarming",
+      "familyId": "romantic-story",
+      "name": "열쇠를 건네며",
+      "note": "따뜻한 테라코타 색과 열쇠 장식의 집들이 초대",
+      "defaults": {
+        "title": "새 집에 처음 오시는 날",
+        "subtitle": "작은 방과 큰 마음을 함께 보여드릴게요",
+        "dateLabel": "2026.04.11 SAT 17:30",
+        "dateTime": "2026-04-11T17:30:00",
+        "host": "From. 지현",
+        "location": "새 집 거실",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "이사를 마치고 이제야 한숨 돌렸어요. 좋아하는 사람들과 이 집의 첫 저녁을 나누고 싶습니다.",
+        "introEffect": "envelope",
+        "particleEffect": "leaves",
+        "particleScale": 90,
+        "particleAmount": 85,
+        "englishFont": "cormorant-garamond",
+        "koreanFont": "nanum-gothic",
+        "items": [
+          { "id": "notice-1", "type": "notice", "heading": "선물 안내", "body": "빈손으로 오셔도 좋아요. 마음만 가져오세요." },
+          { "id": "course-1", "type": "course", "time": "17:30", "label": "ARRIVE", "place": "새 집 현관", "note": "현관에 슬리퍼를 넉넉히 준비해 두었어요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "18:00", "label": "TOUR", "place": "거실과 작은 방", "note": "집을 한 바퀴 돌아보며 이야기를 나눠요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-3", "type": "course", "time": "19:00", "label": "DINNER", "place": "부엌 긴 테이블", "note": "직접 차린 저녁과 후식이 준비됩니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 }
+        ]
+      }
+    },
+    {
+      "id": "home-warm",
+      "occasionId": "housewarming",
+      "familyId": "romantic-story",
+      "name": "우리 집 첫 저녁",
+      "note": "사진과 황토색 조명으로 채운 집들이 이야기",
+      "defaults": {
+        "title": "우리 집에서 저녁 한 끼",
+        "subtitle": "이사 온 첫 계절을 함께 여는 자리",
+        "dateLabel": "2026.11.07 SAT 18:00",
+        "dateTime": "2026-11-07T18:00:00",
+        "host": "From. 우리",
+        "location": "새 집",
+        "mapUrl": "",
+        "mapEnabled": false,
+        "mapLatitude": null,
+        "mapLongitude": null,
+        "mapZoom": 16,
+        "message": "짐을 다 풀고 나니 함께 앉을 사람들이 떠올랐어요. 편한 옷으로 오셔서 오래 머물러 주세요.",
+        "introEffect": "photo-focus",
+        "particleEffect": "fireflies",
+        "particleScale": 95,
+        "particleAmount": 90,
+        "englishFont": "libre-baskerville",
+        "koreanFont": "gowun-batang",
+        "items": [
+          { "id": "profile-1", "type": "profile", "name": "우리 집", "role": "Housewarming", "description": "처음 함께 고른 가구와 창가 자리를 소개할게요." },
+          { "id": "course-1", "type": "course", "time": "18:00", "label": "ARRIVE", "place": "새 집 현관", "note": "도착하시면 편하게 들어오세요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "18:30", "label": "TOUR", "place": "창가 서재", "note": "좋아하는 책과 작은 화분을 구경해요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-3", "type": "course", "time": "19:30", "label": "DINNER", "place": "부엌 테이블", "note": "따뜻한 국과 구이 요리를 준비했어요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "link-1", "type": "link", "label": "문의", "value": "도착 전에 연락 주세요", "url": "" }
         ]
       }
     }

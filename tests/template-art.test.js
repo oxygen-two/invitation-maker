@@ -19,7 +19,9 @@ const decorated = [
   "red-silk",
   "golden-years",
   "first-chapter",
-  "little-star"
+  "little-star",
+  "baby-garden",
+  "home-warm"
 ];
 const sourceFiles = [
   "silver-afterglow.webp",
@@ -77,6 +79,15 @@ test("garden and photo wedding use the approved full-photo floral art", () => {
   const expected = `data:image/webp;base64,${fs.readFileSync(path.join(artDir, "romantic-story-cover.webp")).toString("base64")}`;
   assert.equal(TemplateArt.getDataUrl("botanical"), expected);
   assert.equal(TemplateArt.getDataUrl("modern-vow"), expected);
+  // The housewarming photo story reuses the same floral cover rather than
+  // shipping another binary decoration.
+  assert.equal(TemplateArt.getDataUrl("home-warm"), expected);
+});
+
+test("the garden baby shower reuses the woodland decoration", () => {
+  const expected = `data:image/webp;base64,${fs.readFileSync(path.join(artDir, "little-forest.webp")).toString("base64")}`;
+  assert.equal(TemplateArt.getDataUrl("baby-garden"), expected);
+  assert.equal(TemplateArt.getDataUrl("little-forest"), expected);
 });
 
 test("typographic ticket and poster omit unused built-in image payloads", () => {

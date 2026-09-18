@@ -10,7 +10,10 @@
     "wedding": "Wedding",
     "gohui": "70th Birthday",
     "hwangap": "60th Birthday",
-    "first-birthday": "First Birthday"
+    "first-birthday": "First Birthday",
+    "baby-shower": "Baby Shower",
+    "graduation": "Graduation",
+    "housewarming": "Housewarming"
   },
 
   "templates": {
@@ -410,6 +413,111 @@
           "profile-1": { "name": "Yujun", "role": "The birthday boy", "description": "A little star who waves his hands whenever music plays." },
           "notice-1": { "heading": "The programme", "body": "A welcome, the meal, then the doljabi." },
           "course-1": { "place": "Star Lounge", "note": "High chairs and family seating are ready." }
+        }
+      }
+    },
+    "baby-cloud": {
+      "name": "A Little Cloud Is Coming",
+      "note": "A baby shower in pastel clouds and round lettering",
+      "defaults": {
+        "title": "A little cloud is on the way",
+        "subtitle": "An afternoon of waiting for the baby, together",
+        "host": "Erin & Jordan",
+        "location": "Sunlit brunch house",
+        "message": "I would love to share the excitement of waiting for this baby with the people I love. Come as you are and celebrate with us.",
+        "items": {
+          "notice-1": { "heading": "About gifts", "body": "Your company is gift enough. If you would like to bring something, baby clothes or a soft cloth are lovely." },
+          "course-1": { "place": "Sunlit brunch house", "note": "Give your name at the door and we will show you to your seat." },
+          "course-2": { "place": "The lounge hall", "note": "Guess-the-name and a few small prize games are planned." },
+          "course-3": { "place": "The window table", "note": "We will cut the cake and take photos together." },
+          "link-1": { "label": "RSVP", "value": "Reply so we can plan the food" }
+        }
+      }
+    },
+    "baby-garden": {
+      "name": "Waiting in the Garden",
+      "note": "A baby shower dressed in green garden and hand-drawn markers",
+      "defaults": {
+        "title": "A first hello in the garden",
+        "subtitle": "Celebrating the season we will share with the baby",
+        "host": "Sera & Miles",
+        "location": "Garden cafe glasshouse",
+        "message": "We want to gather the stories we will tell the baby we are about to meet. Come along and celebrate with us.",
+        "items": {
+          "notice-1": { "heading": "What to expect", "body": "A light brunch and a seasonal dessert are planned. Gifts are entirely optional." },
+          "course-1": { "place": "The garden entrance", "note": "Come in through the glasshouse door and you will see us." },
+          "course-2": { "place": "The glasshouse hall", "note": "Guess-the-name, and a wish card for the baby." },
+          "course-3": { "place": "The long table", "note": "Cake and tea, and no reason to hurry." },
+          "link-1": { "label": "Questions", "value": "Get in touch with whoever is helping host" }
+        }
+      }
+    },
+    "grad-cap": {
+      "name": "The Day the Caps Fly",
+      "note": "A graduation notice composed in navy and gold type",
+      "defaults": {
+        "title": "Please celebrate my graduation",
+        "subtitle": "Closing the record of four long years",
+        "host": "From. Sebastian",
+        "location": "University main hall",
+        "message": "At the end of a long stretch of studying, I would like to mark the day quietly with the people who kept cheering me on.",
+        "items": {
+          "notice-1": { "heading": "Entry", "body": "Seats are first come, first served. Please arrive ten minutes before the start." },
+          "course-1": { "place": "University main hall", "note": "The ceremony begins on the hour." },
+          "course-2": { "place": "The garden by the main building", "note": "Family and group photographs." },
+          "course-3": { "place": "The booked dinner restaurant", "note": "Dinner follows in the reserved room." }
+        }
+      }
+    },
+    "grad-bold": {
+      "name": "An Ending and a Start",
+      "note": "A graduation party shouted in bold type and bright colour",
+      "defaults": {
+        "title": "WE DID IT!",
+        "subtitle": "An evening to celebrate graduating, loudly",
+        "host": "From. Dana",
+        "location": "Rooftop by the campus",
+        "message": "I want to celebrate this ending properly, with the people I stayed up and laughed through all of it with.",
+        "items": {
+          "notice-1": { "heading": "Party notes", "body": "Light food and drinks are ready. Wear the gown or leave it at home — either is fine." },
+          "course-1": { "place": "Rooftop by the campus", "note": "Give the booking name at the door." },
+          "course-2": { "place": "The rooftop deck", "note": "Group photos and the cap toss." },
+          "link-1": { "label": "RSVP", "value": "Reply so we know the numbers" }
+        }
+      }
+    },
+    "home-key": {
+      "name": "Handing You the Key",
+      "note": "A housewarming invitation in warm terracotta with a key motif",
+      "defaults": {
+        "title": "Your first time at the new place",
+        "subtitle": "Small rooms, and plenty of room for you",
+        "host": "From. Gemma",
+        "location": "The new living room",
+        "message": "The move is finally done and I can breathe again. I would love to share this home's first dinner with the people I love.",
+        "items": {
+          "notice-1": { "heading": "About gifts", "body": "Come empty-handed if you like. Bring yourself, that is plenty." },
+          "course-1": { "place": "The new front door", "note": "There are plenty of slippers waiting in the hall." },
+          "course-2": { "place": "The living room and the small room", "note": "A lap around the place while we catch up." },
+          "course-3": { "place": "The long kitchen table", "note": "A home-cooked dinner and something sweet after." }
+        }
+      }
+    },
+    "home-warm": {
+      "name": "Our First Dinner Here",
+      "note": "A housewarming story filled with photographs and ochre light",
+      "defaults": {
+        "title": "Dinner at our place",
+        "subtitle": "Opening the first season in a new home",
+        "host": "From. Us",
+        "location": "The new place",
+        "message": "With the boxes finally unpacked, we thought of the people we want around the table. Wear something comfortable and stay a while.",
+        "items": {
+          "profile-1": { "name": "Our home", "role": "Housewarming", "description": "The first furniture we chose together, and the seat by the window." },
+          "course-1": { "place": "The new front door", "note": "Let yourself in when you arrive." },
+          "course-2": { "place": "The study by the window", "note": "Favourite books and a few small plants to look over." },
+          "course-3": { "place": "The kitchen table", "note": "A warm soup and something from the grill." },
+          "link-1": { "label": "Questions", "value": "Get in touch before you arrive" }
         }
       }
     }
