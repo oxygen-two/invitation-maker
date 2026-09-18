@@ -66,7 +66,11 @@
   <header class="studio-bar">
     <a href="/studio">Invitation Studio<span data-i18n="header.tagline">작은 날도, 특별하게.</span></a>
     <div class="studio-bar-meta">
-      <p id="draft-status" role="status" data-i18n="status.draftKept">이 기기에 초안을 보관합니다</p>
+      <p id="draft-status" role="status">
+        <svg class="draft-status-icon" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M5 10h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span id="draft-status-text" data-i18n="status.draftKept">이 기기에 초안을 보관합니다</span>
+        <span class="draft-status-short" aria-hidden="true" data-i18n="status.draftKeptShort">초안</span>
+      </p>
       <a class="studio-guide-link" href="/guide" data-i18n="header.guideLink">사용법</a>
       <!-- Sits in the top bar, clear of .studio-steps, so the three-stage nav
            keeps reading as the one row of primary navigation. A <select> is
@@ -101,7 +105,9 @@
 
       <section class="template-picker" data-i18n-attr="aria-label:gallery.pickerLabel" aria-label="초대장 템플릿 선택">
         <span class="picker-label" data-i18n="gallery.occasionQuestion">어떤 날인가요?</span>
-        <div id="occasion-list" class="occasion-list" data-i18n-attr="aria-label:gallery.occasionListLabel" aria-label="행사 유형"></div>
+        <div class="occasion-list-row">
+          <div id="occasion-list" class="occasion-list" data-i18n-attr="aria-label:gallery.occasionListLabel" aria-label="행사 유형"></div>
+        </div>
         <div class="template-picker-heading"><h2 class="picker-label" data-i18n="gallery.designLabel">디자인 선택</h2><button id="toggle-templates-button" type="button" aria-controls="template-list" aria-expanded="false" data-i18n="gallery.showAll">전체 보기</button></div>
         <div id="template-list" class="template-list" data-i18n-attr="aria-label:gallery.designListLabel" aria-label="템플릿 디자인"></div>
         <div class="template-apply-row">
@@ -320,10 +326,13 @@
         <p class="eyebrow" data-i18n="preview.eyebrow">Preview</p>
         <h2 data-i18n="preview.heading">미리보기</h2>
       </div>
-      <div id="pending-preview-notice" class="pending-preview-notice" hidden>
-        <p id="pending-preview-text" role="status"></p>
-        <button id="preview-apply-button" type="button" data-i18n="preview.apply">선택한 디자인 적용</button>
-      </div>
+      <!-- Was: a second "Apply this design" notice duplicating the apply row's
+           summary and CTA (B-5). The apply row above is the one place that
+           says what is selected and the one button that applies it; a design
+           being previewed here that is not yet applied is already explained
+           there, so nothing is lost by removing the second heading, sentence
+           and button rather than trying to keep two copies of the same fact
+           in sync. -->
       <!-- The invitation renders inside its own document (see mountPreviewFrame
            in assets/studio/app.js). Two reasons: the invitation's own <h1> and
            <header> stay out of the studio's page outline, and the frame runs the
@@ -338,8 +347,8 @@
         <h2 data-i18n="library.heading">나의 초대장</h2>
       </div>
       <div class="upload-box">
-        <label for="html-upload" data-i18n="library.uploadLabel">다운로드된 HTML 등록</label>
-        <input id="html-upload" type="file" accept=".html,text/html">
+        <label for="html-upload" class="upload-dropzone" data-i18n="library.dropzone">HTML 파일을 여기로 끌어다 놓거나 선택하세요</label>
+        <input id="html-upload" type="file" accept=".html,text/html" class="upload-input-visually-hidden">
         <p id="upload-status" class="upload-status" role="status" aria-live="polite"></p>
       </div>
       <div id="saved-list" class="saved-list"></div>

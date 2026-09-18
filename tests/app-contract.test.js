@@ -1322,8 +1322,22 @@ test("autosave failures keep the localized status and report a draft-save fault"
   harness.api.saveDraft();
   await harness.api.waitForDraftWrite();
 
-  assert.equal(harness.node("#draft-status").textContent, ko("status.draftFailed"));
+  assert.equal(harness.node("#draft-status-text").textContent, ko("status.draftFailed"));
   assert.deepEqual(reports, [{ error: failure, context: "draft_save" }]);
+});
+
+test("setDraftStatus updates the short label and icon for the failed state, not a frozen 'Saved'", async () => {
+  const harness = loadEditorHarness({ putDraft: async () => { throw new Error("disk full"); } });
+  harness.window.InvitationErrorReporting = { reportError() {} };
+  harness.api.setDraftReady(true);
+
+  harness.api.saveDraft();
+  await harness.api.waitForDraftWrite();
+
+  assert.equal(harness.node("#draft-status-text").textContent, ko("status.draftFailed"));
+  assert.equal(harness.node(".draft-status-short").textContent, ko("status.draftFailedShort"));
+  assert.notEqual(harness.node(".draft-status-short").textContent, ko("status.draftSavedShort"));
+  assert.equal(harness.node(".draft-status-icon").classList.contains("is-warning"), true);
 });
 
 test("manual save failures keep the localized status and report a draft-save fault", async () => {
@@ -1608,6 +1622,75 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
   assert.ok(main.innerHTML.includes(ko("viewer.errorBody")), main.innerHTML);
   assert.ok(main.innerHTML.includes(ko("viewer.errorTitle")), main.innerHTML);
   assert.match(ko("viewer.errorBody"), /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+});
+
+test("gallery has one apply CTA, not a second button in the preview notice", () => {
+  const index = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  assert.doesNotMatch(index, /id="pending-preview-notice"/);
+  assert.doesNotMatch(index, /id="preview-apply-button"/);
+  assert.doesNotMatch(index, /id="pending-preview-text"/);
+  assert.doesNotMatch(app, /dom\.pendingPreview\b|dom\.previewApply\b/);
+  // The apply row stays the one CTA and the summary sentence appears once.
+  assert.match(index, /class="template-apply-row"[\s\S]*?id="template-summary"[\s\S]*?id="apply-template-button"/);
+});
+
+test("library empty state offers an illustration, copy and a way back to the gallery", async () => {
+  const harness = loadLibraryHarness();
+
+  await harness.api.refreshSaved();
+  const markup = harness.node("#saved-list").innerHTML;
+
+  assert.match(markup, /<svg[^>]*class="library-empty-icon"/);
+  assert.match(markup, new RegExp(escapeRegExp(ko("library.emptyTitle"))));
+  assert.match(markup, new RegExp(escapeRegExp(ko("library.emptyBody"))));
+  assert.match(markup, new RegExp(`data-action="start-new"[^>]*>${escapeRegExp(ko("library.startNew"))}`));
+
+  const app = read("assets/studio/app.js");
+  assert.match(app, /dataset\.action === "start-new"\)\s*\{\s*setStudioStage\("gallery"\);/);
+});
+
+test("the library upload input becomes a styled, drag-and-drop dropzone that stays keyboard focusable", () => {
+  const index = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  assert.match(index, /<label for="html-upload" class="upload-dropzone" data-i18n="library\.dropzone"/);
+  assert.match(index, /<input id="html-upload"[^>]*class="upload-input-visually-hidden"/);
+  const css = read("assets/studio/studio.css");
+  assert.match(css, /\.upload-input-visually-hidden\s*\{[^}]*position:\s*absolute[^}]*clip-path:\s*inset\(50%\)/s);
+  assert.match(app, /addEventListener\("drop"/);
+  assert.match(app, /registerUploadedHtml\(/g);
+});
+
+test("draft status collapses to an icon and a short label on phones, and the language select stays legible", () => {
+  const index = read("studio.html");
+  const css = read("assets/studio/studio.css");
+
+  assert.match(index, /<svg class="draft-status-icon"/);
+  assert.match(index, /<span id="draft-status-text" data-i18n="status\.draftKept">/);
+  // The short label is aria-hidden: it stands in visually for the phone
+  // reader, but #draft-status-text (moved off-screen, not display:none)
+  // stays the one sentence a screen reader hears.
+  assert.match(index, /<span class="draft-status-short" aria-hidden="true" data-i18n="status\.draftKeptShort">/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#draft-status\s*\{[^}]*font-size:\s*1[2-9]px/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#language-select\s*\{[^}]*font-size:\s*1[2-9]px/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#draft-status-text\s*\{[^}]*position:\s*absolute/);
+  assert.doesNotMatch(css, /#draft-status-text\s*\{[^}]*display:\s*none/);
+  // The fade lives on the non-scrolling row container's overlay, never on
+  // .occasion-list itself, so it can't mask a chip's own focus ring.
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.occasion-list-row::after\s*\{[^}]*background:\s*linear-gradient/);
+  assert.doesNotMatch(css, /\.occasion-list\s*\{[^}]*mask-image:/);
+  for (const translate of [ko, en]) {
+    for (const shortKey of ["draftKeptShort", "draftSavingShort", "draftSavedShort", "draftFailedShort", "draftRestoredShort", "draftUnavailableShort"]) {
+      assert.notEqual(translate(`status.${shortKey}`), `status.${shortKey}`);
+    }
+  }
+});
+
+test("the occasion row scrolls a focused chip into view, clear of the fade overlay", () => {
+  const app = read("assets/studio/app.js");
+  assert.match(app, /dom\.occasions\.addEventListener\("focusin"[\s\S]{0,400}?scrollIntoView\(\{\s*inline:\s*"nearest",\s*block:\s*"nearest"\s*\}\)/);
 });
 
 test("editor exposes mobile view tabs and selected template state", () => {

@@ -343,10 +343,7 @@
          carries a different sense of the section instead. */
       eyebrow: "Live",
       heading: "Preview",
-      frameTitle: "Invitation preview",
-      apply: "Apply this design",
-      pendingTemplate: "This is your current draft. The “{name}” design you picked is not applied yet.",
-      sample: "Design sample · what you have written is kept"
+      frameTitle: "Invitation preview"
     },
 
     finish: {
@@ -430,7 +427,10 @@
       eyebrow: "Saved",
       heading: "My invitations",
       uploadLabel: "Add a downloaded HTML file",
-      empty: "Nothing here yet.",
+      emptyTitle: "No invitations yet",
+      emptyBody: "Finish a design here, or drop in an HTML file you downloaded, and it will show up in this list.",
+      startNew: "Start a new invitation",
+      dropzone: "Drop an HTML file here, or choose one",
       sourceUpload: "Imported",
       sourceGenerated: "Made here",
       open: "Open",
@@ -601,6 +601,16 @@
       draftFailed: "Autosave failed · download it as HTML",
       draftRestored: "Restored your previous draft",
       draftUnavailable: "Autosave unavailable · download it as HTML",
+      // B-10: the phone header collapses the full sentence above to one of
+      // these short labels, kept in step with whichever state is current
+      // (setDraftStatus updates both). The full sentence stays the one a
+      // screen reader hears; these are aria-hidden.
+      draftKeptShort: "Draft",
+      draftSavingShort: "Saving…",
+      draftSavedShort: "Saved",
+      draftFailedShort: "Not saved",
+      draftRestoredShort: "Restored",
+      draftUnavailableShort: "Autosave off",
 
       saved: "Added to your library.",
       savedUnsynchronized: "Added, but the library could not finish tidying up.",

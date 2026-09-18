@@ -345,10 +345,7 @@
     preview: {
       eyebrow: "Preview",
       heading: "미리보기",
-      frameTitle: "초대장 미리보기",
-      apply: "선택한 디자인 적용",
-      pendingTemplate: "현재 초안 미리보기입니다. 선택한 ‘{name}’ 디자인은 아직 적용 전입니다.",
-      sample: "디자인 샘플 · 작성한 내용은 유지됩니다"
+      frameTitle: "초대장 미리보기"
     },
 
     finish: {
@@ -437,7 +434,10 @@
       eyebrow: "Library",
       heading: "나의 초대장",
       uploadLabel: "다운로드된 HTML 등록",
-      empty: "아직 등록된 초대장이 없습니다.",
+      emptyTitle: "아직 등록된 초대장이 없어요",
+      emptyBody: "여기서 완성한 초대장이나 다운로드한 HTML 파일을 끌어다 놓으면 이 목록에 모여요.",
+      startNew: "새 초대장 만들기",
+      dropzone: "HTML 파일을 여기로 끌어다 놓거나 선택하세요",
       sourceUpload: "HTML 등록",
       sourceGenerated: "직접 제작",
       open: "열기",
@@ -622,6 +622,12 @@
       draftFailed: "자동 저장 실패 · HTML로 다운로드해 주세요",
       draftRestored: "이전 초안을 복구했습니다",
       draftUnavailable: "자동 저장 사용 불가 · HTML로 다운로드해 주세요",
+      draftKeptShort: "초안",
+      draftSavingShort: "저장 중…",
+      draftSavedShort: "저장됨",
+      draftFailedShort: "저장 실패",
+      draftRestoredShort: "복원됨",
+      draftUnavailableShort: "자동 저장 불가",
 
       saved: "목록에 등록했습니다.",
       savedUnsynchronized: "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.",
