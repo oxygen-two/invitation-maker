@@ -78,6 +78,12 @@ const state = {
   activeTemplate: "royal",
   appliedBaseline: {},
   undoSnapshot: null,
+  /* What Undo has to know about the content it would bring back, beyond the
+     content itself: the language it was written in, and — by being set at all
+     — that it was an untouched sample of ours rather than the author's own
+     draft. Null whenever there is nothing to undo, or when the snapshot is
+     the author's writing and must come back exactly as they left it. */
+  undoSampleLanguage: null,
   naverMapClientId: "",
   googleMapsApiKey: "",
   heroImage: null,
@@ -280,9 +286,22 @@ const handlePreviewClick = (event) => {
   mountPreviewMaps(previewRenderId);
 };
 
+let previewFallbackBound = false;
+
+/* Seeds — or re-seeds — the frame. A language change comes back through here
+   because the language is baked into the seed and not into a render: it is in
+   <html lang>, which is what a screen reader and the browser's own text
+   handling go by, and in the chrome frozen into the head. Patching the body
+   alone would leave the card describing itself in the language the studio
+   opened in. */
 const mountPreviewFrame = () => new Promise((resolve) => {
   if (!previewFrame) {
-    dom.preview.addEventListener("click", handlePreviewClick);
+    // The fallback host is a live node that survives a re-seed, so it is
+    // bound once rather than once per call.
+    if (!previewFallbackBound) {
+      dom.preview.addEventListener("click", handlePreviewClick);
+      previewFallbackBound = true;
+    }
     resolve(false);
     return;
   }
@@ -1776,27 +1795,60 @@ const focusPresetCard = (templateId) => {
 // the tokens are set through style="" instead, which always does.
 const LIBRARY_EMPTY_ENVELOPE_SVG = `<svg class="library-empty-icon" viewBox="0 0 360 330" aria-hidden="true"><path d="M24 144 180 32l156 112v153H24Z" style="fill:var(--studio-line-strong)"/><rect x="61" y="62" width="238" height="222" rx="5" style="fill:var(--studio-surface);stroke:var(--studio-line)"/><rect x="75" y="76" width="210" height="194" rx="2" style="fill:none;stroke:var(--studio-line)"/><path d="M180 153c-42-24-26-51-10-35l10 10 10-10c16-16 32 11-10 35Z" style="fill:var(--studio-accent)"/><path d="M133 180h94M152 195h56" style="fill:none;stroke:var(--studio-ink-soft)" stroke-width="2" stroke-linecap="round"/><path d="m24 144 156 96 156-96v153H24Z" style="fill:var(--studio-surface-alt);stroke:var(--studio-line-strong)"/><path d="m24 297 134-97c13-10 31-10 44 0l134 97" style="fill:var(--studio-surface-sunken);stroke:var(--studio-line-strong)"/></svg>`;
 
+/* The baseline every later "has the author touched this?" question is asked
+   against. It is read back off the FORM rather than snapshotted from the
+   invitation we just wrote into it, because the form is deliberately not a
+   lossless mirror of a sample: a dateLabel that is only our own rendering of
+   the instant is kept out of the sentence field, and the time zone select
+   always answers with a zone. Snapshotting the sample instead would make an
+   untouched draft read as edited the instant it was applied, which is the
+   difference between "the author wrote this" and "we did". */
+const captureAppliedBaseline = () => {
+  state.appliedBaseline = getFormData();
+  return state.appliedBaseline;
+};
+
+/* Is the page showing our sample, or the author's writing? Rewriting content
+   on their behalf — following a language switch, undoing back to a sample —
+   turns on this one question, and the form answers it: read back and compared
+   with the baseline captured when the sample was put there. personalDraft is
+   the second, coarser signal, true from the first keystroke and from a
+   restored draft, and it carries the moment before there is a baseline worth
+   comparing against. Every editable control in the studio is inside
+   #invitation-form, so a false personalDraft really does mean nobody has
+   typed anything. */
+const showsUntouchedSample = () =>
+  !personalDraft || !PresetApplication.isDirty(getFormData(), state.appliedBaseline);
+
 const applyPendingTemplate = () => {
   if (hasPendingEditorOperation()) return;
   const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
   if (!preset) return;
 
   const current = getFormData();
+  const untouchedSample = showsUntouchedSample();
 
   try {
     const { previous, next } = PresetApplication.prepare({
       current,
       preset,
+      /* Deliberately more cautious than showsUntouchedSample(): losing what
+         the author wrote is the one unrecoverable outcome here, so content is
+         carried into the new design unless BOTH signals agree nothing has
+         been touched. Keeping a sample one design too long costs nothing. */
       preserveContent: personalDraft || PresetApplication.isDirty(current, state.appliedBaseline),
       naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
     });
     state.undoSnapshot = previous;
-    state.appliedBaseline = next;
+    // Undo has to know what it would be putting back, and it cannot ask
+    // later: by then the baseline belongs to the design just applied.
+    state.undoSampleLanguage = untouchedSample ? I18n?.getLanguage?.() ?? null : null;
     state.invitation = next;
     state.activeTemplate = next.templateId;
     state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, next.templateId);
     state.pendingTemplateId = next.templateId;
     fillForm(next);
+    captureAppliedBaseline();
     renderTemplates();
     renderPreview();
     personalDraft = true;
@@ -1808,16 +1860,35 @@ const applyPendingTemplate = () => {
   }
 };
 
+/* Undo puts the draft back as it stood before the apply — with the one
+   exception a language switch has, and for the same reason. A pre-apply
+   sample was our writing, and the studio may have changed language since;
+   handing that snapshot back verbatim is how Korean sample text returns under
+   English chrome. So an untouched sample is rebuilt from the active catalog's
+   preset for the design it belonged to, while anything the author wrote comes
+   back exactly as they left it, because that is their document. */
 const undoTemplateApplication = () => {
   if (hasPendingEditorOperation() || !state.undoSnapshot) return;
-  const restored = PresetApplication.snapshot(state.undoSnapshot);
+  const previous = PresetApplication.snapshot(state.undoSnapshot);
+  const staleSample = Boolean(state.undoSampleLanguage)
+    && state.undoSampleLanguage !== (I18n?.getLanguage?.() ?? null);
+  const preset = staleSample ? TemplateCatalog.getPreset(state.catalog, previous.templateId) : null;
+  const restored = preset
+    ? PresetApplication.prepare({
+      current: previous,
+      preset,
+      preserveContent: false,
+      naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
+    }).next
+    : previous;
   state.undoSnapshot = null;
-  state.appliedBaseline = restored;
+  state.undoSampleLanguage = null;
   state.invitation = restored;
   state.activeTemplate = restored.templateId;
   state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, restored.templateId);
   state.pendingTemplateId = restored.templateId;
   fillForm(restored);
+  captureAppliedBaseline();
   renderTemplates();
   renderPreview();
   focusPresetCard(restored.templateId);
@@ -2522,8 +2593,11 @@ const loadInitialData = async () => {
   }
   state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
   state.pendingTemplateId = state.activeTemplate;
-  state.appliedBaseline = PresetApplication.snapshot(state.invitation);
   state.undoSnapshot = null;
+  state.undoSampleLanguage = null;
+  // The baseline is not set here: it is read back off the form by
+  // captureAppliedBaseline once init() has filled it, which is the only
+  // reading an untouched sample compares equal to.
 };
 
 const init = async () => {
@@ -2549,7 +2623,6 @@ const init = async () => {
         state.activeTemplate = state.invitation.templateId;
         state.pendingTemplateId = state.activeTemplate;
         state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
-        state.appliedBaseline = state.invitation;
         personalDraft = true;
         setDraftStatus('status.draftRestored');
       }
@@ -2559,6 +2632,11 @@ const init = async () => {
     }
     renderTemplates();
     fillForm(state.invitation);
+    /* Both boot paths — the starting sample and a restored draft — end here,
+       so the baseline is taken here, once, from the form they both filled.
+       A restored draft is the author's (personalDraft), but if it is still
+       our sample untouched this is what lets a later language switch say so. */
+    captureAppliedBaseline();
     mountPublishing();
     renderPreview();
     draftReady = true;
@@ -3056,31 +3134,60 @@ const populateLanguageSwitcher = () => {
 };
 
 /* Re-renders every surface that was built from the dictionary or the catalog.
-   The author's invitation is deliberately NOT retranslated: what they typed is
-   their document, and swapping it out on a language change would be data loss.
-   The one exception is an untouched draft, which is still our sample rather
-   than their writing — personalDraft is false only until they edit or apply a
-   design. */
+   The rule is about authorship, not about how far the author has got:
+   untouched sample content follows the language; anything the author changed
+   does not. What they typed is their document, and swapping it out on a
+   language change would be data loss — but a sample they have only looked at
+   is still our writing, whether they are on the one the studio opened with or
+   on a design they applied afterwards, and leaving that in the old language
+   is how the gallery and the draft ended up disagreeing.
+   "Untouched" is measured against the baseline captured when the sample was
+   put on the page, so it stays true across an apply, and the sample is
+   rebuilt from the ACTIVE design's own localized preset rather than the
+   generic default invitation. */
 const handleLanguageChange = async () => {
   if (languageSelect) languageSelect.value = I18n.getLanguage();
   syncStudioHeading();
 
   if (state.rawData) {
     await applyContentLanguage();
-    if (!personalDraft && state.localizedDefault) {
+    const untouchedSample = showsUntouchedSample();
+    const activePreset = untouchedSample
+      ? TemplateCatalog.getPreset(state.catalog, state.activeTemplate)
+      : null;
+    if (activePreset) {
+      // preserveContent: false is the whole point — the words are ours to
+      // replace. prepare still carries the author's map service across.
+      const { next } = PresetApplication.prepare({
+        current: getFormData(),
+        preset: activePreset,
+        preserveContent: false,
+        naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
+      });
+      state.invitation = next;
+      fillForm(next);
+      captureAppliedBaseline();
+    } else if (untouchedSample && state.localizedDefault) {
+      // A draft on a design the catalog no longer carries still has the
+      // starting sample to fall back to.
       state.invitation = InvitationCore.normalizeInvitation({
         ...state.localizedDefault,
         mapProvider: defaultMapProvider(),
         templateId: state.activeTemplate,
         naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
       });
-      state.appliedBaseline = PresetApplication.snapshot(state.invitation);
       fillForm(state.invitation);
+      captureAppliedBaseline();
     } else {
       // Re-render the item cards so their field labels and placeholder
       // summaries follow the new language without touching the values.
       renderContentEditor(getItemsData(), getOpenItemId());
     }
+    // The preview frame's document was seeded in the old language and only
+    // ever has its body patched, so it is re-seeded here — otherwise the card
+    // keeps declaring itself Korean, in <html lang> and in its baked chrome,
+    // however English the words inside it now are.
+    await mountPreviewFrame();
     renderTemplates();
     renderPreview();
   }
