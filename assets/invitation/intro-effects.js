@@ -30,15 +30,20 @@
     [15, 68, .3, 1.1], [34, 56, .2, .85], [55, 74, .34, 1.2], [73, 61, .24, .9], [90, 78, .4, 1.05]
   ]);
 
+  /* Each preset names the dictionary key for its label rather than carrying
+     the label itself: the studio's effect picker is built from studio.html's
+     data-i18n bindings and switches live, so a baked string here could only
+     ever be one language and would drift from the one on screen. `copy` next
+     to it is a list of FIELD NAMES, not copy — see renderMarkup. */
   const PRESETS = Object.freeze({
-    envelope: Object.freeze({ label: "봉투 열기", duration: 3.2, copy: Object.freeze(["title", "host"]) }),
-    "card-shrink": Object.freeze({ label: "전체 화면 카드", duration: 3.0, copy: Object.freeze(["title", "subtitle"]) }),
-    dawn: Object.freeze({ label: "어둠에서 밝아지기", duration: 2.6, copy: Object.freeze(["title", "subtitle"]) }),
-    fireworks: Object.freeze({ label: "골드 폭죽", duration: 3.4, copy: Object.freeze(["title", "dateLabel"]) }),
-    curtain: Object.freeze({ label: "커튼 열기", duration: 3.0, copy: Object.freeze(["title", "host"]) }),
-    petals: Object.freeze({ label: "꽃잎 사이로", duration: 3.2, copy: Object.freeze(["title", "subtitle"]) }),
-    spotlight: Object.freeze({ label: "스포트라이트", duration: 2.8, copy: Object.freeze(["title", "dateLabel"]) }),
-    "photo-focus": Object.freeze({ label: "사진 초점 전환", duration: 3.6, copy: Object.freeze(["title", "subtitle"]) })
+    envelope: Object.freeze({ labelKey: "effects.introEnvelope", duration: 3.2, copy: Object.freeze(["title", "host"]) }),
+    "card-shrink": Object.freeze({ labelKey: "effects.introCardShrink", duration: 3.0, copy: Object.freeze(["title", "subtitle"]) }),
+    dawn: Object.freeze({ labelKey: "effects.introDawn", duration: 2.6, copy: Object.freeze(["title", "subtitle"]) }),
+    fireworks: Object.freeze({ labelKey: "effects.introFireworks", duration: 3.4, copy: Object.freeze(["title", "dateLabel"]) }),
+    curtain: Object.freeze({ labelKey: "effects.introCurtain", duration: 3.0, copy: Object.freeze(["title", "host"]) }),
+    petals: Object.freeze({ labelKey: "effects.introPetals", duration: 3.2, copy: Object.freeze(["title", "subtitle"]) }),
+    spotlight: Object.freeze({ labelKey: "effects.introSpotlight", duration: 2.8, copy: Object.freeze(["title", "dateLabel"]) }),
+    "photo-focus": Object.freeze({ labelKey: "effects.introPhotoFocus", duration: 3.6, copy: Object.freeze(["title", "subtitle"]) })
   });
 
   const escapeHtml = (value = "") =>

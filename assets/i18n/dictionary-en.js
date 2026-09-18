@@ -258,7 +258,6 @@
       photoSkipped: "{file}: processed, but not added because of the {limit} limit.",
       limitItems: "item",
       limitPhotos: "photo",
-      imageFailed: "That image could not be processed.",
 
       noticeHeading: "Heading",
       noticeBody: "Body",
@@ -268,6 +267,19 @@
       linkLabel: "Label",
       linkValue: "Shown as",
       linkUrl: "URL"
+    },
+
+    /* Failures that reach a person as a sentence. The modules that raise them
+       throw a machine code and nothing else; the studio picks the wording here
+       at the moment it prints it. */
+    errors: {
+      image: {
+        type: "Only JPEG, PNG and WebP files can be used.",
+        sourceSize: "The original image must be 15 MiB or smaller.",
+        decode: "That image could not be read.",
+        encodedSize: "That image could not be compressed under 600 KiB.",
+        generic: "That image could not be processed."
+      }
     },
 
     map: {
@@ -295,7 +307,23 @@
       openMap: "Open in maps",
       openMainMap: "Open the venue in maps",
       skipIntro: "Skip",
-      skipIntroLabel: "Skip the intro"
+      skipIntroLabel: "Skip the intro",
+
+      /* The blank invitation a studio with nothing in it starts from.
+         Placeholder CONTENT for the author to overwrite, so it follows the
+         language they are working in, not the language of a finished file. */
+      defaultTitle: "Our special day",
+      defaultSubtitle: "An invitation made for you",
+      defaultLocation: "Add the venue",
+      defaultMessage: "A day to walk together, talk, and remember for a long time.",
+      defaultCourseMeetPlace: "Meeting point",
+      defaultCourseMeetNote: "Say where to meet first.",
+      defaultCourseCafePlace: "Cafe",
+      defaultCourseCafeNote: "Add a good spot to sit and talk.",
+      defaultCourseWalkPlace: "Walk",
+      defaultCourseWalkNote: "Add a route that suits the weather.",
+      defaultCourseDinnerPlace: "Dinner",
+      defaultCourseDinnerNote: "Add the booking or a dish to try."
     },
 
     preview: {

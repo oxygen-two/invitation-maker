@@ -1,5 +1,10 @@
 (function (root) {
-  const locationError = (code, message) => Object.assign(new Error(message), { code });
+  /* Lookups fail with a code and nothing else. The studio already decides the
+     wording from the code alone — a bad NAVER link and a bad Google link are
+     both INVALID_MAP_URL and both read as map.invalidUrl — so a sentence here
+     would be copy nobody displays, frozen in one language. The message is set
+     to the code so a fault report still names the failure. */
+  const locationError = (code, message = code) => Object.assign(new Error(message), { code });
 
   const PROVIDERS = Object.freeze(["naver", "google"]);
   const normalizeProvider = (value) => (PROVIDERS.includes(value) ? value : "naver");
@@ -37,9 +42,9 @@
 
   const parseUrl = (value) => {
     let url;
-    try { url = new URL(value); } catch { throw locationError("INVALID_MAP_URL", "올바른 지도 URL을 입력해 주세요."); }
+    try { url = new URL(value); } catch { throw locationError("INVALID_MAP_URL"); }
     if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || url.port) {
-      throw locationError("INVALID_MAP_URL", "네이버 지도 또는 Google 지도 URL을 입력해 주세요.");
+      throw locationError("INVALID_MAP_URL");
     }
     return url;
   };
@@ -48,17 +53,17 @@
     // A place ID, short link, or camera centre is not a verified marker location.
     if (url.hostname === "naver.me" || url.pathname.includes("/place/")
       || url.hostname.includes(".place.naver.com")) {
-      throw locationError("URL_LOCATION_UNAVAILABLE", "이 링크에서는 위치를 자동으로 확인할 수 없습니다. 지도 열기 버튼으로 확인해 주세요.");
+      throw locationError("URL_LOCATION_UNAVAILABLE");
     }
     const lat = url.searchParams.get("lat");
     const lng = url.searchParams.get("lng");
     if (lat === null && lng === null) {
-      throw locationError("URL_LOCATION_UNAVAILABLE", "좌표가 없는 링크입니다. 지도 열기 버튼으로 확인해 주세요.");
+      throw locationError("URL_LOCATION_UNAVAILABLE");
     }
     const latitude = Number(lat);
     const longitude = Number(lng);
     if (!lat?.trim() || !lng?.trim() || !inRange(latitude, longitude)) {
-      throw locationError("INVALID_MAP_URL", "지도 URL의 좌표가 올바르지 않습니다.");
+      throw locationError("INVALID_MAP_URL");
     }
     return { latitude, longitude };
   };
@@ -73,7 +78,7 @@
     const latitude = Number(match[1]);
     const longitude = Number(match[2]);
     if (!inRange(latitude, longitude)) {
-      throw locationError("INVALID_MAP_URL", "지도 URL의 좌표가 올바르지 않습니다.");
+      throw locationError("INVALID_MAP_URL");
     }
     return { latitude, longitude };
   };
@@ -86,14 +91,14 @@
      parser follows — so a link that has nothing else is not trusted. */
   const googleCoordinates = (url) => {
     if (GOOGLE_SHORT_HOSTS.includes(url.hostname)) {
-      throw locationError("URL_LOCATION_UNAVAILABLE", "이 링크에서는 위치를 자동으로 확인할 수 없습니다. 지도 열기 버튼으로 확인해 주세요.");
+      throw locationError("URL_LOCATION_UNAVAILABLE");
     }
     const placeMatches = [...`${url.pathname}${url.search}`.matchAll(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/g)];
     if (placeMatches.length) {
       const [, lat, lng] = placeMatches[placeMatches.length - 1];
       const coordinates = { latitude: Number(lat), longitude: Number(lng) };
       if (!inRange(coordinates.latitude, coordinates.longitude)) {
-        throw locationError("INVALID_MAP_URL", "지도 URL의 좌표가 올바르지 않습니다.");
+        throw locationError("INVALID_MAP_URL");
       }
       return coordinates;
     }
@@ -104,7 +109,7 @@
     const pathPair = url.pathname.match(/\/maps\/(?:search|place|dir\/[^/]*)\/([^/@]+)/);
     const fromPath = pathPair ? pairFrom(pathPair[1]) : null;
     if (fromPath) return fromPath;
-    throw locationError("URL_LOCATION_UNAVAILABLE", "이 링크에서는 위치를 자동으로 확인할 수 없습니다. 지도 열기 버튼으로 확인해 주세요.");
+    throw locationError("URL_LOCATION_UNAVAILABLE");
   };
 
   const isGoogleMapsUrl = (url) => GOOGLE_SHORT_HOSTS.includes(url.hostname)
@@ -117,7 +122,7 @@
     const url = parseUrl(value);
     if (NAVER_HOSTS.includes(url.hostname)) return naverCoordinates(url);
     if (isGoogleMapsUrl(url)) return googleCoordinates(url);
-    throw locationError("INVALID_MAP_URL", "네이버 지도 또는 Google 지도 URL을 입력해 주세요.");
+    throw locationError("INVALID_MAP_URL");
   };
 
   /* A rejected key does not always answer a lookup: Google reports a
@@ -127,7 +132,7 @@
   const DEFAULT_LOOKUP_TIMEOUT_MS = 10000;
   const withDeadline = (promise, timeoutMs) => new Promise((onResolve, onReject) => {
     const timer = setTimeout(
-      () => onReject(locationError("SERVICE_UNAVAILABLE", "지도 위치 검색을 사용할 수 없습니다.")),
+      () => onReject(locationError("SERVICE_UNAVAILABLE")),
       timeoutMs
     );
     promise.then(
@@ -138,17 +143,17 @@
 
   const geocodeNaver = (maps, query) => {
     if (!maps?.Service?.geocode) {
-      return Promise.reject(locationError("SERVICE_UNAVAILABLE", "지도 위치 검색을 사용할 수 없습니다."));
+      return Promise.reject(locationError("SERVICE_UNAVAILABLE"));
     }
     return new Promise((onResolve, onReject) => {
       maps.Service.geocode({ query }, (status, response) => {
         if (status !== maps.Service.Status.OK) {
-          onReject(locationError("SERVICE_UNAVAILABLE", "지도 위치 검색을 사용할 수 없습니다."));
+          onReject(locationError("SERVICE_UNAVAILABLE"));
           return;
         }
         const coordinates = coordinatesFrom(response);
         if (!coordinates) {
-          onReject(locationError("NOT_FOUND", "장소를 찾지 못했습니다."));
+          onReject(locationError("NOT_FOUND"));
           return;
         }
         onResolve(coordinates);
@@ -158,28 +163,28 @@
 
   const geocodeGoogle = (maps, query) => {
     if (typeof maps?.Geocoder !== "function") {
-      return Promise.reject(locationError("SERVICE_UNAVAILABLE", "지도 위치 검색을 사용할 수 없습니다."));
+      return Promise.reject(locationError("SERVICE_UNAVAILABLE"));
     }
     return new Promise((onResolve, onReject) => {
       try {
         new maps.Geocoder().geocode({ address: query }, (results, status) => {
           if (status === "ZERO_RESULTS") {
-            onReject(locationError("NOT_FOUND", "장소를 찾지 못했습니다."));
+            onReject(locationError("NOT_FOUND"));
             return;
           }
           if (status !== "OK") {
-            onReject(locationError("SERVICE_UNAVAILABLE", "지도 위치 검색을 사용할 수 없습니다."));
+            onReject(locationError("SERVICE_UNAVAILABLE"));
             return;
           }
           const coordinates = coordinatesFromGoogle(results);
           if (!coordinates) {
-            onReject(locationError("NOT_FOUND", "장소를 찾지 못했습니다."));
+            onReject(locationError("NOT_FOUND"));
             return;
           }
           onResolve(coordinates);
         });
       } catch {
-        onReject(locationError("SERVICE_UNAVAILABLE", "지도 위치 검색을 사용할 수 없습니다."));
+        onReject(locationError("SERVICE_UNAVAILABLE"));
       }
     });
   };
@@ -191,7 +196,7 @@
       try { return Promise.resolve(coordinatesFromUrl(preferredUrl)); }
       catch (error) { return Promise.reject(error); }
     }
-    if (!query) return Promise.reject(locationError("EMPTY_QUERY", "장소 또는 주소를 입력해 주세요."));
+    if (!query) return Promise.reject(locationError("EMPTY_QUERY"));
     return withDeadline(normalizeProvider(provider) === "google"
       ? geocodeGoogle(maps, query)
       : geocodeNaver(maps, query), timeoutMs);

@@ -254,7 +254,6 @@
       photoSkipped: "{file}: 사진 처리를 완료했지만 {limit} 제한으로 추가하지 않았습니다.",
       limitItems: "초대장 항목",
       limitPhotos: "사진",
-      imageFailed: "이미지를 처리할 수 없습니다.",
 
       noticeHeading: "제목",
       noticeBody: "내용",
@@ -264,6 +263,21 @@
       linkLabel: "라벨",
       linkValue: "표시값",
       linkUrl: "URL"
+    },
+
+    /* Failures that reach a person as a sentence. The modules that raise them
+       (assets/media/image-tools.js, assets/storage/invitation-storage.js,
+       assets/integrations/map-location.js) throw a machine code and nothing
+       else; the studio picks the wording here at the moment it prints it, so a
+       language switch mid-upload still reads correctly. */
+    errors: {
+      image: {
+        type: "JPEG, PNG, WebP 파일만 사용할 수 있습니다.",
+        sourceSize: "원본 이미지는 15 MiB 이하여야 합니다.",
+        decode: "이미지를 읽을 수 없습니다.",
+        encodedSize: "이미지를 600 KiB 이하로 압축할 수 없습니다.",
+        generic: "이미지를 처리할 수 없습니다."
+      }
     },
 
     map: {
@@ -294,7 +308,24 @@
       openMap: "장소 지도 열기",
       openMainMap: "대표 지도 열기",
       skipIntro: "건너뛰기",
-      skipIntroLabel: "인트로 건너뛰기"
+      skipIntroLabel: "인트로 건너뛰기",
+
+      /* The blank invitation a studio with nothing in it starts from. Not
+         chrome: this is placeholder CONTENT, written for the author to
+         overwrite, so it is resolved in the language the author is working in
+         rather than the language a finished invitation was built in. */
+      defaultTitle: "우리의 특별한 하루",
+      defaultSubtitle: "당신을 위해 준비한 초대장",
+      defaultLocation: "장소를 입력하세요",
+      defaultMessage: "함께 걷고, 이야기하고, 오래 기억할 하루를 준비했어요.",
+      defaultCourseMeetPlace: "만남 장소",
+      defaultCourseMeetNote: "첫 만남 위치를 적어주세요.",
+      defaultCourseCafePlace: "카페",
+      defaultCourseCafeNote: "대화하기 좋은 장소를 넣어주세요.",
+      defaultCourseWalkPlace: "산책",
+      defaultCourseWalkNote: "날씨에 맞는 동선을 적어주세요.",
+      defaultCourseDinnerPlace: "저녁",
+      defaultCourseDinnerNote: "예약 정보나 추천 메뉴를 적어주세요."
     },
 
     preview: {

@@ -13,15 +13,23 @@
   const DB_VERSION = 2;
   const STORE_NAME = "invitations";
 
+  /* A failure here is machine news, not copy: the browser's own DOMException is
+     passed through when there is one, and the fallback carries a code instead
+     of a sentence. Nothing in this module can know the reader's language, and
+     every place the studio actually tells someone that saving failed already
+     has its own dictionary entry (status.draftFailed, status.saveFailed,
+     status.removeFailed, status.storageUnavailable). */
+  const storageError = (code) => Object.assign(new Error(code), { code });
+
   const requestToPromise = (request) => new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("IndexedDB 요청에 실패했습니다."));
+    request.onerror = () => reject(request.error || storageError("IDB_REQUEST_FAILED"));
   });
 
   const transactionToPromise = (transaction) => new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     const rejectTransaction = () => {
-      reject(transaction.error || new Error("IndexedDB 트랜잭션에 실패했습니다."));
+      reject(transaction.error || storageError("IDB_TRANSACTION_FAILED"));
     };
     transaction.onerror = rejectTransaction;
     transaction.onabort = rejectTransaction;
@@ -30,7 +38,7 @@
   function open(indexedDB) {
     const databaseFactory = arguments.length === 0 ? root.indexedDB : indexedDB;
     if (!databaseFactory || typeof databaseFactory.open !== "function") {
-      return Promise.reject(new Error("IndexedDB를 사용할 수 없습니다."));
+      return Promise.reject(storageError("IDB_UNAVAILABLE"));
     }
 
     return new Promise((resolve, reject) => {
@@ -78,11 +86,11 @@
         resolve(request.result);
       };
       request.onerror = () => {
-        rejectOpen(upgradeError || request.error || new Error("IndexedDB 데이터베이스를 열 수 없습니다."));
+        rejectOpen(upgradeError || request.error || storageError("IDB_OPEN_FAILED"));
       };
       request.onblocked = () => {
         blocked = true;
-        rejectOpen(new Error("IndexedDB 데이터베이스 업그레이드가 차단되었습니다."));
+        rejectOpen(storageError("IDB_UPGRADE_BLOCKED"));
       };
     });
   }

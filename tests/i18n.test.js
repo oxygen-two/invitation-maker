@@ -462,15 +462,14 @@ test("a dateLabel the author typed is never reformatted by a language change", (
 });
 
 test("the studio's own copy never hard-codes a Korean sentence", () => {
-  const app = read("assets/studio/app.js");
-  const withoutComments = app
+  // The filename sanitiser needs a Hangul character class — a set of legal
+  // filename characters, not copy — and spells it \uac00-\ud7a3 so this check
+  // needs no exemption for it.
+  const app = read("assets/studio/app.js")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
-  // The filename sanitiser keeps a Hangul character class on purpose: it is a
-  // set of legal filename characters, not copy.
-  const withoutSanitizer = withoutComments.replace(/\[\^\\w가-힣-\]\+/g, "");
 
-  assert.doesNotMatch(withoutSanitizer, HANGUL, "Korean copy must live in dictionary-ko.js");
+  assert.doesNotMatch(app, HANGUL, "Korean copy must live in dictionary-ko.js");
 });
 
 const withoutComments = (source) => source
@@ -479,15 +478,16 @@ const withoutComments = (source) => source
 
 test("no surface outside the dictionaries hard-codes a Korean sentence", () => {
   /* The same rule the studio has always been held to, now applied to every
-     other surface that speaks. assets/invitation/core.js is exempt only for
-     its defaultInvitation block, which is not chrome: it is the sample
-     invitation's CONTENT, the last-resort copy of what invitation-data.json
-     holds, and it is replaced wholesale by the localized sample the moment
-     that file loads. */
+     other surface that speaks — assets/invitation/core.js included. Its blank
+     invitation used to be exempt as sample CONTENT rather than chrome; it now
+     names invitation.default* keys and is resolved per language, so there is
+     nothing left to exempt. tests/i18n-hardening.test.js covers the same
+     ground for the modules that raise errors. */
   const surfaces = [
     "assets/publishing/publishing.js",
     "assets/publishing/shared-invitation.js",
     "assets/invitation/viewer.js",
+    "assets/invitation/core.js",
     "admin/public/admin.js"
   ];
 
@@ -495,11 +495,6 @@ test("no surface outside the dictionaries hard-codes a Korean sentence", () => {
     assert.doesNotMatch(withoutComments(read(surface)), HANGUL,
       `${surface} must read its copy from a dictionary`);
   }
-
-  const core = withoutComments(read("assets/invitation/core.js"));
-  const withoutSample = core.replace(/const defaultInvitation = \{[\s\S]*?\n  \};/, "");
-  assert.notEqual(withoutSample, core, "the defaultInvitation block moved; re-check this exemption");
-  assert.doesNotMatch(withoutSample, HANGUL, "the invitation's chrome must come from the dictionaries");
 });
 
 test("shared.html and viewer.html inline copy is exactly what the Korean dictionary says", () => {

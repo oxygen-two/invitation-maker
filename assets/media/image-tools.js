@@ -9,15 +9,14 @@
   const WEBP_QUALITIES = Object.freeze([0.82, 0.72, 0.62, 0.52]);
   const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", WEBP_TYPE]);
 
-  const errorMessages = Object.freeze({
-    type: "JPEG, PNG, WebP 파일만 사용할 수 있습니다.",
-    "source-size": "원본 이미지는 15 MiB 이하여야 합니다.",
-    decode: "이미지를 읽을 수 없습니다.",
-    "encoded-size": "이미지를 600 KiB 이하로 압축할 수 없습니다."
-  });
-
+  /* What went wrong is reported as a code, never as a sentence. This module
+     runs in whatever language the studio happens to be in and has no access to
+     a dictionary; the caller that puts the failure on screen does
+     (assets/studio/app.js's describeImageError). The message defaults to the
+     code so a stack trace or a fault report still reads as something, and so
+     that nothing can accidentally print a half-translated string to a user. */
   class ImageError extends Error {
-    constructor(code, message = errorMessages[code] || "이미지를 처리할 수 없습니다.") {
+    constructor(code, message = code) {
       super(message);
       this.name = "ImageError";
       this.code = code;
@@ -162,6 +161,9 @@
     ENCODED_LIMIT,
     MAX_EDGE,
     ImageError,
+    // The name the i18n hardening plan gives this class. Same class, so
+    // `instanceof ImageTools.ImageError` in existing callers keeps working.
+    ImageToolsError: ImageError,
     validateFile,
     buildResizePlan,
     compress
