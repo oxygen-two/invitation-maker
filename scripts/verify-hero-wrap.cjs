@@ -1,4 +1,9 @@
-/* Proves the one thing a hero title must never do: break inside a word.
+/* Proves the one thing an invitation title must never do: break inside a word.
+
+   Two places print the author's title — the hero inside the card, and the
+   intro overlay that covers it on arrival — and both are checked here, because
+   both had the same defect for the same reason and a fix to one says nothing
+   about the other.
 
    A reviewer can read `word-break:keep-all` in the stylesheet and believe the
    job is done. Only a browser knows whether "BIRTHDAY!" actually fitted on the
@@ -44,13 +49,19 @@ const localize = (defaults, overlay) => {
 
 const overlayFor = (id) => overlayEn.templates?.[id]?.defaults;
 
-const sampleFor = (template, language) => ({
+/* Two renders per design. The hero is measured with the intro switched off,
+   so what is measured is the card and not the curtain painted over it; the
+   overlay is measured with an intro switched on, since it does not exist
+   otherwise. Every effect puts the title in the same .intro-copy box, so
+   rotating the effect by design index covers all eight of them across the
+   catalogue without multiplying the run. */
+const INTRO_EFFECTS = ["envelope", "card-shrink", "dawn", "fireworks", "curtain", "petals", "spotlight", "photo-focus"];
+
+const sampleFor = (template, language, introEffect) => ({
   ...localize(template.defaults, language === "en" ? overlayFor(template.id) : null),
   templateId: template.id,
   layoutFamily: template.familyId,
-  // The intro curtain reprints the title over the card; switching it off
-  // measures the hero itself rather than what is painted on top of it.
-  introEffect: "none"
+  introEffect
 });
 
 // Every title an author can be carrying when they pick a design, deduplicated.
@@ -63,12 +74,13 @@ const TITLES = [...new Set(data.templates.flatMap((template) => [
 // probed title carries the same script marker the renderer would have written.
 const SCRIPT_MARKED_DESIGNS = ["bloom-portrait", "signature-birthday", "cherry-muse", "peach-table"];
 
-/* Runs in the page. Swaps each candidate title into the live hero — the font,
-   the clamped size, the max-width and the text-transform all stay exactly as
-   the design renders them — and reports the words that did not survive. */
-const probeTitles = ({ titles, scriptMarked }) => {
-  const h1 = document.querySelector(".invite-hero h1");
-  if (!h1) return { error: "no hero title" };
+/* Runs in the page. Swaps each candidate title into the live title element —
+   the font, the container-relative size, the max-width and the text-transform
+   all stay exactly as the design renders them — and reports the words that did
+   not survive. */
+const probeTitles = ({ selector, titles, scriptMarked }) => {
+  const h1 = document.querySelector(selector);
+  if (!h1) return { error: `no title at ${selector}` };
 
   const hangul = /[\u3131-\u318e\uac00-\ud7a3]/;
   const results = [];
@@ -127,36 +139,48 @@ const probeTitles = ({ titles, scriptMarked }) => {
     for (const width of WIDTHS) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
       for (const language of ["ko", "en"]) {
-        for (const template of data.templates) {
-          await page.setContent(
-            core.buildStandaloneHtml(sampleFor(template, language), { language }),
-            { waitUntil: "load" }
-          );
-          // The designs are drawn in specific faces. Measuring fallback
-          // metrics would measure a document nobody receives.
-          await page.evaluate(() => window.document.fonts.ready);
-          const result = await page.evaluate(probeTitles, { titles: TITLES, scriptMarked: SCRIPT_MARKED_DESIGNS.includes(template.id) });
-          probes += TITLES.length;
+        for (const [index, template] of data.templates.entries()) {
+          const surfaces = [
+            { name: "hero", selector: ".invite-hero h1", introEffect: "none" },
+            { name: "intro", selector: ".intro-copy h1", introEffect: INTRO_EFFECTS[index % INTRO_EFFECTS.length] }
+          ];
 
-          const label = `${template.id}/${language}/${width}`;
-          if (result.error) {
-            failures.push(`${label}: ${result.error}`);
-            continue;
-          }
-          contracts.add(`${result.wordBreak} + ${result.overflowWrap}`);
-          for (const { title, broken } of result.results) {
-            failures.push(`${label}: "${title}" -> ${broken.join(", ")} at ${result.fontSize}px in ${result.boxWidth}px`);
-          }
-          if (process.env.HERO_WRAP_MATRIX) {
-            process.stdout.write([
-              template.id.padEnd(19),
-              language,
-              String(width).padStart(5),
-              `${String(result.fontSize).padStart(5)}px`,
-              `box ${String(result.boxWidth).padStart(4)}`,
-              `widest ${String(result.widest).padStart(4)}`,
-              result.results.length ? `BREAKS ${result.results.length}` : "ok"
-            ].join("  ") + "\n");
+          for (const surface of surfaces) {
+            await page.setContent(
+              core.buildStandaloneHtml(sampleFor(template, language, surface.introEffect), { language }),
+              { waitUntil: "load" }
+            );
+            // The designs are drawn in specific faces. Measuring fallback
+            // metrics would measure a document nobody receives.
+            await page.evaluate(() => window.document.fonts.ready);
+            const result = await page.evaluate(probeTitles, {
+              selector: surface.selector,
+              titles: TITLES,
+              scriptMarked: SCRIPT_MARKED_DESIGNS.includes(template.id)
+            });
+            probes += TITLES.length;
+
+            const label = `${surface.name}/${template.id}/${language}/${width}`;
+            if (result.error) {
+              failures.push(`${label}: ${result.error}`);
+              continue;
+            }
+            contracts.add(`${surface.name} ${result.wordBreak} + ${result.overflowWrap}`);
+            for (const { title, broken } of result.results) {
+              failures.push(`${label}: "${title}" -> ${broken.join(", ")} at ${result.fontSize}px in ${result.boxWidth}px`);
+            }
+            if (process.env.HERO_WRAP_MATRIX) {
+              process.stdout.write([
+                surface.name.padEnd(5),
+                template.id.padEnd(19),
+                language,
+                String(width).padStart(5),
+                `${String(result.fontSize).padStart(5)}px`,
+                `box ${String(result.boxWidth).padStart(4)}`,
+                `widest ${String(result.widest).padStart(4)}`,
+                result.results.length ? `BREAKS ${result.results.length}` : "ok"
+              ].join("  ") + "\n");
+            }
           }
         }
       }
@@ -172,7 +196,7 @@ const probeTitles = ({ titles, scriptMarked }) => {
   assert.deepEqual(
     failures.map((line) => line.split(": ")[0]),
     [],
-    `${failures.length} hero titles break inside a word`
+    `${failures.length} titles break inside a word`
   );
-  console.log(`PASS ${probes} title probes across ${data.templates.length} designs x ${TITLES.length} titles x ko/en x ${WIDTHS.join(", ")}px: no word cut or spilled`);
+  console.log(`PASS ${probes} title probes across hero+intro x ${data.templates.length} designs x ${TITLES.length} titles x ko/en x ${WIDTHS.join(", ")}px: no word cut or spilled`);
 })().catch((error) => { console.error(error.message); process.exitCode = 1; });

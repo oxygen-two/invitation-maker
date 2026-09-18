@@ -460,3 +460,47 @@ test("reduced motion skips before an active overlay remains mounted", () => {
   InvitationIntro.play(fixture.host, { introEffect: "envelope", title: "Us" }, fixture.environment);
   assert.equal(fixture.host.querySelector("[data-intro-overlay]"), null);
 });
+
+/* B-4, second half — the overlay reprints the author's title, so it is under
+   the same contract as the hero and broke in the same two ways. `.intro-copy`
+   stops at 420px while `vw` does not, and the default `word-break:normal`
+   offers Korean a break between any two syllables, so a title too long for one
+   line came apart inside a word: 4354 measured failures against the shipped
+   samples, all of them cuts, every design affected.
+
+   Whether the words now fit is a question for a layout engine, and
+   scripts/verify-hero-wrap.cjs asks it for this element as well as the hero.
+   What is pinned here is the CSS half of the contract. */
+test("the intro title is sized against its own box and only Korean may break a word", () => {
+  const styles = InvitationIntro.getStyles().replace(/\s+/g, "");
+  const rule = (selector) => {
+    const start = styles.indexOf(`${selector}{`);
+    assert.notEqual(start, -1, `Missing CSS rule: ${selector}`);
+    return styles.slice(start, styles.indexOf("}", start) + 1);
+  };
+
+  const title = rule(".intro-copyh1");
+  assert.match(title, /word-break:keep-all/);
+  assert.match(title, /overflow-wrap:normal/);
+  // The container-relative declaration ships; the `vw` one in front of it is
+  // the fallback for browsers without container queries, so it must come
+  // first or it would win.
+  const sizes = [...title.matchAll(/font-size:([^;}]+)/g)].map((match) => match[1]);
+  assert.match(sizes.at(-1), /cqi/);
+  assert.match(rule(".intro-copy"), /container-type:inline-size/);
+
+  // Korean keeps the last resort, and it is the only scope allowed to break a
+  // word. The prose lines under the title keep `anywhere` on .intro-copy,
+  // which is why that rule is not part of this check.
+  assert.match(styles, /\.intro-copyh1:lang\(ko\)\{[^}]*overflow-wrap:anywhere/);
+  const offenders = [];
+  for (const [, selectorList, body] of styles.matchAll(/([^{}]*)\{([^}]*)\}/g)) {
+    if (!/(?:overflow-wrap|word-break):/.test(body)) continue;
+    const titleSelectors = selectorList.split(",").filter((one) => /\.intro-copyh1/.test(one));
+    if (!titleSelectors.length) continue;
+    if (!/overflow-wrap:normal|word-break:keep-all/.test(body) && !titleSelectors.every((one) => /:lang\(ko\)/.test(one))) {
+      offenders.push(selectorList);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});

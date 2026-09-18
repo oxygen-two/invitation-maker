@@ -127,12 +127,31 @@
 </div>`;
   };
 
+  /* The overlay reprints the author's title, so it carries the same contract
+     as the hero (B-4) and had the same defect for the same reason: .intro-copy
+     stops at 420px while `vw` keeps climbing, so above roughly 580px the title
+     asked for 58px inside a box that had stopped growing. Korean was worse off
+     still — the default `word-break:normal` offers a break between any two
+     syllables, so a title too long for one line came apart inside a word
+     rather than at a space.
+
+     Same remedy: .intro-copy is the container, the size is measured in `cqi`
+     against it (56px at the 420px plateau is where the widest shipped word
+     still fits, measured by scripts/verify-hero-wrap.cjs), `keep-all` and
+     `overflow-wrap:normal` settle wrapping, and Korean keeps `anywhere` as a
+     last resort for a run with no break opportunity in it. The `anywhere` on
+     .intro-copy itself stays: the lines under the title are prose and may
+     carry an address or a URL with nowhere to break.
+
+     Unlike the hero there is no per-effect size, because every effect puts the
+     title in this same box; only the fireworks colour differs. */
   const getStyles = () => `
 .invitation-intro{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;overflow:hidden;padding:24px;background:var(--paper,var(--cream-50,#fffaf2));color:var(--ink,#2a1720);font-family:var(--font-ko,"Noto Sans KR",serif);isolation:isolate;cursor:pointer}
 body.is-intro-active{overflow:hidden}
 .invitation-intro[data-intro-preview]{position:absolute}
-.intro-copy{position:relative;z-index:3;width:min(100%,420px);text-align:center;overflow-wrap:anywhere;pointer-events:none}
-.intro-copy h1{margin:0;color:var(--deep,var(--wine-900,#42101f));font-family:var(--font-en,var(--font-ko,serif));font-size:clamp(32px,10vw,58px);font-style:italic;font-weight:500;line-height:1.1;letter-spacing:0}
+.intro-copy{position:relative;z-index:3;width:min(100%,420px);text-align:center;overflow-wrap:anywhere;pointer-events:none;container-type:inline-size}
+.intro-copy h1{margin:0;color:var(--deep,var(--wine-900,#42101f));font-family:var(--font-en,var(--font-ko,serif));font-size:clamp(32px,10vw,58px);font-size:min(56px,13.2cqi);font-style:italic;font-weight:500;line-height:1.1;letter-spacing:0;word-break:keep-all;overflow-wrap:normal}
+.intro-copy h1:lang(ko){overflow-wrap:anywhere}
 .intro-subtitle,.intro-date,.intro-host{margin:12px 0 0;color:var(--soft,var(--ink-soft,#65535a));font-size:14px;line-height:1.55}
 .intro-date{color:var(--mid,var(--wine-700,#7a243b));font-weight:700}.intro-host{font-family:var(--font-en,var(--font-ko,serif))}
 .intro-skip{position:absolute;z-index:5;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));min-height:40px;padding:0 14px;border:1px solid rgba(42,23,32,.18);border-radius:999px;background:rgba(255,250,242,.86);color:var(--ink,#2a1720);font:700 13px/1 var(--font-ko,"Noto Sans KR",sans-serif);cursor:pointer}
