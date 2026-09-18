@@ -214,3 +214,40 @@ test("the studio links to the guide and the landing", () => {
   assert.match(studio, /<a href="\/welcome" data-i18n="header\.aboutLink">소개<\/a>/);
   assert.match(studio, /<a href="\/guide#finish" data-i18n="finish\.compareLink">세 가지 방식의 차이 보기<\/a>/);
 });
+
+test("site chrome pages declare a dark palette for prefers-color-scheme and a future toggle", () => {
+  // index.html and guide.html carry no inline <style>; their dark rules live in
+  // the linked assets/site/site.css. shared.html and viewer.html style inline.
+  const siteCss = read("assets/site/site.css");
+  const pagesToCss = {
+    "index.html": siteCss,
+    "guide.html": siteCss,
+    "shared.html": read("shared.html"),
+    "viewer.html": read("viewer.html")
+  };
+  for (const [page, css] of Object.entries(pagesToCss)) {
+    assert.match(css, /@media\s*\(prefers-color-scheme:\s*dark\)/, `${page}: missing prefers-color-scheme: dark block`);
+    assert.match(css, /:root\[data-theme="dark"\]/, `${page}: missing [data-theme="dark"] override block`);
+    // the media-query block must be guarded so an explicit light choice wins
+    assert.match(css, /:root:not\(\[data-theme="light"\]\)/, `${page}: prefers-color-scheme block must be guarded with :root:not([data-theme="light"])`);
+  }
+});
+
+test("site chrome pages ship a dark theme-color meta alongside the light one", () => {
+  for (const page of ["index.html", "guide.html", "shared.html", "viewer.html"]) {
+    const html = read(page);
+    assert.match(html, /<meta name="theme-color"(?![^>]*media)[^>]*>/, `${page}: missing the light theme-color meta`);
+    assert.match(
+      html,
+      /<meta name="theme-color" content="#[0-9a-fA-F]{3,6}" media="\(prefers-color-scheme:\s*dark\)">/,
+      `${page}: missing the dark theme-color meta`
+    );
+  }
+});
+
+test("the shared page's not-found envelope illustration does not glow pastel green on a dark surface", () => {
+  const shared = read("shared.html");
+  // The envelope's paper/back-flap fills must be overridable per theme rather
+  // than fixed presentation attributes with no dark counterpart.
+  assert.match(shared, /\.envelope svg \[fill=/, "shared.html: envelope fills are not themed for dark mode");
+});

@@ -9,16 +9,59 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#42101f">
+  <meta name="theme-color" content="#15181a" media="(prefers-color-scheme: dark)">
   <title>초대장 열기</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
   <style>
+    :root {
+      --paper: #f3e7e1;
+      --card: #fffdf9;
+      --card-border: rgba(101, 58, 65, .16);
+      --ink: #2a1720;
+      --muted: #65535a;
+      --footer-muted: #8a6f78;
+      --accent: #5d182c;
+      --accent-ink: #fffaf2;
+    }
+    /* B-12: dark mode for this loading card. This page only ever shows an
+       author their own device's saved invitation, so it keeps its own
+       rose/wine identity rather than the green site chrome — but the same
+       "dark surface with a slightly lighter card" shape as the rest of the
+       site. System preference first, `[data-theme]` ready for a future
+       manual toggle. */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --paper: #15181a;
+        --card: #1f1719;
+        --card-border: rgba(255, 255, 255, .14);
+        --ink: #f4ece9;
+        --muted: #c9adb2;
+        --footer-muted: #a99195;
+        /* Lightened so it still reads as an accent on a dark card instead of
+           near-black; the button text flips to a dark ink to stay legible. */
+        --accent: #e2a4b0;
+        --accent-ink: #3a141d;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --paper: #15181a;
+      --card: #1f1719;
+      --card-border: rgba(255, 255, 255, .14);
+      --ink: #f4ece9;
+      --muted: #c9adb2;
+      --footer-muted: #a99195;
+      --accent: #e2a4b0;
+      --accent-ink: #3a141d;
+    }
     * { box-sizing: border-box; }
-    body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; margin: 0; padding: 24px; color: #2a1720; background: #f3e7e1; font-family: system-ui, sans-serif; }
-    main { width: min(420px, 100%); margin: auto; padding: 24px; border: 1px solid rgba(101, 58, 65, .16); border-radius: 8px; background: #fffdf9; text-align: center; }
+    body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100svh; margin: 0; padding: 24px; color: var(--ink); background: var(--paper); font-family: system-ui, sans-serif; }
+    main { width: min(420px, 100%); margin: auto; padding: 24px; border: 1px solid var(--card-border); border-radius: 8px; background: var(--card); text-align: center; }
     h1 { margin: 0 0 8px; font-size: 20px; }
-    p { margin: 0; color: #65535a; font-size: 14px; }
-    a { display: inline-flex; min-height: 44px; align-items: center; margin-top: 20px; padding: 0 16px; color: #fffaf2; border-radius: 8px; background: #5d182c; font-weight: 700; text-decoration: none; }
-    footer { flex: 0 0 auto; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); text-align: center; color: #8a6f78; font-size: 11px; letter-spacing: 1px; }
+    p { margin: 0; color: var(--muted); font-size: 14px; }
+    a { display: inline-flex; min-height: 44px; align-items: center; margin-top: 20px; padding: 0 16px; color: var(--accent-ink); border-radius: 8px; background: var(--accent); font-weight: 700; text-decoration: none; }
+    footer { flex: 0 0 auto; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); text-align: center; color: var(--footer-muted); font-size: 11px; letter-spacing: 1px; }
     footer .footer-note { letter-spacing: 0; }
   </style>
   <!-- In <head> and before the body: this page replaces its own document the
