@@ -81,7 +81,10 @@ const makeClient = (options = {}) => {
 
 const createPublishingMountHarness = ({
   client,
+  clipboard,
+  getValue = () => ({ title: "Mounted" }),
   isBusy = () => false,
+  share,
   statusMessages = [],
   validate = () => true
 } = {}) => {
@@ -106,6 +109,18 @@ const createPublishingMountHarness = ({
       statusMessages.push(value);
     }
   });
+  // The QR canvas is the one node the panel hands to a drawing routine rather
+  // than only toggling, so the stand-in records what was painted on it.
+  const makeCanvas = (selector) => ({
+    selector,
+    width: 0,
+    height: 0,
+    fills: [],
+    getContext() {
+      const fills = this.fills;
+      return { fillStyle: "", fillRect(...args) { fills.push(args); } };
+    }
+  });
   const root = {
     dataset: {},
     get innerHTML() {
@@ -117,6 +132,11 @@ const createPublishingMountHarness = ({
       children.push(makeButton("#publish-button"));
       children.push(makeButton("#copy-publication-link"));
       children.push(makeButton("#publish-result-link"));
+      children.push(makeButton("#revoke-publication-link"));
+      children.push(makeButton("#copy-publication-message"));
+      if (value.includes('id="share-publication-link"')) children.push(makeButton("#share-publication-link"));
+      children.push({ selector: "#publication-qr", hidden: true });
+      children.push(makeCanvas("#publication-qr-canvas"));
       children.push(makeStatus("#publish-status"));
       children.push({ selector: "#published-list", innerHTML: "", addEventListener(type, listener) { events.set("#published-list:click", listener); } });
     },
@@ -129,19 +149,141 @@ const createPublishingMountHarness = ({
   };
   InvitationPublishing.mount({
     client: client || makeClient().client,
+    clipboard,
     document,
-    getValue: () => ({ title: "Mounted" }),
+    getValue,
     isBusy,
     location: { origin: "https://example.test" },
+    share,
     validate
   });
   return {
     children,
+    click: (selector) => events.get(`${selector}:click`)(),
     clickPublish: () => events.get("#publish-button:click")(),
     root,
     status: root.querySelector("#publish-status")
   };
 };
+
+/* B-9: the dialog used to say "Share a link", then "SHARE", then "Public link",
+   and only promised the expiry date AFTER the author had already published. */
+
+test("the panel carries no heading of its own, so the dialog title is the only one", () => {
+  const harness = createPublishingMountHarness();
+
+  assert.doesNotMatch(harness.root.innerHTML, /<h2/, "the dialog already has the heading");
+  assert.doesNotMatch(harness.root.innerHTML, /publishing-header/);
+  assert.doesNotMatch(harness.root.innerHTML, /data-i18n="publish\.(?:eyebrow|heading)"/);
+  // The published list keeps its sub-heading: one level below the dialog title.
+  assert.match(harness.root.innerHTML, /<h3 class="publication-list-title"/);
+});
+
+test("the expiry rule is stated before the author decides to publish", () => {
+  const harness = createPublishingMountHarness();
+  const html = harness.root.innerHTML;
+
+  assert.ok(html.includes(publishCopy("expiryPolicy")), "the expiry rule must be rendered");
+  // docs/publishing.md: a sliding 7-day idle window under a 30-day ceiling.
+  assert.match(publishCopy("expiryPolicy"), /7일/);
+  assert.match(publishCopy("expiryPolicy"), /30일/);
+  assert.ok(html.indexOf(publishCopy("consent")) < html.indexOf(publishCopy("expiryPolicy")),
+    "the consent sentence opens the panel and the expiry rule follows it");
+  assert.ok(html.indexOf(publishCopy("expiryPolicy")) < html.indexOf("publish-button"),
+    "both come before the publish button");
+  assert.doesNotMatch(publishCopy("consent"), /발행 후 만료일/,
+    "the consent sentence no longer defers the expiry to after publishing");
+});
+
+test('"2MB max" is replaced by a hint an author can act on', () => {
+  const harness = createPublishingMountHarness();
+
+  assert.ok(harness.root.innerHTML.includes(publishCopy("limitHint")));
+  assert.match(publishCopy("limitHint"), /압축/);
+  assert.doesNotMatch(harness.root.innerHTML, /data-i18n="publish\.limit"/);
+  assert.doesNotMatch(harness.root.innerHTML, /2MB/);
+});
+
+test("the system share sheet is offered only where the browser has one", () => {
+  const offered = createPublishingMountHarness({ share: async () => {} });
+  assert.match(offered.root.innerHTML, /id="share-publication-link"/);
+  assert.ok(offered.root.innerHTML.includes(publishCopy("share")));
+
+  const absent = createPublishingMountHarness({ share: null });
+  assert.doesNotMatch(absent.root.innerHTML, /share-publication-link/);
+  assert.doesNotMatch(absent.root.innerHTML, /publish\.share"/);
+});
+
+test("a published link comes with a QR code, the share sheet and a ready-made message", async () => {
+  const copied = [];
+  const shared = [];
+  const harness = createPublishingMountHarness({
+    client: { list: () => [], publish: async () => ({ id: "qr1", url: "/i/qr1", expiresAt: null }) },
+    clipboard: { writeText: async (text) => { copied.push(text); } },
+    getValue: () => ({ title: "Garden party", dateLabel: "2026.10.03 SAT 17:00" }),
+    share: async (data) => { shared.push(data); }
+  });
+
+  const canvas = harness.root.querySelector("#publication-qr-canvas");
+  assert.equal(harness.root.querySelector("#publication-qr").hidden, true, "nothing to encode before publishing");
+  assert.match(harness.root.innerHTML, /id="publication-qr-canvas"[^>]*aria-label="[^"]+"/);
+  assert.ok(harness.root.innerHTML.includes(publishCopy("qrLabel")));
+
+  await harness.clickPublish();
+
+  assert.equal(harness.root.querySelector("#publication-qr").hidden, false);
+  assert.ok(canvas.width > 0, "the QR code is drawn onto the canvas");
+  assert.equal(canvas.width, canvas.height, "a QR symbol is square");
+  assert.ok(canvas.fills.length > 1, "the canvas is painted, not just sized");
+
+  harness.click("#share-publication-link");
+  await Promise.resolve();
+  assert.deepEqual(shared, [{ title: "Garden party", url: "https://example.test/i/qr1" }]);
+
+  harness.click("#copy-publication-message");
+  await Promise.resolve();
+  assert.deepEqual(copied, [publishCopy("messageTemplate", {
+    date: "2026.10.03 SAT 17:00",
+    title: "Garden party",
+    url: "https://example.test/i/qr1"
+  })]);
+  assert.match(copied[0], /Garden party/);
+  assert.match(copied[0], /2026\.10\.03 SAT 17:00/);
+  assert.match(copied[0], /https:\/\/example\.test\/i\/qr1/);
+  assert.equal(harness.status.textContent, publishCopy("messageCopied"));
+});
+
+test("the QR code encodes the absolute public link a guest would scan", async () => {
+  const harness = createPublishingMountHarness({
+    client: { list: () => [], publish: async () => ({ id: "qr2", url: "/i/qr2", expiresAt: null }) }
+  });
+
+  await harness.clickPublish();
+
+  const canvas = harness.root.querySelector("#publication-qr-canvas");
+  const matrix = require("../assets/publishing/qr.js").encode("https://example.test/i/qr2");
+  assert.equal(canvas.width, (matrix.size + 8) * 5, "quiet zone of 4 modules on each side, 5px per module");
+  assert.equal(canvas.fills.length, matrix.modules.flat().filter(Boolean).length + 1);
+});
+
+test("a cancelled share sheet is a choice, not an error the author has to read", async () => {
+  const harness = createPublishingMountHarness({
+    client: { list: () => [], publish: async () => ({ id: "qr3", url: "/i/qr3", expiresAt: null }) },
+    share: async () => {
+      const error = new Error("cancelled");
+      error.name = "AbortError";
+      throw error;
+    }
+  });
+
+  await harness.clickPublish();
+  const afterPublish = harness.status.textContent;
+  harness.click("#share-publication-link");
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.equal(harness.status.textContent, afterPublish);
+});
 
 test("measures the POST request bytes and blocks invitations over the 2MB cap", async () => {
   const { client, requests } = makeClient();

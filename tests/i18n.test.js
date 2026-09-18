@@ -86,14 +86,15 @@ test("English copy carries no leftover Korean, and Korean copy is actually Korea
   const englishOnlyInKorean = new Set([
     "meta.title", "meta.ogLocale", "maker.eyebrow", "preview.eyebrow",
     "library.eyebrow", "library.untitled", "content.linkUrl", "finish.replyContactPattern",
-    "publish.eyebrow",
     // The shared.html error eyebrows are decorative small-caps set in English
     // on Korean invitations too, matching the generated error pages. Same
     // reasoning as the INVITATION / DATE / PLACE words in the template art.
     "shared.notFoundEyebrow", "shared.goneEyebrow", "shared.failedEyebrow",
     // Pure interpolation: "{file}: {reason}" is punctuation around two values
-    // that are themselves already in the reader's language.
-    "content.photoFailed"
+    // that are themselves already in the reader's language. Same for the share
+    // message template, which strings together the author's own title, date
+    // and link.
+    "content.photoFailed", "publish.messageTemplate"
   ]);
   // Every generated error page carries the same kind of eyebrow, for the same
   // reason as the three above, so they are matched by shape rather than listed.

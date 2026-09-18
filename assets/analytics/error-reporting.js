@@ -51,6 +51,7 @@
     "/assets/media/hero-image.js",
     "/assets/media/image-tools.js",
     "/assets/publishing/publishing.js",
+    "/assets/publishing/qr.js",
     "/assets/publishing/shared-invitation.js",
     "/assets/site/site.js",
     "/assets/storage/invitation-storage.js",

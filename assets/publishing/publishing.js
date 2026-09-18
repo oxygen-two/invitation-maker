@@ -9,6 +9,13 @@
     return root.InvitationCore || null;
   })();
 
+  const QR = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try { return require("./qr.js"); } catch { return null; }
+    }
+    return root.InvitationQR || null;
+  })();
+
   const I18n = (() => {
     if (typeof module !== "undefined" && module.exports) {
       try {
@@ -241,23 +248,30 @@
      moment they are written instead. */
   const bind = (key) => `data-i18n="publish.${key}"`;
   const copy = (key) => escapeHtml(t(key));
-  const renderShell = (rootNode) => {
+  /* The panel has no heading of its own. It is mounted inside a dialog already
+     titled "Share a link", and a second "SHARE / Public link" heading under it
+     only made the author read the same word three times (audit B-9). What the
+     author actually needs before deciding opens the panel instead: who can see
+     the page, how long the link lasts, and what happens to the photos. The
+     expiry rule is the one in docs/publishing.md — it used to be promised
+     AFTER publishing, which is too late to be a decision. */
+  const renderShell = (rootNode, { canShare } = {}) => {
     rootNode.innerHTML = `
-      <div class="publishing-header">
-        <div>
-          <p class="eyebrow" ${bind("eyebrow")}>${copy("eyebrow")}</p>
-          <h2 ${bind("heading")}>${copy("heading")}</h2>
-        </div>
-        <span class="publishing-limit" ${bind("limit")}>${copy("limit")}</span>
-      </div>
       <p class="publishing-consent" ${bind("consent")}>${copy("consent")}</p>
+      <p class="publishing-consent publishing-expiry" ${bind("expiryPolicy")}>${copy("expiryPolicy")}</p>
+      <p class="publishing-limit" ${bind("limitHint")}>${copy("limitHint")}</p>
       <div class="publishing-actions">
         <button id="publish-button" class="primary-button" type="button" autofocus ${bind("publishButton")}>${copy("publishButton")}</button>
         <a id="publish-result-link" class="publication-link" href="#" target="_blank" rel="noopener noreferrer" hidden ${bind("openLink")}>${copy("openLink")}</a>
         <button id="copy-publication-link" class="secondary-button" type="button" hidden ${bind("copyLink")}>${copy("copyLink")}</button>
+        ${canShare ? `<button id="share-publication-link" class="secondary-button" type="button" hidden ${bind("share")}>${copy("share")}</button>` : ""}
+        <button id="copy-publication-message" class="secondary-button" type="button" hidden ${bind("copyMessage")}>${copy("copyMessage")}</button>
         <button id="revoke-publication-link" class="secondary-button" type="button" hidden ${bind("revokeLink")}>${copy("revokeLink")}</button>
       </div>
       <p id="publish-status" class="publishing-status" role="status" aria-live="polite"></p>
+      <div id="publication-qr" class="publishing-qr" hidden>
+        <canvas id="publication-qr-canvas" class="publishing-qr-canvas" role="img" data-i18n-attr="aria-label:publish.qrLabel" aria-label="${copy("qrLabel")}"></canvas>
+      </div>
       <div>
         <h3 class="publication-list-title" ${bind("listTitle")}>${copy("listTitle")}</h3>
         <div id="published-list" class="publication-list"></div>
@@ -272,21 +286,32 @@
     getValue,
     isBusy = () => false,
     location = root.location,
+    /* Only offered where the platform has a share sheet — a desktop browser
+       without one would otherwise show a button that does nothing. Bound here
+       rather than called off navigator later, because some engines throw on an
+       unbound navigator.share. */
+    share = root.navigator?.share ? (data) => root.navigator.share(data) : null,
     validate = () => true
   } = {}) => {
     const rootNode = document?.querySelector?.("#publishing-panel");
     if (!rootNode || rootNode.dataset.publishingMounted === "true") return null;
     if (typeof getValue !== "function") throw new Error("getValue is required");
     rootNode.dataset.publishingMounted = "true";
-    renderShell(rootNode);
+    renderShell(rootNode, { canShare: typeof share === "function" });
     const publishButton = rootNode.querySelector("#publish-button");
     const status = rootNode.querySelector("#publish-status");
     const link = rootNode.querySelector("#publish-result-link");
     const copyButton = rootNode.querySelector("#copy-publication-link");
+    const shareButton = rootNode.querySelector("#share-publication-link");
+    const messageButton = rootNode.querySelector("#copy-publication-message");
     const revokeButton = rootNode.querySelector("#revoke-publication-link");
+    const qrBox = rootNode.querySelector("#publication-qr");
+    const qrCanvas = rootNode.querySelector("#publication-qr-canvas");
     const listNode = rootNode.querySelector("#published-list");
     let latestUrl = "";
     let latestId = "";
+    let latestTitle = "";
+    let latestDate = "";
     let pending = false;
     const setStatus = (message) => { status.textContent = message; };
     const absoluteUrl = (url) => {
@@ -301,12 +326,69 @@
         setStatus(t("copyFailed"));
       }
     };
+    /* The QR code is the offline half of sharing: a phone pointed at a laptop
+       screen, or at a printed card. It is drawn from the ABSOLUTE url, because
+       "/i/abc" means nothing to a camera. A failure here never blocks the link
+       itself — the author still has copy, share and the anchor. */
+    const renderQr = (url) => {
+      if (!qrCanvas || typeof QR?.draw !== "function") return;
+      try {
+        QR.draw(qrCanvas, url, { scale: 5 });
+        if (qrBox) qrBox.hidden = false;
+      } catch (error) {
+        reportFault("publish_qr", error);
+        if (qrBox) qrBox.hidden = true;
+      }
+    };
+    const showResult = (result) => {
+      latestUrl = result.url;
+      latestId = result.id;
+      link.href = result.url;
+      link.hidden = false;
+      copyButton.hidden = false;
+      if (shareButton) shareButton.hidden = false;
+      if (messageButton) messageButton.hidden = false;
+      if (revokeButton) revokeButton.hidden = false;
+      renderQr(absoluteUrl(result.url));
+    };
     const hideResult = () => {
       link.hidden = true;
       copyButton.hidden = true;
+      if (shareButton) shareButton.hidden = true;
+      if (messageButton) messageButton.hidden = true;
       if (revokeButton) revokeButton.hidden = true;
+      if (qrBox) qrBox.hidden = true;
       latestUrl = "";
       latestId = "";
+      latestTitle = "";
+      latestDate = "";
+    };
+    const shareLink = async () => {
+      if (!latestUrl || typeof share !== "function") return;
+      try {
+        await share({ title: latestTitle || t("defaultTitle"), url: absoluteUrl(latestUrl) });
+      } catch (error) {
+        // Dismissing the sheet is a decision, not a failure to report.
+        if (error?.name === "AbortError") return;
+        setStatus(t("shareFailed"));
+      }
+    };
+    /* The message an author actually sends: the invitation's own title and date
+       label — authored content, never translated — next to the link, so pasting
+       it into a chat says what the link is. */
+    const copyMessage = async () => {
+      if (!latestUrl) return;
+      const message = t("messageTemplate", {
+        date: latestDate,
+        title: latestTitle || t("defaultTitle"),
+        url: absoluteUrl(latestUrl)
+      });
+      try {
+        await clipboard?.writeText?.(message);
+        setStatus(t("messageCopied"));
+      } catch {
+        setStatus(t("messageCopyFailed"));
+      }
     };
     const revokePublication = async (id, onSuccess) => {
       setStatus(t("deleting"));
@@ -357,13 +439,11 @@
       const recovering = Boolean(client.hasPending?.());
       setStatus(t(recovering ? "recovering" : "publishing"));
       try {
-        const result = await client.publish(getValue());
-        latestUrl = result.url;
-        latestId = result.id;
-        link.href = result.url;
-        link.hidden = false;
-        copyButton.hidden = false;
-        if (revokeButton) revokeButton.hidden = false;
+        const value = getValue();
+        const result = await client.publish(value);
+        latestTitle = getTitle(value);
+        latestDate = String(value?.dateLabel || "").trim();
+        showResult(result);
         setStatus(`${t(recovering ? "recovered" : "published")} ${formatExpiry(result.expiresAt)}.`);
         renderList();
       } catch (error) {
@@ -378,6 +458,8 @@
     copyButton.addEventListener("click", () => {
       if (latestUrl) copyUrl(latestUrl);
     });
+    shareButton?.addEventListener("click", () => { shareLink(); });
+    messageButton?.addEventListener("click", () => { copyMessage(); });
     revokeButton?.addEventListener("click", () => {
       if (latestId) revokePublication(latestId, hideResult);
     });
