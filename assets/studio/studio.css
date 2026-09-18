@@ -60,6 +60,17 @@ body::before, body::after { display: none; }
 .studio-steps button { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 24px; background: transparent; color: var(--studio-ink-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .studio-steps button[aria-pressed="true"] { color: var(--studio-surface); background: var(--studio-accent); }
 .app-shell { width: min(1256px, calc(100% - 64px)); margin: 32px auto; gap: 32px; grid-template-columns: minmax(320px, 440px) minmax(0, 1fr); }
+/* The preview column only ever shows a phone-width invitation (480px), so on a
+   desktop it was holding 300px of empty sunken panel beside it while the form
+   next to it stayed at 440px and wrapped its own heading. Wider screens give
+   that room to the editor instead: the invitation is the same size either way,
+   and the column that benefits from width is the one being typed into. */
+@media (min-width: 1240px) {
+  .app-shell { grid-template-columns: minmax(320px, 560px) minmax(0, 1fr); }
+}
+@media (min-width: 1600px) {
+  .app-shell { width: min(1360px, calc(100% - 64px)); grid-template-columns: minmax(320px, 620px) minmax(0, 1fr); }
+}
 .maker-panel, .library-panel { background: var(--studio-surface); border: 1px solid var(--studio-line); box-shadow: none; border-radius: 20px; }
 .maker-header { background: none; color: var(--studio-ink); padding: 32px; border-bottom: 1px solid var(--studio-line); }
 .maker-header h1 { font-family: inherit; font-size: clamp(24px, 3vw, 34px); line-height: 1.35; letter-spacing: -1.2px; }
