@@ -53,6 +53,28 @@ const countKoreanOutsideLanguageSwitcher = () => {
         const broken = await page.evaluate(() => [...document.images].filter((img) => !img.complete || img.naturalWidth === 0).map((img) => img.getAttribute("src")));
         assert.deepEqual(broken, [], `${route}@${width}: broken images`);
         assert.deepEqual(errors, [], `${route}@${width}: page errors`);
+
+        // Below 600px the design shelf becomes a horizontal snap strip: it
+        // must scroll internally without the document itself scrolling
+        // sideways, and the finish table's phone-stacked cards must not
+        // overflow their wrapper.
+        if (width === 320 || width === 390) {
+          if (route === "/") {
+            const [designsScroll, docScroll] = await page.evaluate(() => [
+              document.querySelector(".designs"),
+              document.documentElement
+            ].map((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth })));
+            assert.ok(designsScroll.scrollWidth > designsScroll.clientWidth, `${route}@${width}: design strip should overflow to scroll`);
+            assert.ok(docScroll.scrollWidth <= docScroll.clientWidth, `${route}@${width}: document should not scroll horizontally`);
+          }
+          if (route === "/guide") {
+            const tableWrap = await page.evaluate(() => {
+              const el = document.querySelector(".table-wrap");
+              return { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth };
+            });
+            assert.ok(tableWrap.scrollWidth <= tableWrap.clientWidth, `${route}@${width}: finish table overflows .table-wrap`);
+          }
+        }
         await page.close();
       }
     }
@@ -89,7 +111,7 @@ const countKoreanOutsideLanguageSwitcher = () => {
     }
     await context.close();
 
-    console.log("Site pages verified at 320/390/768/1440, entry policy, sample, and English.");
+    console.log("Site pages verified at 320/390/768/1440, entry policy, sample, English, design-strip scroll, and finish-table overflow.");
   } finally {
     await browser.close();
   }

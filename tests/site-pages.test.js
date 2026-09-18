@@ -196,6 +196,18 @@ test("build-public copies sample.html", () => {
   assert.ok(shouldCopyRootFile("guide.html"));
 });
 
+test("the landing's design shelf has six figures and the guide's finish table labels every cell", () => {
+  const landing = read("index.html");
+  const designsMarkup = landing.match(/<div class="designs"[^>]*>[\s\S]*?<\/div>\s*<\/div>/)[0];
+  assert.equal((designsMarkup.match(/<figure class="design">/g) || []).length, 6);
+
+  const guide = read("guide.html");
+  const tableMarkup = guide.match(/<tbody>[\s\S]*?<\/tbody>/)[0];
+  const cells = [...tableMarkup.matchAll(/<td\b[^>]*>/g)];
+  assert.equal(cells.length, 12, "finish table should have 12 <td> cells");
+  for (const [tag] of cells) assert.match(tag, /data-i18n-attr="data-label:site\.guide\.finish\.head\.\w+"/, `${tag} is missing data-label binding`);
+});
+
 test("the studio links to the guide and the landing", () => {
   const studio = read("studio.html");
   assert.match(studio, /<a class="studio-guide-link" href="\/guide" data-i18n="header\.guideLink">사용법<\/a>/);

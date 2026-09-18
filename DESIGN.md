@@ -116,3 +116,11 @@
 - No external fonts: system font stack only, matching the studio and error pages; only the invitation designs themselves carry custom typography, and that lives inside the screenshots.
 - Static screenshots come from the studio itself: `scripts/build-site-media.cjs` drives the real `/studio` with Playwright and captures the gallery/edit/finish stages and the six design cards, so the guide and landing can never show chrome the studio doesn't actually have. Re-run this script (and `--check`) whenever studio chrome changes.
 - The guide's "내 데이터는 어디에" (`#data`) section is the honest answer to the audit's A-8 finding (no data-handling explanation existed): what stays local, what reaches the server, and the same 7/30-day expiry and 2MB limits already enforced in `server/config/publishing.cjs`, stated as fact rather than as a policy document.
+
+## Site polish — 2026-09-18
+
+- Every `<section>` h2 on both pages now carries an `.eyebrow` label above it, the same 11px/2.2px-tracked green style the error pages already use — the two chrome surfaces now share one section grammar instead of the guide/landing headings standing alone.
+- The landing hero backdrop, phone tilt, and green "seal" glyph directly echo the error pages' `.halo`/envelope/seal composition, so the landing's first screen reads as the same illustrated language a visitor already saw if they ever hit a 404.
+- The design gallery becomes a six-up "shelf" with alternating card heights at desktop, three-per-row at tablet, and a horizontal snap strip with a right-edge fade hint on phones (closing the UI/UX audit's B-10 finding that a 3×2 grid gave no sense of a larger catalog).
+- The guide's finish-method table collapses into one stacked card per row below 600px, each cell labelled via a `data-label` attribute instead of forcing a cramped four-column table into a phone's width.
+- No motion, no external fonts: every addition above (icons, seal, envelope mark, snap strip) is static SVG/CSS within the existing paper/ink/green palette, with `overflow-x: auto` doing all the work the strip needs.
