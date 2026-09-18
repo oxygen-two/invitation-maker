@@ -14,6 +14,8 @@ async function createInvitation(page, width, title) {
   if (width <= 900) await page.locator('#gallery-create').click();
   else await page.locator('#preview-apply-button').click();
   await page.locator('[name="title"]').fill(title);
+  // The free-text date lives behind the "write it my own way" drawer now.
+  await page.locator('[data-date-custom] > summary').click();
   await page.locator('[name="dateLabel"]').fill('2026년 10월 10일 오후 2시');
   await page.locator('#hero-image-input').setInputFiles(path.join(__dirname, '..', 'assets', 'template-art', 'wedding-paper.webp'));
   await page.waitForFunction(() => !document.querySelector('#hero-image-preview').hidden);

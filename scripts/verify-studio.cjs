@@ -30,6 +30,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await page.locator('#preview-apply-button').click();
       }
       await page.locator('[name="title"]').fill('하린의 생일 · 오래 기억하고 싶은 하루');
+      // The free-text date lives behind the "write it my own way" drawer now.
+      await page.locator('[data-date-custom] > summary').click();
       await page.locator('[name="dateLabel"]').fill('September 12 · 13:00');
       if (width === 390) {
         await page.locator('#hero-image-input').setInputFiles('assets/invitation/template-art/wedding-paper.webp');

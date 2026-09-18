@@ -935,6 +935,8 @@ const getFormData = () => {
     naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey,
     title: data.get("title"),
     subtitle: data.get("subtitle"),
+    dateTime: data.get("dateTime"),
+    timeZone: data.get("timeZone"),
     dateLabel: data.get("dateLabel"),
     host: data.get("host"),
     location: data.get("location"),
@@ -1001,6 +1003,89 @@ const syncHeroImageEditor = () => {
   syncHeroImageAvailability();
 };
 
+/* Enough of the world to be useful on a browser too old to enumerate zones
+   itself, chosen for spread rather than population: one per broad offset band,
+   so whoever is left can still find a zone that keeps their party at the right
+   hour. The author's own zone is prepended, so the list is never wrong for the
+   person actually using it — only short. */
+const FALLBACK_TIME_ZONES = [
+  "Pacific/Auckland", "Australia/Sydney", "Asia/Tokyo", "Asia/Seoul", "Asia/Shanghai",
+  "Asia/Singapore", "Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai", "Europe/Moscow",
+  "Africa/Nairobi", "Europe/Istanbul", "Africa/Johannesburg", "Europe/Paris", "Europe/Berlin",
+  "Europe/Madrid", "Africa/Lagos", "Europe/London", "Atlantic/Reykjavik", "America/Sao_Paulo",
+  "America/Argentina/Buenos_Aires", "America/Halifax", "America/New_York", "America/Chicago",
+  "America/Mexico_City", "America/Denver", "America/Los_Angeles", "America/Anchorage",
+  "Pacific/Honolulu", "UTC"
+];
+
+/* Where the author is, which is the only defensible guess about where their
+   party is. A browser that cannot say leaves the select on its first entry. */
+const deviceTimeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+};
+
+const timeZoneOptions = () => {
+  let zones = [];
+  try {
+    zones = Intl.supportedValuesOf?.("timeZone") || [];
+  } catch {
+    // Some browsers throw rather than return nothing. Same answer either way.
+  }
+  if (!zones.length) zones = FALLBACK_TIME_ZONES;
+  const here = deviceTimeZone();
+  return here && !zones.includes(here) ? [here, ...zones] : zones;
+};
+
+const populateTimeZoneSelect = () => {
+  const select = dom.form.elements.timeZone;
+  if (!select) return;
+  select.innerHTML = timeZoneOptions()
+    .map((zone) => `<option value="${escapeAttribute(zone)}">${escapeAttribute(zone)}</option>`)
+    .join("");
+  select.value = deviceTimeZone() || select.value;
+};
+
+/* A select silently refuses a value it has no option for, which would drop a
+   zone an author chose on another machine — or on a browser that knows more
+   zones than this one lists. So give it the option first. */
+const selectTimeZone = (select, zone) => {
+  select.value = zone;
+  if (select.value === zone || !zone) return;
+  const option = document.createElement?.("option");
+  if (!option) return;
+  option.value = zone;
+  option.textContent = zone;
+  select.prepend?.(option);
+  select.value = zone;
+};
+
+/* The picker owns the date; the sentence owns itself.
+
+   A sample arrives carrying both an instant and the label we formatted from
+   it, and that label is ours, not the author's — prefilling the free-text
+   field with it would quietly turn our formatting into their words and freeze
+   it against every later language change. So the sentence field is filled
+   only with text that is demonstrably not our own rendering of the instant,
+   which is exactly what a draft saved before the picker existed contains. */
+const fillDateFields = (invitation) => {
+  const dateTime = invitation.dateTime || "";
+  const derived = dateTime ? (I18n?.formatSampleDate(dateTime) || "") : "";
+  const custom = invitation.dateLabel && invitation.dateLabel !== derived ? invitation.dateLabel : "";
+
+  if (dom.form.elements.dateTime) dom.form.elements.dateTime.value = dateTime;
+  if (dom.form.elements.timeZone) {
+    selectTimeZone(dom.form.elements.timeZone, invitation.timeZone || deviceTimeZone() || "");
+  }
+  dom.form.elements.dateLabel.value = custom;
+  // An author who wrote their own sentence should see it, not a closed drawer.
+  const drawer = dom.form.querySelector?.("[data-date-custom]");
+  if (drawer) drawer.open = Boolean(custom);
+};
+
 const fillForm = (invitation) => {
   state.heroImage = invitation.heroImage ? { ...invitation.heroImage } : null;
   dom.form.elements.introEffect.value = invitation.introEffect || "none";
@@ -1011,7 +1096,7 @@ const fillForm = (invitation) => {
   dom.form.elements.koreanFont.value = invitation.koreanFont || "gowun-batang";
   dom.form.elements.title.value = invitation.title || "";
   dom.form.elements.subtitle.value = invitation.subtitle || "";
-  dom.form.elements.dateLabel.value = invitation.dateLabel || "";
+  fillDateFields(invitation);
   dom.form.elements.host.value = invitation.host || "";
   dom.form.elements.location.value = invitation.location || "";
   if (dom.form.elements.mapProvider) dom.form.elements.mapProvider.value = invitation.mapProvider || "naver";
@@ -2302,6 +2387,7 @@ const init = async () => {
   try {
     InvitationIntro.ensureStyles(document);
     TemplateRenderers.ensureStyles(document);
+    populateTimeZoneSelect();
     mirrorThumbnailHeadingRules(document);
     await mountPreviewFrame();
     await loadInitialData();

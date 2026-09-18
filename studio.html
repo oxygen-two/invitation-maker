@@ -117,7 +117,16 @@
           <div class="editor-group-body">
             <label class="full"><span data-i18n="editor.title">제목</span><input name="title" type="text" autocomplete="off"></label>
             <label class="full"><span data-i18n="editor.subtitle">부제</span><input name="subtitle" type="text" autocomplete="off"></label>
-            <label><span data-i18n="editor.dateLabel">일시</span><input name="dateLabel" type="text" autocomplete="off"></label>
+            <label><span data-i18n="editor.dateTime">일시</span><input name="dateTime" type="datetime-local" autocomplete="off"></label>
+            <label><span data-i18n="editor.dateTimeZone">시간대</span><select name="timeZone" data-i18n-attr="aria-label:editor.dateTimeZone" aria-label="시간대"></select></label>
+            <!-- The picker is the way in; the sentence is the way out. An
+                 author whose date is "the last Saturday of summer" opens this
+                 and writes it, and nothing ever reformats what they wrote. -->
+            <details class="full date-custom-field" data-date-custom>
+              <summary data-i18n="editor.dateCustomToggle">직접 써서 넣을게요</summary>
+              <label class="full"><span data-i18n="editor.dateLabel">직접 쓴 일시</span><input name="dateLabel" type="text" autocomplete="off" data-i18n-attr="placeholder:editor.dateCustomPlaceholder" placeholder="예: 벚꽃 지는 토요일 저녁"></label>
+              <small data-i18n="editor.dateCustomHint">여기에 쓰면 위에서 고른 날짜 대신 이 문장이 그대로 보입니다. 비워 두면 손님의 언어에 맞춰 날짜가 표시돼요.</small>
+            </details>
             <label><span data-i18n="editor.host">보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
             <label class="full"><span data-i18n="editor.message">메시지</span><textarea name="message" rows="4"></textarea></label>
           </div>

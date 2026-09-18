@@ -24,10 +24,33 @@
 
   /* The only place a new language is named. `locale` drives every Intl call;
      `label` names the language in its own words, because a switcher that says
-     "영어" to someone who cannot read Korean is useless. */
+     "영어" to someone who cannot read Korean is useless.
+
+     `variants` is the one thing a *region* is allowed to change, and it
+     changes it for dates only. "English" is one dictionary, but 19/12 and
+     12/19 are different days to the two people reading them, and a 17:00
+     invitation printed as "5:00 PM" is a small insult in London. So a reader
+     in Britain or Australia gets their own day-first, 24-hour date while the
+     chrome around it stays the English every other English reader sees — the
+     UI language and the date locale are deliberately two different questions.
+     A region we do not list falls back to the language's own format rather
+     than to a guess. */
   const LOCALES = Object.freeze({
-    ko: Object.freeze({ locale: "ko-KR", label: "한국어", hour12: false }),
-    en: Object.freeze({ locale: "en-US", label: "English", hour12: true })
+    ko: Object.freeze({ locale: "ko-KR", label: "한국어", hour12: false, dateOrder: "ko" }),
+    en: Object.freeze({
+      locale: "en-US",
+      label: "English",
+      hour12: true,
+      dateOrder: "month-first",
+      variants: Object.freeze({
+        "en-au": Object.freeze({ locale: "en-AU", hour12: false, dateOrder: "day-first" }),
+        "en-gb": Object.freeze({ locale: "en-GB", hour12: false, dateOrder: "day-first" }),
+        "en-ie": Object.freeze({ locale: "en-IE", hour12: false, dateOrder: "day-first" }),
+        "en-in": Object.freeze({ locale: "en-IN", hour12: false, dateOrder: "day-first" }),
+        "en-nz": Object.freeze({ locale: "en-NZ", hour12: false, dateOrder: "day-first" }),
+        "en-za": Object.freeze({ locale: "en-ZA", hour12: false, dateOrder: "day-first" })
+      })
+    })
   });
 
   const SUPPORTED = Object.freeze(Object.keys(LOCALES));
@@ -117,7 +140,10 @@
   };
 
   const getLanguage = () => activeLanguage;
-  const getLocale = (language = activeLanguage) => (LOCALES[language] || LOCALES[DEFAULT_LANGUAGE]).locale;
+  // Tolerates a regional tag, so "en-GB" asks for English numbers and plurals
+  // rather than silently falling through to the default language's.
+  const getLocale = (language = activeLanguage) =>
+    (LOCALES[normalizeLanguage(language) ?? language] || LOCALES[DEFAULT_LANGUAGE]).locale;
   const getLanguageLabel = (language) => (LOCALES[language] || LOCALES[DEFAULT_LANGUAGE]).label;
   const getLanguages = () => SUPPORTED.map((language) => ({ language, label: LOCALES[language].label }));
 
@@ -163,14 +189,15 @@
      held to identical key sets by test, so a missing key should never reach
      a browser at all. */
   const translate = (key, values, language = activeLanguage) => {
-    const entry = lookup(dictionaries.get(language), key);
+    // "en-GB" is still English: a regional tag steers dates, never dictionaries.
+    const entry = lookup(dictionaries.get(normalizeLanguage(language) ?? language), key);
     const form = selectPluralForm(entry, values, language);
     if (typeof form !== "string") return String(key);
     return interpolate(form, values);
   };
 
   const hasKey = (key, language = activeLanguage) =>
-    typeof selectPluralForm(lookup(dictionaries.get(language), key), { count: 1 }, language) === "string";
+    typeof selectPluralForm(lookup(dictionaries.get(normalizeLanguage(language) ?? language), key), { count: 1 }, language) === "string";
 
   const intlCache = new Map();
   const cached = (kind, language, options, build) => {
@@ -183,6 +210,39 @@
     const date = value instanceof Date ? value : new Date(String(value ?? ""));
     return Number.isFinite(date.getTime()) ? date : null;
   };
+
+  /* Which Intl locale formats a date, given a language tag.
+
+     An explicit region is taken at its word ("en-AU" means en-AU, and an
+     unlisted "en-XX" means plain English). A bare language asks the reader's
+     browser instead, and accepts its answer only if it names a region we
+     actually format differently — so a reader who never chose anything still
+     gets their own date order, and nothing else about the page moves. */
+  const resolveDateFormat = (language = activeLanguage, navigatorLanguages) => {
+    const requested = String(language ?? "").trim().toLowerCase().replace(/_/g, "-");
+    const base = normalizeLanguage(requested) || DEFAULT_LANGUAGE;
+    const entry = LOCALES[base];
+    const variants = entry.variants;
+    const fallback = { locale: entry.locale, hour12: entry.hour12, dateOrder: entry.dateOrder, language: base };
+
+    if (!variants) return fallback;
+    if (requested.includes("-")) return { ...(variants[requested] || fallback), language: base };
+
+    const candidates = navigatorLanguages
+      ?? root.navigator?.languages
+      ?? (root.navigator?.language ? [root.navigator.language] : []);
+    for (const candidate of candidates || []) {
+      const variant = variants[String(candidate).trim().toLowerCase().replace(/_/g, "-")];
+      if (variant) return { ...variant, language: base };
+    }
+    return fallback;
+  };
+
+  /* The BCP-47 tag a date would be formatted in. Exported so a caller that
+     bakes a date into a document — the standalone export — can record the
+     region it used instead of re-deriving it somewhere the browser is gone. */
+  const getDateLocale = (language = activeLanguage, { navigatorLanguages } = {}) =>
+    resolveDateFormat(language, navigatorLanguages).locale;
 
   const formatDateTime = (value, options = {}, language = activeLanguage) => {
     const date = toDate(value);
@@ -212,22 +272,25 @@
   const formatPercent = (value, language = activeLanguage) =>
     formatNumber(Number(value) / 100, { style: "percent", maximumFractionDigits: 0 }, language);
 
-  /* Sample and placeholder dates only.
+  /* Generated dates only — sample content, and a date an author picked from
+     the studio's date field and gave no words of their own.
 
      A dateLabel the author typed is free text and is rendered verbatim
-     everywhere; nothing in the studio may reformat it. This builds the
+     everywhere; nothing here or anywhere else may reformat it. This builds the
      generated ones instead, and assembles them from Intl parts rather than
      handing Intl the whole job, because the invitation heroes give the date
      one line: the parts give correct month names, weekday names, day periods
      and hour cycle per locale while the layout stays roughly the width the
-     templates were designed against. */
+     templates were designed against.
+
+     `language` may name a region ("en-GB"); see resolveDateFormat. */
   const formatSampleDate = (value, language = activeLanguage) => {
     const date = toDate(value);
     if (!date) return "";
-    const { hour12 } = LOCALES[language] || LOCALES[DEFAULT_LANGUAGE];
+    const { locale, hour12, dateOrder } = resolveDateFormat(language);
     let parts;
     try {
-      parts = cached("sampledate", language, { hour12 }, () => new Intl.DateTimeFormat(getLocale(language), {
+      parts = cached("sampledate", locale, { hour12 }, () => new Intl.DateTimeFormat(locale, {
         year: "numeric",
         month: "short",
         day: "2-digit",
@@ -247,8 +310,13 @@
     const day = String(date.getDate()).padStart(2, "0");
     const time = `${part("hour")}:${part("minute")}`;
 
-    if (language === "ko") {
+    if (dateOrder === "ko") {
       return `${date.getFullYear()}.${month}.${day} (${part("weekday")}) ${time}`;
+    }
+    /* Day-first regions drop the weekday rather than the comma soup a full
+       "Sat, 19 Dec 2026, 17:00" would make of one hero line. */
+    if (dateOrder === "day-first") {
+      return `${day} ${part("month")} ${date.getFullYear()}, ${time} ${part("dayPeriod")}`.trim();
     }
     return `${part("weekday")}, ${part("month")} ${day}, ${date.getFullYear()} · ${time} ${part("dayPeriod")}`.trim();
   };
@@ -348,6 +416,7 @@
     formatNumber,
     formatPercent,
     formatSampleDate,
+    getDateLocale,
     getLanguage,
     getLanguageLabel,
     getLanguages,

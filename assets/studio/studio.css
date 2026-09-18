@@ -578,3 +578,9 @@ a:focus-visible { outline-color: var(--studio-focus); }
 .publishing-qr { display: flex; justify-content: center; margin: 14px 0 4px; padding: 12px; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-surface-alt); }
 .publishing-qr[hidden] { display: none; }
 .publishing-qr-canvas { width: min(100%, 320px); height: auto; image-rendering: auto; }
+/* Date (W1-3) — the "write it my own way" drawer under the date picker. */
+.date-custom-field { border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-surface); }
+.date-custom-field > summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; color: var(--studio-accent); font-size: 13px; font-weight: 700; cursor: pointer; }
+.date-custom-field > summary:focus-visible { outline: 2px solid var(--studio-focus); outline-offset: 2px; }
+.date-custom-field > label { padding: 0 14px; }
+.date-custom-field > small { display: block; padding: 6px 14px 14px; color: var(--studio-ink-soft); }
