@@ -524,9 +524,12 @@ const loadEditorHarness = ({
     selector === ".mobile-view-tabs button[data-mobile-view]" ? mobileTabs : [];
 
   let source = read("assets/studio/app.js");
-  // Screen navigation and sample rendering are exercised in verify-studio.cjs.
+  /* Sample rendering paints into a frame this harness has no layout for, and
+     is exercised in verify-studio.cjs. setStudioStage is deliberately not
+     stubbed: it is the one funnel every stage change goes through, and the
+     sheet/dialog dismissal it carries is a contract worth holding against the
+     real function rather than a stand-in. */
   source = source.replace(/const renderSamplePreview = \([^)]*\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
-  source = source.replace(/const setStudioStage = \(stage\) => \{[\s\S]*?\n\};/, 'const setStudioStage = () => {};');
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
   source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; };\nconst playPreviewIntro = () => {};${source.slice(previewEnd)}`;
@@ -554,6 +557,7 @@ const loadEditorHarness = ({
     loadInitialData,
     openSampleSheet,
     closeSampleSheet,
+    setStudioStage,
     renderContentEditor,
     renderTemplates,
     removeHeroImage: typeof removeHeroImage === "function" ? removeHeroImage : undefined,
@@ -3264,6 +3268,51 @@ test("the sheet's apply button is the dock's apply button, label and all", async
   assert.equal(sheetApply.disabled, true);
   assert.equal(sheetApply.disabled, dock.disabled);
 });
+/* The sheet is a top-layer modal raised by a gallery card, and the card is the
+   only thing it is about. Left open across an apply it covered the editor with
+   a "use this design" button for a design the author had already committed to,
+   and there was no card behind it to go back to. Every apply ends in
+   setStudioStage, so that is where the sheet is dismissed — which is what makes
+   the guarantee hold for a button that did not exist when this was written. */
+const applyFromSheet = async (control) => {
+  const phone = await loadGalleryHarness({ mobile: true });
+  phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+  assert.equal(phone.node("#sample-sheet").open, true, `${control} needs an open sheet to dismiss`);
+  phone.document.activeElement = null;
+  phone.node(control).dispatch("click");
+  return phone;
+};
+
+test("applying a design dismisses the sheet, whichever button applied it", async () => {
+  for (const control of ["#apply-template-button", "#gallery-create", "#sample-sheet-apply"]) {
+    const phone = await applyFromSheet(control);
+
+    assert.equal(phone.api.state.activeTemplate, "modern-vow", `${control} did not apply the design`);
+    assert.equal(phone.node("#sample-sheet").open, false, `${control} left the sheet over the editor`);
+    assert.equal(phone.document.body.dataset.studioStage, "edit", `${control} did not land on the editor`);
+    // The sample document goes with it, and focus is left for the editor
+    // rather than snapped back to a card on a stage the author has left.
+    assert.equal(phone.node("#sample-sheet-frame").srcdoc, "");
+    assert.equal(phone.document.activeElement, null, `${control} sent focus back to the gallery card`);
+  }
+});
+
+test("the sheet cannot survive a stage change onto the editor, finish screen or library", async () => {
+  for (const stage of ["edit", "finish", "library", "gallery"]) {
+    const phone = await loadGalleryHarness({ mobile: true });
+    const sheet = phone.node("#sample-sheet");
+    phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+    assert.equal(sheet.open, true);
+
+    phone.document.activeElement = null;
+    phone.api.setStudioStage(stage);
+
+    assert.equal(sheet.open, false, `the sheet outlived the ${stage} stage`);
+    assert.equal(phone.node("#sample-sheet-frame").srcdoc, "");
+    assert.equal(phone.document.activeElement, null);
+  }
+});
+
 test("the sample sheet is a bottom sheet with a safe-area floor and no motion when motion is off", () => {
   const css = read("assets/studio/studio.css");
 
@@ -3271,6 +3320,9 @@ test("the sample sheet is a bottom sheet with a safe-area floor and no motion wh
   assert.match(css, /\.studio-sheet\s*\{[^}]*margin:\s*auto auto 0/s);
   assert.match(css, /\.studio-sheet\s*\{[^}]*border-radius:\s*20px 20px 0 0/s);
   assert.match(css, /\.studio-sheet::backdrop\s*\{[^}]*background:\s*var\(--studio-scrim\)/s);
+  // `display: flex` outranks the UA's `dialog:not([open]) { display: none }`:
+  // without this the unopened sheet paints at the foot of the gallery page.
+  assert.match(css, /\.studio-sheet:not\(\[open\]\)\s*\{[^}]*display:\s*none/s);
   assert.match(css, /\.studio-sheet-close\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
   assert.match(css, /\.studio-sheet-actions\s*\{[^}]*env\(safe-area-inset-bottom\)/s);
   assert.match(css, /\.studio-sheet-actions button\s*\{[^}]*min-height:\s*44px/s);
