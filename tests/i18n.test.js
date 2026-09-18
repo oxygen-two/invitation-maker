@@ -706,14 +706,16 @@ test("the studio bakes its own language into exports but never re-languages a fi
   for (const site of [
     /downloadHtml/, /makeSavedItem\(html, invitation\.title, "generated"\)/
   ]) assert.match(app, site);
-  assert.equal((app.match(/buildStandaloneHtml\(invitation, studioChrome\(\)\)/g) || []).length, 2,
+  // portableOptions only adds the inlined artwork a kept file needs; the
+  // language it passes through is still the studio's.
+  assert.equal((app.match(/buildStandaloneHtml\(invitation, await portableOptions\(invitation, studioChrome\(\)\)\)/g) || []).length, 2,
     "the download and the library save both bake the studio's language");
 
   // What already exists is rebuilt in the language it declares.
   assert.match(app, /const standaloneOptionsFor = \(html\) => \(\{[\s\S]*?readStandaloneLanguage/);
-  assert.equal((app.match(/buildStandaloneHtml\(invitation, standaloneOptionsFor\(html\)\)/g) || []).length, 1,
+  assert.equal((app.match(/await portableOptions\(invitation, standaloneOptionsFor\(html\)\)/g) || []).length, 1,
     "a re-imported file keeps its own language");
-  assert.match(app, /buildStandaloneHtml\(invitation, standaloneOptionsFor\(legacyItem\.html\)\)/,
+  assert.match(app, /await portableOptions\(invitation, standaloneOptionsFor\(legacyItem\.html\)\)/,
     "a migrated legacy record keeps its own language");
 
   // No call site may fall back to the bare one-argument form again.

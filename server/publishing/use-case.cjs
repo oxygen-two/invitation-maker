@@ -5,10 +5,13 @@ const {
 } = require("../validation.cjs");
 const { initialExpiresAt, nextExpiresAt } = require("./expiry.cjs");
 
-const calculateExpiresAt = (config, now) => initialExpiresAt({
+const calculateExpiresAt = (config, now, invitation = null) => initialExpiresAt({
   now,
   idleWindowDays: config?.idleWindowDays,
-  maxLifetimeDays: config?.maxLifetimeDays
+  maxLifetimeDays: config?.maxLifetimeDays,
+  dateTime: invitation?.dateTime,
+  eventGraceDays: config?.eventGraceDays,
+  maxEventLeadDays: config?.maxEventLeadDays
 });
 
 // Public reads extend the sliding window. This is bookkeeping: a failure must
@@ -24,7 +27,10 @@ const refreshPublicationExpiry = async ({ record, repository, config = {}, now =
     now,
     idleWindowDays: config.idleWindowDays,
     maxLifetimeDays: config.maxLifetimeDays,
-    expiryRefreshThrottleHours: config.expiryRefreshThrottleHours
+    expiryRefreshThrottleHours: config.expiryRefreshThrottleHours,
+    dateTime: record.invitation?.dateTime,
+    eventGraceDays: config.eventGraceDays,
+    maxEventLeadDays: config.maxEventLeadDays
   });
   if (!target) return storedExpiresAt;
 
@@ -78,7 +84,7 @@ const publishInvitation = async ({
     contentHash: publishing.contentHash,
     clientKeyHash,
     now,
-    expiresAt: calculateExpiresAt(config, now)
+    expiresAt: calculateExpiresAt(config, now, publishing.invitation)
   });
 
   return {

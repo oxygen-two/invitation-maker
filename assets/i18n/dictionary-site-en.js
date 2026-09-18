@@ -171,8 +171,8 @@
           lead: "A public link expires on a sliding window: opening it pushes the expiry forward.",
           one: "Publishing sets the link to expire 7 days later.",
           two: "When the link is opened, the expiry moves to 7 days from then. That refresh is throttled to at most once every 6 hours, so a burst of visits counts as one.",
-          three: "However often it is opened, it never lives longer than 30 days from the day it was published.",
-          note: "The 7 and 30 days are today's operating defaults and the operator can change them. An expired link no longer opens."
+          three: "However often it is opened, it never lives longer than 30 days from the day it was published. An invitation that carries a date stays open until 7 days after that date, because an invitation is sent before the day it is for and the link must not close first. A date more than 400 days after publishing does not extend anything.",
+          note: "The 7 days, 30 days, and the week after the event are today's operating defaults and the operator can change them. An expired link no longer opens."
         },
         analytics: {
           eyebrow: "04",
@@ -275,8 +275,8 @@
           title: "How long a public link lives",
           lead: "A public link is not permanent storage.",
           one: "It expires 7 days after it was last opened. Opening it pushes that forward, at most once every 6 hours.",
-          two: "However often it is opened, it expires 30 days after publishing.",
-          three: "The 7 and 30 days are today's operating defaults and the operator can change them. An expired or revoked link cannot be restored; open the invitation again and publish a new one."
+          two: "However often it is opened, it expires 30 days after publishing. An invitation that carries a date stays open until 7 days after that date.",
+          three: "The 7 days, 30 days, and the week after the event are today's operating defaults and the operator can change them. An expired or revoked link cannot be restored; open the invitation again and publish a new one."
         },
         contact: {
           eyebrow: "07",

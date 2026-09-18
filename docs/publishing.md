@@ -47,11 +47,13 @@ A publication expires on a sliding window with a hard ceiling:
 - Publishing stamps an expiry `PUBLISH_IDLE_WINDOW_DAYS` (default 7) ahead.
 - Every successful public read of `GET /api/invitations/:id` pushes the expiry to `now + idle window`.
 - The expiry is never pushed past `createdAt + PUBLISH_MAX_LIFETIME_DAYS` (default 30). The ceiling is computed from the stored publication time, never from a client-supplied value.
+- An invitation that carries a `dateTime` also lives until `event + PUBLISH_EVENT_GRACE_DAYS` (default 7), and that floor outranks both the sliding window and the ceiling. Invitations are sent before the day they are for: under the ceiling alone a wedding link published two months ahead expired weeks before the wedding. The event time is the author's, so it only counts when it falls between the publication time and `createdAt + PUBLISH_MAX_EVENT_LEAD_DAYS` (default 400); the author's time zone is ignored because the grace window is measured in days.
 
 ```
 D+0   published            expires D+7
 D+5   viewed               expires D+12
 D+25  viewed               expires D+30   (capped by the 30-day ceiling)
+event D+60, never viewed   expires D+67   (the event floor outranks both)
 D+30  expired              no longer readable; the record still exists
 never viewed again         expires one idle window after the last view
 ```
@@ -60,7 +62,7 @@ These two numbers are what `privacy.html` and `terms.html` tell a visitor (`site
 
 An invitation that keeps getting opened stays readable for up to a month; one nobody opens stops being readable a week after its last view. `PUBLISH_MAX_LIFETIME_DAYS=0` disables expiry entirely. `PUBLISH_IDLE_WINDOW_DAYS=0` disables the sliding behaviour and leaves a plain `createdAt + max lifetime` expiry, which is how the retired `PUBLISH_TTL_DAYS` setting used to behave.
 
-`publish.expiryPolicy` in both `assets/i18n/dictionary-en.js` and `assets/i18n/dictionary-ko.js` states this same default idle/max lifetime in prose ("expires 7 days after it was last opened, and 30 days after publishing at the latest") for the publish panel the author sees before publishing. It is a hardcoded sentence, not read from config, so it must be updated by hand — in both dictionaries — whenever `PUBLISH_IDLE_WINDOW_DAYS` or `PUBLISH_MAX_LIFETIME_DAYS` changes from these defaults, or the panel will promise a policy the server no longer enforces.
+`finish.shareDialogPrivacy` in both `assets/i18n/dictionary-en.js` and `assets/i18n/dictionary-ko.js` states this rule in prose for the share dialog, which the author reads before publishing. It is a hardcoded sentence, not read from config, so it must be updated by hand — in both dictionaries — whenever these defaults change, or the dialog will promise a policy the server no longer enforces. The publish panel renders inside that same dialog, so `publish.expiryPolicy` deliberately does not repeat the rule; it points at the expiry date shown per link in the list.
 
 Reads refresh the expiry with a single atomic, monotonic update, and only when the new value is more than `PUBLISH_EXPIRY_REFRESH_HOURS` (default 6) beyond the stored one. A busy invitation therefore costs at most a few writes per day, not one per view. Expiry is enforced before that refresh, so a request for an expired invitation can never push its expiry forward; a record already past its ceiling is still served as-is and never shortened by a read. The refresh is bookkeeping: if the write fails, the read still returns the invitation with its stored expiry.
 
@@ -123,6 +125,8 @@ The publication manager is a separate local Node service and is not included in 
 | `PUBLISH_MAX_BYTES` | `2000000` | Server byte cap; the browser also enforces the 2MB product limit. |
 | `PUBLISH_IDLE_WINDOW_DAYS` | `7` | Sliding window: how long a publication stays readable after its last view. `0` disables sliding. |
 | `PUBLISH_MAX_LIFETIME_DAYS` | `30` | Hard ceiling measured from the publication time. `0` disables expiry entirely. |
+| `PUBLISH_EVENT_GRACE_DAYS` | `7` | How long past its own event an invitation stays readable. `0` disables the event floor. |
+| `PUBLISH_MAX_EVENT_LEAD_DAYS` | `400` | How far ahead an author-supplied event may still extend a publication. |
 | `PUBLISH_EXPIRY_REFRESH_HOURS` | `6` | Minimum expiry movement before a read is allowed to write. |
 | `PUBLISH_RATE_LIMIT_PER_HOUR` | `10` | Per-client publication rate ceiling. |
 | `PUBLISH_TOTAL_DAILY_LIMIT` | `100` | Service-wide daily publication ceiling. |

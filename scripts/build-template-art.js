@@ -3,6 +3,8 @@ const path = require("node:path");
 
 const ART_DIR = path.resolve(__dirname, "..", "assets", "invitation", "template-art");
 const OUTPUT_FILE = path.resolve(__dirname, "..", "assets", "invitation", "template-art.js");
+const INDEX_FILE = path.resolve(__dirname, "..", "assets", "invitation", "template-art-index.js");
+const ART_URL_BASE = "/assets/invitation/template-art";
 const MAX_BYTES = 80 * 1024;
 
 const sourceToTemplates = Object.freeze({
@@ -65,4 +67,48 @@ ${lines.join(",\n")}
 `;
 };
 
+/* The index is what pages load. It carries file names, not image bytes, so a
+   studio or a guest's viewer fetches only the one picture it shows instead of
+   every template's artwork. The inlined module above is still what a portable
+   file gets: a downloaded invitation has to work with no network at all. */
+const serializeIndex = (sourceMap) => {
+  const lines = Object.keys(sourceMap)
+    .sort()
+    .map((templateId) => `    ${JSON.stringify(templateId)}: ${JSON.stringify(sourceMap[templateId])}`);
+
+  return `(function exposeTemplateArtIndex(root, factory) {
+  const templateArtIndex = factory();
+
+  if (typeof module === "object" && module.exports) {
+    module.exports = templateArtIndex;
+  }
+
+  root.TemplateArtIndex = templateArtIndex;
+})(typeof globalThis === "object" ? globalThis : this, function createTemplateArtIndex() {
+  const SOURCES = Object.freeze({
+${lines.join(",\n")}
+  });
+  const BASE = ${JSON.stringify(ART_URL_BASE)};
+
+  /* Root-absolute on purpose: an invitation renders inside an about:srcdoc
+     frame whose base URL is the page around it, which is "/studio" in the
+     studio and "/i/<id>" for a guest. A relative path would resolve against
+     the wrong directory for one of them. */
+  const getUrl = (templateId) => (SOURCES[templateId] ? \`\${BASE}/\${SOURCES[templateId]}.webp\` : "");
+  const api = { getUrl, templateIds: Object.freeze(Object.keys(SOURCES)) };
+
+  return Object.freeze(api);
+});
+`;
+};
+
+const sourceForTemplate = () => {
+  const map = {};
+  for (const [basename, templateIds] of Object.entries(sourceToTemplates)) {
+    for (const templateId of templateIds) map[templateId] = basename;
+  }
+  return map;
+};
+
 fs.writeFileSync(OUTPUT_FILE, serialize(readArt()));
+fs.writeFileSync(INDEX_FILE, serializeIndex(sourceForTemplate()));

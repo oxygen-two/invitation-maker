@@ -179,16 +179,18 @@ test("the panel carries no heading of its own, so the dialog title is the only o
   assert.match(harness.root.innerHTML, /<h3 class="publication-list-title"/);
 });
 
-test("the expiry rule is stated before the author decides to publish", () => {
+test("the panel points at each link's own expiry instead of repeating the rule", () => {
   const harness = createPublishingMountHarness();
   const html = harness.root.innerHTML;
 
-  assert.ok(html.includes(publishCopy("expiryPolicy")), "the expiry rule must be rendered");
-  // docs/publishing.md: a sliding 7-day idle window under a 30-day ceiling.
-  assert.match(publishCopy("expiryPolicy"), /7일/);
-  assert.match(publishCopy("expiryPolicy"), /30일/);
+  // The rule itself lives in the dialog's static markup (tests/site-pages.test.js),
+  // and this panel renders inside that dialog. Stating it in both places printed
+  // the same sentence twice above the publish button, which buried the one line
+  // that matters: only this browser can take a link down.
+  assert.ok(html.includes(publishCopy("expiryPolicy")), "the panel still says where an expiry date can be read");
+  assert.doesNotMatch(publishCopy("expiryPolicy"), /7일|30일|7 days|30 days/);
   assert.ok(html.indexOf(publishCopy("consent")) < html.indexOf(publishCopy("expiryPolicy")),
-    "the consent sentence opens the panel and the expiry rule follows it");
+    "the consent sentence opens the panel and the expiry pointer follows it");
   assert.ok(html.indexOf(publishCopy("expiryPolicy")) < html.indexOf("publish-button"),
     "both come before the publish button");
   assert.doesNotMatch(publishCopy("consent"), /발행 후 만료일/,

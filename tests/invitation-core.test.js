@@ -1261,3 +1261,30 @@ test("a time zone the browser cannot name is dropped rather than carried", () =>
   assert.equal(normalizeInvitation({ dateTime: "2026-12-19T17:00", timeZone: "Europe/London" }).timeZone, "Europe/London");
   assert.equal(normalizeInvitation({ dateTime: "2026-12-19T17:00:30" }).dateTime, "2026-12-19T17:00");
 });
+
+test("a page points at the artwork file while a kept file carries the picture inside it", () => {
+  const TemplateArtIndex = require("../assets/invitation/template-art-index.js");
+  const invitation = { templateId: "botanical", title: "Art test" };
+
+  // Every decorated template the index knows resolves to a real file.
+  for (const templateId of TemplateArtIndex.templateIds) {
+    assert.match(TemplateArtIndex.getUrl(templateId), /^\/assets\/invitation\/template-art\/[a-z-]+\.webp$/);
+    assert.ok(fs.existsSync(path.join(root, TemplateArtIndex.getUrl(templateId).slice(1))), templateId);
+  }
+
+  // A portable document inlines what it was handed, so it opens with no network.
+  const portable = buildStandaloneHtml(invitation, { artSrc: "data:image/webp;base64,UklGRiQ=" });
+  assert.match(portable, /data:image\/webp;base64,UklGRiQ=/);
+
+  // The studio and a guest's page render the same invitation without it.
+  const online = InvitationCore.renderInvitationBody(invitation, { artSrc: "" });
+  assert.ok(online.length > 0);
+});
+
+test("the art index is small enough to load on every page", () => {
+  const index = fs.statSync(path.join(root, "assets/invitation/template-art-index.js")).size;
+  const inlined = fs.statSync(path.join(root, "assets/invitation/template-art.js")).size;
+  // The inlined module is ~1.5MB. Pages must not carry it to show one picture.
+  assert.ok(index < 8 * 1024, `index is ${index} bytes`);
+  assert.ok(inlined > 64 * index);
+});
