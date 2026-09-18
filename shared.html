@@ -45,6 +45,11 @@
       --halo-bg: #e9eee6;
       --halo-border: #e0e6dc;
       --ring: #b7c3b5;
+      /* Card/surface white — same token name and value as assets/site/site.css,
+         so the skip link (and anything else painted as a raised surface) swaps
+         with the rest of the palette instead of staying a hardcoded #fff. */
+      --card: #fff;
+      --green-glow: #314e4125;
     }
     /* B-12: dark mode for this chrome — the shared-viewer frame around a
        published invitation. The invitation itself (inside the iframe) keeps
@@ -63,6 +68,8 @@
         --halo-bg: #1c2321;
         --halo-border: #2b3230;
         --ring: #3a423d;
+        --card: #1e2224;
+        --green-glow: #8fb3a233;
       }
     }
     :root[data-theme="dark"] {
@@ -76,6 +83,8 @@
       --halo-bg: #1c2321;
       --halo-border: #2b3230;
       --ring: #3a423d;
+      --card: #1e2224;
+      --green-glow: #8fb3a233;
     }
     * { box-sizing: border-box; }
     /* Column layout so the footer can be pushed down by `margin-top: auto`
@@ -97,7 +106,7 @@
     a:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
     /* Parked off-screen rather than hidden, so it stays in the tab order and
        drops into view on focus. */
-    .skip { position: absolute; left: 20px; top: -80px; background: #fff; padding: 10px; z-index: 5; }
+    .skip { position: absolute; left: 20px; top: -80px; background: var(--card); color: var(--ink); padding: 10px; z-index: 5; }
     .skip:focus { top: 10px; }
     [hidden] { display: none !important; }
 
@@ -163,7 +172,7 @@
     .error-panel .description { color: var(--muted); font-size: 15px; word-break: keep-all; overflow-wrap: anywhere; margin: 0 0 26px; }
     .actions { display: flex; justify-content: center; margin: 0 0 26px; }
     .actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 9px; padding: 11px 22px; font: inherit; font-size: 14px; font-weight: 650; text-decoration: none; background: var(--green); color: var(--accent-ink); }
-    .actions a:hover { box-shadow: 0 0 0 2px #314e4125; }
+    .actions a:hover { box-shadow: 0 0 0 2px var(--green-glow); }
     .hint { border-top: 1px solid var(--line); margin: 0; padding-top: 18px; color: var(--muted); font-size: 13px; }
   </style>
 </head>
