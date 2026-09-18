@@ -150,6 +150,8 @@ npm run verify:publishing-mongo
 
 For the mobile editor regression, start the local server and run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright node scripts/verify-mobile-editor.cjs` with Chrome installed. It checks actual card/control boundaries in Korean and English at six widths (320–1440px), including controls hidden by ancestor clipping. Playwright remains an external QA tool, not a runtime dependency.
 
+For invitation titles, run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright node scripts/verify-hero-wrap.cjs` with Chrome installed; no local server is needed, since it builds each standalone document in memory. It asks the layout engine whether any word of a title was cut in half or spilled out of its box, measuring both places a title appears — the card's hero and the intro overlay — for every design against every shipped sample title, in Korean and English documents alike, at twelve widths from 320px to 1440px. Titles and documents are crossed deliberately: an export is `lang="ko"` whatever it is written in, so a Latin title in a Korean document is the ordinary case. `HERO_WRAP_MATRIX=1` prints the per-design table of sizes and box widths behind the result.
+
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request: a `verify` job runs `npm test` and `npm run build:public` on Node 22 and asserts the build left tracked files unchanged, and a `publishing-mongo` job runs `npm run verify:publishing-mongo` against a real `mongo:7` service container. There was no CI before this.
 
 ## Documentation

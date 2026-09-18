@@ -192,21 +192,49 @@ test("birthday information labels and peach and bloom map links use accessible s
   }
 });
 
-test("bloom and signature use normal title styling only when the rendered title contains Hangul", () => {
-  for (const id of ["bloom-portrait", "signature-birthday"]) {
-    const family = birthdayPresets.find((preset) => preset.id === id).family;
-    const korean = TemplateRenderers.render(family, { ...slots, templateId: id, title: "하린의 생일" });
-    const english = TemplateRenderers.render(family, { ...slots, templateId: id, title: "BIRTHDAY PORTRAIT" });
+/* Every hero title says which script it is written in, for every design and
+   both scripts. It used to be emitted only for four designs and only for
+   Korean, which was enough for the font-style tweak it was invented for but
+   not for the wrap fallback that now depends on it: an unmarked Latin title in
+   a `lang="ko"` export was indistinguishable from a Korean one. */
+test("every hero title is marked with the script it is written in", () => {
+  const families = ["romantic-story", "celebration-poster", "kids-storybook", "wedding-editorial", "korean-heritage"];
 
-    assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/);
-    assert.match(english, /<h1>BIRTHDAY PORTRAIT<\/h1>/);
+  for (const id of presetIds) {
+    for (const family of families) {
+      const korean = TemplateRenderers.render(family, { ...slots, templateId: id, title: "하린의 생일" });
+      const english = TemplateRenderers.render(family, { ...slots, templateId: id, title: "BIRTHDAY PORTRAIT" });
+
+      assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/, `${id}/${family} Korean title`);
+      assert.match(english, /<h1 data-title-script="en">BIRTHDAY PORTRAIT<\/h1>/, `${id}/${family} English title`);
+    }
   }
 
+  // A title mixing the two counts as Korean: that is the one that needs the
+  // fallback, since the Korean run is the part with no break opportunity.
+  assert.match(
+    TemplateRenderers.render("celebration-poster", { ...slots, templateId: "cherry-muse", title: "2026 하린" }),
+    /data-title-script="ko"/
+  );
+});
+
+test("bloom and signature use normal title styling only when the rendered title contains Hangul", () => {
   const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
   for (const id of ["bloom-portrait", "signature-birthday"]) {
     const koreanTitle = cssRule(css, `.invitation-card[data-layout-family][data-design="${id}"].invite-heroh1[data-title-script="ko"]`);
     assert.match(koreanTitle, /font-style:normal/);
   }
+
+  /* The Korean type tweak used to be written `[data-design]` and was held to
+     four designs only by the marker being rare. Now that every title carries
+     one, it has to name those four itself or it would silently restyle the
+     Korean titles of all thirty. */
+  const scoped = css.match(/([^{}]*)\{font-style:normal;letter-spacing:-\.04em[^}]*\}/);
+  assert.notEqual(scoped, null, "the Korean hero type rule is gone");
+  assert.deepEqual(
+    [...scoped[1].matchAll(/data-design="([^"]+)"/g)].map((match) => match[1]).sort(),
+    ["bloom-portrait", "cherry-muse", "peach-table", "signature-birthday"]
+  );
 });
 
 test("unknown preset IDs retain the generic family hero without trusting the ID as a design marker", () => {
@@ -409,9 +437,15 @@ test("hero title wrapping is settled once on the base rule, and only Korean may 
 
   assert.deepEqual(wrapRules, [
     '.invitation-card[data-layout-family].invite-heroh1 -> word-break:keep-all overflow-wrap:normal',
-    '.invitation-card[data-layout-family].invite-heroh1:lang(ko) -> overflow-wrap:anywhere',
-    '.invitation-card[data-layout-family][data-design].invite-heroh1[data-title-script="ko"] -> word-break:keep-all'
+    '.invitation-card[data-layout-family].invite-heroh1[data-title-script="ko"] -> overflow-wrap:anywhere',
+    '.invitation-card[data-layout-family][data-design="bloom-portrait"].invite-heroh1[data-title-script="ko"] -> word-break:keep-all'
   ]);
+
+  /* The document's language must not decide this. `:lang(ko)` reached every
+     element in an export — and exports default to lang="ko" — so it handed
+     `anywhere` to Latin titles in most documents and withheld it from Korean
+     titles in English ones. */
+  assert.doesNotMatch(css, /invite-heroh1:lang\(/);
 });
 
 /* The sizes are the half of the fix that does the work, so their shape is

@@ -492,15 +492,43 @@ test("the intro title is sized against its own box and only Korean may break a w
   // Korean keeps the last resort, and it is the only scope allowed to break a
   // word. The prose lines under the title keep `anywhere` on .intro-copy,
   // which is why that rule is not part of this check.
-  assert.match(styles, /\.intro-copyh1:lang\(ko\)\{[^}]*overflow-wrap:anywhere/);
+  assert.match(styles, /\.intro-copyh1\[data-title-script="ko"\]\{[^}]*overflow-wrap:anywhere/);
+  // Never the document's language: an export is lang="ko" whatever its title
+  // is written in, so `:lang(ko)` handed `anywhere` to Latin titles.
+  assert.doesNotMatch(styles, /\.intro-copyh1:lang\(/);
   const offenders = [];
   for (const [, selectorList, body] of styles.matchAll(/([^{}]*)\{([^}]*)\}/g)) {
     if (!/(?:overflow-wrap|word-break):/.test(body)) continue;
     const titleSelectors = selectorList.split(",").filter((one) => /\.intro-copyh1/.test(one));
     if (!titleSelectors.length) continue;
-    if (!/overflow-wrap:normal|word-break:keep-all/.test(body) && !titleSelectors.every((one) => /:lang\(ko\)/.test(one))) {
+    if (!/overflow-wrap:normal|word-break:keep-all/.test(body)
+      && !titleSelectors.every((one) => /\[data-title-script="ko"\]/.test(one))) {
       offenders.push(selectorList);
     }
   }
   assert.deepEqual(offenders, []);
+});
+
+/* The overlay marks its title the same way the hero does, and for the same
+   reason: the fallback below it is keyed off the marker, so an unmarked title
+   would be treated as Latin and a Korean run would have nowhere to break. */
+test("the intro title is marked with the script it is written in", () => {
+  for (const effect of Object.keys(InvitationIntro.PRESETS ?? {
+    envelope: 1, "card-shrink": 1, dawn: 1, fireworks: 1, curtain: 1, petals: 1, spotlight: 1, "photo-focus": 1
+  })) {
+    const korean = InvitationIntro.renderMarkup({ introEffect: effect, title: "하린의 생일" });
+    const english = InvitationIntro.renderMarkup({ introEffect: effect, title: "BIRTHDAY PORTRAIT" });
+
+    assert.match(korean, /<h1 data-title-script="ko">하린의 생일<\/h1>/, `${effect} Korean title`);
+    assert.match(english, /<h1 data-title-script="en">BIRTHDAY PORTRAIT<\/h1>/, `${effect} English title`);
+  }
+
+  // Mixed scripts count as Korean, matching the hero's rule.
+  assert.match(InvitationIntro.renderMarkup({ introEffect: "dawn", title: "2026 하린" }), /data-title-script="ko"/);
+  // And the marker is escaped context, not a hole: a hostile title cannot
+  // reach the attribute, because only "ko" or "en" is ever written.
+  assert.match(
+    InvitationIntro.renderMarkup({ introEffect: "dawn", title: '"><script>bad</script>' }),
+    /<h1 data-title-script="en">/
+  );
 });

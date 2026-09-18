@@ -69,12 +69,18 @@
       </article>
     `;
 
+  /* Which script the title itself is written in — not the document's language.
+     A Korean document routinely carries a Latin title ("CHERRY MUSE") and an
+     English one can carry a Korean title, so the wrap fallback has to key off
+     the words, not off <html lang>. Marking every title, rather than only the
+     four designs that once needed it for a font-style tweak, is what lets the
+     fallback be scoped to Korean and nothing else. */
+  const titleScript = (title) => /[\u3131-\u318e\uac00-\ud7a3]/.test(title) ? "ko" : "en";
+
   const hero = (slots, designId = "") => {
     const design = presetDesigns[designId];
     const title = slot(slots, "title");
-    const titleScriptAttribute = ["bloom-portrait", "signature-birthday", "cherry-muse", "peach-table"].includes(designId) && /[\u3131-\u318e\uac00-\ud7a3]/i.test(title)
-      ? ' data-title-script="ko"'
-      : "";
+    const titleScriptAttribute = ` data-title-script="${titleScript(title)}"`;
     const ornament = design?.ornament
       ? `<span class="invite-hero-ornament" aria-hidden="true">${design.ornament}</span>`
       : "";
@@ -192,13 +198,15 @@
      Each `min()` ceiling below is the size measured — by
      scripts/verify-hero-wrap.cjs, not by eye — as the largest at which the
      widest word of any shipped sample still fits that design's own title box.
-     Where a ceiling came down, that measurement is why: a 9-character
-     uppercase word cannot be 58px wide inside a 350px column, so the poster
-     designs that asked for it (cherry-muse 72 -> 55, gallery-notice 58 -> 44,
-     signature-birthday 64 -> 55, grad-bold and color-pop 52/54 -> 42,
-     midnight-toast 48 -> 42) now ask for what fits. The studio hands a design
-     switch the author's existing words, so a design has to hold any of them,
-     not only the sample it ships with.
+     Eight ceilings came down, and that measurement is why: a 9-character
+     uppercase word cannot be 58px wide inside a 350px column. Six of them are
+     poster-weight titles giving up real size — cherry-muse 72 -> 55,
+     signature-birthday 64 -> 55, gallery-notice 58 -> 44, grad-bold 52 -> 42,
+     color-pop 54 -> 42, midnight-toast 48 -> 42 — and two are barely touched:
+     silver-afterglow 54 -> 53 and bloom-portrait 54 -> 51. The other twenty-two
+     designs kept the size they had. The studio hands a design switch the
+     author's existing words, so a design has to hold any of them, not only the
+     sample it ships with.
 
      The `vw` declaration in front of each `cqi` one is the fallback for
      browsers without container queries; a finished invitation travels and gets
@@ -216,7 +224,7 @@
     .invitation-card[data-layout-family] .invite-hero::after{position:absolute;z-index:0;inset:0;background:linear-gradient(180deg,rgba(45,11,22,.08),rgba(45,11,22,.42));content:""}
     .invitation-card[data-layout-family] .invite-hero-copy{position:relative;z-index:1;min-width:0}
     .invitation-card[data-layout-family] .invite-hero h1{font-size:clamp(28px,9vw,39px);font-size:min(39px,11.8cqi);word-break:keep-all;overflow-wrap:normal}
-    .invitation-card[data-layout-family] .invite-hero h1:lang(ko),.invitation-card[data-layout-family] .invite-hero h1[data-title-script="ko"]{overflow-wrap:anywhere}
+    .invitation-card[data-layout-family] .invite-hero h1[data-title-script="ko"]{overflow-wrap:anywhere}
     .invitation-card[data-layout-family] .invite-hero-ornament{display:block;margin:20px auto;color:currentColor;font-family:var(--font-en,serif);font-size:54px;line-height:1}
     .invitation-card[data-layout-family] .invite-hero-details{display:grid;gap:4px;margin-top:28px;font-size:13px;line-height:1.6}
     .invitation-card[data-layout-family] .invite-hero-date{font-weight:700;letter-spacing:.08em}
@@ -481,7 +489,7 @@
   `;
 
   const birthdayBodyStyles = `
-    .invitation-card[data-layout-family][data-design] .invite-hero h1[data-title-script="ko"]{font-style:normal;letter-spacing:-.04em;line-height:1.2;word-break:keep-all}
+    .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-hero h1[data-title-script="ko"],.invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero h1[data-title-script="ko"],.invitation-card[data-layout-family][data-design="cherry-muse"] .invite-hero h1[data-title-script="ko"],.invitation-card[data-layout-family][data-design="peach-table"] .invite-hero h1[data-title-script="ko"]{font-style:normal;letter-spacing:-.04em;line-height:1.2;word-break:keep-all}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-message{padding:44px 30px;line-height:1.9;text-align:center}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-timeline{padding:20px 30px 40px;gap:28px}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-stop{padding:20px 0;border:0;border-top:1px solid var(--line);background:transparent}

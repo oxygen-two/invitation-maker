@@ -55,6 +55,14 @@
       "'": "&#039;"
     })[char]);
 
+  /* The same marker the card's hero carries (see titleScript in
+     assets/invitation/template-renderers.js): which script the title is
+     written in, which is not the same question as what <html lang> says. An
+     exported invitation defaults to lang="ko" whatever its title is written
+     in, so keying the Korean wrap fallback off the document would let it reach
+     Latin words in most exports. */
+  const titleScript = (title) => /[\u3131-\u318e\uac00-\ud7a3]/.test(title) ? "ko" : "en";
+
   const normalizeEffect = (value) => Object.hasOwn(PRESETS, value) ? value : "none";
 
   const firstSafePhoto = (invitation = {}) => {
@@ -113,7 +121,7 @@
     const preview = options.preview ? " data-intro-preview" : "";
     const copy = preset.copy.map((field) => {
       const value = escapeHtml(invitation[field] || "");
-      if (field === "title") return `<h1>${value}</h1>`;
+      if (field === "title") return `<h1 data-title-script="${titleScript(invitation[field] || "")}">${value}</h1>`;
       const className = field === "dateLabel" ? "date" : field;
       return `<p class="intro-${className}">${value}</p>`;
     }).join("\n    ");
@@ -151,7 +159,7 @@ body.is-intro-active{overflow:hidden}
 .invitation-intro[data-intro-preview]{position:absolute}
 .intro-copy{position:relative;z-index:3;width:min(100%,420px);text-align:center;overflow-wrap:anywhere;pointer-events:none;container-type:inline-size}
 .intro-copy h1{margin:0;color:var(--deep,var(--wine-900,#42101f));font-family:var(--font-en,var(--font-ko,serif));font-size:clamp(32px,10vw,58px);font-size:min(56px,13.2cqi);font-style:italic;font-weight:500;line-height:1.1;letter-spacing:0;word-break:keep-all;overflow-wrap:normal}
-.intro-copy h1:lang(ko){overflow-wrap:anywhere}
+.intro-copy h1[data-title-script="ko"]{overflow-wrap:anywhere}
 .intro-subtitle,.intro-date,.intro-host{margin:12px 0 0;color:var(--soft,var(--ink-soft,#65535a));font-size:14px;line-height:1.55}
 .intro-date{color:var(--mid,var(--wine-700,#7a243b));font-weight:700}.intro-host{font-family:var(--font-en,var(--font-ko,serif))}
 .intro-skip{position:absolute;z-index:5;top:max(16px,env(safe-area-inset-top));right:max(16px,env(safe-area-inset-right));min-height:40px;padding:0 14px;border:1px solid rgba(42,23,32,.18);border-radius:999px;background:rgba(255,250,242,.86);color:var(--ink,#2a1720);font:700 13px/1 var(--font-ko,"Noto Sans KR",sans-serif);cursor:pointer}

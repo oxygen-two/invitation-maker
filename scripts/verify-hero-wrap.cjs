@@ -70,15 +70,25 @@ const TITLES = [...new Set(data.templates.flatMap((template) => [
   overlayFor(template.id)?.title || template.defaults.title
 ]))];
 
-// Mirrors the renderer's rule in assets/invitation/template-renderers.js, so a
-// probed title carries the same script marker the renderer would have written.
-const SCRIPT_MARKED_DESIGNS = ["bloom-portrait", "signature-birthday", "cherry-muse", "peach-table"];
+/* Mirrors titleScript() in assets/invitation/template-renderers.js and
+   assets/invitation/intro-effects.js, so a probed title carries the same
+   marker the renderer would have written for it. */
+const titleScript = (title) => /[\u3131-\u318e\uac00-\ud7a3]/.test(title) ? "ko" : "en";
+
+/* The pairing that the document's language used to get wrong, and the reason
+   this matrix crosses the two axes rather than testing each language against
+   its own titles. An exported invitation is `lang="ko"` unless it was built in
+   English, so a Latin title in a Korean document is the common case, not the
+   exotic one — and while the fallback was gated on `:lang(ko)` that case was
+   the one where `anywhere` could cut a Latin word. The mirror case, a Korean
+   title in an `en` document, got no fallback at all. */
+const CROSS_SCRIPT = (language, title) => titleScript(title) !== (language === "en" ? "en" : "ko");
 
 /* Runs in the page. Swaps each candidate title into the live title element —
    the font, the container-relative size, the max-width and the text-transform
    all stay exactly as the design renders them — and reports the words that did
    not survive. */
-const probeTitles = ({ selector, titles, scriptMarked }) => {
+const probeTitles = ({ selector, titles }) => {
   const h1 = document.querySelector(selector);
   if (!h1) return { error: `no title at ${selector}` };
 
@@ -88,8 +98,8 @@ const probeTitles = ({ selector, titles, scriptMarked }) => {
 
   for (const title of titles) {
     h1.textContent = title;
-    if (scriptMarked && hangul.test(title)) h1.setAttribute("data-title-script", "ko");
-    else h1.removeAttribute("data-title-script");
+    // Every title carries a marker now, naming the script it is written in.
+    h1.setAttribute("data-title-script", hangul.test(title) ? "ko" : "en");
 
     const style = getComputedStyle(h1);
     const available = h1.clientWidth
@@ -118,14 +128,23 @@ const probeTitles = ({ selector, titles, scriptMarked }) => {
     if (broken.length) results.push({ title, broken });
   }
 
+  /* What the two scripts actually resolve to in this document. The Korean
+     fallback must reach a Korean title and must not reach a Latin one, and
+     that has to hold in a `ko` document and an `en` one alike. */
+  const wrapByScript = {};
+  for (const script of ["ko", "en"]) {
+    h1.setAttribute("data-title-script", script);
+    const resolved = getComputedStyle(h1);
+    wrapByScript[script] = `${resolved.wordBreak}/${resolved.overflowWrap}`;
+  }
+
   const style = getComputedStyle(h1);
   return {
     results,
+    wrapByScript,
     widest: Math.round(widest),
     fontSize: Math.round(parseFloat(style.fontSize) * 10) / 10,
-    boxWidth: Math.round(h1.clientWidth),
-    wordBreak: style.wordBreak,
-    overflowWrap: style.overflowWrap
+    boxWidth: Math.round(h1.clientWidth)
   };
 };
 
@@ -134,6 +153,7 @@ const probeTitles = ({ selector, titles, scriptMarked }) => {
   const failures = [];
   const contracts = new Set();
   let probes = 0;
+  let crossScript = 0;
 
   try {
     for (const width of WIDTHS) {
@@ -153,19 +173,18 @@ const probeTitles = ({ selector, titles, scriptMarked }) => {
             // The designs are drawn in specific faces. Measuring fallback
             // metrics would measure a document nobody receives.
             await page.evaluate(() => window.document.fonts.ready);
-            const result = await page.evaluate(probeTitles, {
-              selector: surface.selector,
-              titles: TITLES,
-              scriptMarked: SCRIPT_MARKED_DESIGNS.includes(template.id)
-            });
+            const result = await page.evaluate(probeTitles, { selector: surface.selector, titles: TITLES });
             probes += TITLES.length;
+            crossScript += TITLES.filter((title) => CROSS_SCRIPT(language, title)).length;
 
             const label = `${surface.name}/${template.id}/${language}/${width}`;
             if (result.error) {
               failures.push(`${label}: ${result.error}`);
               continue;
             }
-            contracts.add(`${surface.name} ${result.wordBreak} + ${result.overflowWrap}`);
+            for (const [script, wrap] of Object.entries(result.wrapByScript)) {
+              contracts.add(`${surface.name} ${script}-title in ${language} doc: ${wrap}`);
+            }
             for (const { title, broken } of result.results) {
               failures.push(`${label}: "${title}" -> ${broken.join(", ")} at ${result.fontSize}px in ${result.boxWidth}px`);
             }
@@ -192,7 +211,8 @@ const probeTitles = ({ selector, titles, scriptMarked }) => {
   }
 
   for (const failure of failures) console.error(`FAIL ${failure}`);
-  console.error(`computed title wrapping: ${[...contracts].join(" / ")}`);
+  for (const line of [...contracts].sort()) console.error(`computed wrapping: ${line}`);
+  console.error(`cross-script probes (Latin title in a ko document, or Korean title in an en one): ${crossScript}`);
   assert.deepEqual(
     failures.map((line) => line.split(": ")[0]),
     [],
