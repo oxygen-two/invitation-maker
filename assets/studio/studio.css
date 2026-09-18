@@ -122,10 +122,10 @@ body[data-studio-stage="edit"] .template-picker,
 body[data-studio-stage="edit"] .library-panel { display: none; }
 /* 01 already shows every design as a live card. Repeating the selected one at
    full size below the grid added roughly a thousand pixels of scroll carrying
-   nothing new, so the frame itself is dropped here — the panel stays only to
-   host the "선택한 디자인 적용" prompt, which is the one thing on it the gallery
-   still needs. Below 900px the cards are two-up and small, and the full-size
-   view lives behind the 미리보기 tab where it costs no scroll, so it stays. */
+   nothing new, so the preview frame is hidden on this stage — the panel stays
+   only to host the apply prompt, which is the one thing on it the gallery still
+   needs. Below 900px the cards are two-up and small, so tapping one raises the
+   design at full size in the #sample-sheet bottom sheet instead. */
 body[data-studio-stage="gallery"] .preview-panel {
   grid-column: 1;
   grid-row: auto;
@@ -568,6 +568,71 @@ a:focus-visible { outline-color: var(--studio-focus); }
 @media (max-width: 420px) {
   .content-item-header { grid-template-columns: 30px minmax(0, 1fr) 44px; }
   .content-item-menu-list { min-width: 168px; }
+/* Gallery sample sheet (B-3) ---------------------------------------------
+   The phone gallery's whole job is one decision, and a 160px thumbnail is not
+   enough to make it on. Tapping a card raises this sheet: the design as the
+   guest will receive it, filling the screen from the bottom the way a phone
+   sheet does, with the commit button pinned above the home indicator. It is
+   the same native <dialog> pattern as .studio-dialog above — top layer,
+   Escape, focus trap, ::backdrop — but laid out as a sheet rather than a
+   centred card, so it needs its own block instead of a modifier on that one.
+   Opened only below 900px (see openSampleSheet in app.js); above that the
+   gallery already renders every design live and nothing raises it. */
+.studio-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: 92vh;
+  max-height: 92vh;
+  /* A modal dialog is centred by `margin: auto` against `inset: 0`; zeroing
+     the bottom margin alone is what drops it to the floor of the viewport. */
+  margin: auto auto 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px 20px 0 0;
+  background: var(--studio-surface);
+  box-shadow: var(--studio-shadow);
+  color: var(--studio-ink);
+}
+.studio-sheet::backdrop { background: var(--studio-scrim); }
+.studio-sheet-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 10px 12px 20px; border-bottom: 1px solid var(--studio-line); background: var(--studio-surface); }
+.studio-sheet-heading { min-width: 0; }
+.studio-sheet-heading .eyebrow { margin: 0 0 2px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+.studio-sheet-heading h2 { margin: 0; color: var(--studio-accent-deep); font-size: 17px; line-height: 1.3; overflow-wrap: anywhere; }
+.studio-sheet-close { display: grid; place-items: center; flex: 0 0 auto; width: 44px; height: 44px; border: 0; border-radius: 999px; background: transparent; color: var(--studio-ink-muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.studio-sheet-close:hover { background: var(--studio-surface-alt); color: var(--studio-accent-deep); }
+/* The sample document carries its own palette and paints its own ground, so
+   the frame is a plain window onto it — the sunken bed only shows while the
+   srcdoc is still parsing. */
+.studio-sheet-frame { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: var(--studio-surface-sunken); color-scheme: light; }
+.studio-sheet-actions { flex: 0 0 auto; display: flex; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--studio-line); background: var(--studio-surface); }
+.studio-sheet-actions button { flex: 1 1 0; min-height: 44px; }
+.studio-sheet-actions .primary-button { flex: 2 1 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .studio-sheet[open] { animation: studio-sheet-in 220ms cubic-bezier(.22, .61, .36, 1); }
+  .studio-sheet[open]::backdrop { animation: studio-dialog-backdrop-in 220ms ease; }
+}
+@keyframes studio-sheet-in { from { transform: translateY(8%); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .studio-sheet, .studio-sheet[open], .studio-sheet::backdrop { animation: none; } }
+
+/* Honest preview width (B-4) ---------------------------------------------
+   The preview panel's 12px padding plus the shell's 16px gutters left the
+   frame about 358px wide on a 390px phone, and the author read that narrower
+   layout as what their guests would see — it is where "HAPPY BIRTHDAY!" first
+   broke mid-word. The panel drops its padding and steps back out of the
+   shell's gutter so the frame is exactly the width of the phone. The gutter is
+   set once, as `.app-shell { width: calc(100% - 32px) }` above; -16px per side
+   is its other half. */
+@media (max-width: 900px) {
+  .preview-panel { padding: 0; }
+  /* 03 lays the stage out as a flex column, and .preview-panel carries
+     `align-self: start` from style.css for the sticky desktop column — which
+     in that column shrank it to its content (300px) instead of the phone. */
+  body[data-studio-stage="edit"] .preview-panel,
+  body[data-studio-stage="finish"] .preview-panel { align-self: stretch; margin-inline: -16px; }
+  .preview-frame { width: 100%; max-width: none; margin-inline: 0; border-radius: 0; }
 }
 /* Share dialog QR code and pre-publish copy (audit B-9, task W1-7). The panel
    lost its own header row, so the three sentences that now open it are plain

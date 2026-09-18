@@ -89,7 +89,10 @@
       dockSelected: "Selected · {name}",
       dockEmpty: "Choose a design",
       dockBack: "All designs",
-      applyFailed: "That template could not be applied. Your draft is unchanged."
+      applyFailed: "That template could not be applied. Your draft is unchanged.",
+      sheetTitle: "Design preview",
+      sheetFrameTitle: "Design sample preview",
+      sheetClose: "Close"
     },
 
     editor: {

@@ -91,7 +91,10 @@
       dockSelected: "선택한 디자인 · {name}",
       dockEmpty: "디자인을 선택해 주세요",
       dockBack: "디자인 목록",
-      applyFailed: "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다."
+      applyFailed: "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다.",
+      sheetTitle: "디자인 미리보기",
+      sheetFrameTitle: "디자인 샘플 미리보기",
+      sheetClose: "닫기"
     },
 
     editor: {

@@ -177,7 +177,7 @@
     .invitation-card[data-layout-family] .invite-hero-art{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--hero-image-x,50%) var(--hero-image-y,50%);transform:scale(var(--hero-image-scale,1));transform-origin:var(--hero-image-x,50%) var(--hero-image-y,50%);pointer-events:none}
     .invitation-card[data-layout-family] .invite-hero::after{position:absolute;z-index:0;inset:0;background:linear-gradient(180deg,rgba(45,11,22,.08),rgba(45,11,22,.42));content:""}
     .invitation-card[data-layout-family] .invite-hero-copy{position:relative;z-index:1;min-width:0}
-    .invitation-card[data-layout-family] .invite-hero h1{word-break:keep-all;overflow-wrap:anywhere}
+    .invitation-card[data-layout-family] .invite-hero h1{font-size:clamp(28px,9vw,39px);word-break:keep-all;overflow-wrap:break-word}
     .invitation-card[data-layout-family] .invite-hero-ornament{display:block;margin:20px auto;color:currentColor;font-family:var(--font-en,serif);font-size:54px;line-height:1}
     .invitation-card[data-layout-family] .invite-hero-details{display:grid;gap:4px;margin-top:28px;font-size:13px;line-height:1.6}
     .invitation-card[data-layout-family] .invite-hero-date{font-weight:700;letter-spacing:.08em}
@@ -201,7 +201,7 @@
     .invitation-card[data-layout-family="celebration-poster"] .invite-hero{min-height:310px;align-content:end;text-align:left;background:linear-gradient(145deg,var(--wine-950),var(--wine-700) 58%,var(--gold-500))}
     .invitation-card[data-layout-family="celebration-poster"] .invite-hero::after{background:linear-gradient(90deg,rgba(255,253,249,.9) 0 46%,rgba(255,253,249,.32) 72%,rgba(45,11,22,.16))}
     .invitation-card[data-layout-family="celebration-poster"] .invite-kicker,.invitation-card[data-layout-family="celebration-poster"] .invite-subtitle,.invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{color:var(--wine-950)}
-    .invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{font-size:44px;font-style:normal;text-transform:uppercase}
+    .invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{font-size:clamp(30px,9vw,44px);font-style:normal;text-transform:uppercase}
     .invitation-card[data-layout-family="celebration-poster"] .invite-meta{grid-template-columns:1fr;gap:0;padding:0;border-bottom:0;background:var(--wine-950)}
     .invitation-card[data-layout-family="celebration-poster"] .invite-meta div{border-width:0 0 1px;border-radius:0;background:var(--wine-950);color:var(--cream-50)}
     .invitation-card[data-layout-family="celebration-poster"] .invite-meta span,.invitation-card[data-layout-family="celebration-poster"] .invite-meta strong,.invitation-card[data-layout-family="celebration-poster"] .invite-timezone-note,.invitation-card[data-layout-family="celebration-poster"] .invite-calendar-link{color:var(--cream-50)}
@@ -273,7 +273,7 @@
     .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero::after{background:linear-gradient(100deg,rgba(19,23,48,.93),rgba(36,43,75,.72))}
     .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero-art:not([data-custom-hero-image]){display:none}
     .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-kicker{padding-bottom:16px;border-bottom:1px solid #9c966f}
-    .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero h1{margin-top:74px;font-size:55px;line-height:.98;text-transform:uppercase}
+    .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero h1{margin-top:74px;font-size:clamp(36px,13vw,55px);line-height:.98;text-transform:uppercase}
     .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero-ornament{position:absolute;top:72px;right:0;font-size:76px}
     .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero-details{padding-top:16px;border-top:1px dashed #aaacba}
     .invitation-card[data-layout-family][data-design="midnight-cinema"] .invite-hero-stub{position:absolute;z-index:1;bottom:12px;left:34px;font-size:10px;letter-spacing:5px}
@@ -295,14 +295,14 @@
     .invitation-card[data-layout-family][data-design="memory-film"] .invite-hero::after{background:transparent}
     .invitation-card[data-layout-family][data-design="memory-film"] .invite-hero-photo-frame{width:100%;height:320px;min-height:0;padding:12px 12px 42px;background:#fff;box-shadow:0 8px 18px #0002;transform:rotate(-4deg)}
     .invitation-card[data-layout-family][data-design="memory-film"] .invite-hero-copy{width:100%;padding-top:12px}
-    .invitation-card[data-layout-family][data-design="memory-film"] .invite-hero h1{font-size:32px}
+    .invitation-card[data-layout-family][data-design="memory-film"] .invite-hero h1{font-size:clamp(25px,8vw,32px)}
     .invitation-card[data-layout-family][data-design="black-tie"] .invite-hero{min-height:540px;align-content:center;background:#202727;color:#e5d7b2}
     .invitation-card[data-layout-family][data-design="black-tie"] .invite-hero::after{inset:30px 40px;border:1px solid #938568;border-radius:48% 48% 0 0;background:rgba(10,14,14,.28)}
     .invitation-card[data-layout-family][data-design="black-tie"] .invite-hero-ornament{font-size:30px}
     .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero{min-height:540px;align-content:start;padding:36px;text-align:left;background:#ede9df;color:#202020}
     .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero::after{background:linear-gradient(180deg,#ede9df 0 34%,transparent 34% 76%,#ede9df 76%)}
     .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero-art{inset:34% 0 auto;height:42%}
-    .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero h1{font-family:var(--font-en,sans-serif),var(--font-ko,sans-serif),sans-serif;font-size:58px;font-weight:900;line-height:.9;letter-spacing:-3px;text-transform:uppercase}
+    .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero h1{font-family:var(--font-en,sans-serif),var(--font-ko,sans-serif),sans-serif;font-size:clamp(38px,13vw,58px);font-weight:900;line-height:.9;letter-spacing:-3px;text-transform:uppercase}
     .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero h1,.invitation-card[data-layout-family][data-design="gallery-notice"] .invite-subtitle{width:fit-content;max-width:100%;padding:4px 12px 4px 0;background:var(--paper);box-shadow:10px 0 0 var(--paper)}
     .invitation-card[data-layout-family][data-design="gallery-notice"] .invite-hero-details{margin-top:250px}
     .invitation-card[data-layout-family][data-design="sunny-classroom"] .invite-hero{min-height:500px;align-content:start;background:#fff1bc;color:#3f6f5a}
@@ -318,7 +318,7 @@
     .invitation-card[data-layout-family][data-design="wedding"] .invite-hero-ornament{font-size:38px}
     .invitation-card[data-layout-family][data-design="modern-vow"] .invite-hero{min-height:620px;align-content:end;padding:52px 32px;text-align:left;color:#fff8ed}
     .invitation-card[data-layout-family][data-design="modern-vow"] .invite-hero::after{background:linear-gradient(rgba(36,25,18,.16),transparent 28%,rgba(33,25,16,.88))}
-    .invitation-card[data-layout-family][data-design="modern-vow"] .invite-hero h1{font-size:58px;line-height:1}
+    .invitation-card[data-layout-family][data-design="modern-vow"] .invite-hero h1{font-size:clamp(38px,13vw,58px);line-height:1}
     .invitation-card[data-layout-family][data-design="modern-vow"] .invite-hero-details{padding-top:15px;border-top:1px solid #fff8}
     .invitation-card[data-layout-family][data-design="blue-porcelain"] .invite-hero{min-height:550px;align-content:center;margin:22px;border:1px solid #6889a3;background:#f4f4e9;color:#274e78}
     .invitation-card[data-layout-family][data-design="blue-porcelain"] .invite-hero::after{background:rgba(250,248,237,.68)}
@@ -339,7 +339,7 @@
     .invitation-card[data-layout-family][data-design="first-chapter"] .invite-hero::after{background:linear-gradient(transparent,rgba(244,233,215,.8))}
     .invitation-card[data-layout-family][data-design="first-chapter"] .invite-hero-art{opacity:.28}
     .invitation-card[data-layout-family][data-design="first-chapter"] .invite-hero-ornament{margin:32px 0 0;color:#b97143;font-size:180px}
-    .invitation-card[data-layout-family][data-design="first-chapter"] .invite-hero h1{font-size:42px}
+    .invitation-card[data-layout-family][data-design="first-chapter"] .invite-hero h1{font-size:clamp(30px,10vw,42px)}
     .invitation-card[data-layout-family][data-design="little-star"] .invite-hero{min-height:560px;align-content:center;background:#293957;color:#f6e4b0}
     .invitation-card[data-layout-family][data-design="little-star"] .invite-hero::after{background:radial-gradient(circle at 20% 18%,#fff7 0 1px,transparent 2px),radial-gradient(circle at 78% 32%,#fff9 0 1px,transparent 2px),radial-gradient(circle at 63% 72%,#fff7 0 1px,transparent 2px),rgba(24,37,63,.72);background-size:61px 67px,83px 91px,107px 73px,auto}
     .invitation-card[data-layout-family][data-design="little-star"] .invite-hero-ornament{font-size:112px}
@@ -402,11 +402,11 @@
     .invitation-card[data-template="bloom-portrait"] .invite-stop-map-link{color:var(--deep)}
     .invitation-card[data-template="bloom-portrait"] .invite-map{background:var(--deep)}
     .invitation-card[data-layout-family][data-design] .invite-kicker,.invitation-card[data-layout-family][data-design] .invite-hero h1,.invitation-card[data-layout-family][data-design] .invite-subtitle,.invitation-card[data-layout-family][data-design] .invite-hero-details{color:inherit}
-    @media(max-width:480px){.invitation-card[data-layout-family="wedding-editorial"] .invite-meta,.invitation-card[data-layout-family="kids-storybook"] .invite-meta,.invitation-card[data-layout-family="wedding-editorial"] .invite-profile{grid-template-columns:1fr}.invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{font-size:38px}.invitation-card[data-layout-family][data-design="memory-film"] .invite-hero,.invitation-card[data-layout-family][data-design="golden-years"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="cherry-muse"] .invite-hero{padding-inline:28px}.invitation-card[data-layout-family][data-design="silver-afterglow"] .invite-hero,.invitation-card[data-layout-family][data-design="peach-table"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-hero{padding-inline:22px}.invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero{padding-inline:32px}}
+    @media(max-width:480px){.invitation-card[data-layout-family="wedding-editorial"] .invite-meta,.invitation-card[data-layout-family="kids-storybook"] .invite-meta,.invitation-card[data-layout-family="wedding-editorial"] .invite-profile{grid-template-columns:1fr}.invitation-card[data-layout-family][data-design="memory-film"] .invite-hero,.invitation-card[data-layout-family][data-design="golden-years"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="cherry-muse"] .invite-hero{padding-inline:28px}.invitation-card[data-layout-family][data-design="silver-afterglow"] .invite-hero,.invitation-card[data-layout-family][data-design="peach-table"] .invite-hero{padding-inline:24px}.invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-hero{padding-inline:22px}.invitation-card[data-layout-family][data-design="signature-birthday"] .invite-hero{padding-inline:32px}}
   `;
 
   const birthdayBodyStyles = `
-    .invitation-card[data-layout-family][data-design] .invite-hero h1{overflow-wrap:anywhere}
+    .invitation-card[data-layout-family][data-design] .invite-hero h1{overflow-wrap:break-word}
     .invitation-card[data-layout-family][data-design] .invite-hero h1[data-title-script="ko"]{font-style:normal;letter-spacing:-.04em;line-height:1.2;word-break:keep-all}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-message{padding:44px 30px;line-height:1.9;text-align:center}
     .invitation-card[data-layout-family][data-design="bloom-portrait"] .invite-timeline{padding:20px 30px 40px;gap:28px}

@@ -503,13 +503,29 @@ const loadEditorHarness = ({
   selectors.set("#invitation-form", formNode);
   selectors.set("#occasion-list", makeListNode());
   selectors.set("#template-list", makeListNode());
+  /* #sample-sheet is a <dialog>, and the whole of what the app asks of it is
+     showModal, close, and the "close" event a closed dialog fires. */
+  selectors.set("#sample-sheet", {
+    ...genericNode(),
+    open: false,
+    modalCalls: 0,
+    showModal() {
+      this.open = true;
+      this.modalCalls += 1;
+    },
+    close() {
+      if (!this.open) return;
+      this.open = false;
+      this.dispatch("close");
+    }
+  });
   document.querySelector = node;
   document.querySelectorAll = (selector) =>
     selector === ".mobile-view-tabs button[data-mobile-view]" ? mobileTabs : [];
 
   let source = read("assets/studio/app.js");
   // Screen navigation and sample rendering are exercised in verify-studio.cjs.
-  source = source.replace(/const renderSamplePreview = \(\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
+  source = source.replace(/const renderSamplePreview = \([^)]*\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
   source = source.replace(/const setStudioStage = \(stage\) => \{[\s\S]*?\n\};/, 'const setStudioStage = () => {};');
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
@@ -536,6 +552,8 @@ const loadEditorHarness = ({
     handleHeroImageSelection: typeof handleHeroImageSelection === "function" ? handleHeroImageSelection : undefined,
     handlePhotoSelection,
     loadInitialData,
+    openSampleSheet,
+    closeSampleSheet,
     renderContentEditor,
     renderTemplates,
     removeHeroImage: typeof removeHeroImage === "function" ? removeHeroImage : undefined,
@@ -3107,4 +3125,169 @@ test("a date the author picked fills the picker, and only their own words fill t
   fillForm(InvitationCore.normalizeInvitation({ dateLabel: "2026.09.12 SAT 14:00" }));
   assert.equal(form.elements.dateTime.value, "");
   assert.equal(form.elements.dateLabel.value, "2026.09.12 SAT 14:00");
+});
+
+/* B-3 / B-4 — the phone gallery ------------------------------------------
+   Two thumbnails per row, 160px wide, are all a phone author sees before the
+   biggest decision in the studio. Tapping a card has to open the real thing at
+   the real width, and the edit/finish preview has to stop lying about how wide
+   a phone is. */
+test("the sample sheet's markup is a labelled dialog with two ways out", () => {
+  const sheet = read("studio.html").match(/<dialog id="sample-sheet"[\s\S]*?<\/dialog>/)?.[0] || "";
+
+  assert.match(sheet, /class="studio-sheet"/);
+  assert.match(sheet, /aria-labelledby="sample-sheet-title"/);
+  assert.match(sheet, /id="sample-sheet-title"/);
+  assert.match(sheet, /<iframe[^>]+id="sample-sheet-frame"/);
+  assert.match(sheet, /id="sample-sheet-apply"/);
+  // Two ways out of a modal that covers the screen: the 44px ✕ and a labelled
+  // button next to the one that commits.
+  assert.equal((sheet.match(/data-sheet-close/g) || []).length, 2);
+  assert.match(sheet, /data-i18n="gallery\.sheetTitle"/);
+  assert.match(sheet, /data-i18n="gallery\.sheetClose"/);
+
+  for (const translate of [ko, en]) {
+    for (const key of ["gallery.sheetTitle", "gallery.sheetClose", "gallery.sheetFrameTitle"]) {
+      assert.notEqual(translate(key), key, `${key} is missing a translation`);
+    }
+  }
+});
+
+const loadGalleryHarness = async ({ mobile }) => {
+  const harness = loadEditorHarness({ mobile, normalizeInvitation: InvitationCore.normalizeInvitation });
+  await harness.api.loadInitialData();
+  harness.api.state.activeOccasion = "wedding";
+  harness.api.renderTemplates();
+  return harness;
+};
+const galleryCard = (harness, templateId) => harness.node("#template-list").buttons
+  .find((button) => button.dataset.templateId === templateId);
+
+test("a design card tap raises the sheet on a phone and leaves the desktop gallery alone", async () => {
+  // Above 900px the gallery already renders every design live at full width,
+  // so there is nothing a sheet would add and none opens.
+  const desktop = await loadGalleryHarness({ mobile: false });
+  desktop.node("#template-list").dispatch("click", { target: galleryCard(desktop, "modern-vow") });
+  assert.equal(desktop.api.openSampleSheet("modern-vow"), false);
+  assert.equal(desktop.node("#sample-sheet").modalCalls, 0);
+  assert.equal(desktop.node("#sample-sheet-frame").srcdoc, undefined);
+
+  const phone = await loadGalleryHarness({ mobile: true });
+  const sheet = phone.node("#sample-sheet");
+  phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+
+  assert.equal(sheet.modalCalls, 1);
+  assert.equal(sheet.open, true);
+  assert.equal(
+    phone.node("#sample-sheet-title").textContent,
+    TemplateCatalog.getPreset(phone.api.state.catalog, "modern-vow").name
+  );
+  // The frame carries the same standalone document a guest receives, minus the
+  // envelope (an animation over the design is the opposite of showing it) and
+  // minus the map keys, so one card tap never calls a maps provider.
+  const sample = JSON.parse(phone.node("#sample-sheet-frame").srcdoc);
+  assert.equal(sample.templateId, "modern-vow");
+  assert.equal(sample.introEffect, "none");
+  assert.equal(sample.naverMapClientId, "");
+  assert.equal(sample.googleMapsApiKey, "");
+});
+
+test("a design that asks for a map keeps the map section at the height a guest would see", async () => {
+  const phone = await loadGalleryHarness({ mobile: true });
+  // No preset ships a map today, so a design that wants one has to be made.
+  const data = JSON.parse(read("invitation-data.json"));
+  Object.assign(data.templates.find((template) => template.id === "modern-vow").defaults, {
+    mapEnabled: true, mapLatitude: 37.5665, mapLongitude: 126.978
+  });
+  phone.api.state.catalog = TemplateCatalog.normalizeCatalog(data);
+  phone.api.renderTemplates();
+
+  phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+
+  // Forcing mapEnabled off dropped the whole panel and made the sheet shorter
+  // than the design it was previewing. The keyless map renders instead: the
+  // panel keeps its height and carries the status a guest gets when a map
+  // cannot load, and with no key in the document nothing calls a provider.
+  const sample = JSON.parse(phone.node("#sample-sheet-frame").srcdoc);
+  assert.equal(sample.mapEnabled, true);
+  assert.equal(sample.naverMapClientId, "");
+  assert.equal(sample.googleMapsApiKey, "");
+  const body = InvitationCore.renderInvitationBody(sample);
+  assert.match(body, /class="invite-map-panel/);
+  assert.match(body, /invite-map-status/);
+});
+
+test("closing the sheet drops the sample and hands focus back to the tapped card", async () => {
+  const phone = await loadGalleryHarness({ mobile: true });
+  const sheet = phone.node("#sample-sheet");
+  phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+
+  phone.document.activeElement = null;
+  sheet.close();
+
+  assert.equal(sheet.open, false);
+  // A sample left parsed in a hidden frame keeps its fonts and palette alive
+  // for nothing, and the author's attention was on the card they tapped.
+  assert.equal(phone.node("#sample-sheet-frame").srcdoc, "");
+  assert.equal(phone.document.activeElement, galleryCard(phone, "modern-vow"));
+});
+
+test("the sheet's apply button is the dock's apply button, label and all", async () => {
+  const phone = await loadGalleryHarness({ mobile: true });
+  const sheet = phone.node("#sample-sheet");
+  const sheetApply = phone.node("#sample-sheet-apply");
+  const dock = phone.node("#gallery-create");
+
+  phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+  assert.equal(sheetApply.textContent, ko("gallery.apply"));
+  assert.equal(sheetApply.textContent, dock.textContent);
+  assert.equal(sheetApply.disabled, dock.disabled);
+
+  phone.document.activeElement = null;
+  sheetApply.dispatch("click");
+
+  // Same handler as the dock: the design is applied, and focus is left for the
+  // editor the apply lands in rather than snapped back to the card.
+  assert.equal(phone.api.state.activeTemplate, "modern-vow");
+  assert.equal(sheet.open, false);
+  assert.equal(phone.document.activeElement, null);
+
+  // Tapping the card that is already applied now offers the next step, exactly
+  // as the dock does — no button asking to re-apply what is already on.
+  phone.node("#template-list").dispatch("click", { target: galleryCard(phone, "modern-vow") });
+  assert.equal(sheetApply.textContent, ko("gallery.continueToEditor"));
+  assert.equal(sheetApply.textContent, dock.textContent);
+
+  // And with nothing selectable, the sheet's button is as unavailable as the dock's.
+  phone.api.state.pendingTemplateId = "no-such-design";
+  phone.api.renderTemplates();
+  assert.equal(sheetApply.disabled, true);
+  assert.equal(sheetApply.disabled, dock.disabled);
+});
+test("the sample sheet is a bottom sheet with a safe-area floor and no motion when motion is off", () => {
+  const css = read("assets/studio/studio.css");
+
+  assert.match(css, /\.studio-sheet\s*\{[^}]*height:\s*92vh/s);
+  assert.match(css, /\.studio-sheet\s*\{[^}]*margin:\s*auto auto 0/s);
+  assert.match(css, /\.studio-sheet\s*\{[^}]*border-radius:\s*20px 20px 0 0/s);
+  assert.match(css, /\.studio-sheet::backdrop\s*\{[^}]*background:\s*var\(--studio-scrim\)/s);
+  assert.match(css, /\.studio-sheet-close\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+  assert.match(css, /\.studio-sheet-actions\s*\{[^}]*env\(safe-area-inset-bottom\)/s);
+  assert.match(css, /\.studio-sheet-actions button\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[^}]*\{[^}]*\.studio-sheet[^}]*animation: none/s);
+  // The gallery stage keeps the preview panel only to host the apply prompt:
+  // the frame itself is hidden there, and the sheet is the full-size view.
+  assert.match(css, /body\[data-studio-stage="gallery"\] #preview \{ display: none; \}/);
+});
+
+test("the phone preview frame is as wide as the phone", () => {
+  const css = read("assets/studio/studio.css");
+  const mobile = css.slice(css.indexOf("/* Honest preview width (B-4)"));
+
+  assert.ok(mobile, "the B-4 block is missing");
+  assert.match(mobile, /\.preview-panel\s*\{[^}]*padding:\s*0/s);
+  assert.match(mobile, /\.preview-frame\s*\{[^}]*width:\s*100%/s);
+  // .app-shell keeps a 16px gutter on phones; the preview steps back out of it
+  // so a 390px phone previews at 390px rather than 358px.
+  assert.match(mobile, /margin-inline:\s*-16px/s);
 });

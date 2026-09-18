@@ -290,7 +290,8 @@ test("poster and storybook typography remain legible at the approved phone width
   const storybookArt = cssRule(css, '.invitation-card[data-layout-family][data-design="first-chapter"].invite-hero-art');
 
   assert.match(heading, /word-break:keep-all/);
-  assert.match(heading, /overflow-wrap:anywhere/);
+  // `anywhere` used to live here and broke Latin words mid-word (B-4).
+  assert.match(heading, /overflow-wrap:break-word/);
   assert.match(posterTitle, /font-size:clamp\(/);
   assert.match(storybookArt, /opacity:\.28/);
 });
@@ -347,4 +348,47 @@ test("renderer styles only use standalone-defined variables or explicit fallback
   }
 
   assert.deepEqual([...new Set(unresolved)].sort(), []);
+});
+
+/* B-4 — a Latin word must never break mid-word in the hero title.
+   "HAPPY BIRTHDAY!" rendered as "BIRTHDA / Y!" on a phone because
+   `overflow-wrap: anywhere` offers a break opportunity between every pair of
+   characters, whether or not the word would have fitted. The narrow-width work
+   is done by a clamped font-size and hyphenation instead, and breaking inside a
+   word survives only as `break-word`: the last resort that fires when a single
+   word — or an unspaced Korean run under `word-break: keep-all` — is longer
+   than the line it sits on. `anywhere` is never used, because it also reports a
+   one-character min-content width, which collapses the `width: fit-content`
+   heroes (gallery-notice) that size themselves to their longest word. */
+test("hero titles keep Latin words whole and step their size down on narrow screens", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const base = cssRule(css, ".invitation-card[data-layout-family].invite-heroh1");
+
+  // Keeping a long Latin word whole until it truly cannot fit is the whole
+  // contract here: keep-all for Korean, break-word as the last resort, and a
+  // clamp so the size steps down before either has to. Hyphenation is not part
+  // of it — nothing in these documents asks a hyphenation dictionary for a
+  // break, so no rule declares one.
+  assert.match(base, /overflow-wrap:break-word/);
+  assert.match(base, /word-break:keep-all/);
+  assert.match(base, /font-size:clamp\(/);
+  assert.doesNotMatch(base, /hyphens:/);
+
+  const design = cssRule(css, ".invitation-card[data-layout-family][data-design].invite-heroh1");
+  assert.match(design, /overflow-wrap:break-word/);
+  assert.doesNotMatch(design, /hyphens:/);
+
+  // No hero title rule may re-enable unconditional mid-word breaking.
+  for (const [, selector] of css.matchAll(/([^{}]*invite-heroh1[^{}]*)\{[^}]*overflow-wrap:anywhere[^}]*\}/g)) {
+    assert.fail(`overflow-wrap:anywhere is back on ${selector}`);
+  }
+});
+
+test("every fixed hero title size becomes a clamp so 390px never forces a mid-word break", () => {
+  const css = TemplateRenderers.getStyles().replace(/\s+/g, "");
+  const fixed = [...css.matchAll(/([^{}]*invite-heroh1[^{}]*)\{([^}]*)\}/g)]
+    .filter(([, , body]) => /font-size:\d+px/.test(body))
+    .map(([, selector]) => selector.trim());
+
+  assert.deepEqual(fixed, []);
 });
