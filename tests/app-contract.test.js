@@ -1326,6 +1326,20 @@ test("autosave failures keep the localized status and report a draft-save fault"
   assert.deepEqual(reports, [{ error: failure, context: "draft_save" }]);
 });
 
+test("setDraftStatus updates the short label and icon for the failed state, not a frozen 'Saved'", async () => {
+  const harness = loadEditorHarness({ putDraft: async () => { throw new Error("disk full"); } });
+  harness.window.InvitationErrorReporting = { reportError() {} };
+  harness.api.setDraftReady(true);
+
+  harness.api.saveDraft();
+  await harness.api.waitForDraftWrite();
+
+  assert.equal(harness.node("#draft-status-text").textContent, ko("status.draftFailed"));
+  assert.equal(harness.node(".draft-status-short").textContent, ko("status.draftFailedShort"));
+  assert.notEqual(harness.node(".draft-status-short").textContent, ko("status.draftSavedShort"));
+  assert.equal(harness.node(".draft-status-icon").classList.contains("is-warning"), true);
+});
+
 test("manual save failures keep the localized status and report a draft-save fault", async () => {
   const failure = new Error("Robert Smith at The Grand Hotel");
   const reports = [];
@@ -1655,13 +1669,28 @@ test("draft status collapses to an icon and a short label on phones, and the lan
 
   assert.match(index, /<svg class="draft-status-icon"/);
   assert.match(index, /<span id="draft-status-text" data-i18n="status\.draftKept">/);
-  assert.match(index, /<span class="draft-status-short" data-i18n="status\.draftSavedShort">/);
+  // The short label is aria-hidden: it stands in visually for the phone
+  // reader, but #draft-status-text (moved off-screen, not display:none)
+  // stays the one sentence a screen reader hears.
+  assert.match(index, /<span class="draft-status-short" aria-hidden="true" data-i18n="status\.draftKeptShort">/);
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#draft-status\s*\{[^}]*font-size:\s*1[2-9]px/);
   assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#language-select\s*\{[^}]*font-size:\s*1[2-9]px/);
-  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.occasion-list\s*\{[^}]*mask-image:/);
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?#draft-status-text\s*\{[^}]*position:\s*absolute/);
+  assert.doesNotMatch(css, /#draft-status-text\s*\{[^}]*display:\s*none/);
+  // The fade lives on the non-scrolling row container's overlay, never on
+  // .occasion-list itself, so it can't mask a chip's own focus ring.
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.occasion-list-row::after\s*\{[^}]*background:\s*linear-gradient/);
+  assert.doesNotMatch(css, /\.occasion-list\s*\{[^}]*mask-image:/);
   for (const translate of [ko, en]) {
-    assert.notEqual(translate("status.draftSavedShort"), "status.draftSavedShort");
+    for (const shortKey of ["draftKeptShort", "draftSavingShort", "draftSavedShort", "draftFailedShort", "draftRestoredShort", "draftUnavailableShort"]) {
+      assert.notEqual(translate(`status.${shortKey}`), `status.${shortKey}`);
+    }
   }
+});
+
+test("the occasion row scrolls a focused chip into view, clear of the fade overlay", () => {
+  const app = read("assets/studio/app.js");
+  assert.match(app, /dom\.occasions\.addEventListener\("focusin"[\s\S]{0,400}?scrollIntoView\(\{\s*inline:\s*"nearest",\s*block:\s*"nearest"\s*\}\)/);
 });
 
 test("editor exposes mobile view tabs and selected template state", () => {

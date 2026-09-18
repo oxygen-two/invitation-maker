@@ -137,12 +137,32 @@ const trackAnalyticsCompletion = (invitation) => {
 };
 
 // The header status line carries two readers at once: the full sentence for
-// #draft-status-text (and anyone using a screen reader, where it always
-// applies regardless of viewport) and, below 900px, a fixed icon + "Saved"
-// label that replaces it visually (B-10). Routing every update through one
-// helper keeps both in one place instead of three call sites drifting apart.
+// #draft-status-text (which a screen reader always hears, since the short
+// label below is aria-hidden) and, below 900px, an icon + short label that
+// replaces it visually (B-10). The short label used to be a fixed "Saved"
+// regardless of the real state; this table keeps it — and the icon glyph —
+// honest for whichever key setDraftStatus is called with, all from the one
+// helper so the three call sites below can't drift apart again.
+const DRAFT_STATUS_SHORT_META = {
+  'status.draftKept': { shortKey: 'status.draftKeptShort', icon: 'neutral' },
+  'status.draftSaving': { shortKey: 'status.draftSavingShort', icon: 'neutral' },
+  'status.draftSaved': { shortKey: 'status.draftSavedShort', icon: 'check' },
+  'status.draftFailed': { shortKey: 'status.draftFailedShort', icon: 'warning' },
+  'status.draftRestored': { shortKey: 'status.draftRestoredShort', icon: 'check' },
+  'status.draftUnavailable': { shortKey: 'status.draftUnavailableShort', icon: 'warning' }
+};
+const DRAFT_STATUS_ICON_PATHS = {
+  neutral: 'M5 10h10',
+  check: 'M4 10.5l3.5 3.5L16 5.5',
+  warning: 'M10 4.5v6.5M10 14.5v.01'
+};
 const setDraftStatus = (key, values) => {
   document.querySelector('#draft-status-text').textContent = t(key, values);
+  const meta = DRAFT_STATUS_SHORT_META[key] || DRAFT_STATUS_SHORT_META['status.draftKept'];
+  document.querySelector('.draft-status-short').textContent = t(meta.shortKey);
+  const icon = document.querySelector('.draft-status-icon');
+  icon.classList?.toggle('is-warning', meta.icon === 'warning');
+  icon.innerHTML = `<path d="${DRAFT_STATUS_ICON_PATHS[meta.icon]}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
 };
 
 const saveDraft = () => {
@@ -2764,6 +2784,17 @@ dom.occasions.addEventListener("click", (event) => {
   state.activeOccasion = button.dataset.occasionId;
   state.pendingTemplateId = presets[0].id;
   renderTemplates();
+});
+
+// The phone-only fade at the row's trailing edge (studio.css) lives on a
+// non-interactive overlay, not on .occasion-list itself, so it never dims a
+// chip's own focus ring. This still keeps a keyboard-focused chip scrolled
+// fully into view — clear of that edge — rather than relying on the browser
+// to happen to land it there.
+dom.occasions.addEventListener("focusin", (event) => {
+  const button = event.target.closest("[data-occasion-id]");
+  if (!button) return;
+  button.scrollIntoView({ inline: "nearest", block: "nearest" });
 });
 
 dom.templates.addEventListener("click", (event) => {

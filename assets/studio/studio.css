@@ -85,6 +85,10 @@ body[data-studio-stage="finish"] .preview-panel { height: calc(100vh - 48px); }
 .editor-group { border-color: var(--studio-line-strong); background: var(--studio-surface); border-radius: 12px; }
 .editor-group summary { color: var(--studio-accent-deep); }
 .editor-form input, .editor-form textarea, .editor-form select { background: var(--studio-surface); color: var(--studio-ink); border-color: var(--studio-control-line); font-size: 16px; border-radius: 8px; }
+/* Positions the phone-only fade overlay below (its ::after); the row
+   container itself never scrolls, so the overlay stays fixed in place while
+   #occasion-list scrolls underneath it. */
+.occasion-list-row { position: relative; }
 .occasion-chip { background: var(--studio-surface-alt); color: var(--studio-ink-muted); border-color: transparent; }
 .occasion-chip.is-active { background: var(--studio-accent); color: var(--studio-surface); border-color: var(--studio-accent); }
 .template-card { border-color: var(--studio-line-strong); box-shadow: none; border-radius: 14px; }
@@ -659,11 +663,15 @@ a:focus-visible { outline-color: var(--studio-focus); }
   outline-offset: 2px;
 }
 
-/* Header status line. The check icon and short label exist in the markup at
-   every width; only the phone breakpoint below shows them — everywhere else
-   they stay display:none and the full sentence in #draft-status-text reads
-   normally, including to a screen reader at any width. */
+/* Header status line. The icon and short label exist in the markup at every
+   width; only the phone breakpoint below shows them, standing in visually
+   for the full sentence in #draft-status-text. setDraftStatus (app.js)
+   keeps the short label's text and the icon glyph in step with whichever
+   state is current, and the short label is aria-hidden (studio.html) so a
+   screen reader always hears the one true #draft-status-text sentence
+   instead of a label that used to be frozen on "Saved". */
 .draft-status-icon { display: none; flex: none; color: var(--studio-accent); }
+.draft-status-icon.is-warning { color: var(--studio-danger); }
 .draft-status-short { display: none; }
 
 @media (max-width: 900px) {
@@ -677,14 +685,37 @@ a:focus-visible { outline-color: var(--studio-focus); }
     font-size: 12px;
   }
   .draft-status-icon { display: inline-flex; }
-  #draft-status-text { display: none; }
+  /* Moved off-screen rather than display:none, which would drop the true
+     sentence from the accessibility tree and leave only the frozen short
+     label for a screen reader to announce. */
+  #draft-status-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
   .draft-status-short { display: inline; }
   /* Was 11px, under the 12px floor this task sets for phone chrome text. */
   #language-select { font-size: 12px; }
   /* The occasion row is a horizontal scroller with no clipping hint (B-10);
-     the fade reads as "more chips this way" without a visible scrollbar. */
-  .occasion-list {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+     the fade reads as "more chips this way" without a visible scrollbar.
+     It lives on a non-interactive ::after over the row container, not as a
+     mask on .occasion-list itself — masking the scrolling element also
+     fades out a focused chip's outline when the chip sits in the last 28px.
+     Pairs with the focusin scrollIntoView in app.js, which keeps a
+     keyboard-focused chip clear of this zone. */
+  .occasion-list-row::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    right: 0;
+    width: 28px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, var(--studio-paper));
   }
 }
