@@ -52,10 +52,16 @@ h3 { font-size: 18px; }
    phone image), so the ring is sized as a fraction of the circle's own
    diameter instead of the literal "inset: 8%" box-inset, which on this
    non-square box drew a stretched ellipse rather than a ring nested in the
-   circle. */
-.hero-media { position: relative; display: grid; place-items: center; overflow: hidden; padding: 24px; }
-.hero-media::before { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 1; width: min(120%, 560px); border-radius: 50%; background: var(--tint); border: 1px solid #e0e6dc; }
-.hero-media::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 1; width: calc(min(120%, 560px) * 0.84); border: 1px dashed #b7c3b5; border-radius: 50%; }
+   circle. The circle itself is sized well within the column (88%, capped at
+   460px) rather than 120% of it: at 120% the circle was wider than the
+   column and taller than comfortably fit once the tilted phone's shadow and
+   the seal needed room too, so overflow:hidden was clipping it into a
+   squared-off blob instead of a full circle. Vertical padding (not
+   horizontal — the grid gap already spaces this column from its sibling)
+   keeps the tilted phone's shadow and the seal clear of that same clip. */
+.hero-media { position: relative; display: grid; place-items: center; overflow: hidden; padding: 32px 0; }
+.hero-media::before { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 1; width: min(88%, 460px); border-radius: 50%; background: var(--tint); border: 1px solid #e0e6dc; }
+.hero-media::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 1; width: calc(min(88%, 460px) * 0.84); border: 1px dashed #b7c3b5; border-radius: 50%; }
 .phone { position: relative; width: min(300px, 100%); border-radius: 36px; padding: 12px; background: var(--ink); box-shadow: 0 30px 40px -24px #283d3260; transform: rotate(-4deg); }
 .phone img { display: block; width: 100%; height: auto; border-radius: 26px; background: #fff; }
 .seal { position: absolute; right: -8px; bottom: 22px; width: 48px; height: 48px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 19px; border: 4px solid var(--paper); }
@@ -88,7 +94,8 @@ h3 { font-size: 18px; }
 .guide-step .step-number { margin-bottom: 4px; }
 .guide-step img { display: block; width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); background: #fff; }
 .guide-step p { margin: 0; color: var(--muted); }
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; padding-bottom: 12px; }
+#finish h3 { margin-top: 28px; }
 table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 15px; }
 th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-size: 12px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }

@@ -37,9 +37,9 @@
         steps: {
           eyebrow: "HOW IT WORKS",
           title: "Three steps",
-          one: { title: "01 Pick a design", text: "Birthdays, weddings, first birthdays, get-togethers. Choose a design for the occasion and see a sample right away." },
-          two: { title: "02 Fill it in", text: "Add the title, date, place, and a message, then photos if you like. The preview is exactly what your guests get." },
-          three: { title: "03 Keep · File · Link", text: "Keep it in this browser, download a single file, or share a public link." }
+          one: { title: "Pick a design", text: "Birthdays, weddings, first birthdays, get-togethers. Choose a design for the occasion and see a sample right away." },
+          two: { title: "Fill it in", text: "Add the title, date, place, and a message, then photos if you like. The preview is exactly what your guests get." },
+          three: { title: "Keep · File · Link", text: "Keep it in this browser, download a single file, or share a public link." }
         },
         gallery: {
           eyebrow: "DESIGNS",
@@ -71,9 +71,9 @@
         steps: {
           eyebrow: "STEP BY STEP",
           title: "Three steps",
-          one: { title: "01 Design", text: "Choose the occasion first, then tap a design card to see the sample at full size. Press 'Use this design' when it feels right. You can change the design later without losing anything you have written.", alt: "The studio's design picker" },
-          two: { title: "02 Content", text: "Start with the basics: title, date, and message. The place and map link come next, and photos and effects are in collapsed sections. The preview on the right is exactly the document your guests receive.", alt: "The studio's content editor" },
-          three: { title: "03 Finish", text: "Choose one of three ways to finish. Your draft is saved to this browser as you write, so you can close the tab before this step and pick up later.", alt: "The studio's finish screen" }
+          one: { title: "Design", text: "Choose the occasion first, then tap a design card to see the sample at full size. Press 'Use this design' when it feels right. You can change the design later without losing anything you have written.", alt: "The studio's design picker" },
+          two: { title: "Content", text: "Start with the basics: title, date, and message. The place and map link come next, and photos and effects are in collapsed sections. The preview on the right is exactly the document your guests receive.", alt: "The studio's content editor" },
+          three: { title: "Finish", text: "Choose one of three ways to finish. Your draft is saved to this browser as you write, so you can close the tab before this step and pick up later.", alt: "The studio's finish screen" }
         },
         finish: {
           eyebrow: "FINISHING",
