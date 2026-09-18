@@ -1924,7 +1924,60 @@ a:focus-visible {
 
 .saved-item {
   display: grid;
-  gap: 12px;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px 14px;
+  align-items: start;
+}
+
+/* The card shows the invitation it holds: a title and a date alone left two
+   saved drafts with the same name indistinguishable. Same scaled hero a
+   gallery card uses, so nothing new has to be laid out or measured. */
+.saved-thumbnail {
+  position: relative;
+  grid-row: span 2;
+  width: 104px;
+  height: 132px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--cream-100);
+  pointer-events: none;
+}
+
+.saved-thumbnail .invitation-card[data-template-thumbnail] {
+  position: absolute;
+  top: 0;
+  left: var(--template-thumbnail-left, 0);
+  width: 430px;
+  max-width: none;
+  margin: 0;
+  box-shadow: none;
+  transform: scale(var(--template-thumbnail-scale, .24));
+  transform-origin: top left;
+}
+
+.library-published {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.library-published h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.library-published-body {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .saved-item { grid-template-columns: 76px minmax(0, 1fr); }
+  .saved-thumbnail { width: 76px; height: 98px; }
 }
 
 .saved-item strong {

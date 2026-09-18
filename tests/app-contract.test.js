@@ -3733,3 +3733,26 @@ test("the phone preview frame is as wide as the phone", () => {
   // so a 390px phone previews at 390px rather than 358px.
   assert.match(mobile, /margin-inline:\s*-16px/s);
 });
+
+test("a library card shows the invitation it holds, and the library lists published links", () => {
+  const app = read("assets/studio/app.js");
+  const studio = read("studio.html");
+
+  // The card renders the same scaled hero a gallery card does.
+  assert.match(app, /const heroThumbnailMarkup = \(invitation\)/);
+  assert.match(app, /const renderTemplateThumbnail = \(template\) => heroThumbnailMarkup\(/);
+  assert.match(app, /data-saved-thumbnail/);
+  // Parsing a stored file is not free, so the markup is kept per id and the
+  // cards are filled a few at a time rather than all in one frame.
+  assert.match(app, /const savedThumbnailMarkup = new Map\(\)/);
+  assert.match(app, /setTimeout\(step, 0\)/);
+  // IntersectionObserver never fires in a backgrounded tab, which would leave
+  // the cards blank exactly where it is hardest to notice.
+  assert.doesNotMatch(app, /savedThumbnailObserver/);
+
+  // The published links live in the library too, from the same store.
+  assert.match(studio, /<div id="library-publications" class="publication-list">/);
+  assert.match(app, /mountPublicationList\?\.\(\{\s*node: dom\.libraryPublications/);
+  assert.match(read("assets/publishing/publishing.js"), /const mountPublicationList = \(\{/);
+  assert.match(read("assets/publishing/publishing.js"), /mountPublicationList,/);
+});
