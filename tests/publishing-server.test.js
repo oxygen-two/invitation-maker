@@ -157,6 +157,40 @@ class ExpiryEnforcingRepository extends FakeRepository {
   }
 }
 
+// FakeRepository's own replay lookup folds contentHash into the match itself,
+// so a mismatched replay just lands a second record rather than surfacing the
+// conflict the real stores raise. This mirrors the Mongo repository's actual
+// contract instead: same idempotency key + token but a different contentHash
+// is a conflict, not a second write.
+class IdempotencyEnforcingRepository extends FakeRepository {
+  async publish(input) {
+    this.publishes.push(input);
+    if (this.nextError) throw this.nextError;
+    const existing = [...this.records.values()].find((record) =>
+      record.idempotencyKeyHash === input.idempotencyKeyHash
+        && record.tokenHash === input.tokenHash
+    );
+    if (existing) {
+      if (existing.contentHash !== input.contentHash) {
+        throw Object.assign(new Error("IDEMPOTENCY_CONFLICT"), { code: "IDEMPOTENCY_CONFLICT" });
+      }
+      return { id: existing.id, expiresAt: existing.expiresAt };
+    }
+    const record = {
+      id: "AbCdEfGhIjKlMnOpQrStUv",
+      invitation: input.invitation,
+      language: input.language || null,
+      tokenHash: input.tokenHash,
+      idempotencyKeyHash: input.idempotencyKeyHash,
+      contentHash: input.contentHash,
+      createdAt: input.now || new Date(),
+      expiresAt: input.expiresAt
+    };
+    this.records.set(record.id, record);
+    return { id: record.id, expiresAt: record.expiresAt };
+  }
+}
+
 const createTestHandler = (repository = new FakeRepository(), config = {}) => createHandler({
   repository,
   config: {
@@ -459,6 +493,69 @@ test("a publication with no language of its own is Korean, the language every ea
   // A record stored before the field existed carries no language at all.
   delete repository.records.get("AbCdEfGhIjKlMnOpQrStUv").language;
   assert.equal((await request(handler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv")).body.language, "ko");
+});
+
+// The idempotency key is a promise about content, and language is now part
+// of that content: replaying the same key with a different language must
+// not silently keep (or swap) whichever language happened to land first.
+test("replaying an idempotency key with a different language is the same conflict as changed content", async () => {
+  const repository = new IdempotencyEnforcingRepository();
+  const handler = createTestHandler(repository);
+
+  const first = await request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "Dinner at ours" }, language: "en" })
+  });
+  assert.equal(first.status, 201);
+
+  const replayedWithDifferentLanguage = await request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "Dinner at ours" }, language: "ko" })
+  });
+  assert.equal(replayedWithDifferentLanguage.status, 409);
+  assert.equal(replayedWithDifferentLanguage.body.error.code, "IDEMPOTENCY_CONFLICT");
+});
+
+test("replaying an idempotency key with the same language succeeds like any other replay", async () => {
+  const repository = new IdempotencyEnforcingRepository();
+  const handler = createTestHandler(repository);
+
+  const first = await request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "Dinner at ours" }, language: "en" })
+  });
+  assert.equal(first.status, 201);
+
+  const replay = await request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "Dinner at ours" }, language: "en" })
+  });
+  assert.equal(replay.status, 201);
+  assert.equal(replay.body.id, first.body.id);
+  assert.equal(repository.records.size, 1);
+
+  // Omitting the field defaults to the same language ("ko") every publication
+  // made before it existed is treated as, so it replays too, not conflicts.
+  const koRepository = new IdempotencyEnforcingRepository();
+  const koHandler = createTestHandler(koRepository);
+  const koFirst = await request(koHandler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "저녁 초대" }, language: "ko" })
+  });
+  assert.equal(koFirst.status, 201);
+  const koReplayWithNoLanguage = await request(koHandler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "저녁 초대" } })
+  });
+  assert.equal(koReplayWithNoLanguage.status, 201);
+  assert.equal(koReplayWithNoLanguage.body.id, koFirst.body.id);
+  assert.equal(koRepository.records.size, 1);
 });
 
 test("POST rejects a language the product does not ship", async () => {

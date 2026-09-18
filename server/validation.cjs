@@ -255,7 +255,12 @@ const normalizeForPublishing = ({ body, maxPayloadBytes = DEFAULT_PUBLISHING_CON
   validateKnownInvitationFields(body.invitation);
   const language = validatePublishedLanguage(body.language);
 
-  const contentHash = sha256(stableStringify(body.invitation));
+  // The language is part of what a replay must match, exactly like the
+  // invitation itself: it is resolved to its default here (never the raw,
+  // possibly-absent `body.language`) so a request that omits it hashes the
+  // same as one that spells out "ko", the language every publication is in
+  // absent the field.
+  const contentHash = sha256(stableStringify({ invitation: body.invitation, language }));
   const normalized = normalizeInvitation(body.invitation);
   const storedInvitation = { ...normalized };
   delete storedInvitation.stops;
