@@ -26,24 +26,29 @@
 
 | Item | Status | Handled by |
 | --- | --- | --- |
-| A-1 Naver-only maps | **Resolved upstream** (Google Maps provider, `mapProvider` field) | — |
-| B-11 Onboarding | **Resolved upstream** (landing at `/`, guide at `/guide`, studio at `/studio`) | — |
-| B-1 html background | Open | W0-1 |
-| B-2 Editor palette leak | Open | W0-1 |
-| A-6 Hardcoded Korean | Open (still 48 Hangul literals across 5 JS files) | W0-2 |
-| A-5 Publish language | Open | W1-1 |
-| A-7 Error pages Korean-only | Open | W1-2 |
-| A-4 Date input | Open | W1-3 |
-| A-9 Fonts / scripts | Open | W1-4 |
-| B-3, B-4 Mobile gallery preview / preview width | Open | W1-5 |
-| B-6, B-7 Item cards / add buttons | Open | W1-6 |
-| B-9 Share dialog | Open | W1-7 |
-| B-5, B-8, B-10 Gallery CTA / library / mobile header | Open | W1-8 |
-| B-12 Dark mode | Open | W1-9 |
-| A-2, A-3 Occasions / samples | Open | W2-1 |
-| A-8 Privacy, terms, consent | Open | W2-2 |
-| Docs sweep | — | W2-3 |
+| A-1 Naver-only maps | **Done — resolved upstream** (PR #26; Google Maps provider, `mapProvider` field) | — |
+| B-11 Onboarding | **Done — resolved upstream** (PR #26; landing at `/`, guide at `/guide`, studio at `/studio`) | — |
+| B-1 html background | Done (PR #29) | W0-1 |
+| B-2 Editor palette leak | Done (PR #29) | W0-1 |
+| A-6 Hardcoded Korean | Done (PR #30) | W0-2 |
+| A-5 Publish language | Done (PR #32) | W1-1 |
+| A-7 Error pages Korean-only | Done (PR #34) | W1-2 |
+| A-4 Date input | Done (PR #37) | W1-3 |
+| A-9 Fonts / scripts | Done (PR #31) | W1-4 |
+| B-3, B-4 Mobile gallery preview / preview width | Done (PR #39) | W1-5 |
+| B-6, B-7 Item cards / add buttons | Done (PR #35) | W1-6 |
+| B-9 Share dialog | Done (PR #36) | W1-7 |
+| B-5, B-8, B-10 Gallery CTA / library / mobile header | Done (PR #38) | W1-8 |
+| B-12 Dark mode | Done (PR #33) | W1-9 |
+| A-2, A-3 Occasions / samples | Done (PR #42) | W2-1 |
+| A-8 Privacy, terms, consent | Done (PR #40) | W2-2 |
+| Studio.css brace regression (found by post-merge smoke test) | Done (PR #41) | — |
+| Docs sweep | Done (this document and the linked audit/design/i18n/README updates) | W2-3 |
 | RSVP | Out of scope (decided 2026-09-18) | — |
+
+## Outcome
+
+Every task in this plan landed as its own pull request to `main`, in the sequence recorded above; wave 0 and wave 1 merged cleanly, and wave 2 closed out the remaining product-decision items. The Node test suite grew from 463 tests at the start of this effort to 620 by the end, tracking new coverage added alongside each feature rather than a single bulk addition. One regression escaped review and reached `main`: a post-merge smoke test found that `studio.css` was one closing brace short, which silently left the `@media (max-width: 420px)` query open and swallowed the rules for the new mobile sample sheet and phone header added in wave 1. It was caught by manual smoke testing after the merge, not by `npm test`, because a missing brace does not make CSS invalid — the parser accepts it and simply attaches the trailing rules to the wrong block. PR #41 closed the brace and, so the same failure mode cannot recur silently, added a brace-balance test (`tests/studio-chrome.test.js`) that walks every CSS file and inline `<style>` block in the repository.
 
 ## Branch and worktree layout
 
