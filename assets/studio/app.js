@@ -188,10 +188,7 @@ const syncStudioHeading = (stage = document.body.dataset.studioStage) => {
 const setStudioStage = (stage) => {
   if (hasPendingEditorOperation()) return;
   document.body.dataset.studioStage = stage;
-  if (stage !== 'finish') {
-    dom.downloadDialog?.close?.();
-    dom.shareDialog?.close?.();
-  }
+  closeStageOverlays(stage);
   document.querySelectorAll('.studio-steps button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.studioStage === stage)));
   syncStudioHeading(stage);
   if (stage !== 'gallery') {
@@ -1715,6 +1712,26 @@ const openSampleSheet = (templateId) => {
 const closeSampleSheet = ({ returnFocus = true } = {}) => {
   if (!returnFocus) sampleSheetCardId = "";
   sampleSheet?.close?.();
+};
+
+/* Every modal that floats over a stage is dismissed in one place, because the
+   stage swap is the only event that can strand one. The two dialogs belong to
+   the finish stage and survive only there. #sample-sheet belongs to the
+   gallery: it is raised by a design card and it is about that card, so no
+   later stage has anything behind it for the sheet to be about — left open it
+   would cover the editor, the finish screen or the library as a top-layer
+   modal, with its "use this design" button re-applying a design the author
+   has already moved past. Applying a design from anywhere — the apply row,
+   the phone dock, the sheet's own button, "start writing" — ends in
+   setStudioStage('edit'), so this is also what guarantees the sheet cannot
+   outlive an apply, wherever the apply came from. Focus is not returned to
+   the card here: it belongs to whatever the new stage puts it on. */
+const closeStageOverlays = (stage) => {
+  if (stage !== 'finish') {
+    dom.downloadDialog?.close?.();
+    dom.shareDialog?.close?.();
+  }
+  closeSampleSheet({ returnFocus: false });
 };
 
 const focusPresetCard = (templateId) => {

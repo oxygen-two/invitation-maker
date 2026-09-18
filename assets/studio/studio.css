@@ -572,6 +572,7 @@ a:focus-visible { outline-color: var(--studio-focus); }
 @media (max-width: 420px) {
   .content-item-header { grid-template-columns: 30px minmax(0, 1fr) 44px; }
   .content-item-menu-list { min-width: 168px; }
+}
 /* Gallery sample sheet (B-3) ---------------------------------------------
    The phone gallery's whole job is one decision, and a 160px thumbnail is not
    enough to make it on. Tapping a card raises this sheet: the design as the
@@ -600,6 +601,12 @@ a:focus-visible { outline-color: var(--studio-focus); }
   box-shadow: var(--studio-shadow);
   color: var(--studio-ink);
 }
+/* `display: flex` outranks the UA's `dialog:not([open]) { display: none }`, so
+   the closed sheet has to say it again for itself — otherwise its header, its
+   empty frame and its two buttons sit at the foot of the gallery page as a
+   plain panel, outside the top layer, before anything opens it. Same reason
+   .content-item-menu-list[hidden] repeats it above. */
+.studio-sheet:not([open]) { display: none; }
 .studio-sheet::backdrop { background: var(--studio-scrim); }
 .studio-sheet-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 10px 12px 20px; border-bottom: 1px solid var(--studio-line); background: var(--studio-surface); }
 .studio-sheet-heading { min-width: 0; }
