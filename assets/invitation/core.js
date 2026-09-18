@@ -36,6 +36,9 @@
   const noTemplateArt = Object.freeze({
     getDataUrl: () => ""
   });
+  const noTemplateArtIndex = Object.freeze({
+    getUrl: () => ""
+  });
   const noHeroImage = Object.freeze({
     normalizeCrop: () => ({ scale: 100, positionX: 50, positionY: 50 })
   });
@@ -78,6 +81,30 @@
       }
     }
     return root.TemplateArt || noTemplateArt;
+  })();
+  /* Template artwork reaches a rendered invitation two ways, and which one is
+     right depends on where the document will live:
+
+     - A file the author keeps — a download, a library copy — must open years
+       later with no network, so it carries the picture inlined as a data URL
+       from template-art.js.
+     - A page we serve — the studio preview, a guest's published invitation —
+       can just point at the image file, and then a reader fetches the one
+       picture their invitation shows instead of all seventeen (about 900KB
+       over the wire, which every guest used to pay).
+
+     So the inlined module wins when it is present, and the pages that do not
+     load it fall through to the index's URL. Node keeps inlining, because
+     `require` resolves the inlined module. */
+  const TemplateArtIndex = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try {
+        return require("./template-art-index.js");
+      } catch {
+        return noTemplateArtIndex;
+      }
+    }
+    return root.TemplateArtIndex || noTemplateArtIndex;
   })();
   const HeroImage = (() => {
     if (typeof module !== "undefined" && module.exports) {
@@ -853,7 +880,11 @@
   /* `language` selects the invitation's own chrome only. Every field the
      author typed is rendered verbatim in whatever language they wrote it —
      nothing here translates their document. */
-  const renderInvitationBody = (input = {}, { language } = {}) => {
+  /* `artSrc` is how a portable document carries its own picture: the studio
+     inlines the one image an invitation uses before writing a file the author
+     keeps, because that file must open with no network. Left out, the art
+     falls back to the inlined module (Node) or the image URL (our pages). */
+  const renderInvitationBody = (input = {}, { language, artSrc } = {}) => {
     const invitation = normalizeInvitation(input);
     const chrome = chromeLanguage(language);
     /* The chrome language and the date locale are two different questions:
@@ -862,7 +893,10 @@
     const dateLocale = dateLocaleFor(language || chrome);
     const dateLabel = resolveDateLabel(invitation, dateLocale);
     const customHero = invitation.heroImage;
-    const art = customHero?.src || TemplateArt.getDataUrl(invitation.templateId);
+    const art = customHero?.src
+      || artSrc
+      || TemplateArt.getDataUrl(invitation.templateId)
+      || TemplateArtIndex.getUrl(invitation.templateId);
     const artAttributes = customHero
       ? `data-custom-hero-image style="--hero-image-scale:${customHero.scale / 100};--hero-image-x:${customHero.positionX}%;--hero-image-y:${customHero.positionY}%"`
       : "";
@@ -1026,7 +1060,7 @@
      reads it back, which is what lets a re-import or a viewer rebuild
      reproduce the file the author actually made instead of quietly
      re-languaging it to whatever the studio is set to today. */
-  const buildStandaloneHtml = (input = {}, { language } = {}) => {
+  const buildStandaloneHtml = (input = {}, { language, artSrc } = {}) => {
     const invitation = normalizeInvitation(input);
     const chrome = chromeLanguage(language);
     const hasIntro = invitation.introEffect !== "none";
@@ -1062,7 +1096,7 @@
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" style="${invitationStyleFrom(invitation)}">
 ${introMarkup}
-${renderInvitationBody(invitation, { language: language || chrome })}
+${renderInvitationBody(invitation, { language: language || chrome, artSrc })}
 <script id="invitation-data" type="application/json">${invitationData}</script>
 ${renderStandaloneTimeZoneScript(invitation)}
 ${renderStandaloneMapScript(invitation, chrome)}

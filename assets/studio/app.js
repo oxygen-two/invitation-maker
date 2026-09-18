@@ -2047,6 +2047,38 @@ const confirmReplyContact = () => {
   return false;
 };
 
+/* A file the author keeps has to open with no network, so its picture must be
+   inside it. The studio itself only carries the art index (file names), so the
+   one image this invitation uses is fetched and inlined here, the moment
+   before a portable file is written. That is about 75KB for the one design
+   rather than the ~900KB every design used to cost on the way in.
+
+   A failure is not fatal: the document still names the picture by URL, so it
+   renders anywhere with a network, which is where it was about to be read
+   anyway. */
+const portableArtFor = async (invitation) => {
+  const url = window.TemplateArtIndex?.getUrl?.(invitation?.templateId);
+  if (!url || invitation?.heroImage?.src || typeof fetch !== "function") return null;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
+
+const portableOptions = async (invitation, options) => {
+  const artSrc = await portableArtFor(invitation);
+  return artSrc ? { ...options, artSrc } : options;
+};
+
 const downloadHtml = (html, title) => {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -2111,7 +2143,10 @@ const migrateLegacySaved = async () => {
     let record;
     try {
       const invitation = parseInvitationHtml(legacyItem.html);
-      const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation, standaloneOptionsFor(legacyItem.html));
+      const rebuiltHtml = InvitationCore.buildStandaloneHtml(
+        invitation,
+        await portableOptions(invitation, standaloneOptionsFor(legacyItem.html))
+      );
       const source = legacyItem.source === "upload" ? "upload" : "generated";
       record = makeSavedItem(rebuiltHtml, invitation.title, source, legacyItem);
       await InvitationStorage.put(record);
@@ -2142,7 +2177,7 @@ const saveCurrent = async () => {
   syncAddItemAvailability(getItemsData());
   try {
     const invitation = getFormData();
-    const html = InvitationCore.buildStandaloneHtml(invitation, studioChrome());
+    const html = InvitationCore.buildStandaloneHtml(invitation, await portableOptions(invitation, studioChrome()));
     trackAnalyticsCompletion(invitation);
     const result = await saveRecord(makeSavedItem(html, invitation.title, "generated"));
     dom.saveStatus.textContent = t(result.synchronized ? "status.saved" : "status.savedUnsynchronized");
@@ -2217,7 +2252,10 @@ const registerUploadedHtml = async (file) => {
   try {
     const html = await file.text();
     const invitation = parseInvitationHtml(html);
-    const rebuiltHtml = InvitationCore.buildStandaloneHtml(invitation, standaloneOptionsFor(html));
+    const rebuiltHtml = InvitationCore.buildStandaloneHtml(
+      invitation,
+      await portableOptions(invitation, standaloneOptionsFor(html))
+    );
     parsedSuccessfully = true;
     const result = await saveRecord(makeSavedItem(rebuiltHtml, invitation.title, "upload"));
     dom.uploadStatus.textContent = t(result.synchronized ? "status.uploaded" : "status.uploadedUnsynchronized");
@@ -3079,12 +3117,12 @@ phoneViewport?.addEventListener?.('change', (event) => {
   if (!event.matches) closeSampleSheet({ returnFocus: false });
 });
 
-dom.download.addEventListener("click", () => {
+dom.download.addEventListener("click", async () => {
   if (photoSelectionPending || heroImageSelectionPending) return;
   if (!validateForExport()) return;
   if (!confirmReplyContact()) return;
   const invitation = getFormData();
-  const html = InvitationCore.buildStandaloneHtml(invitation, studioChrome());
+  const html = InvitationCore.buildStandaloneHtml(invitation, await portableOptions(invitation, studioChrome()));
   trackAnalyticsCompletion(invitation);
   downloadHtml(html, invitation.title);
   trackAnalytics("html_downloaded", {}, `download:editor:${analyticsPageRevision}:${state.activeTemplate}:${analyticsEditRevision}`);

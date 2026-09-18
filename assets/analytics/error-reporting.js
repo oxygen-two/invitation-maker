@@ -45,6 +45,7 @@
     "/assets/invitation/core.js",
     "/assets/invitation/intro-effects.js",
     "/assets/invitation/template-art.js",
+    "/assets/invitation/template-art-index.js",
     "/assets/invitation/template-catalog.js",
     "/assets/invitation/template-renderers.js",
     "/assets/invitation/viewer.js",

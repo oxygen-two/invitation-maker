@@ -179,3 +179,11 @@ auth/           # 이후 회원 인증
 - MongoDB를 즉시 PostgreSQL로 바꾸지 않는다. 현재 발행 모델은 문서 스냅샷과 Base64 이미지에 맞춰져 있다.
 - 공유 링크, 로그인, RSVP를 이번 구조 정리와 한 번에 묶지 않는다.
 - 공개 API와 관리자 API를 하나의 인증 흐름으로 합치지 않는다.
+
+## Template artwork: one picture per reader, not seventeen
+
+`assets/invitation/template-art.js` inlines every template's artwork as data URLs — about 1.5MB, 900KB over the wire. A file the author keeps has to open years later with no network, so that inlining is the right shape for a download or a library copy, and the wrong shape for a page.
+
+Pages therefore load `assets/invitation/template-art-index.js` (about 1.5KB, file names only) and render artwork by URL, so a studio or a guest fetches the one picture their invitation shows. `assets/studio/app.js` inlines that single image (`portableOptions`) right before it writes a file the author keeps, and `InvitationCore.buildStandaloneHtml` takes it as `artSrc`. If that fetch fails the document still names the picture by URL, which renders anywhere with a network.
+
+Both files are generated: `node scripts/build-template-art.js` writes the inlined module and the index from the same source map.

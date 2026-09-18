@@ -2633,7 +2633,10 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
   for (const page of ["studio.html", "viewer.html"]) {
     const html = read(page);
     const catalogIndex = html.indexOf('src="assets/invitation/template-catalog.js"');
-    const artIndex = html.indexOf('src="assets/invitation/template-art.js"');
+    // Pages carry the art index (file names). The inlined artwork is ~900KB
+    // and is fetched only when a portable file is about to be written.
+    const artIndex = html.indexOf('src="assets/invitation/template-art-index.js"');
+    assert.equal(html.includes('src="assets/invitation/template-art.js"'), false, `${page} must not eagerly load inlined artwork`);
     const renderersIndex = html.indexOf('src="assets/invitation/template-renderers.js"');
     const coreIndex = html.indexOf('src="assets/invitation/core.js"');
 
@@ -2656,6 +2659,8 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
 
   assert.equal(browser.InvitationCore.normalizeInvitation({ templateId: "wedding" }).layoutFamily, "wedding-editorial");
   assert.match(browser.TemplateArt.getDataUrl("botanical"), /^data:image\/webp;base64,/);
+  vm.runInNewContext(read("assets/invitation/template-art-index.js"), browser, { filename: "assets/invitation/template-art-index.js" });
+  assert.equal(browser.TemplateArtIndex.getUrl("botanical"), "/assets/invitation/template-art/romantic-story-cover.webp");
   assert.match(browser.InvitationCore.renderInvitationBody({ layoutFamily: "wedding-editorial" }), /data-layout-family="wedding-editorial"/);
 });
 
