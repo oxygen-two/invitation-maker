@@ -9,6 +9,8 @@
     { "src": "/welcome", "dest": "/index.html" },
     { "src": "/guide", "dest": "/guide.html" },
     { "src": "/sample", "dest": "/sample.html" },
+    { "src": "/privacy", "dest": "/privacy.html" },
+    { "src": "/terms", "dest": "/terms.html" },
     { "src": "/(server|api|docs|tests|scripts)(/.*)?", "status": 404 },
     { "src": "/\\.env.*", "status": 404 },
     { "handle": "filesystem" }

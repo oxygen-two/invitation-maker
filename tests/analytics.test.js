@@ -7,8 +7,8 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
-const makeStorage = () => {
-  const values = new Map();
+const makeStorage = (initial = {}) => {
+  const values = new Map(Object.entries(initial));
   return {
     getItem: (key) => values.has(key) ? values.get(key) : null,
     removeItem: (key) => values.delete(key),
@@ -29,13 +29,24 @@ const deniedStorage = () => ({
   }
 });
 
+/* Every dispatch in this suite is a dispatch by a visitor who accepted the
+   consent banner, so that is the default. `consent` overrides it: "" is a
+   visitor who has not answered yet, "denied" one who chose Essential only,
+   and `localStorage: null` a browser where storage is unavailable. */
+const consentStorage = (consent) => (consent === null
+  ? undefined
+  : makeStorage({ "invitation-maker.consent": consent }));
+
 const loadAnalytics = ({
   hostname = "invitation-maker-one.vercel.app",
   search = "",
   pathname = "/",
   config = {},
+  consent = "granted",
+  localStorage,
   posthog,
   sessionStorage = makeStorage(),
+  navigator = { doNotTrack: "0" },
   TemplateCatalog,
   va
 } = {}) => {
@@ -45,12 +56,13 @@ const loadAnalytics = ({
     URLSearchParams,
     URL,
     crypto: { randomUUID: () => "flow-test-id" },
+    localStorage: localStorage === undefined ? consentStorage(consent) : localStorage,
     location: {
       hostname,
       pathname,
       search
     },
-    navigator: { doNotTrack: "0" },
+    navigator,
     posthog,
     sessionStorage,
     TemplateCatalog,
@@ -481,4 +493,142 @@ test("Vercel loader queues beforeSend before appending the SDK and is idempotent
     url: "https://invitation-maker-one.vercel.app/private/path?x=1#hash"
   })), JSON.stringify({ url: "https://invitation-maker-one.vercel.app/" }));
   assert.equal(rootObject.vaq[0][1]({ url: "not a url" }), null);
+});
+
+/* Consent gate (A-8) ------------------------------------------------------
+   Product analytics wait for an explicit "granted". Diagnostics do not:
+   client_error carries closed enums, a shipped script path and a line number
+   and nothing a visitor wrote, so it is treated as necessary to keep the
+   service working. Do Not Track and Global Privacy Control sit above both. */
+
+test("nothing dispatches and no provider loads before the visitor has answered", () => {
+  const created = [];
+  const document = {
+    createElement: () => ({
+      setAttribute(name, value) {
+        this[name] = value;
+      }
+    }),
+    head: { append: (script) => created.push(script) }
+  };
+  for (const consent of ["", "denied"]) {
+    const captured = [];
+    const { analytics, rootObject } = loadAnalytics({
+      consent,
+      config: { posthog: { apiHost: "https://us.i.posthog.com", token: "ph_test" }, vercel: { analyticsScriptSrc: "/_vercel/insights/script.js" } },
+      posthog: { init: () => {}, capture: (name, props) => captured.push({ name, props }) }
+    });
+    rootObject.document = document;
+
+    assert.equal(analytics.isEnabled(), false, `consent "${consent}" should keep analytics off`);
+    assert.equal(analytics.init(), false);
+    assert.equal(analytics.initPostHog(), false, "the PostHog SDK must not be initialised");
+    assert.equal(analytics.loadVercelAnalytics(document), false);
+    assert.equal(analytics.trackLandingViewed(), false);
+    assert.equal(analytics.trackTemplateSelected({ templateId: "royal" }), false);
+    assert.equal(analytics.trackShareClicked({ channel: "copy_link" }), false);
+    assert.deepEqual(captured, []);
+    assert.deepEqual(created, [], "no provider script may be appended before consent");
+  }
+});
+
+test("a granted choice is what turns product analytics on", () => {
+  const captured = [];
+  const { analytics } = loadAnalytics({
+    consent: "granted",
+    config: { posthog: { apiHost: "https://us.i.posthog.com", token: "ph_test" } },
+    posthog: { init: () => {}, capture: (name, props) => captured.push({ name, props }) }
+  });
+
+  assert.equal(analytics.isEnabled(), true);
+  assert.equal(analytics.initPostHog(), true);
+  assert.equal(analytics.trackTemplateSelected({ templateId: "royal" }), true);
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].name, "template_selected");
+});
+
+test("nothing that happened before consent is replayed after it", () => {
+  const captured = [];
+  const localStorage = makeStorage();
+  const { analytics } = loadAnalytics({
+    localStorage,
+    config: { posthog: { apiHost: "https://us.i.posthog.com", token: "ph_test" } },
+    posthog: { init: () => {}, capture: (name, props) => captured.push({ name, props }) }
+  });
+
+  assert.equal(analytics.trackTemplateSelected({ templateId: "royal" }), false);
+  assert.equal(analytics.trackDraftSaved({ templateId: "royal" }), false);
+
+  localStorage.setItem("invitation-maker.consent", "granted");
+  assert.equal(analytics.initPostHog(), true);
+
+  // The two events above are gone, not queued: only what happens from here on
+  // reaches the provider.
+  assert.deepEqual(captured, []);
+  assert.equal(analytics.trackHtmlDownloaded({ templateId: "royal" }), true);
+  assert.deepEqual(captured.map((event) => event.name), ["html_downloaded"]);
+});
+
+test("Do Not Track and Global Privacy Control still win over a granted choice", () => {
+  for (const navigator of [
+    { doNotTrack: "1", globalPrivacyControl: false },
+    { doNotTrack: "0", globalPrivacyControl: true }
+  ]) {
+    const captured = [];
+    const { analytics } = loadAnalytics({
+      consent: "granted",
+      navigator,
+      config: { posthog: { apiHost: "https://us.i.posthog.com", token: "ph_test" } },
+      posthog: { init: () => {}, capture: (name, props) => captured.push({ name, props }) }
+    });
+
+    assert.equal(analytics.isEnabled(), false);
+    assert.equal(analytics.isEnabled({ essential: true }), false, "DNT/GPC outrank even the essential path");
+    assert.equal(analytics.initPostHog({ essential: true }), false);
+    assert.equal(analytics.trackTemplateSelected({ templateId: "royal" }), false);
+    assert.equal(analytics.track("client_error", { error_kind: "runtime" }), false);
+    assert.deepEqual(captured, []);
+  }
+});
+
+test("error diagnostics stay allowed without consent, and only diagnostics do", () => {
+  const captured = [];
+  const { analytics } = loadAnalytics({
+    consent: "denied",
+    config: { posthog: { apiHost: "https://us.i.posthog.com", token: "ph_test" } },
+    posthog: { init: () => {}, capture: (name, props) => captured.push({ name, props }) }
+  });
+
+  assert.equal(analytics.isEnabled({ essential: true }), true);
+  assert.equal(analytics.initPostHog({ essential: true }), true, "the transport a report needs may be installed");
+  assert.equal(analytics.track("client_error", {
+    error_kind: "runtime",
+    error_message: "runtime_error",
+    error_context: "boot",
+    error_line: 12
+  }), true);
+  assert.equal(analytics.trackLandingViewed(), false, "product events stay off");
+
+  assert.deepEqual(captured.map((event) => event.name), ["client_error"]);
+});
+
+test("error reporting asks for the essential path rather than the product one", () => {
+  const source = read("assets/analytics/error-reporting.js");
+  assert.match(source, /analytics\.isEnabled\(\{ essential: true \}\)/);
+  assert.match(source, /analytics\.initPostHog\(\{ essential: true \}\)/);
+});
+
+test("the two legal pages are page kinds analytics will accept", () => {
+  const captured = [];
+  const { analytics } = loadAnalytics({
+    consent: "granted",
+    config: { posthog: { apiHost: "https://us.i.posthog.com", token: "ph_test" } },
+    posthog: { init: () => {}, capture: (name, props) => captured.push({ name, props }) }
+  });
+  analytics.initPostHog();
+
+  for (const page of ["privacy", "terms"]) {
+    assert.equal(analytics.track("site_page_viewed", { page }, { dedupKey: `view:${page}` }), true);
+  }
+  assert.deepEqual(captured.map((event) => event.props.page), ["privacy", "terms"]);
 });

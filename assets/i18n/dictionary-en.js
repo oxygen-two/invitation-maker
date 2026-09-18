@@ -42,7 +42,23 @@
       footerNote: "Small invitations, lasting moments.",
       guideLink: "How it works",
       aboutLink: "About",
+      privacyLink: "Privacy",
+      termsLink: "Terms",
       footerNavLabel: "Footer links"
+    },
+
+    /* The cookie / analytics consent banner (assets/site/consent.js). It is
+       injected into every page that loads analytics — the studio, the guest
+       page and the local viewer included — so its copy lives here rather than
+       in the site dictionaries, which only the landing, the guide and the two
+       legal pages load. */
+    consent: {
+      regionLabel: "Cookie and analytics choice",
+      message: "May we turn on visit analytics? What you write in an invitation is never sent to them.",
+      privacyLink: "Read the privacy policy",
+      accept: "Accept analytics",
+      deny: "Essential only",
+      settings: "Cookie & analytics settings"
     },
 
     nav: {
@@ -368,6 +384,8 @@
       shareDialogStrong: "only this browser can revoke the link",
       shareDialogTail: ", so come back here on this browser when you want to take it down.",
       shareDialogPanelLabel: "Publish a public link",
+      shareDialogPrivacy: "A published link expires on the server 7 days after it was last opened, and 30 days after publishing at the latest. To take it down sooner, revoke it from this browser.",
+      privacyLink: "Read the privacy policy",
       confirmReplyContact: "This item asks for a reply but has no contact or link. Download it without a way to reply?\nCancel to go back and add one.",
       replyContactPattern: "rsvp|reply|respond|contact|attend"
     },

@@ -32,6 +32,8 @@ A retry must reuse the same content, management token, and idempotency key. Do n
 
 `DELETE /api/invitations/:id` requires the management token and returns HTTP 204 on success. Cancellation removes the remotely stored snapshot; a recipient's already downloaded HTML cannot be recalled.
 
+This is the author-side deletion route the [privacy policy](../privacy.html) points a visitor at (`/privacy#deletion`). It also names `[CONTACT_EMAIL]` as the fallback for a guest who wants a link carrying their own details taken down, or for an author whose publishing browser is gone — there is no account, so no self-service path exists for either. Replace that placeholder, and `[OPERATOR]`, before deploying publicly.
+
 ## Cost and expiry policy
 
 The request body and stored normalized invitation are each limited to **2,000,000 UTF-8 bytes**, including embedded images. Existing editor image compression remains in use. If the total is too large, reduce photos or their size before publishing. Do not silently discard photos to meet the limit.
@@ -53,6 +55,8 @@ D+25  viewed               expires D+30   (capped by the 30-day ceiling)
 D+30  expired              no longer readable; the record still exists
 never viewed again         expires one idle window after the last view
 ```
+
+These two numbers are what `privacy.html` and `terms.html` tell a visitor (`site.privacy.retention.*`, `site.terms.expiry.*`), described there as defaults an operator can change. `tests/site-pages.test.js` asserts the page copy against `DEFAULT_PUBLISHING_CONFIG`, so changing a default here without changing the policy pages fails the build.
 
 An invitation that keeps getting opened stays readable for up to a month; one nobody opens stops being readable a week after its last view. `PUBLISH_MAX_LIFETIME_DAYS=0` disables expiry entirely. `PUBLISH_IDLE_WINDOW_DAYS=0` disables the sliding behaviour and leaves a plain `createdAt + max lifetime` expiry, which is how the retired `PUBLISH_TTL_DAYS` setting used to behave.
 

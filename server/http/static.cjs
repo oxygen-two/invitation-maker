@@ -18,7 +18,7 @@ const MIME_TYPES = Object.freeze({
 
 // Clean URLs. Keep this list identical to the `routes` in vercel.json so a
 // page that works under `npm start` also works in production.
-const CLEAN_URLS = Object.freeze({ "/": "/index.html", "": "/index.html", "/welcome": "/index.html", "/studio": "/studio.html", "/guide": "/guide.html", "/sample": "/sample.html" });
+const CLEAN_URLS = Object.freeze({ "/": "/index.html", "": "/index.html", "/welcome": "/index.html", "/studio": "/studio.html", "/guide": "/guide.html", "/sample": "/sample.html", "/privacy": "/privacy.html", "/terms": "/terms.html" });
 
 const staticFileFor = (staticRoot, requestPath) => {
   let decoded;

@@ -21,10 +21,14 @@
         landingTitle: "Invitation Studio · Small invitations, lasting moments",
         landingDescription: "Free mobile invitations with no sign-up: pick a design, fill it in, send it as a file or a link.",
         guideTitle: "How it works · Invitation Studio",
-        guideDescription: "Choosing a design, filling it in, the three ways to finish, and where your data lives — on one page."
+        guideDescription: "Choosing a design, filling it in, the three ways to finish, and where your data lives — on one page.",
+        privacyTitle: "Privacy Policy · Invitation Studio",
+        privacyDescription: "What stays in your browser, what is stored on the server, when a public link expires, and how analytics and error diagnostics are handled.",
+        termsTitle: "Terms of Service · Invitation Studio",
+        termsDescription: "The conditions for using this no-sign-up invitation maker, your responsibility for what you publish, and how long a public link lives."
       },
       header: { tagline: "Make the small days special.", guide: "How it works", cta: "Make an invitation", skip: "Skip to content", langLabel: "Language", langDescription: "Display language", navLabel: "Site" },
-      footer: { brand: "INVITATION STUDIO", about: "About", guide: "How it works", data: "Your data", note: "Small invitations, lasting moments.", navLabel: "Footer links" },
+      footer: { brand: "INVITATION STUDIO", about: "About", guide: "How it works", data: "Your data", privacy: "Privacy", terms: "Terms", note: "Small invitations, lasting moments.", navLabel: "Footer links" },
       landing: {
         hero: {
           eyebrow: "No sign-up · Free",
@@ -119,6 +123,166 @@
           a8: "No. Open the invitation from the library or the file and publish a new link."
         },
         closing: { eyebrow: "READY?", title: "Ready to make one?", cta: "Make an invitation" }
+      },
+      /* The two legal pages. Full drafts: `[OPERATOR]` and `[CONTACT_EMAIL]`
+         are placeholders and must be replaced with the real operator name and
+         address before this is deployed to the public. The retention numbers
+         repeat the shipped defaults from docs/publishing.md and are checked
+         against server/config/publishing.cjs by tests/site-pages.test.js. */
+      privacy: {
+        title: "Privacy Policy",
+        lead: "There is no sign-up here. We never ask for your name or your email. Even so, you should know exactly where your data goes while you make an invitation and send it.",
+        updated: "Last updated: 18 September 2026",
+        toc: {
+          browser: "In this browser",
+          server: "On the server",
+          retention: "How long a link lasts",
+          analytics: "Analytics",
+          diagnostics: "Error diagnostics",
+          deletion: "Deletion requests",
+          children: "Children's data",
+          contact: "Contact"
+        },
+        browser: {
+          eyebrow: "IN THIS BROWSER",
+          title: "In this browser",
+          lead: "These live only in this browser's storage. They are never sent to a server and are invisible on your other devices.",
+          one: "The draft you are working on. It is saved as you write.",
+          two: "Invitations you saved to the library. Title, date, place, message and photos are all held in this browser.",
+          three: "The management token that revokes a public link. It is stored only in the browser that published the link and never appears in the link itself.",
+          four: "Your display language and the analytics choice you made on this site.",
+          note: "Clearing this browser's storage erases all of the above. A public link you already published stays alive, but the only way to revoke it disappears with the storage."
+        },
+        server: {
+          eyebrow: "ON THE SERVER",
+          title: "On the server",
+          lead: "One copy of an invitation is stored on our server only when you press Share a link. What is stored is what you wrote into that invitation.",
+          one: "The title and the message",
+          two: "The names you wrote into the invitation",
+          three: "The date and time",
+          four: "The place name, the address and the map link",
+          five: "Phone numbers or links you put in contact items",
+          six: "The photos you added. They are stored inside the document as data URIs, not as separate files.",
+          note: "Anyone who has the link can read the invitation. It is not indexed by search engines, but it is not password protected either. Only write what every guest may see."
+        },
+        retention: {
+          eyebrow: "HOW LONG",
+          title: "How long a link lasts",
+          lead: "A public link expires on a sliding window: every time it is opened, its life is pushed forward.",
+          one: "Publishing sets the link to expire 7 days later.",
+          two: "Every time someone opens the link, the expiry moves to 7 days from that moment.",
+          three: "However often it is opened, it never lives longer than 30 days from the day it was published.",
+          note: "The 7 and 30 days are today's operating defaults and the operator can change them. An expired link no longer opens."
+        },
+        analytics: {
+          eyebrow: "ANALYTICS",
+          title: "Analytics",
+          lead: "Analytics tools are loaded only after you accept them. If you choose Essential only in the banner on your first visit, no analytics script runs at all.",
+          one: "The tools are Google Analytics 4, PostHog and Vercel Web Analytics.",
+          two: "Only a fixed list of values is sent: which screen you looked at, which design you chose, whether you saved or downloaded.",
+          three: "The title, names, contacts, photos and places you wrote into an invitation are never sent. Neither is a public link's address or its management token.",
+          four: "If your browser sends Do Not Track or Global Privacy Control, analytics stay off whatever you chose here.",
+          settings: "Reopen cookie & analytics settings"
+        },
+        diagnostics: {
+          eyebrow: "DIAGNOSTICS",
+          title: "Error diagnostics",
+          lead: "Diagnostic reports about a broken screen are sent whatever you chose, because they are the minimum we need to keep the service working.",
+          one: "A report carries a fixed error category, the script file and line where it happened, and the browser and operating system family.",
+          two: "The raw error message, the page address and any invitation content are never sent. At most eight reports are recorded per page."
+        },
+        deletion: {
+          eyebrow: "DELETION",
+          title: "Deletion requests",
+          lead: "A public link is the only thing we hold, so deleting it is simple.",
+          one: "Open the studio in the browser that published the link and revoke it. The server copy is deleted straight away.",
+          two: "If that browser is gone, or you received the invitation rather than made it, email [CONTACT_EMAIL] with the link address and we will delete it after checking.",
+          three: "An HTML file or a screenshot someone already saved cannot be recalled.",
+          note: "We cannot delete drafts or library entries for you: they never left your browser. Remove them from the library list yourself."
+        },
+        children: {
+          eyebrow: "CHILDREN",
+          title: "Children's data",
+          lead: "This service is not directed at children, and we neither ask for nor collect the age of the person making an invitation.",
+          one: "When a child's name or photo goes into an invitation — a first birthday or a kindergarten party — the adult making the invitation decides whether to publish it.",
+          two: "To have a link containing a child's details removed, follow the deletion steps above."
+        },
+        contact: {
+          eyebrow: "CONTACT",
+          title: "Contact",
+          lead: "This service is operated by [OPERATOR]. Send privacy questions and deletion requests to [CONTACT_EMAIL].",
+          note: "If this policy changes, the date at the top of this page changes with it."
+        }
+      },
+      terms: {
+        title: "Terms of Service",
+        lead: "Kept short. Using this service means you agree to what follows.",
+        updated: "Last updated: 18 September 2026",
+        toc: {
+          service: "What this is",
+          account: "There is no account",
+          content: "Your content, your responsibility",
+          prohibited: "What you may not publish",
+          availability: "Availability and warranty",
+          expiry: "How long a public link lives",
+          contact: "Contact and changes"
+        },
+        service: {
+          eyebrow: "THE SERVICE",
+          title: "What this is",
+          lead: "A free tool for making a mobile invitation in your browser and sending it as a file or as a public link.",
+          one: "The invitation is built inside your browser. Saving it to the library or downloading it as an HTML file involves no server at all.",
+          two: "Only when you press Share a link is a copy stored on our server and given a public address."
+        },
+        account: {
+          eyebrow: "NO ACCOUNT",
+          title: "There is no account",
+          lead: "No sign-up, no login. That convenience comes with a hard limit.",
+          one: "This browser is your identity. Clear its storage and there is no way to recover your drafts, your library, or the right to revoke a link.",
+          two: "There is no account recovery, so download an HTML file of anything you want to keep."
+        },
+        content: {
+          eyebrow: "YOUR CONTENT",
+          title: "Your content, your responsibility",
+          lead: "What goes into an invitation is yours, and so is the responsibility for it.",
+          one: "To put another person's name, photo or phone number into an invitation and publish it, you must have the right to share it. Ask the people in the photos and the owners of the contacts first.",
+          two: "Anyone with the address can open a public link. There is no password, so publish only what may be public.",
+          three: "Check that you may use the photos, fonts and artwork you add.",
+          four: "We do not review what is published in advance. We may take a link down after a report."
+        },
+        prohibited: {
+          eyebrow: "NOT ALLOWED",
+          title: "What you may not publish",
+          lead: "The following may not be published. We take such links down without notice when we find them.",
+          one: "Other people's personal details published without their consent",
+          two: "Anything illegal, or hateful, harassing or threatening",
+          three: "Sexual content, and any material exploiting children",
+          four: "Links used for fraud, phishing or malware",
+          five: "Anything infringing someone else's copyright or trade mark",
+          six: "Anything that disrupts the service, such as automated bulk publishing"
+        },
+        availability: {
+          eyebrow: "AS IS",
+          title: "Availability and warranty",
+          lead: "This service is free and provided as it is.",
+          one: "It can stop at any time for maintenance or a fault, and features may change or disappear.",
+          two: "Publishing has operational limits. Once a limit is reached, no new link can be created.",
+          three: "To the extent the law allows, we are not liable for loss caused by data disappearing or a link failing to open. Download an HTML file of anything that matters."
+        },
+        expiry: {
+          eyebrow: "LINK LIFETIME",
+          title: "How long a public link lives",
+          lead: "A public link is not permanent storage.",
+          one: "It expires 7 days after it was last opened, and every visit pushes that forward.",
+          two: "However often it is opened, it expires 30 days after publishing.",
+          three: "The 7 and 30 days are today's operating defaults and the operator can change them. An expired or revoked link cannot be restored; open the invitation again and publish a new one."
+        },
+        contact: {
+          eyebrow: "CONTACT",
+          title: "Contact and changes",
+          lead: "This service is operated by [OPERATOR]. Send questions, reports and deletion requests to [CONTACT_EMAIL].",
+          note: "If these terms change, the date at the top of this page changes with them. Continuing to use the service after a change means you accept it."
+        }
       }
     }
   };

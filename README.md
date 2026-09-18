@@ -13,7 +13,8 @@ A static-first invitation editor with live previews, standalone HTML downloads, 
 - Public invitation viewing and owner-token deletion
 - A separate local admin service for search, pagination, details, and revocation
 - Korean and English studio, viewer, and admin UI, with dependency-free `Intl`-backed date/number formatting
-- Optional GA4 and PostHog analytics
+- Optional GA4 and PostHog analytics, inert until the visitor accepts the consent banner
+- Privacy policy and terms pages at `/privacy` and `/terms`, translated like the rest of the site chrome
 - Landing page indexed by search engines; published invitations deliberately are not
 
 ## Architecture
@@ -108,9 +109,17 @@ Open [http://127.0.0.1:4174/admin](http://127.0.0.1:4174/admin). `npm run dev:ad
 
 The session cookie only carries `Secure` when the request is actually HTTPS. A direct TLS connection is detected automatically, but a proxy that terminates TLS in front of the admin service (as Cloudtype does) is invisible to it — the only signal is the `x-forwarded-proto` header, which is spoofable and therefore ignored unless you opt in. **Set `ADMIN_TRUST_PROXY=true` when running behind such a proxy**, or the session cookie will be missing `Secure` and can be sent in the clear. It defaults to `false`, and the admin service prints a startup warning while it's off.
 
-## Analytics
+## Analytics and consent
 
-GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics/config.js`. Local and preview hosts do not send events by default. See [analytics documentation](docs/analytics.md) for configuration and privacy boundaries.
+GA4 requires a valid Measurement ID and enabled configuration in `assets/analytics/config.js`. Local and preview hosts do not send events by default.
+
+Product analytics also wait for an explicit choice. `assets/site/consent.js` shows a banner until one is stored in `localStorage["invitation-maker.consent"]` as `"granted"` or `"denied"`; until then no provider SDK is fetched and every `track*` call returns `false`. Do Not Track and Global Privacy Control still force analytics off after an accept. Error diagnostics (`client_error`) are the single exception and keep running without consent — they carry closed enums, a shipped script path and a line number, and never authored content. See [analytics documentation](docs/analytics.md) for the gate, the `InvitationConsent` API and the privacy boundaries.
+
+## Legal pages
+
+> **Before deploying publicly:** `privacy.html` and `terms.html` are complete drafts carrying two placeholders, `[OPERATOR]` and `[CONTACT_EMAIL]`. They live in the `site.privacy.*` and `site.terms.*` namespaces of `assets/i18n/dictionary-site-ko.js` and `assets/i18n/dictionary-site-en.js` — replace them in **both** dictionaries with the real operator name and a monitored address, then regenerate the inline Korean copy in the two HTML files so `tests/site-pages.test.js` still matches. A test asserts the placeholders are present, so it will fail once they are filled in and must be updated in the same commit.
+
+The retention numbers the privacy page states (7-day idle window, 30-day ceiling) are read from the shipped defaults in `server/config/publishing.cjs` and described as defaults; a test keeps the copy and the config in sync.
 
 ## Observability
 
@@ -149,7 +158,7 @@ For the mobile editor regression, start the local server and run `PLAYWRIGHT_MOD
 - [Publishing](docs/publishing.md): API and MongoDB operations
 - [i18n](docs/i18n.md): dictionary structure, language resolution, and the authored-vs-chrome translation rule
 - [SEO](docs/seo.md): indexing, `noindex` on published invitations, and Search Console/Search Advisor verification
-- [Analytics](docs/analytics.md): GA4/PostHog configuration
+- [Analytics](docs/analytics.md): GA4/PostHog configuration, the consent gate, and the diagnostics exemption
 - [Observability](docs/observability.md): synthetic checks, browser errors, server logs, and coverage limits
 - [Mobile app plan (Korean)](docs/mobile-app-plan.md): app approach, code reuse, implementation stages, and release criteria
 - [Design](DESIGN.md): editor and template conventions

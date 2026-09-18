@@ -311,6 +311,10 @@ body:not([data-studio-stage="finish"]) #save-button .finish-choice-desc { displa
 .studio-dialog-body { display: flex; flex-direction: column; gap: 16px; padding: 16px 22px 24px; }
 .studio-dialog-body p { margin: 0; color: var(--studio-ink-muted); font-size: 13px; line-height: 1.7; }
 .studio-dialog-body p strong { color: var(--studio-accent-deep); }
+/* W2-2. The retention sentence that opens the share dialog, before anything
+   has been published. Static markup in studio.html rather than part of the
+   panel publishing.js renders, so it is readable the moment the dialog opens. */
+.share-dialog-privacy a { color: var(--studio-accent); font-weight: 650; }
 .studio-dialog-body .publishing-panel { padding: 0; border-top: 0; }
 .studio-dialog-primary { width: 100%; }
 @media (prefers-reduced-motion: no-preference) {

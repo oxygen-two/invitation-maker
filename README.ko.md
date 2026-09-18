@@ -12,7 +12,8 @@
 - 발행 초대장 조회 및 제작자 토큰 기반 삭제
 - 로컬 관리자 서비스의 목록, 검색, 페이지네이션, 상세, 강제 폐기
 - 제작기·공개 뷰어·관리자 화면의 한국어/영어 다국어 지원, 외부 라이브러리 없이 `Intl` 기반 날짜/숫자 포맷
-- GA4/PostHog 선택적 분석 설정
+- GA4/PostHog 선택적 분석 설정, 동의 배너에서 허용을 누르기 전에는 동작하지 않음
+- `/privacy`, `/terms` 개인정보처리방침·이용약관 페이지, 사이트 chrome과 동일한 다국어 처리
 - 랜딩 페이지는 검색 노출, 발행된 개별 초대장은 의도적으로 검색 노출 제외
 
 ## 서비스 구조
@@ -113,9 +114,17 @@ http://127.0.0.1:4174/admin
 
 세션 쿠키는 요청이 실제로 HTTPS일 때만 `Secure` 속성을 붙입니다. 직접 TLS로 연결된 경우는 자동으로 감지하지만, Cloudtype처럼 앞단 프록시가 TLS를 종료하는 배포에서는 이를 알 수 없습니다 — 유일한 신호는 `x-forwarded-proto` 헤더인데, 이 헤더는 위조 가능하므로 명시적으로 허용하지 않는 한 신뢰하지 않습니다. **이런 프록시 뒤에서 운영한다면 반드시 `ADMIN_TRUST_PROXY=true`를 설정하세요.** 그렇지 않으면 세션 쿠키에 `Secure`가 빠져 평문으로 전송될 수 있습니다. 기본값은 `false`이며, 꺼져 있는 동안에는 관리자 서비스가 시작 시 경고를 출력합니다.
 
-## 분석 설정
+## 분석 설정과 동의
 
-GA4는 `assets/analytics/config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다. 분석 이벤트와 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
+GA4는 `assets/analytics/config.js`의 유효한 Measurement ID와 활성 설정이 있을 때만 동작합니다. 로컬/미리보기 호스트에서는 기본적으로 이벤트를 보내지 않습니다.
+
+여기에 방문자의 명시적 동의가 더 필요합니다. `assets/site/consent.js`는 선택이 저장되기 전까지 배너를 띄우고, 선택은 `localStorage["invitation-maker.consent"]`에 `"granted"` 또는 `"denied"`로 저장됩니다. 동의 전에는 어떤 제공자 SDK도 내려받지 않고 모든 `track*` 호출이 `false`를 반환합니다. 추적 거부(DNT)와 Global Privacy Control은 동의보다 우선하여 허용 이후에도 분석을 끕니다. `client_error` 오류 진단만 예외로 동의 없이 계속 동작합니다 — 고정된 열거값, 배포된 스크립트 경로, 줄 번호만 담고 저작 콘텐츠는 절대 담지 않기 때문입니다. 동의 게이트, `InvitationConsent` API, 개인정보 경계는 [`docs/analytics.md`](docs/analytics.md)에 기록되어 있습니다.
+
+## 법적 고지 페이지
+
+> **공개 배포 전에 반드시:** `privacy.html`과 `terms.html`은 완성된 초안이지만 `[OPERATOR]`와 `[CONTACT_EMAIL]` 두 자리표시자를 담고 있습니다. 문구는 `assets/i18n/dictionary-site-ko.js`, `assets/i18n/dictionary-site-en.js`의 `site.privacy.*`, `site.terms.*` 네임스페이스에 있으니 **두 사전 모두** 실제 운영자 이름과 확인 가능한 메일 주소로 바꾸고, HTML 두 파일의 인라인 한국어 문구도 함께 갱신해 `tests/site-pages.test.js`가 계속 통과하도록 하세요. 자리표시자가 남아 있는지 검사하는 테스트가 있으므로, 값을 채우면 그 테스트도 같은 커밋에서 함께 수정해야 합니다.
+
+개인정보처리방침이 안내하는 보관 기간(마지막 열람 후 7일, 발행 후 최대 30일)은 `server/config/publishing.cjs`의 배포 기본값을 그대로 옮긴 것이며 "기본값"임을 문서에 명시합니다. 테스트가 문구와 설정값의 일치를 강제합니다.
 
 ## 운영 관측
 
@@ -153,7 +162,7 @@ npm run verify:publishing-mongo
 - [`docs/publishing.md`](docs/publishing.md): 공개 발행 API와 MongoDB 운영
 - [`docs/i18n.md`](docs/i18n.md): 사전 구조, 언어 결정 순서, 저작 콘텐츠와 chrome 번역 규칙
 - [`docs/seo.md`](docs/seo.md): 검색 노출, 발행 초대장의 `noindex`, Search Console/서치어드바이저 확인
-- [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정과 이벤트 경계
+- [`docs/analytics.md`](docs/analytics.md): GA4/PostHog 설정, 동의 게이트, 오류 진단 예외와 이벤트 경계
 - [`docs/observability.md`](docs/observability.md): 합성 검사, 브라우저 오류, 서버 로그와 검증 범위
 - [`docs/mobile-app-plan.md`](docs/mobile-app-plan.md): 앱 방식 검토, 코드 재사용 범위, 단계별 구현·출시 기준
 - [`DESIGN.md`](DESIGN.md): 제작기 UI와 템플릿 기준

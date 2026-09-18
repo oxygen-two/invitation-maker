@@ -53,6 +53,7 @@
     "/assets/publishing/publishing.js",
     "/assets/publishing/qr.js",
     "/assets/publishing/shared-invitation.js",
+    "/assets/site/consent.js",
     "/assets/site/site.js",
     "/assets/storage/invitation-storage.js",
     "/assets/studio/app.js",
@@ -124,6 +125,8 @@
     if (pathname === "" || pathname === "/" || pathname === "/welcome" || /(^|\/)index\.html$/.test(pathname)) return "landing";
     if (pathname === "/guide" || /guide\.html$/.test(pathname)) return "guide";
     if (pathname === "/sample" || /sample\.html$/.test(pathname)) return "sample";
+    if (pathname === "/privacy" || /privacy\.html$/.test(pathname)) return "privacy";
+    if (pathname === "/terms" || /terms\.html$/.test(pathname)) return "terms";
     return "other";
   };
 
@@ -231,7 +234,11 @@
 
       const analytics = root.InvitationAnalytics;
       if (!analytics || typeof analytics.track !== "function") return false;
-      if (typeof analytics.isEnabled === "function" && !analytics.isEnabled()) return false;
+      // Diagnostics are the one report that does not wait for the consent
+      // banner: this file sends closed enums, a shipped script path and a
+      // line number, never authored content or a page URL. The host, opt-out,
+      // DNT and GPC gates still apply.
+      if (typeof analytics.isEnabled === "function" && !analytics.isEnabled({ essential: true })) return false;
 
       const payload = buildPayload(input);
       const signature = signatureOf(payload);
@@ -239,7 +246,7 @@
       signatures.push(signature);
       reportCount += 1;
 
-      if (typeof analytics.initPostHog === "function") analytics.initPostHog();
+      if (typeof analytics.initPostHog === "function") analytics.initPostHog({ essential: true });
       return analytics.track("client_error", payload) === true;
     } catch (ignored) {
       return false;

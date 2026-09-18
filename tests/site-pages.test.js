@@ -14,6 +14,8 @@ test("clean URLs resolve to the right static files on the local server", () => {
   assert.equal(staticFileFor(root, "/studio"), path.join(root, "studio.html"));
   assert.equal(staticFileFor(root, "/guide"), path.join(root, "guide.html"));
   assert.equal(staticFileFor(root, "/sample"), path.join(root, "sample.html"));
+  assert.equal(staticFileFor(root, "/privacy"), path.join(root, "privacy.html"));
+  assert.equal(staticFileFor(root, "/terms"), path.join(root, "terms.html"));
 });
 
 test("vercel routes the clean URLs before the filesystem handler", () => {
@@ -23,7 +25,9 @@ test("vercel routes the clean URLs before the filesystem handler", () => {
     "/studio": "/studio.html",
     "/welcome": "/index.html",
     "/guide": "/guide.html",
-    "/sample": "/sample.html"
+    "/sample": "/sample.html",
+    "/privacy": "/privacy.html",
+    "/terms": "/terms.html"
   };
   for (const [src, dest] of Object.entries(expected)) {
     const index = routes.findIndex((route) => route.src === src && route.dest === dest);
@@ -281,4 +285,162 @@ test("the shared page's skip link stays legible in dark mode instead of hardcodi
     /\.skip\s*\{[^}]*background:\s*#fff\b/i,
     "shared.html: .skip must not hardcode a white background"
   );
+});
+
+/* Privacy, terms and the consent choice (A-8) ---------------------------- */
+
+test("the privacy and terms pages are fully translatable and their Korean copy matches the dictionary", () => {
+  assertPageIsTranslatable("privacy.html", 60);
+  assertPageIsTranslatable("terms.html", 50);
+});
+
+test("every binding on the two legal pages names a key both site dictionaries ship", () => {
+  const ko = require("../assets/i18n/dictionary-site-ko.js");
+  const en = require("../assets/i18n/dictionary-site-en.js");
+  const has = (dictionary, key) => {
+    let cursor = dictionary;
+    for (const segment of key.split(".")) {
+      if (!cursor || typeof cursor !== "object") return false;
+      cursor = cursor[segment];
+    }
+    return typeof cursor === "string" && cursor.trim().length > 0;
+  };
+
+  for (const page of ["privacy.html", "terms.html"]) {
+    const html = read(page);
+    const keys = new Set([
+      ...[...html.matchAll(/data-i18n="([^"]+)"/g)].map((match) => match[1]),
+      ...[...html.matchAll(/data-i18n-attr="([^"]+)"/g)].flatMap((match) => match[1].split(";")).map((pair) => pair.split(":")[1]),
+      ...[...html.matchAll(/data-i18n-title="([^"]+)"/g)].map((match) => match[1])
+    ].filter(Boolean).map((key) => key.trim()));
+
+    assert.ok(keys.size > 40, `${page} should bind most of its copy`);
+    for (const key of keys) {
+      // The legal pages are site pages: every key they name has to live in
+      // the site dictionaries, which is what they load alongside the main ones.
+      assert.ok(has(ko, key) || has(require("../assets/i18n/dictionary-ko.js"), key), `dictionary-site-ko.js has no ${key}`);
+      assert.ok(has(en, key) || has(require("../assets/i18n/dictionary-en.js"), key), `dictionary-site-en.js has no ${key}`);
+    }
+    for (const key of [...keys].filter((key) => key.startsWith("site."))) {
+      assert.ok(has(ko, key), `dictionary-site-ko.js has no ${key}`);
+      assert.ok(has(en, key), `dictionary-site-en.js has no ${key}`);
+    }
+  }
+});
+
+test("the legal pages carry the same head discipline as the guide", () => {
+  for (const [page, slug, titleKey] of [["privacy.html", "privacy", "site.meta.privacyTitle"], ["terms.html", "terms", "site.meta.termsTitle"]]) {
+    const html = read(page);
+    assert.match(html, /<meta name="robots" content="index, follow">/, `${page}: should be indexable`);
+    assert.match(html, new RegExp(`<link rel="canonical" href="https://invitation-maker-one\\.vercel\\.app/${slug}">`), `${page}: wrong canonical`);
+    assert.match(html, new RegExp(`data-i18n-title="${titleKey.replace(/\./g, "\\.")}"`), `${page}: should name its own tab title`);
+    assert.doesNotMatch(html, /google-site-verification/, `${page}: search-console tags belong to the landing`);
+    assert.doesNotMatch(html, /<script>\s*try \{/, `${page} never redirects`);
+    assert.doesNotMatch(html, /fonts\.googleapis\.com/, `${page}: the site chrome loads no web fonts`);
+    assert.match(html, /<link rel="stylesheet" href="\/assets\/site\/site\.css">/, `${page}: should reuse the site chrome`);
+  }
+});
+
+test("the privacy page states the shipped retention defaults and calls them defaults", () => {
+  const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
+  const ko = require("../assets/i18n/dictionary-site-ko.js");
+  const en = require("../assets/i18n/dictionary-site-en.js");
+
+  assert.equal(DEFAULT_PUBLISHING_CONFIG.idleWindowDays, 7);
+  assert.equal(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays, 30);
+  for (const [name, dictionary] of [["ko", ko], ["en", en]]) {
+    const retention = dictionary.site.privacy.retention;
+    assert.match(retention.one, /\b7\b/, `${name}: the idle window is missing`);
+    assert.match(retention.two, /\b7\b/, `${name}: the sliding rule is missing`);
+    assert.match(retention.three, /\b30\b/, `${name}: the max lifetime is missing`);
+    assert.match(retention.note, /\b7\b[\s\S]*\b30\b/, `${name}: the note should name both numbers`);
+    const expiry = dictionary.site.terms.expiry;
+    assert.match(expiry.one, /\b7\b/);
+    assert.match(expiry.two, /\b30\b/);
+  }
+  assert.match(ko.site.privacy.retention.note, /기본값/, "ko must say these are defaults");
+  assert.match(en.site.privacy.retention.note, /defaults/, "en must say these are defaults");
+});
+
+test("the privacy page keeps its operator placeholders until someone fills them in", () => {
+  for (const dictionary of [require("../assets/i18n/dictionary-site-ko.js"), require("../assets/i18n/dictionary-site-en.js")]) {
+    assert.match(dictionary.site.privacy.contact.lead, /\[OPERATOR\]/);
+    assert.match(dictionary.site.privacy.contact.lead, /\[CONTACT_EMAIL\]/);
+    assert.match(dictionary.site.privacy.deletion.two, /\[CONTACT_EMAIL\]/);
+    assert.match(dictionary.site.terms.contact.lead, /\[OPERATOR\]/);
+    assert.match(dictionary.site.terms.contact.lead, /\[CONTACT_EMAIL\]/);
+  }
+});
+
+test("the privacy page covers every section the audit asked for", () => {
+  const privacy = read("privacy.html");
+  for (const id of ["browser", "server", "retention", "analytics", "diagnostics", "deletion", "children", "contact"]) {
+    assert.match(privacy, new RegExp(`<section id="${id}"`), `privacy.html has no #${id} section`);
+    assert.match(privacy, new RegExp(`href="#${id}"`), `privacy.html's table of contents skips #${id}`);
+  }
+  const terms = read("terms.html");
+  for (const id of ["service", "account", "content", "prohibited", "availability", "expiry", "contact"]) {
+    assert.match(terms, new RegExp(`<section id="${id}"`), `terms.html has no #${id} section`);
+    assert.match(terms, new RegExp(`href="#${id}"`), `terms.html's table of contents skips #${id}`);
+  }
+});
+
+test("the privacy page offers a way back to the consent choice", () => {
+  const privacy = read("privacy.html");
+  assert.match(privacy, /<button type="button"[^>]*data-consent-settings[^>]*data-i18n="site\.privacy\.analytics\.settings">/);
+  assert.match(read("assets/site/consent.js"), /\[data-consent-settings\]/);
+});
+
+test("every page with a footer links to the privacy policy and the terms", () => {
+  for (const page of ["index.html", "guide.html", "privacy.html", "terms.html"]) {
+    const footer = read(page).match(/<footer class="site-footer">[\s\S]*?<\/footer>/)[0];
+    assert.match(footer, /<a href="\/privacy" data-i18n="site\.footer\.privacy">/, `${page}: no privacy link`);
+    assert.match(footer, /<a href="\/terms" data-i18n="site\.footer\.terms">/, `${page}: no terms link`);
+  }
+
+  const studioFooter = read("studio.html").match(/<nav class="studio-footer-links"[\s\S]*?<\/nav>/)[0];
+  assert.match(studioFooter, /<a href="\/privacy" data-i18n="header\.privacyLink">/);
+  assert.match(studioFooter, /<a href="\/terms" data-i18n="header\.termsLink">/);
+
+  const sharedFooter = read("shared.html").match(/<footer id="shared-invitation-footer"[\s\S]*?<\/footer>/)[0];
+  assert.match(sharedFooter, /<a href="\/privacy" data-i18n="header\.privacyLink">/);
+  assert.match(sharedFooter, /<a href="\/terms" data-i18n="header\.termsLink">/);
+});
+
+test("the four site pages share the exact same header and footer markup", () => {
+  const chrome = (file) => {
+    const html = read(file);
+    return [html.match(/<header class="site-header">[\s\S]*?<\/header>/)[0], html.match(/<footer class="site-footer">[\s\S]*?<\/footer>/)[0]];
+  };
+  const expected = chrome("index.html");
+  for (const page of ["guide.html", "privacy.html", "terms.html"]) {
+    assert.deepEqual(chrome(page), expected, `${page}: chrome has drifted from index.html`);
+  }
+});
+
+test("the share dialog states the retention rule in its own static markup", () => {
+  const studio = read("studio.html");
+  const dialog = studio.match(/<dialog id="share-dialog"[\s\S]*?<\/dialog>/)[0];
+  assert.match(dialog, /data-i18n="finish\.shareDialogPrivacy"/);
+  assert.match(dialog, /<a href="\/privacy" data-i18n="finish\.privacyLink">/);
+  // It has to be readable before anything is published, so it lives in the
+  // dialog itself rather than in the panel publishing.js renders.
+  assert.ok(dialog.indexOf("finish.shareDialogPrivacy") < dialog.indexOf('id="publishing-panel"'));
+  assert.doesNotMatch(read("assets/publishing/publishing.js"), /shareDialogPrivacy/);
+
+  const ko = require("../assets/i18n/dictionary-ko.js");
+  assert.match(ko.finish.shareDialogPrivacy, /7일/);
+  assert.match(ko.finish.shareDialogPrivacy, /30일/);
+});
+
+test("the sitemap lists the two legal pages", () => {
+  const sitemap = read("sitemap.xml");
+  for (const url of ["/privacy", "/terms"]) {
+    assert.match(sitemap, new RegExp(`<loc>https://invitation-maker-one\\.vercel\\.app${url}</loc>`));
+  }
+});
+
+test("build-public ships the two legal pages", () => {
+  assert.ok(shouldCopyRootFile("privacy.html"));
+  assert.ok(shouldCopyRootFile("terms.html"));
 });
