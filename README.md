@@ -6,15 +6,16 @@ A static-first invitation editor with live previews, standalone HTML downloads, 
 
 ## Features
 
-- Occasion-based templates for birthdays, weddings, anniversaries, and events
-- Live preview and standalone HTML downloads with embedded photos
+- Occasion-based templates grouped as celebrate / milestone / family / gather, covering birthdays, weddings, anniversaries, baby showers, graduations, housewarmings, and other events
+- Live preview and standalone HTML downloads with embedded photos, with lean font loading — only the two families an invitation actually uses, plus system-font fallbacks per script
+- A real date/time picker with time-zone selection, locale-aware date formatting (including English regional variants), and a downloadable `.ics` calendar file
 - IndexedDB storage for drafts and the local invitation library
-- Anonymous publishing with random Base62 public IDs
+- Anonymous publishing with random Base62 public IDs, a QR code, the system share sheet, and a copyable invitation message
 - Public invitation viewing and owner-token deletion
 - A separate local admin service for search, pagination, details, and revocation
-- Korean and English studio, viewer, and admin UI, with dependency-free `Intl`-backed date/number formatting
+- Korean and English studio, viewer, and admin UI, with dependency-free `Intl`-backed date/number formatting and dark mode for the site chrome
 - Optional GA4 and PostHog analytics, inert until the visitor accepts the consent banner
-- Privacy policy and terms pages at `/privacy` and `/terms`, translated like the rest of the site chrome
+- Privacy policy and terms pages at `/privacy` and `/terms`, translated like the rest of the site chrome — replace the `[OPERATOR]`/`[CONTACT_EMAIL]` placeholders before deploying publicly (see [Legal pages](#legal-pages))
 - Landing page indexed by search engines; published invitations deliberately are not
 
 ## Architecture
@@ -84,7 +85,7 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 | `GET` | `/api/invitations/:id` | Read a public invitation |
 | `DELETE` | `/api/invitations/:id` | Revoke with the owner's management token |
 
-Publishing returns `/i/{base62-id}`. Per-IP hourly, daily, and lifetime quotas limit publication volume. A publication expires on a sliding window: `PUBLISH_IDLE_WINDOW_DAYS` (default 7) after its last view, never later than `PUBLISH_MAX_LIFETIME_DAYS` (default 30) after publication. The database never deletes anything on its own — expiry is a marker the read path enforces, so an expired link answers `404` while the record stays stored for an operator or a batch deletion job.
+The publish payload carries an optional `language` (the author's studio language when they pressed Publish; `ko` or `en`, defaulting to `ko`), and the read response always echoes it back beside the invitation — see [i18n documentation](docs/i18n.md#published-shared-link-invitations-chrome-and-content-follow-different-people). Publishing returns `/i/{base62-id}`. Per-IP hourly, daily, and lifetime quotas limit publication volume. A publication expires on a sliding window: `PUBLISH_IDLE_WINDOW_DAYS` (default 7) after its last view, never later than `PUBLISH_MAX_LIFETIME_DAYS` (default 30) after publication. The database never deletes anything on its own — expiry is a marker the read path enforces, so an expired link answers `404` while the record stays stored for an operator or a batch deletion job.
 
 See [publishing documentation](docs/publishing.md) for authentication headers, limits, retry rules, and deployment configuration.
 
