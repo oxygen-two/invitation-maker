@@ -2582,6 +2582,10 @@ dom.contentEditor.addEventListener("keydown", (event) => {
   // macOS gives Option+↑/↓ to the caret inside a field, so the shortcut only
   // answers on the card's own chrome — which is where a reorder is decided.
   if (/^(?:INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName || "")) return;
+  // A reorder moves the whole card, confirm row included, which would let a
+  // pending delete confirmation silently vanish without the user answering
+  // it. While one is open on this card, the reorder shortcut is a no-op.
+  if (card.querySelector("[data-item-confirm]")?.hidden === false) return;
 
   const cards = [...dom.contentEditor.querySelectorAll("[data-item-card]")];
   const index = cards.indexOf(card);

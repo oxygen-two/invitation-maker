@@ -2300,6 +2300,24 @@ test("alt plus an arrow key reorders the card the focus is in", () => {
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
 });
 
+test("alt plus an arrow key does not reorder a card with a pending delete confirmation", () => {
+  const { api, contentEditor } = loadEditorHarness();
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  const card = contentEditor.cards[0];
+  contentEditor.dispatch("click", { target: card.querySelector("[data-item-menu-button]") });
+  contentEditor.dispatch("click", { target: card.querySelector('[data-item-action="delete"]') });
+  assert.equal(card.querySelector("[data-item-confirm]").hidden, false);
+
+  const toggle = card.querySelector("[data-toggle-item]");
+  contentEditor.dispatch("keydown", { key: "ArrowDown", altKey: true, target: toggle, preventDefault() {} });
+
+  // The reorder is a no-op while the confirmation is open, so the item order
+  // holds and the confirmation is still there to be answered.
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-a", "course-b"]);
+  assert.equal(card.querySelector("[data-item-confirm]").hidden, false);
+});
+
 test("course labels use presets and reveal text entry only for a custom label", () => {
   const app = read("assets/studio/app.js");
 

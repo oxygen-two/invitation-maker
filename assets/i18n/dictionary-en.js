@@ -223,7 +223,6 @@
       moveDownTitle: "Move down",
       removeItem: "Delete this {type}",
       removeItemTitle: "Delete this item",
-      confirmRemove: "Delete the “{name}” item?",
       menu: "More actions",
       menuLabel: "Actions for this {type}",
       confirmDelete: "Delete “{name}”?",

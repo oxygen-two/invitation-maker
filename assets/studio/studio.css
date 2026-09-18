@@ -503,9 +503,10 @@ a:focus-visible { outline-color: var(--studio-focus); }
    and every card grew a second row. It is a fixed three-column grid now —
    grip, summary, one ⋯ — that cannot wrap at any width, with the reorder and
    delete actions inside the menu the ⋯ opens. The grip is a visual affordance
-   only: pointer drag-to-reorder was removed on purpose (it had no keyboard
-   equivalent and its `touch-action: none` stole scroll from a thumb), so the
-   order changes through the menu or Alt+↑/↓, never by dragging.
+   only: pointer drag-to-reorder was considered and deliberately not
+   implemented (it would need a keyboard equivalent and its `touch-action:
+   none` would steal scroll from a thumb), so the ⋯ menu and Alt+↑/↓ do the
+   reordering work instead, never dragging.
 
    B-7: five add buttons right-aligned in a flex row wrapped 4+1 on desktop
    and 3+2 on a phone, leaving an orphan. Five equal columns above 600px, one
