@@ -44,7 +44,22 @@
       footerNote: "작은 초대, 소중한 순간.",
       guideLink: "사용법",
       aboutLink: "소개",
+      privacyLink: "개인정보처리방침",
+      termsLink: "이용약관",
       footerNavLabel: "바닥글 링크"
+    },
+
+    /* The cookie / analytics consent banner (assets/site/consent.js). It is
+       injected into every page that loads analytics — the studio, the guest
+       page and the local viewer included — so its copy lives here rather than
+       in the site dictionaries, which only the landing, the guide and the two
+       legal pages load. */
+    consent: {
+      regionLabel: "쿠키 및 분석 동의",
+      message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않습니다.",
+      privacyLink: "개인정보처리방침 보기",
+      accept: "분석 허용",
+      deny: "필수만 사용"
     },
 
     nav: {
@@ -370,6 +385,8 @@
       shareDialogStrong: "링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만",
       shareDialogTail: "저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.",
       shareDialogPanelLabel: "공개 링크 발행",
+      shareDialogPrivacy: "발행한 링크는 마지막으로 열린 뒤 7일, 늦어도 발행 후 30일이 지나면 서버에서 만료됩니다. 그 전에 내리고 싶으면 이 브라우저에서 링크를 취소하세요.",
+      privacyLink: "개인정보처리방침 보기",
       confirmReplyContact: "회신을 요청하는 항목에 연락처나 링크가 없습니다. 연락 수단 없이 다운로드할까요?\n취소하면 연락처 입력으로 이동합니다.",
       /* Matched against the label and value the AUTHOR typed, to notice an
          RSVP item with no way to reply. Locale-specific because an English

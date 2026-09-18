@@ -1,0 +1,173 @@
+<!doctype html>
+<!-- The privacy policy. Static, crawlable, and never redirects. Same shell as
+     guide.html so the two legal pages carry the site chrome, the language
+     switcher and the dark palette without a second stylesheet. -->
+<html lang="ko" data-i18n-title="site.meta.privacyTitle">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="theme-color" content="#15181a" media="(prefers-color-scheme: dark)">
+  <meta name="robots" content="index, follow">
+  <meta name="description" data-i18n-attr="content:site.meta.privacyDescription" content="무엇이 브라우저에 남고 무엇이 서버에 저장되는지, 공개 링크는 언제 만료되는지, 통계와 오류 진단은 어떻게 다루는지 정리했습니다.">
+  <link rel="canonical" href="https://invitation-maker-one.vercel.app/privacy">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" data-i18n-attr="content:meta.ogLocale" content="ko_KR">
+  <meta property="og:site_name" content="Invitation Studio">
+  <meta property="og:title" data-i18n-attr="content:site.meta.privacyTitle" content="개인정보처리방침 · Invitation Studio">
+  <meta property="og:description" data-i18n-attr="content:site.meta.privacyDescription" content="무엇이 브라우저에 남고 무엇이 서버에 저장되는지, 공개 링크는 언제 만료되는지, 통계와 오류 진단은 어떻게 다루는지 정리했습니다.">
+  <meta property="og:url" content="https://invitation-maker-one.vercel.app/privacy">
+  <meta property="og:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" data-i18n-attr="content:meta.ogImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" data-i18n-attr="content:site.meta.privacyTitle" content="개인정보처리방침 · Invitation Studio">
+  <meta name="twitter:description" data-i18n-attr="content:site.meta.privacyDescription" content="무엇이 브라우저에 남고 무엇이 서버에 저장되는지, 공개 링크는 언제 만료되는지, 통계와 오류 진단은 어떻게 다루는지 정리했습니다.">
+  <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <title>개인정보처리방침 · Invitation Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/site/site.css">
+  <!-- The engine sets <html lang> and the title in <head>. Body copy is
+       translated by site.js as soon as the document is parsed, so an
+       English visitor may briefly see Korean body text if the network is slow. -->
+  <script src="/assets/i18n/i18n.js"></script>
+  <script src="/assets/i18n/dictionary-ko.js"></script>
+  <script src="/assets/i18n/dictionary-en.js"></script>
+  <script src="/assets/i18n/dictionary-site-ko.js"></script>
+  <script src="/assets/i18n/dictionary-site-en.js"></script>
+  <script>InvitationI18n.init();</script>
+</head>
+<body data-site-page="privacy">
+  <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="site-brand" href="/welcome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio<span data-i18n="site.header.tagline">작은 날도, 특별하게.</span></a>
+    <nav class="site-nav" aria-label="사이트" data-i18n-attr="aria-label:site.header.navLabel">
+      <a href="/guide" data-i18n="site.header.guide">사용법</a>
+      <div class="site-language">
+        <label for="language-select" data-i18n="site.header.langDescription">표시 언어</label>
+        <select id="language-select" data-i18n-attr="aria-label:site.header.langLabel" aria-label="언어 선택"></select>
+      </div>
+      <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="header" data-i18n="site.header.cta">초대장 만들기</a>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <section>
+      <h1 data-i18n="site.privacy.title">개인정보처리방침</h1>
+      <p class="lead" data-i18n="site.privacy.lead">회원가입이 없는 서비스입니다. 이름도 이메일도 묻지 않습니다. 그래도 초대장을 만들고 보내는 동안 데이터가 어디에 남는지는 분명히 밝혀 두어야 합니다.</p>
+      <p class="legal-updated" data-i18n="site.privacy.updated">마지막 수정: 2026년 9월 18일</p>
+      <ul class="toc">
+        <li><a href="#browser" data-i18n="site.privacy.toc.browser">브라우저에 남는 것</a></li>
+        <li><a href="#server" data-i18n="site.privacy.toc.server">서버에 저장되는 것</a></li>
+        <li><a href="#retention" data-i18n="site.privacy.toc.retention">공개 링크의 보관 기간</a></li>
+        <li><a href="#analytics" data-i18n="site.privacy.toc.analytics">방문 통계</a></li>
+        <li><a href="#diagnostics" data-i18n="site.privacy.toc.diagnostics">오류 진단</a></li>
+        <li><a href="#deletion" data-i18n="site.privacy.toc.deletion">삭제 요청</a></li>
+        <li><a href="#children" data-i18n="site.privacy.toc.children">어린이 정보</a></li>
+        <li><a href="#contact" data-i18n="site.privacy.toc.contact">문의</a></li>
+      </ul>
+    </section>
+    <section id="browser" aria-labelledby="browser-title">
+      <p class="eyebrow" data-i18n="site.privacy.browser.eyebrow">01</p>
+      <h2 id="browser-title" data-i18n="site.privacy.browser.title">브라우저에 남는 것</h2>
+      <p class="lead" data-i18n="site.privacy.browser.lead">아래 항목은 이 브라우저의 저장소에만 있습니다. 어느 것도 서버로 보내지 않고, 다른 기기에서는 보이지 않습니다. 이 브라우저를 떠나는 저장값은 아래 방문 통계에 적은 분석 식별자 하나뿐이고, 그것도 동의한 뒤에만 보냅니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.browser.one">작성 중인 초안. 쓰는 동안 자동으로 저장됩니다.</li>
+        <li data-i18n="site.privacy.browser.two">보관함에 저장한 초대장. 제목, 일정, 장소, 메시지, 사진이 모두 이 브라우저 안에 있습니다.</li>
+        <li data-i18n="site.privacy.browser.three">공개 링크를 취소할 수 있는 관리 토큰. 링크를 발행한 브라우저에만 저장되고, 링크 주소에는 들어가지 않습니다.</li>
+        <li data-i18n="site.privacy.browser.four">표시 언어와 이 페이지에서 고른 통계 동의 여부.</li>
+      </ul>
+      <p class="legal-note" data-i18n="site.privacy.browser.note">브라우저 저장소를 지우면 위 항목이 모두 사라집니다. 이미 발행한 공개 링크는 그대로 남지만, 그 링크를 취소할 방법은 함께 사라집니다.</p>
+    </section>
+    <section id="server" aria-labelledby="server-title">
+      <p class="eyebrow" data-i18n="site.privacy.server.eyebrow">02</p>
+      <h2 id="server-title" data-i18n="site.privacy.server.title">서버에 저장되는 것</h2>
+      <p class="lead" data-i18n="site.privacy.server.lead">링크로 공유를 눌렀을 때만 초대장 사본 하나가 서버에 저장됩니다. 저장되는 항목은 그 초대장에 직접 적은 내용입니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.server.one">제목과 안내 문구</li>
+        <li data-i18n="site.privacy.server.two">초대장에 적은 사람 이름</li>
+        <li data-i18n="site.privacy.server.three">날짜와 시간</li>
+        <li data-i18n="site.privacy.server.four">장소 이름, 주소, 지도 링크</li>
+        <li data-i18n="site.privacy.server.five">연락처 항목에 적은 전화번호나 링크</li>
+        <li data-i18n="site.privacy.server.six">올린 사진. 별도 파일이 아니라 문서 안에 data URI로 함께 저장됩니다.</li>
+      </ul>
+      <p class="legal-note" data-i18n="site.privacy.server.note">링크를 아는 사람은 누구나 초대장을 볼 수 있습니다. 검색엔진에 색인되지는 않지만 비밀번호로 보호되지도 않습니다. 하객 모두가 봐도 괜찮은 내용만 적어 주세요.</p>
+    </section>
+    <section id="retention" aria-labelledby="retention-title">
+      <p class="eyebrow" data-i18n="site.privacy.retention.eyebrow">03</p>
+      <h2 id="retention-title" data-i18n="site.privacy.retention.title">공개 링크의 보관 기간</h2>
+      <p class="lead" data-i18n="site.privacy.retention.lead">공개 링크는 열릴 때 수명이 밀리는 방식으로 만료됩니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.retention.one">발행하면 7일 뒤에 만료되도록 표시됩니다.</li>
+        <li data-i18n="site.privacy.retention.two">누군가 링크를 열면 만료 시점이 그때로부터 7일 뒤로 밀립니다. 이 갱신은 6시간에 한 번까지만 일어나므로, 짧은 시간에 여러 번 열려도 한 번으로 셉니다.</li>
+        <li data-i18n="site.privacy.retention.three">아무리 자주 열려도 발행일로부터 30일을 넘기지 않습니다.</li>
+      </ul>
+      <p class="legal-note" data-i18n="site.privacy.retention.note">7일과 30일은 현재 운영 기본값이며 운영자가 바꿀 수 있습니다. 만료된 링크는 더 이상 열리지 않습니다.</p>
+    </section>
+    <section id="analytics" aria-labelledby="analytics-title">
+      <p class="eyebrow" data-i18n="site.privacy.analytics.eyebrow">04</p>
+      <h2 id="analytics-title" data-i18n="site.privacy.analytics.title">방문 통계</h2>
+      <p class="lead" data-i18n="site.privacy.analytics.lead">통계 도구는 동의를 누른 뒤에만 불러옵니다. 처음 방문했을 때 화면 아래에 뜨는 배너에서 필수만 사용을 고르면 통계 스크립트는 아예 실행되지 않습니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.analytics.one">쓰는 도구는 Google Analytics 4, PostHog, Vercel Web Analytics입니다.</li>
+        <li data-i18n="site.privacy.analytics.two">보내는 값은 미리 정한 목록뿐입니다. 어떤 화면을 봤는지, 어떤 디자인을 골랐는지, 저장이나 다운로드를 했는지 같은 것들입니다.</li>
+        <li data-i18n="site.privacy.analytics.three">초대장에 쓴 제목, 이름, 연락처, 사진, 장소는 보내지 않습니다. 공개 링크 주소와 관리 토큰도 보내지 않습니다.</li>
+        <li data-i18n="site.privacy.analytics.four">브라우저의 추적 거부(DNT)나 Global Privacy Control이 켜져 있으면 동의와 상관없이 통계는 꺼집니다.</li>
+        <li data-i18n="site.privacy.analytics.five">방문 단위 식별자(flow_id)를 만들어 이 브라우저의 저장소에 보관합니다. 흩어진 이벤트를 한 번의 방문으로 읽기 위한 무작위 값이고 이름이나 계정과 연결되지 않으며, 동의한 뒤 제품 이벤트와 함께만 전송됩니다. Google Analytics 4와 PostHog은 불러온 뒤 각자의 쿠키나 저장소를 따로 설정합니다.</li>
+      </ul>
+      <div class="actions"><button type="button" class="site-cta secondary" data-consent-settings data-i18n="site.privacy.analytics.settings">쿠키 · 분석 설정 다시 열기</button></div>
+    </section>
+    <section id="diagnostics" aria-labelledby="diagnostics-title">
+      <p class="eyebrow" data-i18n="site.privacy.diagnostics.eyebrow">05</p>
+      <h2 id="diagnostics-title" data-i18n="site.privacy.diagnostics.title">오류 진단</h2>
+      <p class="lead" data-i18n="site.privacy.diagnostics.lead">화면이 깨졌을 때 원인을 찾기 위한 진단 기록은 동의와 상관없이 보냅니다. 서비스를 정상적으로 제공하는 데 필요한 최소한의 기록으로 보기 때문입니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.diagnostics.one">보내는 값은 미리 정한 오류 종류, 오류가 난 스크립트 파일 이름과 줄 번호, 브라우저 종류와 운영체제 정도입니다.</li>
+        <li data-i18n="site.privacy.diagnostics.two">오류 메시지 원문, 페이지 주소, 초대장 내용은 보내지 않습니다. 한 페이지에서 최대 여덟 건까지만 기록합니다.</li>
+      </ul>
+    </section>
+    <section id="deletion" aria-labelledby="deletion-title">
+      <p class="eyebrow" data-i18n="site.privacy.deletion.eyebrow">06</p>
+      <h2 id="deletion-title" data-i18n="site.privacy.deletion.title">삭제 요청</h2>
+      <p class="lead" data-i18n="site.privacy.deletion.lead">서버에 남는 것은 공개 링크 하나뿐이라, 지우는 방법도 간단합니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.deletion.one">링크를 발행한 브라우저에서 스튜디오를 열고 링크를 취소하면 서버 사본이 바로 지워집니다.</li>
+        <li data-i18n="site.privacy.deletion.two">그 브라우저를 잃었거나 초대장을 받은 쪽이라면 [CONTACT_EMAIL]로 링크 주소와 함께 삭제를 요청해 주세요. 확인한 뒤 지워 드립니다.</li>
+        <li data-i18n="site.privacy.deletion.three">이미 내려받은 HTML 파일이나 화면 캡처는 회수할 수 없습니다.</li>
+      </ul>
+      <p class="legal-note" data-i18n="site.privacy.deletion.note">브라우저에만 있는 초안과 보관함은 저희가 지울 수 없습니다. 보관함 목록에서 직접 삭제하시면 됩니다.</p>
+    </section>
+    <section id="children" aria-labelledby="children-title">
+      <p class="eyebrow" data-i18n="site.privacy.children.eyebrow">07</p>
+      <h2 id="children-title" data-i18n="site.privacy.children.title">어린이 정보</h2>
+      <p class="lead" data-i18n="site.privacy.children.lead">이 서비스는 어린이를 대상으로 하지 않으며, 만드는 사람의 나이를 묻거나 수집하지 않습니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.privacy.children.one">돌잔치나 유치원 초대장처럼 어린이의 이름과 사진이 들어가는 경우, 그 정보를 올릴지 정하는 것은 초대장을 만드는 보호자입니다.</li>
+        <li data-i18n="site.privacy.children.two">어린이 정보가 담긴 링크를 지우고 싶다면 위의 삭제 요청 방법을 따라 주세요.</li>
+      </ul>
+    </section>
+    <section id="contact" aria-labelledby="contact-title">
+      <p class="eyebrow" data-i18n="site.privacy.contact.eyebrow">08</p>
+      <h2 id="contact-title" data-i18n="site.privacy.contact.title">문의</h2>
+      <p class="lead" data-i18n="site.privacy.contact.lead">이 서비스의 운영자는 [OPERATOR]입니다. 개인정보에 관한 문의나 삭제 요청은 [CONTACT_EMAIL]로 보내 주세요.</p>
+      <p class="legal-note" data-i18n="site.privacy.contact.note">이 방침이 바뀌면 이 페이지 위쪽의 수정 날짜도 함께 바뀝니다.</p>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <span data-i18n="site.footer.brand">INVITATION STUDIO</span>
+    <nav aria-label="바닥글 링크" data-i18n-attr="aria-label:site.footer.navLabel"><a href="/welcome" data-i18n="site.footer.about">소개</a><a href="/guide" data-i18n="site.footer.guide">사용법</a><a href="/guide#data" data-i18n="site.footer.data">내 데이터</a><a href="/privacy" data-i18n="site.footer.privacy">개인정보처리방침</a><a href="/terms" data-i18n="site.footer.terms">이용약관</a></nav>
+    <span class="site-footer-note" data-i18n="site.footer.note">작은 초대, 소중한 순간.</span>
+  </footer>
+  <!-- Analytics first, and error-reporting.js immediately after it, because a
+       script that dies while PARSING can only be reported by handlers that are
+       already installed. Everything below this line is a file whose failure we
+       want to hear about; everything above it would have to fail silently. -->
+  <script defer src="/assets/analytics/config.js"></script>
+  <script defer src="/assets/analytics/analytics.js"></script>
+  <script defer src="/assets/analytics/error-reporting.js"></script>
+  <script defer src="/assets/site/consent.js"></script>
+  <script type="module" src="/assets/analytics/ga4.js"></script>
+  <script defer src="/assets/site/site.js"></script>
+</body>
+</html>

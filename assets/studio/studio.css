@@ -311,6 +311,10 @@ body:not([data-studio-stage="finish"]) #save-button .finish-choice-desc { displa
 .studio-dialog-body { display: flex; flex-direction: column; gap: 16px; padding: 16px 22px 24px; }
 .studio-dialog-body p { margin: 0; color: var(--studio-ink-muted); font-size: 13px; line-height: 1.7; }
 .studio-dialog-body p strong { color: var(--studio-accent-deep); }
+/* W2-2. The retention sentence that opens the share dialog, before anything
+   has been published. Static markup in studio.html rather than part of the
+   panel publishing.js renders, so it is readable the moment the dialog opens. */
+.share-dialog-privacy a { color: var(--studio-accent); font-weight: 650; }
 .studio-dialog-body .publishing-panel { padding: 0; border-top: 0; }
 .studio-dialog-primary { width: 100%; }
 @media (prefers-reduced-motion: no-preference) {
@@ -783,4 +787,35 @@ a:focus-visible { outline-color: var(--studio-focus); }
     pointer-events: none;
     background: linear-gradient(to right, transparent, var(--studio-paper));
   }
+}
+
+/* The consent banner (assets/site/consent.js) --------------------------------
+   The banner brings its own CSS and fixes itself to the bottom of the viewport
+   at a z-index nothing here can outrank, so the studio's own fixed furniture —
+   the gallery dock (z-index 40) and the phone editor's action row (z-index 30,
+   style.css) — has to move up out of its way rather than try to stack over it.
+   consent.js publishes the banner's measured height on <html> as
+   --consent-height while it is open and removes the property when it closes,
+   so every rule below is a no-op (`0px`) for a visitor who has answered.
+
+   Its colours are the second half of the same handshake. On /studio the site
+   names the banner used to read first — --card/--ink/--line — are style.css's,
+   re-declared per body[data-template], so choosing a loud design repainted the
+   banner with it. consent.js now reads --studio-* ahead of them; pinning the
+   same three roles here states that rule where a studio reader looks for it,
+   and keeps it true if that fallback chain is ever reordered. */
+body[data-studio-stage] #invitation-consent {
+  background: var(--studio-surface);
+  color: var(--studio-ink);
+  border-top-color: var(--studio-line);
+}
+body[data-studio-stage] #gallery-dock,
+body[data-mobile-view="editor"] .action-row {
+  bottom: var(--consent-height, 0px);
+}
+body { padding-bottom: calc(40px + var(--consent-height, 0px)); }
+@media (max-width: 900px) {
+  body[data-studio-stage="gallery"] { padding-bottom: calc(120px + env(safe-area-inset-bottom) + var(--consent-height, 0px)); }
+  body[data-studio-stage="edit"] { padding-bottom: calc(100px + env(safe-area-inset-bottom) + var(--consent-height, 0px)); }
+  body[data-studio-stage="finish"] { padding-bottom: calc(40px + var(--consent-height, 0px)); }
 }

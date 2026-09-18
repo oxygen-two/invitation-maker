@@ -74,7 +74,10 @@ const loadReporting = ({
       module: { exports: {} },
       window: rootObject
     }, { filename: "assets/analytics/analytics.js" });
-    rootObject.InvitationAnalytics.initPostHog();
+    // No consent is stored on this fake root, which is the point: a
+    // diagnostic report is essential and must reach its transport anyway,
+    // so the fixture asks for the same essential path report() does.
+    rootObject.InvitationAnalytics.initPostHog({ essential: true });
   }
 
   vm.runInNewContext(read("assets/analytics/error-reporting.js"), {
@@ -406,6 +409,10 @@ test("browser environment and page identity are closed vocabularies", () => {
   assert.equal(reporting.pageKind({ pathname: "/studio.html" }), "studio");
   assert.equal(reporting.pageKind({ pathname: "/guide" }), "guide");
   assert.equal(reporting.pageKind({ pathname: "/sample" }), "sample");
+  assert.equal(reporting.pageKind({ pathname: "/privacy" }), "privacy");
+  assert.equal(reporting.pageKind({ pathname: "/privacy.html" }), "privacy");
+  assert.equal(reporting.pageKind({ pathname: "/terms" }), "terms");
+  assert.equal(reporting.pageKind({ pathname: "/terms.html" }), "terms");
   assert.equal(reporting.pageKind({ pathname: "/viewer.html" }), "viewer");
   assert.equal(reporting.pageKind({ pathname: `/i/${INVITATION_ID}` }), "shared");
   assert.equal(reporting.pageKind({ pathname: "/unknown/route" }), "other");
@@ -565,4 +572,19 @@ test("every local browser script is represented by a safe diagnostic path", () =
   for (const source of sources) {
     assert.equal(reporting.normalizeAssetPath(source), source, `${source} must be allowlisted`);
   }
+});
+
+test("a report still reaches its transport when the visitor chose Essential only", () => {
+  const stored = new Map([["invitation-maker.consent", "denied"]]);
+  const { captured, reporting, rootObject } = loadReporting();
+  rootObject.localStorage = {
+    getItem: (key) => (stored.has(key) ? stored.get(key) : null),
+    setItem: (key, value) => stored.set(key, String(value)),
+    removeItem: (key) => stored.delete(key)
+  };
+
+  assert.equal(reporting.report({ context: "boot", kind: "runtime" }), true);
+  assert.equal(captured[0].name, "client_error");
+  // Product events from the same visitor stay off.
+  assert.equal(rootObject.InvitationAnalytics.trackLandingViewed(), false);
 });

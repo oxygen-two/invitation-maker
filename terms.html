@@ -1,0 +1,155 @@
+<!doctype html>
+<!-- The terms of service. Static, crawlable, and never redirects. Same shell as
+     guide.html so the two legal pages carry the site chrome, the language
+     switcher and the dark palette without a second stylesheet. -->
+<html lang="ko" data-i18n-title="site.meta.termsTitle">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="theme-color" content="#15181a" media="(prefers-color-scheme: dark)">
+  <meta name="robots" content="index, follow">
+  <meta name="description" data-i18n-attr="content:site.meta.termsDescription" content="회원가입 없는 초대장 제작 서비스의 이용 조건, 올린 내용에 대한 책임, 공개 링크의 수명을 정리했습니다.">
+  <link rel="canonical" href="https://invitation-maker-one.vercel.app/terms">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" data-i18n-attr="content:meta.ogLocale" content="ko_KR">
+  <meta property="og:site_name" content="Invitation Studio">
+  <meta property="og:title" data-i18n-attr="content:site.meta.termsTitle" content="이용약관 · Invitation Studio">
+  <meta property="og:description" data-i18n-attr="content:site.meta.termsDescription" content="회원가입 없는 초대장 제작 서비스의 이용 조건, 올린 내용에 대한 책임, 공개 링크의 수명을 정리했습니다.">
+  <meta property="og:url" content="https://invitation-maker-one.vercel.app/terms">
+  <meta property="og:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" data-i18n-attr="content:meta.ogImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" data-i18n-attr="content:site.meta.termsTitle" content="이용약관 · Invitation Studio">
+  <meta name="twitter:description" data-i18n-attr="content:site.meta.termsDescription" content="회원가입 없는 초대장 제작 서비스의 이용 조건, 올린 내용에 대한 책임, 공개 링크의 수명을 정리했습니다.">
+  <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
+  <title>이용약관 · Invitation Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='48' font-size='46'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/assets/site/site.css">
+  <!-- The engine sets <html lang> and the title in <head>. Body copy is
+       translated by site.js as soon as the document is parsed, so an
+       English visitor may briefly see Korean body text if the network is slow. -->
+  <script src="/assets/i18n/i18n.js"></script>
+  <script src="/assets/i18n/dictionary-ko.js"></script>
+  <script src="/assets/i18n/dictionary-en.js"></script>
+  <script src="/assets/i18n/dictionary-site-ko.js"></script>
+  <script src="/assets/i18n/dictionary-site-en.js"></script>
+  <script>InvitationI18n.init();</script>
+</head>
+<body data-site-page="terms">
+  <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
+  <header class="site-header">
+    <a class="site-brand" href="/welcome"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio<span data-i18n="site.header.tagline">작은 날도, 특별하게.</span></a>
+    <nav class="site-nav" aria-label="사이트" data-i18n-attr="aria-label:site.header.navLabel">
+      <a href="/guide" data-i18n="site.header.guide">사용법</a>
+      <div class="site-language">
+        <label for="language-select" data-i18n="site.header.langDescription">표시 언어</label>
+        <select id="language-select" data-i18n-attr="aria-label:site.header.langLabel" aria-label="언어 선택"></select>
+      </div>
+      <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="header" data-i18n="site.header.cta">초대장 만들기</a>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <section>
+      <h1 data-i18n="site.terms.title">이용약관</h1>
+      <p class="lead" data-i18n="site.terms.lead">짧게 정리했습니다. 이 서비스를 쓰면 아래 내용에 동의하는 것으로 봅니다.</p>
+      <p class="legal-updated" data-i18n="site.terms.updated">마지막 수정: 2026년 9월 18일</p>
+      <ul class="toc">
+        <li><a href="#service" data-i18n="site.terms.toc.service">어떤 서비스인가요</a></li>
+        <li><a href="#account" data-i18n="site.terms.toc.account">계정이 없습니다</a></li>
+        <li><a href="#content" data-i18n="site.terms.toc.content">올린 내용에 대한 책임</a></li>
+        <li><a href="#prohibited" data-i18n="site.terms.toc.prohibited">올리면 안 되는 것</a></li>
+        <li><a href="#availability" data-i18n="site.terms.toc.availability">서비스 제공과 보증</a></li>
+        <li><a href="#expiry" data-i18n="site.terms.toc.expiry">공개 링크의 수명</a></li>
+        <li><a href="#contact" data-i18n="site.terms.toc.contact">문의와 약관 변경</a></li>
+      </ul>
+    </section>
+    <section id="service" aria-labelledby="service-title">
+      <p class="eyebrow" data-i18n="site.terms.service.eyebrow">01</p>
+      <h2 id="service-title" data-i18n="site.terms.service.title">어떤 서비스인가요</h2>
+      <p class="lead" data-i18n="site.terms.service.lead">브라우저에서 모바일 초대장을 만들어 파일로 내려받거나 공개 링크로 공유하는 무료 도구입니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.terms.service.one">초대장은 브라우저 안에서 만들어집니다. 보관함에 저장하거나 HTML 파일로 내려받는 동안 서버는 관여하지 않습니다.</li>
+        <li data-i18n="site.terms.service.two">링크로 공유를 눌렀을 때만 초대장 사본이 서버에 저장되고 공개 주소가 만들어집니다.</li>
+      </ul>
+    </section>
+    <section id="account" aria-labelledby="account-title">
+      <p class="eyebrow" data-i18n="site.terms.account.eyebrow">02</p>
+      <h2 id="account-title" data-i18n="site.terms.account.title">계정이 없습니다</h2>
+      <p class="lead" data-i18n="site.terms.account.lead">회원가입도 로그인도 없습니다. 편리한 만큼 한계도 분명합니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.terms.account.one">이 브라우저가 곧 신원입니다. 브라우저 저장소를 지우면 초안, 보관함, 링크 취소 권한을 되찾을 방법이 없습니다.</li>
+        <li data-i18n="site.terms.account.two">계정 복구 절차가 없으니, 오래 남길 초대장은 HTML 파일로 내려받아 두세요.</li>
+      </ul>
+    </section>
+    <section id="content" aria-labelledby="content-title">
+      <p class="eyebrow" data-i18n="site.terms.content.eyebrow">03</p>
+      <h2 id="content-title" data-i18n="site.terms.content.title">올린 내용에 대한 책임</h2>
+      <p class="lead" data-i18n="site.terms.content.lead">초대장에 들어가는 내용은 만든 사람의 것이고, 책임도 만든 사람에게 있습니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.terms.content.one">다른 사람의 이름, 사진, 전화번호를 초대장에 넣어 공개 링크로 공유하려면 그렇게 할 권리가 있어야 합니다. 사진 속 인물과 연락처의 주인에게 미리 동의를 받아 주세요.</li>
+        <li data-i18n="site.terms.content.two">공개 링크는 주소를 아는 사람이라면 누구나 열 수 있습니다. 비밀번호가 없으니 공개해도 괜찮은 내용만 담아 주세요.</li>
+        <li data-i18n="site.terms.content.three">쓰려는 사진, 글꼴, 그림에 대한 권리가 있는지도 확인해 주세요.</li>
+        <li data-i18n="site.terms.content.four">저희는 발행되는 내용을 미리 검토하지 않습니다. 신고가 들어오면 확인 후 링크를 내릴 수 있습니다.</li>
+      </ul>
+    </section>
+    <section id="prohibited" aria-labelledby="prohibited-title">
+      <p class="eyebrow" data-i18n="site.terms.prohibited.eyebrow">04</p>
+      <h2 id="prohibited-title" data-i18n="site.terms.prohibited.title">올리면 안 되는 것</h2>
+      <p class="lead" data-i18n="site.terms.prohibited.lead">다음에 해당하는 내용은 발행할 수 없습니다. 발견되면 예고 없이 링크를 내립니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.terms.prohibited.one">다른 사람의 개인정보를 동의 없이 공개하는 내용</li>
+        <li data-i18n="site.terms.prohibited.two">불법이거나 혐오, 괴롭힘, 협박에 해당하는 내용</li>
+        <li data-i18n="site.terms.prohibited.three">성인물이나 아동 착취물</li>
+        <li data-i18n="site.terms.prohibited.four">사기, 피싱, 악성코드 배포를 위한 링크</li>
+        <li data-i18n="site.terms.prohibited.five">다른 사람의 저작권이나 상표권을 침해하는 내용</li>
+        <li data-i18n="site.terms.prohibited.six">자동화된 대량 발행처럼 서비스 운영을 방해하는 행위</li>
+      </ul>
+    </section>
+    <section id="availability" aria-labelledby="availability-title">
+      <p class="eyebrow" data-i18n="site.terms.availability.eyebrow">05</p>
+      <h2 id="availability-title" data-i18n="site.terms.availability.title">서비스 제공과 보증</h2>
+      <p class="lead" data-i18n="site.terms.availability.lead">이 서비스는 무료로, 있는 그대로 제공됩니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.terms.availability.one">점검이나 장애로 언제든 멈출 수 있고, 기능이 바뀌거나 없어질 수 있습니다.</li>
+        <li data-i18n="site.terms.availability.two">발행 건수에는 운영상 한도가 있습니다. 한도에 닿으면 새 링크를 만들 수 없습니다.</li>
+        <li data-i18n="site.terms.availability.three">데이터가 사라지거나 링크가 열리지 않아 생긴 손해에 대해서는 법이 허용하는 범위에서 책임지지 않습니다. 중요한 초대장은 HTML 파일로도 내려받아 두세요.</li>
+      </ul>
+    </section>
+    <section id="expiry" aria-labelledby="expiry-title">
+      <p class="eyebrow" data-i18n="site.terms.expiry.eyebrow">06</p>
+      <h2 id="expiry-title" data-i18n="site.terms.expiry.title">공개 링크의 수명</h2>
+      <p class="lead" data-i18n="site.terms.expiry.lead">공개 링크는 영구 보관이 아닙니다.</p>
+      <ul class="data-list">
+        <li data-i18n="site.terms.expiry.one">마지막으로 열린 뒤 7일이 지나면 만료됩니다. 링크가 열리면 이 기간이 다시 밀리고, 갱신은 6시간에 한 번까지만 일어납니다.</li>
+        <li data-i18n="site.terms.expiry.two">아무리 자주 열려도 발행일로부터 30일이 지나면 만료됩니다.</li>
+        <li data-i18n="site.terms.expiry.three">7일과 30일은 현재 운영 기본값이며 운영자가 바꿀 수 있습니다. 만료되거나 취소된 링크는 되살릴 수 없고, 초대장을 다시 열어 새 링크를 발행해야 합니다.</li>
+      </ul>
+    </section>
+    <section id="contact" aria-labelledby="contact-title">
+      <p class="eyebrow" data-i18n="site.terms.contact.eyebrow">07</p>
+      <h2 id="contact-title" data-i18n="site.terms.contact.title">문의와 약관 변경</h2>
+      <p class="lead" data-i18n="site.terms.contact.lead">이 서비스의 운영자는 [OPERATOR]입니다. 약관과 관련한 문의, 신고, 삭제 요청은 [CONTACT_EMAIL]로 보내 주세요.</p>
+      <p class="legal-note" data-i18n="site.terms.contact.note">약관이 바뀌면 이 페이지 위쪽의 수정 날짜도 함께 바뀝니다. 변경 후에도 서비스를 계속 쓰면 바뀐 약관에 동의한 것으로 봅니다.</p>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <span data-i18n="site.footer.brand">INVITATION STUDIO</span>
+    <nav aria-label="바닥글 링크" data-i18n-attr="aria-label:site.footer.navLabel"><a href="/welcome" data-i18n="site.footer.about">소개</a><a href="/guide" data-i18n="site.footer.guide">사용법</a><a href="/guide#data" data-i18n="site.footer.data">내 데이터</a><a href="/privacy" data-i18n="site.footer.privacy">개인정보처리방침</a><a href="/terms" data-i18n="site.footer.terms">이용약관</a></nav>
+    <span class="site-footer-note" data-i18n="site.footer.note">작은 초대, 소중한 순간.</span>
+  </footer>
+  <!-- Analytics first, and error-reporting.js immediately after it, because a
+       script that dies while PARSING can only be reported by handlers that are
+       already installed. Everything below this line is a file whose failure we
+       want to hear about; everything above it would have to fail silently. -->
+  <script defer src="/assets/analytics/config.js"></script>
+  <script defer src="/assets/analytics/analytics.js"></script>
+  <script defer src="/assets/analytics/error-reporting.js"></script>
+  <script defer src="/assets/site/consent.js"></script>
+  <script type="module" src="/assets/analytics/ga4.js"></script>
+  <script defer src="/assets/site/site.js"></script>
+</body>
+</html>

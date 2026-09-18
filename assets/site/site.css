@@ -61,7 +61,12 @@
 
 * { box-sizing: border-box; }
 html { background: var(--paper); }
-body { margin: 0; background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; min-height: 100svh; display: flex; flex-direction: column; word-break: keep-all; }
+/* `padding-bottom` reserves room for the consent banner, which assets/site/
+   consent.js fixes to the bottom of the viewport and measures onto <html> as
+   --consent-height while it is open. Without the property this is exactly 0,
+   so a visitor who has already answered pays nothing; with it the footer —
+   including the privacy link the banner points at — stays reachable. */
+body { margin: 0; padding-bottom: var(--consent-height, 0px); background: var(--paper); color: var(--ink); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.7; min-height: 100svh; display: flex; flex-direction: column; word-break: keep-all; }
 a { color: inherit; }
 a:focus-visible, button:focus-visible, select:focus-visible { outline: 3px solid var(--green); outline-offset: 4px; }
 .skip { position: absolute; left: 20px; top: -80px; background: var(--card); color: var(--ink); padding: 10px; z-index: 5; }
@@ -173,6 +178,17 @@ summary::after { content: "+"; margin-left: auto; color: var(--green); font-size
 details[open] summary::after { content: "–"; }
 details p { margin: 0 0 16px; color: var(--muted); }
 
+/* Legal pages (privacy.html, terms.html). They reuse the guide's .toc chips
+   and .data-list cards; all they add is the "last updated" line and the note
+   that closes most sections. The 1fr list keeps a long policy sentence on one
+   readable column instead of the guide's two short ones. */
+.legal-updated { margin: 0 0 24px; font-size: 13px; color: var(--muted); }
+.legal-note { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
+body[data-site-page="privacy"] .data-list,
+body[data-site-page="terms"] .data-list { grid-template-columns: 1fr; }
+body[data-site-page="privacy"] main,
+body[data-site-page="terms"] main { width: min(820px, 100%); }
+
 @media (max-width: 900px) {
   .hero, .steps, .trust, .guide-step { grid-template-columns: 1fr; }
   .phone { transform: none; }
@@ -207,8 +223,12 @@ details p { margin: 0 0 16px; color: var(--muted); }
      lines. Scoped to the guide: the landing's own nav (guide link + language
      select only, once its CTA is hidden above) already fits one row and
      doesn't need to wrap. */
-  body[data-site-page="guide"] .site-header { flex-wrap: wrap; row-gap: 8px; }
-  body[data-site-page="guide"] .site-header .site-nav { width: 100%; justify-content: flex-end; }
+  body[data-site-page="guide"] .site-header,
+  body[data-site-page="privacy"] .site-header,
+  body[data-site-page="terms"] .site-header { flex-wrap: wrap; row-gap: 8px; }
+  body[data-site-page="guide"] .site-header .site-nav,
+  body[data-site-page="privacy"] .site-header .site-nav,
+  body[data-site-page="terms"] .site-header .site-nav { width: 100%; justify-content: flex-end; }
 
   /* Design shelf becomes a horizontal snap strip; the cut-off card at the
      right edge is the "more to see" affordance, reinforced by the fade. */

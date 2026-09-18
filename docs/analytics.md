@@ -22,6 +22,44 @@ invitation-maker-one.vercel.app
 
 Localhost, custom preview hosts, and Vercel preview domains fail open and return `false` from tracking calls. `InvitationAnalyticsConfig.enabled = false`, `InvitationAnalyticsConfig.optOut = true`, browser Do Not Track, or Global Privacy Control also disable dispatch.
 
+## Consent Gate
+
+Product analytics additionally require an explicit choice from the visitor. `assets/site/consent.js` shows a banner until one is stored, then keeps it in `localStorage` under a single key:
+
+```text
+localStorage["invitation-maker.consent"] = "granted" | "denied"
+```
+
+Only those two exact words count. Anything else — an absent key, an empty string, a value some other script wrote — reads as "not asked yet", which means analytics stay off and the banner comes back.
+
+`assets/analytics/analytics.js` and `assets/analytics/ga4.js` read that key directly rather than calling into the consent module, so the gate does not depend on script load order and works on a page that never loaded `consent.js` at all (it would simply stay off). Without `"granted"`:
+
+- `InvitationAnalytics.isEnabled()` is `false`, `init()` returns `false`, and no `track*` call dispatches.
+- `initPostHog()` refuses, so the PostHog browser SDK is never fetched.
+- `loadVercelAnalytics()` refuses, so `/_vercel/insights/script.js` is never appended.
+- GA4 installs no `gtag` script, no `dataLayer`, and no queue.
+
+Nothing is queued while the gate is closed. An event that happened before consent is simply not sent; it is never replayed after a later "accept". Granting consent from the banner calls `InvitationAnalytics.init()` and `InvitationAnalyticsGA4.init()` so the current page starts reporting from that moment forward.
+
+Do Not Track and Global Privacy Control sit *above* consent: if either is on, analytics stay off even after a visitor presses Accept.
+
+The consent module's own contract:
+
+```js
+window.InvitationConsent.get();            // "granted" | "denied" | ""  ("" = not asked)
+window.InvitationConsent.set("granted");   // true when stored, false for any other value
+window.InvitationConsent.onChange(fn);     // returns an unsubscribe function
+window.InvitationConsent.open();           // re-show the banner (the privacy page's settings link)
+```
+
+### Error diagnostics are the one exception
+
+`client_error` dispatches without consent. It is treated as necessary to keep the service working rather than as measurement, because of what it is allowed to carry: a closed set of error categories, the path of a shipped script plus a line and column, an HTTP status number, and the browser/OS family. No raw error message, no page URL, no authored invitation content — the allowlists in `error-reporting.js`, the wrapper, and PostHog `before_send` each enforce that independently.
+
+The mechanics: `isEnabled({ essential: true })` and `initPostHog({ essential: true })` skip the consent check (and nothing else — host, `enabled`, `optOut`, DNT and GPC all still apply), and `track()` applies the essential path only for `client_error`. `error-reporting.js` passes the flag, and only at the moment it actually has a report, so a visitor who declined analytics and hits no fault never loads a provider SDK.
+
+The privacy page (`privacy.html`, `site.privacy.diagnostics.*`) states this in the visitor's own language rather than leaving it implicit.
+
 ## Configuration
 
 `assets/analytics/config.js` contains the public ingestion token for PostHog project `602599` and the Vercel script path. It contains no account credentials or administrative API keys. To disable either provider, clear its configuration:
@@ -123,7 +161,7 @@ Map fields should stay coarse. It is acceptable to send booleans such as `hasMap
 
 ## Error diagnostics
 
-`assets/analytics/error-reporting.js` loads after the analytics wrapper and before the application entry scripts. It reports global and selected handled failures through `client_error`. Diagnostic fields use their own closed allowlists, applied again by the analytics wrapper and PostHog `before_send`: raw error messages, arbitrary URLs and authored content are excluded. Reporting is deduplicated and limited to eight events per page. It honors the same host, opt-out, DNT and GPC gates as product events.
+`assets/analytics/error-reporting.js` loads after the analytics wrapper and before the application entry scripts. It reports global and selected handled failures through `client_error`. Diagnostic fields use their own closed allowlists, applied again by the analytics wrapper and PostHog `before_send`: raw error messages, arbitrary URLs and authored content are excluded. Reporting is deduplicated and limited to eight events per page. It honors the same host, opt-out, DNT and GPC gates as product events, and is the one report exempt from the consent gate — see [Consent Gate](#consent-gate) for why and for how narrow that exemption is.
 
 This is a custom event, not automatic SDK exception capture. Sandbox invitation frames, standalone HTML exports and admin browser pages do not install this reporter. No new vendor or npm dependency is added. See [observability](observability.md) for investigation steps and limitations.
 

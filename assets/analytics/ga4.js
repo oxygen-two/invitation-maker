@@ -3,6 +3,7 @@
   const stateKey = "__InvitationAnalyticsGA4State";
   const scriptSelector = 'script[data-invitation-analytics="ga4"]';
   const validMeasurementId = /^G-[A-Z0-9]{6,20}$/;
+  const consentStorageKey = "invitation-maker.consent";
 
   const getConfig = () => root.InvitationAnalyticsConfig || null;
 
@@ -13,13 +14,27 @@
 
   const isProduction = () => root.location?.hostname === productionHost;
 
+  /* The answer to the consent banner, written by assets/site/consent.js and
+     read straight from storage so this module does not depend on load order.
+     GA4 has no essential role here — nothing in this file is a diagnostic —
+     so it stays completely inert, no script and no dataLayer, until the
+     visitor has said yes. Do Not Track and Global Privacy Control are checked
+     separately below and still force it off even after a yes. */
+  const hasConsent = () => {
+    try {
+      return root.localStorage?.getItem(consentStorageKey) === "granted";
+    } catch {
+      return false;
+    }
+  };
+
   const isEnabled = () => {
     const config = getConfig();
     const id = measurementId();
     const optedOut = config?.optOut === true ||
       root.navigator?.doNotTrack === "1" ||
       root.navigator?.globalPrivacyControl === true;
-    return Boolean(config && config.enabled !== false && !optedOut && isProduction() && validMeasurementId.test(id));
+    return Boolean(config && config.enabled !== false && !optedOut && hasConsent() && isProduction() && validMeasurementId.test(id));
   };
 
   const pageKind = () => {

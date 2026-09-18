@@ -33,6 +33,19 @@ const makeDocument = ({ appendFailure = false } = {}) => {
   return { created, documentRef };
 };
 
+/* GA4 is never essential — nothing it sends is a diagnostic — so it stays
+   inert until the consent banner has been accepted. Every existing
+   expectation in this suite describes a visitor who accepted, so that is the
+   default; `consent` overrides it. */
+const makeStorage = (initial = {}) => {
+  const values = new Map(Object.entries(initial));
+  return {
+    getItem: (key) => (values.has(key) ? values.get(key) : null),
+    removeItem: (key) => values.delete(key),
+    setItem: (key, value) => values.set(key, String(value))
+  };
+};
+
 const loadGA4 = ({
   config = { enabled: true, ga4: { measurementId: "" } },
   hostname = "invitation-maker-one.vercel.app",
@@ -41,12 +54,18 @@ const loadGA4 = ({
   hash = "#private",
   documentRef = makeDocument().documentRef,
   existingRoot,
+  consent = "granted",
+  localStorage,
   navigator = { doNotTrack: "0", globalPrivacyControl: false }
 } = {}) => {
+  const storage = localStorage === undefined
+    ? makeStorage({ "invitation-maker.consent": consent })
+    : localStorage;
   const rootObject = existingRoot || {
     InvitationAnalyticsConfig: config,
     URL,
     document: documentRef,
+    localStorage: storage,
     location: {
       hash,
       hostname,
@@ -61,6 +80,7 @@ const loadGA4 = ({
   rootObject.document = documentRef;
   rootObject.InvitationAnalyticsConfig = config;
   rootObject.navigator = navigator;
+  if (localStorage !== undefined || !existingRoot) rootObject.localStorage = storage;
 
   vm.runInNewContext(read("assets/analytics/ga4.js"), {
     globalThis: rootObject,
@@ -222,5 +242,84 @@ test("GA4 fails open when script creation or append fails", () => {
   });
 
   assert.equal(rootObject.InvitationAnalyticsGA4.init(), false);
+  assert.equal(created.length, 0);
+});
+
+/* Consent gate (A-8) ----------------------------------------------------- */
+
+test("GA4 installs nothing until the consent banner has been accepted", () => {
+  for (const consent of ["", "denied", "accepted", "true"]) {
+    const { created, documentRef } = makeDocument();
+    const rootObject = loadGA4({
+      config: { enabled: true, ga4: { measurementId: "G-CONSENT1" } },
+      consent,
+      documentRef
+    });
+
+    assert.equal(rootObject.InvitationAnalyticsGA4.isEnabled(), false, `consent "${consent}" must keep GA4 off`);
+    assert.equal(rootObject.InvitationAnalyticsGA4.init(), false);
+    assert.equal(created.length, 0, "no gtag script may be appended");
+    assert.equal(rootObject.dataLayer, undefined);
+    assert.equal(rootObject.gtag, undefined);
+  }
+});
+
+test("GA4 loads once consent is granted, and a later grant is picked up on demand", () => {
+  const { created, documentRef } = makeDocument();
+  const localStorage = makeStorage();
+  const rootObject = loadGA4({
+    config: { enabled: true, ga4: { measurementId: "G-LATER01" } },
+    documentRef,
+    localStorage
+  });
+
+  assert.equal(rootObject.InvitationAnalyticsGA4.init(), false);
+  assert.equal(created.length, 0);
+
+  localStorage.setItem("invitation-maker.consent", "granted");
+  assert.equal(rootObject.InvitationAnalyticsGA4.init(), true);
+  assert.equal(created.length, 1);
+  assert.equal(created[0].src, "https://www.googletagmanager.com/gtag/js?id=G-LATER01");
+  assert.equal(rootObject.dataLayer.filter((entry) => entry[0] === "event" && entry[1] === "page_view").length, 1);
+});
+
+test("GA4 stays off when Do Not Track or GPC contradicts a granted choice", () => {
+  for (const navigator of [
+    { doNotTrack: "1", globalPrivacyControl: false },
+    { doNotTrack: "0", globalPrivacyControl: true }
+  ]) {
+    const { created, documentRef } = makeDocument();
+    const rootObject = loadGA4({
+      config: { enabled: true, ga4: { measurementId: "G-DNTWINS" } },
+      consent: "granted",
+      documentRef,
+      navigator
+    });
+
+    assert.equal(rootObject.InvitationAnalyticsGA4.init(), false);
+    assert.equal(created.length, 0);
+    assert.equal(rootObject.dataLayer, undefined);
+  }
+});
+
+test("GA4 fails closed when localStorage itself is unavailable", () => {
+  const { created, documentRef } = makeDocument();
+  const rootObject = loadGA4({
+    config: { enabled: true, ga4: { measurementId: "G-NOSTORE1" } },
+    documentRef,
+    localStorage: {
+      getItem: () => {
+        throw new Error("storage denied");
+      },
+      setItem: () => {
+        throw new Error("storage denied");
+      },
+      removeItem: () => {
+        throw new Error("storage denied");
+      }
+    }
+  });
+
+  assert.equal(rootObject.InvitationAnalyticsGA4.isEnabled(), false);
   assert.equal(created.length, 0);
 });

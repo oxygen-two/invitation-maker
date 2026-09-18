@@ -3,6 +3,9 @@
   const firstTouchKey = "invitation_analytics:first_touch";
   const flowIdKey = "invitation_analytics:flow_id";
   const dedupPrefix = "invitation_analytics:dedup:";
+  // Written by assets/site/consent.js; read here so the gate does not
+  // depend on that file having been loaded.
+  const consentStorageKey = "invitation-maker.consent";
   const registeredCampaign = "launch_2026_09";
   const registeredUtmPairs = Object.freeze({
     kakao: "social",
@@ -97,7 +100,7 @@
     "unknown",
     "window"
   ]);
-  const pageKinds = Object.freeze(["guide", "landing", "other", "sample", "shared", "studio", "viewer"]);
+  const pageKinds = Object.freeze(["guide", "landing", "other", "privacy", "sample", "shared", "studio", "terms", "viewer"]);
   const browserEnvironments = Object.freeze([
     "android_webview",
     "chrome",
@@ -136,6 +139,7 @@
     "/assets/media/image-tools.js",
     "/assets/publishing/publishing.js",
     "/assets/publishing/shared-invitation.js",
+    "/assets/site/consent.js",
     "/assets/storage/invitation-storage.js",
     "/assets/studio/app.js",
     "/assets/studio/content-order.js",
@@ -242,7 +246,33 @@
     return !config || config.enabled === false || config.optOut === true || doNotTrack;
   };
 
-  const isEnabled = () => isProduction() && !isOptedOut();
+  /* The visitor's answer to the consent banner, read straight from storage so
+     this file never has to be loaded after assets/site/consent.js. Only the
+     two exact words count; anything else means "not asked yet" and keeps
+     product analytics off. Nothing is queued while off — an event that
+     happened before consent stays un-sent rather than replayed afterwards. */
+  const consentChoice = () => {
+    try {
+      const value = root.localStorage?.getItem(consentStorageKey);
+      return value === "granted" || value === "denied" ? value : "";
+    } catch {
+      return "";
+    }
+  };
+
+  const hasConsent = () => consentChoice() === "granted";
+
+  /* `client_error` is the one event allowed without consent. It carries a
+     closed set of error categories, a shipped script path and a line number —
+     no authored content, no page URL (see the header of error-reporting.js) —
+     so it is treated as necessary to keep the service working. docs/analytics.md
+     and the privacy page both say so. Everything else waits for a yes.
+
+     DNT and GPC are checked before this and still force everything off. */
+  const essentialEvents = new Set(["client_error"]);
+
+  const isEnabled = (options) =>
+    isProduction() && !isOptedOut() && (hasConsent() || options?.essential === true);
 
   const makeFlowId = () => {
     if (memoryFlowId) return memoryFlowId;
@@ -524,8 +554,8 @@
 
   const track = (eventName, props = {}, options = {}) => {
     try {
-      if (!isEnabled()) return false;
       if (!eventPropertyAllowlist[eventName]) return false;
+      if (!isEnabled({ essential: essentialEvents.has(eventName) })) return false;
       const dedupKey = options.dedupKey || props.dedupKey;
       if (isDeduped(dedupKey)) return false;
 
@@ -565,10 +595,14 @@
     };
   };
 
-  const initPostHog = () => {
+  /* `{ essential: true }` installs the transport for a diagnostic report on a
+     visitor who has not accepted analytics. error-reporting.js passes it only
+     when it actually has something to report, so a page with no fault never
+     loads the SDK before consent. */
+  const initPostHog = (options) => {
     try {
       if (postHogReady) return true;
-      if (!isEnabled()) return false;
+      if (!isEnabled({ essential: options?.essential === true })) return false;
       const posthog = getConfig().posthog || {};
       if (!posthog.token) return false;
       if (!installPostHogStub()) return false;
