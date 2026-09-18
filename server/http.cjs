@@ -5,6 +5,7 @@ const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./conf
 const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
 const { mapRepositoryError, publishInvitation, refreshPublicationExpiry } = require("./publishing/use-case.cjs");
 const {
+  DEFAULT_PUBLISHED_LANGUAGE,
   isValidPublicId,
   sha256,
   tokenHashFromHeader,
@@ -161,6 +162,10 @@ const handleGet = async (res, repository, id, config = {}) => {
     const expiresAt = await refreshPublicationExpiry({ record, repository, config, now });
     return json(res, 200, {
       invitation: record.invitation,
+      // Always answered, so the shared page never has to guess: a record from
+      // before publications carried a language reads as the product's home
+      // language, which is what it was authored in.
+      language: record.language || DEFAULT_PUBLISHED_LANGUAGE,
       expiresAt: expiresAt || null
     });
   } catch {

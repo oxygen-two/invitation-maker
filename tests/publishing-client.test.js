@@ -195,8 +195,28 @@ test("published JSON omits redundant legacy stops while preserving ordered items
     invitation: {
       title: "Canonical",
       items: [{ id: "course-a", type: "course", place: "A" }]
-    }
+    },
+    // The studio language at the moment of publishing, pinned to ko at the top
+    // of this file. It travels with the snapshot, not inside the invitation.
+    language: "ko"
   });
+});
+
+/* The author writes in one language and the guest may read in another, so the
+   language the studio was in when Publish was pressed has to be recorded here
+   or it is lost for good. Read live rather than captured, so switching the
+   studio language and publishing again records the new one. */
+test("the publish payload carries the studio language the author was writing in", () => {
+  try {
+    for (const language of InvitationI18n.SUPPORTED) {
+      InvitationI18n.setLanguage(language, { persist: false });
+      const prepared = InvitationPublishing.prepareBody({ title: "Language" });
+      assert.equal(prepared.language, language);
+      assert.equal(JSON.parse(prepared.body).language, language);
+    }
+  } finally {
+    InvitationI18n.setLanguage("ko", { persist: false });
+  }
 });
 
 test("storage write failure blocks a new publish before network access", async () => {
@@ -505,9 +525,8 @@ test("public viewer fetches only public invitation data into a sandboxed iframe"
 
    A guest lands on /i/<id> having made no choice in the studio, so the page
    chrome around the invitation follows their own language. The invitation
-   itself is somebody else's finished document, and a published record carries
-   no note of the language its author worked in, so its baked chrome stays in
-   the product's home language — never the reader's. */
+   itself is somebody else's finished document, so its baked chrome follows the
+   language the record was published in — never the reader's. */
 const sharedHarness = () => {
   const frame = { attributes: {}, hidden: true, setAttribute(name, value) { this.attributes[name] = value; } };
   const nodes = {
@@ -577,6 +596,48 @@ test("a published invitation is never re-languaged to suit whoever opens the lin
   assert.equal(new Set(rendered).size, 1, "the frame must not follow the reader's language");
   assert.match(rendered[0], /<html lang="ko">/);
   assert.ok(rendered[0].includes(InvitationI18n.t("invitation.noticeEyebrow", undefined, "ko")));
+});
+
+test("the frame speaks the language the invitation was published in", async () => {
+  const invitation = { title: "Dinner at ours", items: [{ id: "n1", type: "notice", heading: "Parking", body: "Level 2" }] };
+  const rendered = [];
+
+  for (const language of InvitationI18n.SUPPORTED) {
+    const harness = sharedHarness();
+
+    await SharedInvitation.mount({
+      document: harness.document,
+      // The guest reads in the other language throughout, so a frame that
+      // followed the reader would give the two runs the same document.
+      language: language === "en" ? "ko" : "en",
+      location: { pathname: "/i/abc123" },
+      fetch: async () => ({ ok: true, json: async () => ({ expiresAt: null, invitation, language }) })
+    });
+
+    rendered.push(harness.frame.srcdoc);
+    assert.match(harness.frame.srcdoc, new RegExp(`<html lang="${language}">`));
+    assert.ok(
+      harness.frame.srcdoc.includes(InvitationI18n.t("invitation.noticeEyebrow", undefined, language)),
+      `the baked chrome should be ${language}`
+    );
+  }
+
+  assert.equal(new Set(rendered).size, InvitationI18n.SUPPORTED.length);
+});
+
+test("a record published before the language field existed still renders in Korean", async () => {
+  for (const readerLanguage of InvitationI18n.SUPPORTED) {
+    const harness = sharedHarness();
+
+    await SharedInvitation.mount({
+      document: harness.document,
+      language: readerLanguage,
+      location: { pathname: "/i/abc123" },
+      fetch: async () => ({ ok: true, json: async () => ({ expiresAt: null, invitation: { title: "Legacy", items: [] } }) })
+    });
+
+    assert.match(harness.frame.srcdoc, /<html lang="ko">/);
+  }
 });
 
 test("an expiry shown to a guest is formatted for the guest", async () => {

@@ -1101,3 +1101,19 @@ test("the NAVER map page reports authorization failures to the invitation", () =
   assert.match(page, /location\.hash/);
   assert.match(page, /<meta name="robots" content="noindex">/);
 });
+
+/* The contract the shared viewer leans on: the language a published record
+   carries is the language its frame is built in, and a record without one
+   still produces the Korean document every earlier publication was. */
+test("a standalone document is built in the language it is handed, and Korean when handed none", () => {
+  const invitation = { title: "Dinner at ours", items: [{ id: "n1", type: "notice", heading: "Parking", body: "Level 2" }] };
+
+  assert.match(buildStandaloneHtml(invitation, { language: "en" }), /<html lang="en">/);
+  assert.match(buildStandaloneHtml(invitation, { language: "ko" }), /<html lang="ko">/);
+  assert.match(buildStandaloneHtml(invitation), /<html lang="ko">/);
+  assert.match(buildStandaloneHtml(invitation, {}), /<html lang="ko">/);
+  // A stored value the product no longer ships must not break a guest's page.
+  assert.match(buildStandaloneHtml(invitation, { language: "xx" }), /<html lang="ko">/);
+
+  assert.equal(InvitationCore.readStandaloneLanguage(buildStandaloneHtml(invitation, { language: "en" })), "en");
+});

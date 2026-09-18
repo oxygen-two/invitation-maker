@@ -70,15 +70,23 @@
     delete canonical.stops;
     return canonical;
   };
+  /* The studio language at the instant Publish is pressed. A publication is a
+     snapshot, and the language its chrome was written in is part of it: without
+     this the shared page has nothing to render an English author's invitation
+     from and falls back to Korean. Read live rather than captured at load, and
+     sent beside the invitation rather than inside it, because it describes the
+     rendering a guest gets and not the author's content. */
+  const authorLanguage = () => I18n?.getLanguage?.() || I18n?.DEFAULT_LANGUAGE || "ko";
   const prepareBody = (invitation, textEncoder = new TextEncoder(), normalizer = InvitationCore?.normalizeInvitation) => {
     const normalized = canonicalPublishInvitation(normalizeInvitation(invitation, normalizer));
+    const language = authorLanguage();
     const invitationJson = JSON.stringify(normalized);
-    const body = JSON.stringify({ invitation: normalized });
+    const body = JSON.stringify({ invitation: normalized, language });
     const requestBytes = byteLength(body, textEncoder);
     if (requestBytes > MAX_PUBLISH_BYTES || byteLength(invitationJson, textEncoder) > MAX_PUBLISH_BYTES) {
       throw createPublishingError(t("tooLarge"), "TOO_LARGE");
     }
-    return { body, invitation: normalized, requestBytes };
+    return { body, invitation: normalized, language, requestBytes };
   };
   const createToken = (cryptoApi) => {
     if (!cryptoApi?.getRandomValues) throw createPublishingError(t("tokenFailed"), "TOKEN_FAILED");

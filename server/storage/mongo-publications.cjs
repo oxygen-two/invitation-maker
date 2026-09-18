@@ -142,6 +142,9 @@ const createMongoPublicationsRepository = ({
         await invitations.insertOne({
           id,
           invitation: input.invitation,
+          // Absent for records published before the field existed; the read
+          // path answers for those, so nothing is back-filled here.
+          language: input.language || null,
           tokenHash: input.tokenHash,
           idempotencyKeyHash: input.idempotencyKeyHash,
           contentHash: input.contentHash,
@@ -185,6 +188,9 @@ const createMongoPublicationsRepository = ({
     return {
       id: record.id,
       invitation: record.invitation,
+      // The language the author published in, or null for a record made before
+      // the field existed. The HTTP layer turns null into the default.
+      language: record.language || null,
       // Stored publication time; the sliding-expiry ceiling is derived from it
       // and never from anything the client sends. Not part of the API response.
       createdAt: record.createdAt || null,
