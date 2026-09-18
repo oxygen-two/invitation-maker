@@ -468,6 +468,121 @@
       failedHint: "오류가 계속되면 잠시 후 다시 방문해 주세요."
     },
 
+    /* The generated static error pages (400 … 504). scripts/build-error-pages.cjs
+       requires this namespace and inlines BOTH languages into every document:
+       an error page is the one moment when fetching i18n.js and a dictionary is
+       least likely to work. Edit the copy here, run
+       `node scripts/build-error-pages.cjs`, and commit the regenerated HTML.
+
+       The eyebrows stay English small-caps on the Korean pages too, matching
+       shared.html and the INVITATION / DATE / PLACE words in the template art.
+       Only the temporary failures carry a `reload` label, because only they
+       show a reload button. */
+    errorPages: {
+      common: {
+        skipToContent: "본문으로 건너뛰기",
+        brandHome: "Invitation Studio 홈",
+        headerNote: "마음을 전하는 작은 시작",
+        footerNote: "작은 초대, 소중한 순간.",
+        offline: "인터넷 연결이 끊겨 있어요. 연결을 확인한 뒤 다시 시도해 주세요.",
+        reloadHint: "다시 시도하려면 브라우저의 새로고침을 이용해 주세요."
+      },
+
+      400: {
+        eyebrow: "CHECK THE LINK",
+        title: "링크를 다시 확인해 주세요.",
+        description: "요청을 이해하지 못했어요. 전달받은 링크가 빠짐없이 복사되었는지 확인해 주세요.",
+        hint: "링크 전체를 복사해 새 창에서 열어보세요.",
+        action: "스튜디오로 돌아가기"
+      },
+
+      401: {
+        eyebrow: "ACCESS REQUIRED",
+        title: "접근 확인이 필요해요.",
+        description: "이 페이지를 열려면 인증이 필요합니다.",
+        hint: "링크를 보내준 분에게 접근 방법을 확인해 주세요.",
+        action: "스튜디오로 돌아가기"
+      },
+
+      403: {
+        eyebrow: "PRIVATE INVITATION",
+        title: "지금은 열 수 없는 페이지예요.",
+        description: "이 요청으로는 페이지에 접근할 수 없습니다.",
+        hint: "링크를 보내준 분에게 공유 범위를 확인해 주세요.",
+        action: "스튜디오로 돌아가기"
+      },
+
+      404: {
+        eyebrow: "A LITTLE DETOUR",
+        title: "찾으시는 페이지가 없어요.",
+        description: "주소가 달라졌거나, 더 이상 사용할 수 없는 링크일 수 있어요.",
+        hint: "초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요.",
+        action: "스튜디오로 돌아가기"
+      },
+
+      408: {
+        eyebrow: "TAKE A MOMENT",
+        title: "연결에 시간이 걸리고 있어요.",
+        description: "요청을 제시간에 전달하지 못했어요. 네트워크 연결을 확인하고 다시 시도해 주세요.",
+        hint: "Wi-Fi 또는 모바일 데이터 연결을 확인해 주세요.",
+        action: "스튜디오로 돌아가기",
+        reload: "다시 시도"
+      },
+
+      410: {
+        eyebrow: "THIS CHAPTER IS CLOSED",
+        title: "이 링크는 더 이상 사용할 수 없어요.",
+        description: "요청하신 페이지의 제공이 종료되었습니다.",
+        hint: "초대장을 보내준 분에게 새로운 링크를 요청해 주세요.",
+        action: "스튜디오로 돌아가기"
+      },
+
+      429: {
+        eyebrow: "ONE MOMENT, PLEASE",
+        title: "잠시 쉰었다가 다시 만나요.",
+        description: "짧은 시간에 요청이 많이 들어왔어요. 잠시 후 다시 시도해 주세요.",
+        hint: "반복해서 새로고침하지 말고 잠시 기다려 주세요.",
+        action: "스튜디오로 돌아가기",
+        reload: "다시 시도"
+      },
+
+      500: {
+        eyebrow: "A BRIEF PAUSE",
+        title: "잠시 문제가 생겼어요.",
+        description: "페이지를 준비하는 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
+        hint: "오류가 계속되면 시간을 두고 다시 방문해 주세요.",
+        action: "스튜디오로 돌아가기",
+        reload: "다시 시도"
+      },
+
+      502: {
+        eyebrow: "RECONNECTING",
+        title: "연결이 잠시 끊겼어요.",
+        description: "서버에서 정상적인 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.",
+        hint: "입력 내용을 바꿀 필요는 없어요. 잠시 기다려 주세요.",
+        action: "스튜디오로 돌아가기",
+        reload: "다시 시도"
+      },
+
+      503: {
+        eyebrow: "WE WILL BE RIGHT BACK",
+        title: "잠시 후 다시 만나요.",
+        description: "지금은 서비스를 이용하기 어려워요. 잠시 후 다시 방문해 주세요.",
+        hint: "오류가 계속되면 시간을 두고 다시 방문해 주세요.",
+        action: "스튜디오로 돌아가기",
+        reload: "다시 시도"
+      },
+
+      504: {
+        eyebrow: "A LITTLE MORE TIME",
+        title: "응답이 늘어지고 있어요.",
+        description: "서버의 응답을 기다리다 연결이 끝났어요. 잠시 후 다시 시도해 주세요.",
+        hint: "저장 작업 중이었다면 다시 저장하기 전에 결과를 확인해 주세요.",
+        action: "스튜디오로 돌아가기",
+        reload: "다시 시도"
+      }
+    },
+
     /* viewer.html — the author reopening their OWN saved invitation from the
        library, on their own device. Only the author is present, so this page
        chrome follows the author's studio language. The invitation it rebuilds

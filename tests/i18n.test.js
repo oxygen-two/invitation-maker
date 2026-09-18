@@ -95,8 +95,13 @@ test("English copy carries no leftover Korean, and Korean copy is actually Korea
     // that are themselves already in the reader's language.
     "content.photoFailed"
   ]);
+  // Every generated error page carries the same kind of eyebrow, for the same
+  // reason as the three above, so they are matched by shape rather than listed.
+  const keepsEnglishInKorean = (key) => englishOnlyInKorean.has(key)
+    || /^errorPages\.\d{3}\.eyebrow$/.test(key);
+
   const koreanSentences = leafKeys(dictionaryKo)
-    .filter((key) => !englishOnlyInKorean.has(key))
+    .filter((key) => !keepsEnglishInKorean(key))
     .filter((key) => !HANGUL.test(InvitationI18n.t(key, { count: 1, max: 1 }, "ko")));
   assert.deepEqual(koreanSentences, [], "ko entries with no Korean in them");
 });

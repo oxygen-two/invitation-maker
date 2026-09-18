@@ -457,6 +457,115 @@
       failedHint: "If it keeps happening, come back a little later."
     },
 
+    /* The generated static error pages (400 … 504). scripts/build-error-pages.cjs
+       requires this namespace and inlines BOTH languages into every document,
+       so an English reader sees English even though the served HTML is Korean
+       and nothing may be fetched. Only the temporary failures carry `reload`. */
+    errorPages: {
+      common: {
+        skipToContent: "Skip to content",
+        brandHome: "Invitation Studio home",
+        headerNote: "A small way to say it",
+        footerNote: "Small invitations, lasting moments.",
+        offline: "You appear to be offline. Check the connection, then try again.",
+        reloadHint: "Use your browser's reload button to try again."
+      },
+
+      400: {
+        eyebrow: "CHECK THE LINK",
+        title: "Please check the link again.",
+        description: "The request could not be understood. Check that the link you were given was copied in full.",
+        hint: "Copy the whole link and open it in a new window.",
+        action: "Back to the studio"
+      },
+
+      401: {
+        eyebrow: "ACCESS REQUIRED",
+        title: "This page needs to know who you are.",
+        description: "Opening this page requires authentication.",
+        hint: "Ask whoever sent you the link how to get in.",
+        action: "Back to the studio"
+      },
+
+      403: {
+        eyebrow: "PRIVATE INVITATION",
+        title: "This page cannot be opened right now.",
+        description: "This request does not have access to the page.",
+        hint: "Ask whoever sent the link who it was shared with.",
+        action: "Back to the studio"
+      },
+
+      404: {
+        eyebrow: "A LITTLE DETOUR",
+        title: "This page could not be found.",
+        description: "The address may have changed, or the link may no longer work.",
+        hint: "If someone sent you an invitation, ask them to check the link.",
+        action: "Back to the studio"
+      },
+
+      408: {
+        eyebrow: "TAKE A MOMENT",
+        title: "The connection is taking a while.",
+        description: "The request did not arrive in time. Check your network connection, then try again.",
+        hint: "Check your Wi-Fi or mobile data connection.",
+        action: "Back to the studio",
+        reload: "Try again"
+      },
+
+      410: {
+        eyebrow: "THIS CHAPTER IS CLOSED",
+        title: "This link is no longer available.",
+        description: "The page you asked for is no longer being served.",
+        hint: "Ask whoever sent it for a new link.",
+        action: "Back to the studio"
+      },
+
+      429: {
+        eyebrow: "ONE MOMENT, PLEASE",
+        title: "Let us pause for a moment.",
+        description: "Too many requests arrived in a short time. Please try again shortly.",
+        hint: "Wait a little rather than reloading again and again.",
+        action: "Back to the studio",
+        reload: "Try again"
+      },
+
+      500: {
+        eyebrow: "A BRIEF PAUSE",
+        title: "Something went wrong for a moment.",
+        description: "An error came up while preparing the page. Please try again shortly.",
+        hint: "If it keeps happening, come back a little later.",
+        action: "Back to the studio",
+        reload: "Try again"
+      },
+
+      502: {
+        eyebrow: "RECONNECTING",
+        title: "The connection dropped for a moment.",
+        description: "The server did not send a usable response. Please try again shortly.",
+        hint: "Nothing you entered needs changing. Just wait a moment.",
+        action: "Back to the studio",
+        reload: "Try again"
+      },
+
+      503: {
+        eyebrow: "WE WILL BE RIGHT BACK",
+        title: "See you again shortly.",
+        description: "The service cannot be reached just now. Please come back in a little while.",
+        hint: "If it keeps happening, come back a little later.",
+        action: "Back to the studio",
+        reload: "Try again"
+      },
+
+      504: {
+        eyebrow: "A LITTLE MORE TIME",
+        title: "The response is running late.",
+        description: "The connection ended while waiting for the server. Please try again shortly.",
+        hint: "If you were saving something, check the result before saving again.",
+        action: "Back to the studio",
+        reload: "Try again"
+      }
+    },
+
     /* viewer.html — the author reopening their OWN saved invitation. Follows
        the author's studio language; the invitation it rebuilds keeps the
        language baked into the saved file. */
