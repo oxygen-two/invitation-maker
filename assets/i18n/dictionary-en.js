@@ -387,7 +387,7 @@
       shareDialogStrong: "only this browser can revoke the link",
       shareDialogTail: ", so come back here on this browser when you want to take it down.",
       shareDialogPanelLabel: "Publish a public link",
-      shareDialogPrivacy: "A published link expires on the server 7 days after it was last opened, and 30 days after publishing at the latest. To take it down sooner, revoke it from this browser.",
+      shareDialogPrivacy: "An invitation with a date stays open until a week after that date. Without one, it stays open 7 days after it was last opened, and 30 days at the most. Taking it down sooner is something only this browser can do.",
       privacyLink: "Read the privacy policy",
       confirmReplyContact: "This item asks for a reply but has no contact or link. Download it without a way to reply?\nCancel to go back and add one.",
       replyContactPattern: "rsvp|reply|respond|contact|attend"
@@ -397,7 +397,7 @@
        studio's language. Nothing in this section reaches a guest. */
     publish: {
       consent: "A public link lets anyone who has the address open it.",
-      expiryPolicy: "The link expires 7 days after it was last opened, and 30 days after publishing at the latest.",
+      expiryPolicy: "Each link shows its own expiry date in the list below.",
       limitHint: "Photos are compressed so the page stays small.",
       publishButton: "Create a public link",
       openLink: "Open link",

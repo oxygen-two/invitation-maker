@@ -389,7 +389,7 @@
       shareDialogStrong: "링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만",
       shareDialogTail: "저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.",
       shareDialogPanelLabel: "공개 링크 발행",
-      shareDialogPrivacy: "발행한 링크는 마지막으로 열린 뒤 7일, 늦어도 발행 후 30일이 지나면 서버에서 만료됩니다. 그 전에 내리고 싶으면 이 브라우저에서 링크를 취소하세요.",
+      shareDialogPrivacy: "일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열립니다. 일시가 없으면 마지막으로 열린 뒤 7일, 최대 30일까지 열립니다. 그 전에 내리는 것은 이 브라우저에서만 할 수 있습니다.",
       privacyLink: "개인정보처리방침 보기",
       confirmReplyContact: "회신을 요청하는 항목에 연락처나 링크가 없습니다. 연락 수단 없이 다운로드할까요?\n취소하면 연락처 입력으로 이동합니다.",
       /* Matched against the label and value the AUTHOR typed, to notice an
@@ -404,7 +404,7 @@
        reaches a guest. */
     publish: {
       consent: "공개 링크를 만들면 주소를 아는 누구나 링크로 볼 수 있습니다.",
-      expiryPolicy: "링크는 마지막으로 열린 날로부터 7일 뒤에 만료되고, 발행일로부터 최대 30일까지 열립니다.",
+      expiryPolicy: "링크마다 만료일은 아래 목록에 표시됩니다.",
       limitHint: "사진은 자동으로 압축되어 페이지가 가볍게 유지됩니다.",
       publishButton: "공개 링크 만들기",
       openLink: "링크 열기",

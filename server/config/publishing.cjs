@@ -2,8 +2,13 @@ const DEFAULT_PUBLISHING_CONFIG = Object.freeze({
   // Sliding expiry: a publication lives `idleWindowDays` past its last public
   // read, and never longer than `maxLifetimeDays` after it was published.
   // `expiryRefreshThrottleHours` bounds how often a read may write.
+  // An invitation also lives `eventGraceDays` past the event it announces, so
+  // a link sent weeks ahead is still open on the day. The event time is the
+  // author's, so `maxEventLeadDays` bounds how far ahead it may reach.
+  eventGraceDays: 7,
   expiryRefreshThrottleHours: 6,
   idleWindowDays: 7,
+  maxEventLeadDays: 400,
   lifetimeLimit: 1000,
   maxLifetimeDays: 30,
   maxPayloadBytes: 2_000_000,
@@ -36,7 +41,9 @@ const integerFromEnv = (env, name, fallback) => {
 };
 
 const readPublishingConfigFromEnv = (env = process.env) => ({
+  eventGraceDays: integerFromEnv(env, "PUBLISH_EVENT_GRACE_DAYS", DEFAULT_PUBLISHING_CONFIG.eventGraceDays),
   expiryRefreshThrottleHours: integerFromEnv(env, "PUBLISH_EXPIRY_REFRESH_HOURS", DEFAULT_PUBLISHING_CONFIG.expiryRefreshThrottleHours),
+  maxEventLeadDays: integerFromEnv(env, "PUBLISH_MAX_EVENT_LEAD_DAYS", DEFAULT_PUBLISHING_CONFIG.maxEventLeadDays),
   idleWindowDays: integerFromEnv(env, "PUBLISH_IDLE_WINDOW_DAYS", DEFAULT_PUBLISHING_CONFIG.idleWindowDays),
   lifetimeLimit: integerFromEnv(env, "PUBLISH_LIFETIME_LIMIT", DEFAULT_PUBLISHING_CONFIG.lifetimeLimit),
   maxLifetimeDays: integerFromEnv(env, "PUBLISH_MAX_LIFETIME_DAYS", DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays),
