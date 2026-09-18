@@ -99,7 +99,12 @@
       detailsHint: "제목 · 일정 · 메시지",
       title: "제목",
       subtitle: "부제",
-      dateLabel: "일시",
+      dateTime: "일시",
+      dateTimeZone: "시간대",
+      dateCustomToggle: "직접 써서 넣을게요",
+      dateLabel: "직접 쓴 일시",
+      dateCustomPlaceholder: "예: 벚꽃 지는 토요일 저녁",
+      dateCustomHint: "여기에 쓰면 위에서 고른 날짜 대신 이 문장이 그대로 보입니다. 비워 두면 손님의 언어에 맞춰 날짜가 표시돼요.",
       host: "보내는 사람",
       message: "메시지",
 
@@ -311,6 +316,11 @@
       mapRegionLabel: "약속 장소 지도",
       openMap: "장소 지도 열기",
       openMainMap: "대표 지도 열기",
+      addToCalendar: "캘린더에 추가",
+      /* Shown only to a guest whose own device sits in another zone. {zone} is
+         an IANA name and stays untranslated — it is what their calendar app
+         calls the same place. */
+      timeZoneNote: "{zone} 기준 시간입니다.",
       skipIntro: "건너뛰기",
       skipIntroLabel: "인트로 건너뛰기",
 

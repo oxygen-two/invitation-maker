@@ -207,7 +207,7 @@ const validateKnownInvitationFields = (invitation) => {
   for (const key of [
     "templateId", "layoutFamily", "introEffect", "particleEffect", "particleSize",
     "englishFont", "koreanFont", "naverMapClientId", "googleMapsApiKey", "mapProvider", "title", "subtitle",
-    "dateLabel", "host", "location", "mapUrl", "message"
+    "dateLabel", "host", "location", "mapUrl", "message", "dateTime", "timeZone"
   ]) {
     optionalString(invitation[key], `$.invitation.${key}`);
   }

@@ -316,6 +316,7 @@ test("POST rejects malformed invitation shapes instead of silently normalizing t
     body: JSON.stringify({ invitation: [] })
   })).status, 400);
   assert.equal((await requestWith({ title: { text: "wrong" } })).status, 400);
+  assert.equal((await requestWith({ dateTime: { text: "wrong" } })).status, 400);
   assert.equal((await requestWith({ items: Array.from({ length: 51 }, (_, index) => ({ id: `course-${index}`, type: "course", place: "A" })) })).status, 400);
   assert.equal((await requestWith({ items: Array.from({ length: 9 }, (_, index) => ({ id: `photo-${index}`, type: "photo", src: PNG_1X1 })) })).status, 400);
   assert.equal((await requestWith({ items: [{ id: "photo-bad", type: "photo", src: PNG_WITH_BAD_PADDING }] })).status, 400);

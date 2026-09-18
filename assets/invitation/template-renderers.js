@@ -204,7 +204,7 @@
     .invitation-card[data-layout-family="celebration-poster"] .invite-hero h1{font-size:44px;font-style:normal;text-transform:uppercase}
     .invitation-card[data-layout-family="celebration-poster"] .invite-meta{grid-template-columns:1fr;gap:0;padding:0;border-bottom:0;background:var(--wine-950)}
     .invitation-card[data-layout-family="celebration-poster"] .invite-meta div{border-width:0 0 1px;border-radius:0;background:var(--wine-950);color:var(--cream-50)}
-    .invitation-card[data-layout-family="celebration-poster"] .invite-meta span,.invitation-card[data-layout-family="celebration-poster"] .invite-meta strong{color:var(--cream-50)}
+    .invitation-card[data-layout-family="celebration-poster"] .invite-meta span,.invitation-card[data-layout-family="celebration-poster"] .invite-meta strong,.invitation-card[data-layout-family="celebration-poster"] .invite-timezone-note,.invitation-card[data-layout-family="celebration-poster"] .invite-calendar-link{color:var(--cream-50)}
     .invitation-card[data-layout-family="celebration-poster"] .invite-timeline{gap:10px}
     .invitation-card[data-layout-family="celebration-poster"] .invite-stop,.invitation-card[data-layout-family="celebration-poster"] .invite-notice,.invitation-card[data-layout-family="celebration-poster"] .invite-profile,.invitation-card[data-layout-family="celebration-poster"] .invite-link-info,.invitation-card[data-layout-family="celebration-poster"] .invite-link-action{border:2px solid var(--wine-900);background:var(--white)}
     .invitation-card[data-layout-family="celebration-poster"] .invite-stop{padding:12px}

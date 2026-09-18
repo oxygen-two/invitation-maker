@@ -97,7 +97,12 @@
       detailsHint: "Title · date · message",
       title: "Title",
       subtitle: "Subtitle",
-      dateLabel: "Date and time",
+      dateTime: "Date and time",
+      dateTimeZone: "Time zone",
+      dateCustomToggle: "Write it my own way",
+      dateLabel: "Your own wording",
+      dateCustomPlaceholder: "e.g. The last Saturday of summer",
+      dateCustomHint: "Whatever you write here is shown exactly as typed, instead of the date above. Leave it empty and the date is written in each guest's own language.",
       host: "From",
       message: "Message",
 
@@ -310,6 +315,8 @@
       mapRegionLabel: "Map of the venue",
       openMap: "Open in maps",
       openMainMap: "Open the venue in maps",
+      addToCalendar: "Add to calendar",
+      timeZoneNote: "All times are in {zone}.",
       skipIntro: "Skip",
       skipIntroLabel: "Skip the intro",
 

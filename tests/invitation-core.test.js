@@ -1117,3 +1117,147 @@ test("a standalone document is built in the language it is handed, and Korean wh
 
   assert.equal(InvitationCore.readStandaloneLanguage(buildStandaloneHtml(invitation, { language: "en" })), "en");
 });
+
+/* Copy lives in the dictionaries, so these assertions name the key and
+   resolve it rather than repeating the sentence. */
+const InvitationI18n = require("../assets/i18n/i18n.js");
+InvitationI18n.register("ko", require("../assets/i18n/dictionary-ko.js"));
+InvitationI18n.register("en", require("../assets/i18n/dictionary-en.js"));
+const en = (key, values) => InvitationI18n.t(key, values, "en");
+const enCopy = (key, values) => new RegExp(en(key, values).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+/* An .ics is a real file format with real rules, so these assertions read the
+   calendar out of the data URI and check the lines a calendar app actually
+   needs rather than asserting on the markup that carries them. */
+const calendarFileFrom = (markup) => {
+  const match = markup.match(/href="data:text\/calendar;charset=utf-8,([^"]*)"/);
+  assert.ok(match, `no calendar data URI in ${markup.slice(0, 120)}`);
+  // The href has been through escapeHtml on its way into the attribute.
+  const href = match[1].replace(/&amp;/g, "&").replace(/&#039;/g, "'").replace(/&quot;/g, '"');
+  return decodeURIComponent(href);
+};
+
+test("an invitation with a picked date offers a calendar file for it", () => {
+  const link = InvitationCore.renderCalendarLink({
+    dateTime: "2026-12-19T17:00",
+    timeZone: "Europe/London",
+    title: "Rin & Jae",
+    location: "Rooftop lounge, 2F"
+  }, "en");
+
+  assert.match(link, /<a class="invite-calendar-link"/);
+  assert.match(link, /download="invitation\.ics"/);
+  assert.match(link, enCopy("invitation.addToCalendar"));
+
+  const ics = calendarFileFrom(link);
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /VERSION:2\.0/);
+  assert.match(ics, /BEGIN:VEVENT/);
+  assert.match(ics, /DTSTART;TZID=Europe\/London:20261219T170000/);
+  assert.match(ics, /DTEND;TZID=Europe\/London:20261219T190000/);
+  assert.match(ics, /\r\nUID:[^\r\n]+\r\n/);
+  assert.match(ics, /\r\nDTSTAMP:\d{8}T\d{6}Z\r\n/);
+  assert.match(ics, /SUMMARY:Rin & Jae/);
+  // RFC 5545 escapes the comma inside a text value; it must not read as a list.
+  assert.match(ics, /LOCATION:Rooftop lounge\\, 2F/);
+  assert.match(ics, /END:VEVENT\r\nEND:VCALENDAR\r\n$/);
+  // Folded to the 75-octet line limit, and no line may exceed it.
+  for (const line of ics.split("\r\n")) {
+    assert.ok(Buffer.byteLength(line, "utf8") <= 75, `line too long: ${line}`);
+  }
+});
+
+test("the same invitation always produces the same calendar file", () => {
+  const invitation = { dateTime: "2026-12-19T17:00", timeZone: "Europe/London", title: "Rin & Jae" };
+  assert.equal(InvitationCore.renderCalendarLink(invitation, "en"), InvitationCore.renderCalendarLink(invitation, "en"));
+  assert.notEqual(
+    InvitationCore.renderCalendarLink(invitation, "en"),
+    InvitationCore.renderCalendarLink({ ...invitation, title: "Someone else" }, "en")
+  );
+});
+
+test("a date with no time zone becomes a floating calendar entry rather than a wrong one", () => {
+  const ics = calendarFileFrom(InvitationCore.renderCalendarLink({ dateTime: "2026-12-19T17:00", title: "Party" }, "en"));
+  assert.match(ics, /DTSTART:20261219T170000\r\n/);
+  assert.doesNotMatch(ics, /TZID=/);
+});
+
+test("no picked date, no calendar file", () => {
+  assert.equal(InvitationCore.renderCalendarLink({ dateLabel: "Some Saturday" }, "en"), "");
+  assert.equal(InvitationCore.renderCalendarLink({ dateTime: "not a date" }, "en"), "");
+  assert.doesNotMatch(buildStandaloneHtml({ dateLabel: "Some Saturday" }), /text\/calendar/);
+});
+
+test("a calendar link cannot break out of the document it travels in", () => {
+  const html = buildStandaloneHtml({
+    dateTime: "2026-12-19T17:00",
+    timeZone: "Europe/London",
+    title: '"><script>alert(1)</script>',
+    location: "A & B\nsecond line"
+  }, { language: "en" });
+
+  assert.doesNotMatch(html, /"><script>alert\(1\)<\/script>/);
+  const ics = calendarFileFrom(html);
+  assert.match(ics, /SUMMARY:"><script>alert\(1\)<\/script>/);
+  // A raw newline inside a value would end the property line early.
+  assert.match(ics, /LOCATION:A & B\\nsecond line/);
+});
+
+test("a calendar file escapes semicolons and backslashes, alongside the comma and newline it already escapes", () => {
+  const ics = calendarFileFrom(InvitationCore.renderCalendarLink({
+    dateTime: "2026-12-19T17:00",
+    title: "Rin; Jae",
+    location: "A\\B"
+  }, "en"));
+  // RFC 5545 §3.3.11: a bare semicolon inside a text value would otherwise be
+  // read as a parameter delimiter.
+  assert.match(ics, /SUMMARY:Rin\\; Jae/);
+  // A backslash must be doubled first, or it would escape whatever follows it.
+  assert.match(ics, /LOCATION:A\\\\B/);
+});
+
+test("a standalone document tells a guest whose clock disagrees which zone the times are in", () => {
+  const html = buildStandaloneHtml({
+    dateTime: "2026-12-19T17:00",
+    timeZone: "Europe/London",
+    title: "Rin & Jae"
+  }, { language: "en" });
+
+  assert.match(html, /<p class="invite-timezone-note" data-invitation-time-zone="Europe\/London" hidden>/);
+  assert.match(html, enCopy("invitation.timeZoneNote", { zone: "Europe/London" }));
+  // Hidden until the guest's own device says otherwise.
+  assert.match(html, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
+  assert.match(html, /note\.hidden = false/);
+
+  const withoutZone = buildStandaloneHtml({ dateTime: "2026-12-19T17:00" }, { language: "en" });
+  // The stylesheet always carries the rule; what must be absent is the note.
+  assert.doesNotMatch(withoutZone, /<p class="invite-timezone-note"/);
+});
+
+test("a picked date with no words of its own is formatted for the language it is rendered in", () => {
+  const invitation = { dateTime: "2026-12-19T17:00", timeZone: "Europe/London", dateLabel: "" };
+
+  assert.match(buildStandaloneHtml(invitation, { language: "en-GB" }), /19 Dec 2026, 17:00/);
+  assert.match(buildStandaloneHtml(invitation, { language: "en-US" }), /Sat, Dec 19, 2026 · 5:00 PM/);
+  assert.match(buildStandaloneHtml(invitation, { language: "ko" }), /2026\.12\.19 \(토\) 17:00/);
+  // The region steers the date only; the document is still an English one.
+  assert.match(buildStandaloneHtml(invitation, { language: "en-GB" }), /<html lang="en">/);
+});
+
+test("an invitation that only ever had a dateLabel keeps working untouched", () => {
+  const legacy = normalizeInvitation({ dateLabel: "2026.09.12 SAT 14:00" });
+
+  assert.equal(legacy.dateLabel, "2026.09.12 SAT 14:00");
+  assert.equal(legacy.dateTime, "");
+  assert.equal(legacy.timeZone, "");
+  const html = buildStandaloneHtml(legacy, { language: "en" });
+  assert.match(html, /2026\.09\.12 SAT 14:00/);
+  assert.doesNotMatch(html, /text\/calendar/);
+  assert.doesNotMatch(html, /<p class="invite-timezone-note"/);
+});
+
+test("a time zone the browser cannot name is dropped rather than carried", () => {
+  assert.equal(normalizeInvitation({ dateTime: "2026-12-19T17:00", timeZone: "Mars/Olympus" }).timeZone, "");
+  assert.equal(normalizeInvitation({ dateTime: "2026-12-19T17:00", timeZone: "Europe/London" }).timeZone, "Europe/London");
+  assert.equal(normalizeInvitation({ dateTime: "2026-12-19T17:00:30" }).dateTime, "2026-12-19T17:00");
+});

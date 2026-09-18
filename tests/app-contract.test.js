@@ -479,6 +479,8 @@ const loadEditorHarness = ({
     koreanFont: { value: "gowun-batang" },
     title: { value: "" },
     subtitle: { value: "" },
+    dateTime: { value: "" },
+    timeZone: { value: "" },
     dateLabel: { value: "" },
     host: { value: "" },
     location: { value: "" },
@@ -659,6 +661,8 @@ const loadIntroLifecycleHarness = () => {
     koreanFont: control("koreanFont", "gowun-batang"),
     title: control("title", "Preview test"),
     subtitle: control("subtitle"),
+    dateTime: control("dateTime"),
+    timeZone: control("timeZone"),
     dateLabel: control("dateLabel"),
     host: control("host"),
     location: control("location"),
@@ -2960,4 +2964,64 @@ test("preview host receives the selected invitation font variables", () => {
     harness.preview.attributes.style,
     "--font-en:'Great Vibes', 'Brush Script MT', cursive;--font-ko:'Gmarket Sans', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif"
   );
+});
+
+test("the details editor takes the date from a picker, a zone and an optional sentence", () => {
+  const index = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  assert.match(index, /<input name="dateTime" type="datetime-local"/);
+  assert.match(index, /<select name="timeZone"/);
+  assert.match(index, /data-i18n="editor\.dateTime"/);
+  assert.match(index, /data-i18n="editor\.dateTimeZone"/);
+  // The free-text label survives as an explicit opt-in, not as the only way in.
+  assert.match(index, /<details class="full date-custom-field" data-date-custom>/);
+  assert.match(index, /data-i18n="editor\.dateCustomToggle"/);
+  assert.match(index, /<input name="dateLabel" type="text"/);
+
+  // Both new controls reach the invitation the same way every other field does.
+  assert.match(app, /dateTime: data\.get\("dateTime"\)/);
+  assert.match(app, /timeZone: data\.get\("timeZone"\)/);
+
+  for (const key of ["dateTime", "dateTimeZone", "dateCustomToggle", "dateCustomHint", "dateCustomPlaceholder"]) {
+    assert.notEqual(ko(`editor.${key}`), `editor.${key}`, `editor.${key} has no Korean copy`);
+    assert.notEqual(en(`editor.${key}`), `editor.${key}`, `editor.${key} has no English copy`);
+  }
+});
+
+test("the time zone list is offered from the browser's own zones and defaults to the reader's", () => {
+  const app = read("assets/studio/app.js");
+
+  assert.match(app, /Intl\.supportedValuesOf\?\.\("timeZone"\)/);
+  assert.match(app, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
+  // A browser without supportedValuesOf still gets a usable list.
+  assert.match(app, /const FALLBACK_TIME_ZONES = \[/);
+});
+
+test("a date the author picked fills the picker, and only their own words fill the sentence", () => {
+  const harness = loadEditorHarness();
+  const { fillForm } = harness.api;
+  const form = harness.node("#invitation-form");
+
+  const derived = InvitationI18n.formatSampleDate("2026-12-19T17:00", InvitationI18n.getDateLocale());
+  // A sample carries both an instant and the label we formatted from it. That
+  // label is ours, so the "write it my own way" field stays empty and the
+  // picker keeps the date.
+  fillForm(InvitationCore.normalizeInvitation({
+    dateTime: "2026-12-19T17:00", timeZone: "Europe/London", dateLabel: derived
+  }));
+  assert.equal(form.elements.dateTime.value, "2026-12-19T17:00");
+  assert.equal(form.elements.timeZone.value, "Europe/London");
+  assert.equal(form.elements.dateLabel.value, "");
+
+  // Words the author typed are theirs and come back exactly as they left them.
+  fillForm(InvitationCore.normalizeInvitation({
+    dateTime: "2026-12-19T17:00", dateLabel: "the last Saturday of summer"
+  }));
+  assert.equal(form.elements.dateLabel.value, "the last Saturday of summer");
+
+  // A draft saved before the picker existed has only its sentence.
+  fillForm(InvitationCore.normalizeInvitation({ dateLabel: "2026.09.12 SAT 14:00" }));
+  assert.equal(form.elements.dateTime.value, "");
+  assert.equal(form.elements.dateLabel.value, "2026.09.12 SAT 14:00");
 });

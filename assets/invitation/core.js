@@ -125,7 +125,7 @@
   const DEFAULT_CHROME_LANGUAGE = I18n?.DEFAULT_LANGUAGE || "ko";
   const chromeLanguage = (value) =>
     (I18n?.normalizeLanguage?.(value) ?? null) || DEFAULT_CHROME_LANGUAGE;
-  const t = (key, language) => I18n?.t(key, undefined, language) ?? String(key);
+  const t = (key, language, values) => I18n?.t(key, values, language) ?? String(key);
 
   /* The blank invitation. Its structure lives here; its words do not.
 
@@ -338,6 +338,53 @@
   const sampleDateLabel = () =>
     root.InvitationI18n?.formatSampleDate?.(SAMPLE_DATE_ISO) || defaultInvitation.dateLabel;
 
+  /* The instant an author picked, as the date field hands it over: a local
+     wall-clock time with no offset. That is deliberate. An invitation happens
+     at seven in the evening *where it happens*, and `timeZone` names where
+     that is; storing a UTC instant instead would make the stored value depend
+     on the machine the author happened to be sitting at. */
+  const normalizeDateTime = (value) => {
+    const match = String(value ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/);
+    if (!match) return "";
+    const [, year, month, day, hour, minute] = match;
+    const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+    // Rejects 2026-02-31 and friends, which the pattern alone lets through.
+    if (date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return "";
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+  };
+
+  /* Intl is the only authority on which zone names a browser knows, so ask it
+     rather than shipping a list that rots. A name it rejects is dropped: an
+     invitation with no zone is a floating time everyone reads locally, which
+     is merely vague, while a zone nothing can resolve is wrong. */
+  const normalizeTimeZone = (value) => {
+    const timeZone = String(value ?? "").trim();
+    if (!timeZone) return "";
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone });
+      return timeZone;
+    } catch {
+      return "";
+    }
+  };
+
+  /* The date a guest actually reads.
+
+     Words the author typed win outright and are never reformatted — that is
+     the rule the whole date field is built around (docs/i18n.md). Only when
+     they left the sentence empty is the picked instant formatted, here, at
+     render time, for the language and region this rendering is for. That is
+     why switching the studio's language re-renders the date and switching it
+     back restores it exactly: nothing was ever written down. */
+  const resolveDateLabel = (invitation, dateLocale) => {
+    if (invitation.dateLabel) return invitation.dateLabel;
+    if (!invitation.dateTime) return "";
+    return I18n?.formatSampleDate?.(invitation.dateTime, dateLocale)
+      || invitation.dateTime.replace("T", " ");
+  };
+
+  const dateLocaleFor = (language) => I18n?.getDateLocale?.(language) || chromeLanguage(language);
+
   const normalizeStop = (stop = {}) => {
     const mapLatitude = normalizeCoordinate(stop.mapLatitude, -90, 90);
     const mapLongitude = normalizeCoordinate(stop.mapLongitude, -180, 180);
@@ -494,6 +541,7 @@
       : defaultInvitation.mapZoom;
     const requestedMap = input.mapEnabled === true || input.mapEnabled === "true" || input.mapEnabled === "on";
     const particleScale = input.particleScale ?? legacyParticleScales[input.particleSize];
+    const dateTime = normalizeDateTime(input.dateTime);
     const blank = createDefaultInvitation();
     const items = normalizeItems(input, blank);
     const stops = items
@@ -515,7 +563,12 @@
       mapProvider: normalizeMapProvider(input.mapProvider),
       title: input.title ?? blank.title,
       subtitle: input.subtitle ?? blank.subtitle,
-      dateLabel: input.dateLabel ?? sampleDateLabel(),
+      dateTime,
+      timeZone: dateTime ? normalizeTimeZone(input.timeZone) : "",
+      /* Empty is a real answer here: it means "use the date I picked". Only an
+         invitation that named neither falls back to the sample's label, which
+         is what a brand-new blank studio is. */
+      dateLabel: input.dateLabel ?? (dateTime ? "" : sampleDateLabel()),
       host: input.host ?? defaultInvitation.host,
       location: input.location ?? blank.location,
       mapUrl: normalizeMapUrl(input.mapUrl, input.mapUrl === undefined ? defaultInvitation.mapUrl : ""),
@@ -662,12 +715,152 @@
     }).join("");
   };
 
+  /* An .ics file, built by hand because the alternative is a dependency this
+     project does not have and does not want. RFC 5545 is small at this size:
+     escape the text values, keep every line inside 75 octets, and give the
+     event a stable identity.
+
+     The event is two hours long. Nothing in the studio asks an author when
+     their party ends, and a zero-length entry shows up as a reminder rather
+     than an occasion in most calendars, so this is the honest default. */
+  const CALENDAR_EVENT_MINUTES = 120;
+  const CALENDAR_PRODUCT_ID = "-//Invitation Maker//Invitation//EN";
+
+  /* RFC 5545 gives , ; and \ meaning inside a text value, and a raw newline
+     ends the property line. Backslashes go first so the escapes this adds are
+     not escaped again. */
+  const calendarText = (value) => String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|\r|\n/g, "\\n");
+
+  const utf8Length = (character) => {
+    const code = character.codePointAt(0);
+    if (code < 0x80) return 1;
+    if (code < 0x800) return 2;
+    if (code < 0x10000) return 3;
+    return 4;
+  };
+
+  /* Content lines are limited to 75 octets and continue on a line starting
+     with a space. Folding by code point rather than by index is what keeps a
+     Korean title from being cut in half mid-character. */
+  const foldCalendarLine = (line) => {
+    const folded = [];
+    let current = "";
+    let bytes = 0;
+    for (const character of line) {
+      const size = utf8Length(character);
+      // A continuation's leading space spends one of the 75 octets.
+      if (bytes + size > (folded.length ? 74 : 75)) {
+        folded.push(current);
+        current = "";
+        bytes = 0;
+      }
+      current += character;
+      bytes += size;
+    }
+    folded.push(current);
+    return folded.join("\r\n ");
+  };
+
+  /* A stable identity for the event, so re-downloading an invitation updates
+     the entry a guest already saved instead of adding a second one. FNV-1a
+     over the fields a calendar shows: change the party, change the event. */
+  const calendarHash = (value) => {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
+  };
+
+  const calendarStamp = (milliseconds) =>
+    new Date(milliseconds).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "");
+
+  const buildCalendarFile = ({ dateTime, timeZone, title, location }) => {
+    const [, year, month, day, hour, minute] = dateTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    /* Date.UTC is arithmetic here, not a claim about the instant: it turns the
+       author's wall clock into numbers we can add two hours to without the
+       machine running this render having any say. TZID tells a calendar which
+       clock those numbers belong to; with no zone they stay floating, which
+       reads as "seven, wherever you are" — vague, but never the wrong hour. */
+    const start = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+    /* This file carries a bare TZID with no accompanying VTIMEZONE component.
+       That is deliberate: the major calendar clients a guest is likely to use
+       to open this file (Google, Apple, Outlook) all resolve IANA zone names
+       like "Asia/Seoul" on their own, and shipping a hand-rolled VTIMEZONE
+       block would add real complexity for readers who already have it. */
+    const zone = timeZone ? `;TZID=${timeZone}` : "";
+    const identity = `${dateTime}|${timeZone}|${title}|${location}`;
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      `PRODID:${CALENDAR_PRODUCT_ID}`,
+      "CALSCALE:GREGORIAN",
+      "BEGIN:VEVENT",
+      `UID:${calendarHash(identity)}-${calendarStamp(start)}@invitation-maker`,
+      /* DTSTAMP is "when this object was written". Using the event's own start
+         rather than the clock keeps a regenerated invitation byte-identical to
+         the last one, which is what lets a generated file be checked in. */
+      `DTSTAMP:${calendarStamp(start)}Z`,
+      `DTSTART${zone}:${calendarStamp(start)}`,
+      /* DTEND is the wall-clock start plus two hours, added to the numeric
+         components rather than to a zone-aware instant. If a DST transition
+         falls inside that window, the event still reports as exactly two
+         hours long by the clock rather than by elapsed real time — a known
+         simplification, not an oversight. */
+      `DTEND${zone}:${calendarStamp(start + CALENDAR_EVENT_MINUTES * 60000)}`,
+      `SUMMARY:${calendarText(title)}`
+    ];
+    if (location) lines.push(`LOCATION:${calendarText(location)}`);
+    lines.push("END:VEVENT", "END:VCALENDAR");
+    return `${lines.map(foldCalendarLine).join("\r\n")}\r\n`;
+  };
+
+  /* The "add to calendar" link. A data: URI rather than a hosted file because
+     a standalone invitation has no server behind it — it is one HTML file that
+     may be opened from a phone's downloads folder years from now, and the
+     calendar has to come out of the document itself. Percent-encoding leaves
+     nothing that could close the attribute or the element it sits in. */
+  const renderCalendarLink = (invitation = {}, language = DEFAULT_CHROME_LANGUAGE) => {
+    const dateTime = normalizeDateTime(invitation.dateTime);
+    if (!dateTime) return "";
+
+    const file = buildCalendarFile({
+      dateTime,
+      timeZone: normalizeTimeZone(invitation.timeZone),
+      title: invitation.title ?? "",
+      location: invitation.location ?? ""
+    });
+    const href = `data:text/calendar;charset=utf-8,${encodeURIComponent(file)}`;
+    const label = escapeHtml(t("invitation.addToCalendar", chromeLanguage(language)));
+    return `<a class="invite-calendar-link" href="${escapeHtml(href)}" download="invitation.ics">${label}</a>`;
+  };
+
+  /* Written into the document hidden, and revealed only on a device whose own
+     zone disagrees (see renderStandaloneTimeZoneScript). A guest in the same
+     city as the party does not need to be told what time zone they are in. */
+  const renderTimeZoneNote = (invitation, language) => {
+    const timeZone = normalizeTimeZone(invitation.timeZone);
+    if (!normalizeDateTime(invitation.dateTime) || !timeZone) return "";
+    const note = escapeHtml(t("invitation.timeZoneNote", language, { zone: timeZone }));
+    return `<p class="invite-timezone-note" data-invitation-time-zone="${escapeHtml(timeZone)}" hidden>${note}</p>`;
+  };
+
   /* `language` selects the invitation's own chrome only. Every field the
      author typed is rendered verbatim in whatever language they wrote it —
      nothing here translates their document. */
   const renderInvitationBody = (input = {}, { language } = {}) => {
     const invitation = normalizeInvitation(input);
     const chrome = chromeLanguage(language);
+    /* The chrome language and the date locale are two different questions:
+       `language` may arrive as "en-GB", which is English chrome and a British
+       date. Everything but the date uses `chrome`. */
+    const dateLocale = dateLocaleFor(language || chrome);
+    const dateLabel = resolveDateLabel(invitation, dateLocale);
     const customHero = invitation.heroImage;
     const art = customHero?.src || TemplateArt.getDataUrl(invitation.templateId);
     const artAttributes = customHero
@@ -682,14 +875,16 @@
       kicker: "Invitation",
       title: escapeHtml(invitation.title),
       subtitle: escapeHtml(invitation.subtitle),
-      dateLabel: escapeHtml(invitation.dateLabel),
+      dateLabel: escapeHtml(dateLabel),
       location: escapeHtml(invitation.location),
       host: escapeHtml(invitation.host),
       message: escapeHtml(invitation.message),
       meta: `
           <div>
             <span>Date</span>
-            <strong>${escapeHtml(invitation.dateLabel)}</strong>
+            <strong>${escapeHtml(dateLabel)}</strong>
+            ${renderTimeZoneNote(invitation, chrome)}
+            ${renderCalendarLink(invitation, chrome)}
           </div>
           <div>
             <span>Place</span>
@@ -718,6 +913,7 @@
     *{box-sizing:border-box}body{margin:0;padding:28px 14px;background:linear-gradient(145deg,var(--bg),#fff);color:var(--ink);font-family:"Noto Sans KR",sans-serif;line-height:1.7}.invitation-card{max-width:430px;margin:0 auto;overflow:hidden;overflow-wrap:anywhere;background:var(--paper);box-shadow:0 26px 80px rgba(45,11,22,.22);font-family:var(--font-ko),"Noto Sans KR",sans-serif}.invite-hero{min-height:420px;display:grid;align-content:center;padding:48px 28px;text-align:center;color:#fff;background:radial-gradient(circle at 50% 30%,rgba(217,172,84,.32),transparent 34%),linear-gradient(180deg,var(--deep),var(--mid))}.invite-kicker{margin:0 0 14px;color:#f6dda6;font-family:var(--font-en),serif;text-transform:uppercase;letter-spacing:.22em;font-size:12px}.invite-hero h1{margin:0;font-family:var(--font-en),var(--font-ko),serif;font-size:39px;line-height:1.15;font-style:italic;font-weight:500}.invitation-card[data-english-font="dm-serif-display"] .invite-hero h1,.invitation-card[data-english-font="great-vibes"] .invite-hero h1{font-style:normal;font-weight:400}.invite-subtitle{margin:18px 0 0;font-family:var(--font-ko),serif;font-size:14px;opacity:.86}.invite-section{padding:28px 24px;border-bottom:1px solid var(--line)}.invite-message{font-family:var(--font-ko),serif;font-size:17px;text-align:center}.invite-meta{display:grid;gap:12px}.invite-meta div{padding:14px;border:1px solid var(--line)}.invite-meta span{display:block;color:var(--gold);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.14em}.invite-meta strong{display:block;margin-top:3px}.invite-timeline{display:grid;gap:14px}.invite-stop{display:grid;grid-template-columns:42px 1fr;gap:12px}.invite-stop-number{display:grid;width:38px;height:38px;place-items:center;border:1px solid var(--gold);border-radius:50%;color:var(--mid);font-family:var(--font-en),serif;font-weight:700}.invite-stop-time{margin:0 0 3px;color:var(--mid);font-size:12px;font-weight:700;letter-spacing:.08em}.invite-stop h3{margin:0;font-family:var(--font-ko),serif;font-size:18px}.invite-stop p{margin:4px 0 0;color:var(--soft);font-size:14px}.invite-photo{max-width:100%;min-width:0;margin:0;overflow:hidden}.invite-photo img{display:block;width:100%;height:auto}.invite-photo figcaption{max-width:100%;padding:8px 4px 0;color:var(--soft);font-size:13px;line-height:1.5;overflow-wrap:anywhere}.invite-map{display:flex;min-height:52px;align-items:center;justify-content:center;margin:24px;color:#fff;background:var(--deep);border-radius:8px;text-decoration:none;font-weight:700}@media(max-width:480px){body{padding:0}.invitation-card{box-shadow:none}}
     .invitation-card{position:relative;isolation:isolate}.particle-layer{position:absolute;z-index:10;inset:0;overflow:hidden;pointer-events:none}.particle-layer span{position:absolute;top:0;left:var(--x);display:block;width:calc(var(--size) * var(--particle-scale));height:100%;opacity:0;animation:particle-fall var(--duration) linear var(--delay) infinite;will-change:transform}.particle-layer span::before{display:block;width:100%;height:calc(var(--size) * var(--particle-scale));animation:particle-spin 5s linear var(--delay) infinite;filter:drop-shadow(0 1px 1px var(--particle-edge));content:""}.particle-layer[data-effect="fireflies"] span,.particle-layer[data-effect="bubbles"] span{animation-name:particle-rise}.particle-layer[data-effect="snow"] span{animation-duration:calc(var(--duration) * 1.35)}.particle-layer[data-effect="sparkle"] span::before{border:1px solid var(--particle-edge);border-radius:50%;background:var(--particle-light);box-shadow:0 0 8px 2px var(--particle-glow)}.particle-layer[data-effect="petals"] span::before{border:1px solid var(--particle-edge);border-radius:70% 0 70% 0;background:var(--tone)}.particle-layer[data-effect="hearts"] span::before{display:grid;place-items:center;color:var(--tone);font-size:calc(var(--size) * var(--particle-scale) * 1.55);line-height:1;text-shadow:0 2px 8px var(--particle-edge);content:"❤"}.particle-layer[data-effect="fireflies"] span::before{border-radius:50%;background:var(--tone);box-shadow:0 0 12px 4px var(--tone);animation:particle-spin 6s linear var(--delay) infinite,particle-pulse var(--pulse-duration) ease-in-out var(--pulse-delay) infinite}.particle-layer[data-effect="bubbles"] span::before{border:1px solid var(--particle-edge);border-radius:50%;background:rgba(255,255,255,.2);box-shadow:inset -3px -4px 8px rgba(255,255,255,.28);animation:particle-pulse 5.6s ease-in-out var(--pulse-delay) infinite}.particle-layer[data-effect="snow"] span::before{border:1px solid var(--particle-edge);border-radius:50%;background:var(--tone);box-shadow:0 0 7px var(--particle-glow);animation:none}.particle-layer[data-effect="leaves"] span::before{border-radius:80% 0 70% 10%;background:var(--tone);box-shadow:inset -3px -2px 0 rgba(42,23,32,.12);animation:particle-spin 3.8s linear var(--delay) infinite}.particle-layer[data-effect="confetti"] span::before{height:calc(var(--size) * var(--particle-scale) * .48);border-radius:1px;background:var(--tone)}@keyframes particle-fall{0%{opacity:0;transform:translate3d(0,-24px,0)}12%,84%{opacity:.78}50%{transform:translate3d(var(--sway),48%,0)}100%{opacity:0;transform:translate3d(var(--drift),calc(100% + 24px),0)}}@keyframes particle-rise{0%{opacity:0;transform:translate3d(0,calc(100% + 24px),0)}14%,82%{opacity:.74}50%{transform:translate3d(var(--sway),42%,0)}100%{opacity:0;transform:translate3d(var(--drift),-32px,0)}}@keyframes particle-spin{from{transform:rotate(var(--turn))}to{transform:rotate(calc(var(--turn) + 480deg))}}@keyframes particle-pulse{0%,100%{opacity:.45;transform:scale(.72)}50%{opacity:1;transform:scale(1.18)}}@media(prefers-reduced-motion:reduce){.particle-layer{display:none}}
     .invite-map-panel{position:relative;height:260px;margin:24px;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#eee7df}.invite-map-panel.is-stop-map{height:180px;margin:14px 0 0}.invite-map-canvas{width:100%;height:100%}.invite-map-status{position:absolute;inset:0;display:grid;place-items:center;margin:0;padding:24px;color:var(--soft);background:rgba(255,250,242,.94);text-align:center;font-size:13px}.invite-map-canvas[data-map-state="ready"]+.invite-map-status{display:none}.invite-stop-map-link{display:inline-flex;min-height:44px;align-items:center;margin-top:4px;color:var(--mid);font-size:13px;font-weight:700}@media(max-width:480px){.invite-map-panel{height:220px;margin:18px}.invite-map-panel.is-stop-map{height:170px;margin:12px 0 0}}
+    .invite-timezone-note{margin:4px 0 0;color:var(--soft);font-size:12px;letter-spacing:0;text-transform:none}.invite-calendar-link{display:inline-flex;min-height:44px;align-items:center;margin-top:2px;color:var(--mid);font-size:13px;font-weight:700;letter-spacing:0;text-decoration:underline;text-transform:none;text-underline-offset:3px}.invite-calendar-link:hover,.invite-calendar-link:focus-visible{color:var(--deep)}
   `;
 
   const standaloneTemplatePaletteCss = `
@@ -798,6 +994,29 @@
 </script>`;
   };
 
+  /* The invitation's times are the party's own; a guest reading it from
+     another country has no way to know that from the page alone. Their device
+     does know, so the document asks it once and reveals the note only when the
+     two disagree — nothing to read for everyone in the same place, and no
+     silent conversion of the times themselves, which would turn the author's
+     "7pm" into someone else's "11am" and be wrong the moment a calendar
+     rule changed. */
+  const renderStandaloneTimeZoneScript = (invitation) => {
+    if (!normalizeDateTime(invitation.dateTime) || !normalizeTimeZone(invitation.timeZone)) return "";
+    return `<script>
+(() => {
+  const note = document.querySelector("[data-invitation-time-zone]");
+  if (!note) return;
+  try {
+    const here = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (here && here !== note.dataset.invitationTimeZone) note.hidden = false;
+  } catch {
+    // No Intl, no way to compare, no note.
+  }
+})();
+</script>`;
+  };
+
   /* A finished, self-contained document. It is generated once and then
      travels — downloaded, mailed, re-uploaded, reopened years later — so every
      word of chrome in it is frozen at this moment and can never adapt again.
@@ -812,7 +1031,14 @@
     const chrome = chromeLanguage(language);
     const hasIntro = invitation.introEffect !== "none";
     const introStyles = hasIntro ? InvitationIntro.getStyles() : "";
-    const introMarkup = hasIntro ? InvitationIntro.renderMarkup(invitation, { language: chrome }) : "";
+    // The intro reprints the date, so it gets the resolved one rather than a
+    // blank line when the author left the wording to us.
+    const introMarkup = hasIntro
+      ? InvitationIntro.renderMarkup(
+        { ...invitation, dateLabel: resolveDateLabel(invitation, dateLocaleFor(language || chrome)) },
+        { language: chrome }
+      )
+      : "";
     const introRuntime = hasIntro ? InvitationIntro.getStandaloneRuntime() : "";
     const canonicalInvitation = { ...invitation, stops: undefined };
     const invitationData = JSON.stringify(canonicalInvitation)
@@ -836,8 +1062,9 @@
 </head>
 <body data-template="${escapeHtml(invitation.templateId)}" data-particle="${escapeHtml(invitation.particleEffect)}" style="${invitationStyleFrom(invitation)}">
 ${introMarkup}
-${renderInvitationBody(invitation, { language: chrome })}
+${renderInvitationBody(invitation, { language: language || chrome })}
 <script id="invitation-data" type="application/json">${invitationData}</script>
+${renderStandaloneTimeZoneScript(invitation)}
 ${renderStandaloneMapScript(invitation, chrome)}
 ${introRuntime}
 </body>
@@ -867,6 +1094,7 @@ ${introRuntime}
     getInvitationStyle,
     normalizeInvitation,
     readStandaloneLanguage,
+    renderCalendarLink,
     renderInvitationBody,
     buildStandaloneHtml,
     buildFontsUrl,

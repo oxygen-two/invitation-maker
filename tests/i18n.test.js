@@ -302,7 +302,9 @@ test("sample dates are built through Intl and differ per language", () => {
   const iso = "2026-09-12T14:00:00";
 
   const korean = InvitationI18n.formatSampleDate(iso, "ko");
-  const english = InvitationI18n.formatSampleDate(iso, "en");
+  // Named with its region so this assertion cannot depend on the region the
+  // machine running the test happens to be set to.
+  const english = InvitationI18n.formatSampleDate(iso, "en-US");
 
   assert.equal(korean, "2026.09.12 (토) 14:00");
   assert.equal(english, "Sat, Sep 12, 2026 · 2:00 PM");
@@ -313,6 +315,32 @@ test("sample dates are built through Intl and differ per language", () => {
 
   // Compact enough for the single hero line the templates give it.
   for (const value of [korean, english]) assert.ok(value.length <= 30, `${value} is too long for a hero`);
+});
+
+test("English regional variants read day-first on a 24-hour clock", () => {
+  const iso = "2026-12-19T17:00:00";
+
+  assert.equal(InvitationI18n.formatSampleDate(iso, "en-GB"), "19 Dec 2026, 17:00");
+  assert.equal(InvitationI18n.formatSampleDate(iso, "en-AU"), "19 Dec 2026, 17:00");
+  assert.equal(InvitationI18n.formatSampleDate(iso, "en-US"), "Sat, Dec 19, 2026 · 5:00 PM");
+  // A region we do not special-case falls back to the language's own format
+  // rather than inventing one.
+  assert.equal(InvitationI18n.formatSampleDate(iso, "en-XX"), InvitationI18n.formatSampleDate(iso, "en-US"));
+  assert.ok(InvitationI18n.formatSampleDate(iso, "en-GB").length <= 30);
+});
+
+test("a region changes the date format without changing the language", () => {
+  // The reader's region decides how a date reads; it never decides which
+  // dictionary the chrome around it comes from.
+  assert.equal(InvitationI18n.getDateLocale("en", { navigatorLanguages: ["en-GB", "en"] }), "en-GB");
+  assert.equal(InvitationI18n.getDateLocale("en", { navigatorLanguages: ["en-US"] }), "en-US");
+  assert.equal(InvitationI18n.getDateLocale("en", { navigatorLanguages: ["ko-KR"] }), "en-US");
+  assert.equal(InvitationI18n.getDateLocale("ko", { navigatorLanguages: ["en-GB"] }), "ko-KR");
+  // An explicit tag wins over whatever the browser prefers.
+  assert.equal(InvitationI18n.getDateLocale("en-AU", { navigatorLanguages: ["en-GB"] }), "en-AU");
+
+  assert.equal(InvitationI18n.normalizeLanguage("en-GB"), "en");
+  assert.equal(InvitationI18n.t("editor.dateTime", undefined, "en-GB"), InvitationI18n.t("editor.dateTime", undefined, "en"));
 });
 
 test("numbers and percentages go through Intl rather than string concatenation", () => {
@@ -459,10 +487,21 @@ test("a dateLabel the author typed is never reformatted by a language change", (
   assert.match(localize, /if \(sampleDate\) localized\.dateLabel = sampleDate/);
   assert.equal((localize.match(/localized\.dateLabel\s*=/g) || []).length, 1,
     "dateLabel must be written on exactly one guarded path");
-  // normalizeInvitation returns an explicit shape, so dateTime never reaches
-  // an exported invitation. Guard that it stays that way.
+  // The picker's instant now travels with the invitation, so the rule has to
+  // hold one level deeper: a dateLabel wins over a dateTime at render time,
+  // and it is printed byte-for-byte in every language.
   const InvitationCore = require("../assets/invitation/core.js");
-  assert.equal("dateTime" in InvitationCore.normalizeInvitation({ dateTime: "2026-09-12T14:00:00" }), false);
+  const typed = InvitationCore.normalizeInvitation({
+    dateTime: "2026-09-12T14:00:00",
+    dateLabel: "the last Saturday of summer"
+  });
+  assert.equal(typed.dateTime, "2026-09-12T14:00");
+  assert.equal(typed.dateLabel, "the last Saturday of summer");
+  for (const language of ["ko", "en"]) {
+    const body = InvitationCore.renderInvitationBody(typed, { language });
+    assert.match(body, /the last Saturday of summer/);
+    assert.doesNotMatch(body, /Sep 12|09\.12/, `${language} reformatted a label the author typed`);
+  }
 });
 
 test("the studio's own copy never hard-codes a Korean sentence", () => {
