@@ -112,12 +112,14 @@ const photo = (id, caption = id) => ({
 const loadEditorHarness = ({
   maxItems = 4,
   maxPhotos = 8,
+  buildStandaloneHtml = (invitation) => JSON.stringify(invitation),
   compress,
   confirm = () => true,
   normalizeInvitation = (value) => value,
   renderInvitationBody = () => "",
   put,
   putDraft,
+  previewFrame = false,
   reducedMotion = false,
   mobile = false
 } = {}) => {
@@ -516,6 +518,30 @@ const loadEditorHarness = ({
   selectors.set("#template-list", makeListNode());
   /* #sample-sheet is a <dialog>, and the whole of what the app asks of it is
      showModal, close, and the "close" event a closed dialog fires. */
+  /* A stand-in for the preview <iframe>. The frame is seeded with the whole
+     standalone document and afterwards only its body is patched, so the
+     language in <html lang> is only ever as current as the last seed — which
+     is what this node exists to let a test read back. Off by default: every
+     other test wants the pre-iframe host, where #preview is not an iframe. */
+  if (previewFrame) {
+    const frameDocument = {
+      ...makeEventTarget(),
+      body: { replaceChildren() {} },
+      createElement: () => genericNode(),
+      documentElement: {}
+    };
+    selectors.set("#preview", {
+      ...genericNode(),
+      tagName: "IFRAME",
+      contentDocument: frameDocument,
+      seeds: [],
+      get srcdoc() { return this.seeds.at(-1) || ""; },
+      set srcdoc(markup) {
+        this.seeds.push(markup);
+        this.dispatch("load");
+      }
+    });
+  }
   selectors.set("#sample-sheet", {
     ...genericNode(),
     open: false,
@@ -555,6 +581,7 @@ const loadEditorHarness = ({
   source = source.replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__editorTest = {
     beginHeroImageDrag: typeof beginHeroImageDrag === "function" ? beginHeroImageDrag : undefined,
+    captureAppliedBaseline,
     commitItemMove,
     fillForm,
     getHeroImageDragState: () => typeof heroImageDragState === "undefined" ? null : heroImageDragState,
@@ -567,6 +594,7 @@ const loadEditorHarness = ({
     handleHeroImageSelection: typeof handleHeroImageSelection === "function" ? handleHeroImageSelection : undefined,
     handlePhotoSelection,
     loadInitialData,
+    mountPreviewFrame,
     openSampleSheet,
     closeSampleSheet,
     setStudioStage,
@@ -578,6 +606,7 @@ const loadEditorHarness = ({
     saveCurrent,
     setDraftReady: (value) => { draftReady = value; },
     setMobileView,
+    setPersonalDraft: (value) => { personalDraft = value; },
     syncHeroImageEditor: typeof syncHeroImageEditor === "function" ? syncHeroImageEditor : undefined,
     updateHeroImageScale: typeof updateHeroImageScale === "function" ? updateHeroImageScale : undefined,
     moveHeroImageDrag: typeof moveHeroImageDrag === "function" ? moveHeroImageDrag : undefined,
@@ -605,11 +634,12 @@ const loadEditorHarness = ({
       MAX_ITEMS: maxItems,
       MAX_PHOTOS: maxPhotos,
       MAX_STOPS: maxItems,
-      buildStandaloneHtml: (invitation) => JSON.stringify(invitation),
+      buildStandaloneHtml,
       normalizeInvitation,
       renderInvitationBody
     },
     InvitationIntro: {
+      ensureStyles() {},
       normalizeEffect: (value) => value || "none",
       stop() {}
     },
@@ -2012,11 +2042,25 @@ const switchLanguage = async (language) => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-const startedEditor = async () => {
-  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+/* Boot, in the order init() does it: the sample is filled into the form and
+   the baseline is then read back off the form — never snapshotted from the
+   invitation — which is the whole reason an untouched sample can still be
+   recognised as ours several designs later. */
+const startedEditor = async (options = {}) => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation, ...options });
   await harness.api.loadInitialData();
   harness.api.fillForm(harness.api.state.invitation);
+  harness.api.captureAppliedBaseline();
   harness.api.renderTemplates();
+  return harness;
+};
+
+/* The same boot, ending the way init()'s restore path ends: the draft came
+   back from storage, so it is the author's — personalDraft — even though not
+   a word of it has been typed yet. */
+const restoredDraftEditor = async () => {
+  const harness = await startedEditor();
+  harness.api.setPersonalDraft(true);
   return harness;
 };
 
@@ -2031,6 +2075,16 @@ const applyDesign = (harness, occasionId, templateId) => {
 };
 
 const itemById = (harness, id) => harness.api.getItemsData().find((item) => item.id === id);
+
+/* A keystroke, delivered the way the browser delivers one: every editable
+   control in the studio is inside #invitation-form, so one input event there
+   is how the app learns the author has started writing. Setting .value alone
+   is a test fixture, not an edit, and the app is entitled to tell them apart. */
+const typeInto = (harness, field, value) => {
+  const form = harness.node("#invitation-form");
+  form.elements[field].value = value;
+  form.dispatch("input", { target: { name: field, type: "text", matches: () => false, closest: () => null } });
+};
 
 test("an applied design's untouched sample follows a later language switch", async () => {
   const harness = await startedEditor();
@@ -2104,6 +2158,135 @@ test("a language switch never retranslates content the author edited", async () 
   } finally {
     await switchLanguage("ko");
   }
+});
+
+test("undo after a language switch brings the sample back in the new language", async () => {
+  const harness = await startedEditor();
+  // Undo's job is the design the studio opened on, whatever it is.
+  const opening = harness.api.state.activeTemplate;
+  const english = englishSample(opening);
+
+  applyDesign(harness, "birthday", "modern");
+
+  try {
+    await switchLanguage("en");
+    harness.node("#undo-template-button").dispatch("click", { target: harness.node("#undo-template-button") });
+
+    const form = harness.node("#invitation-form").elements;
+    assert.equal(harness.api.state.activeTemplate, opening);
+    assert.equal(form.title.value, english.title);
+    assert.equal(form.subtitle.value, english.subtitle);
+    assert.equal(form.message.value, english.message);
+    // Nothing of the pre-apply sample comes back in the old language: it was
+    // our writing, and the studio is not in that language any more.
+    for (const field of ["title", "subtitle", "message", "host", "location"]) {
+      assert.doesNotMatch(form[field].value, HANGUL, `${field} came back in Korean`);
+    }
+    for (const item of harness.api.getItemsData()) {
+      assert.doesNotMatch(JSON.stringify(item), HANGUL, `${item.id} came back in Korean`);
+    }
+    assert.equal(harness.api.state.undoSnapshot, null);
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+test("undo restores the author's own pre-apply draft verbatim across a language switch", async () => {
+  const harness = await startedEditor();
+  const form = harness.node("#invitation-form").elements;
+  typeInto(harness, "title", "지민과 하준의 결혼식");
+  typeInto(harness, "message", "귀한 걸음으로 축복해 주세요.");
+  // The rest of the draft is theirs too, from the moment they typed a word.
+  const untypedSubtitle = form.subtitle.value;
+
+  applyDesign(harness, "birthday", "modern");
+
+  try {
+    await switchLanguage("en");
+    harness.node("#undo-template-button").dispatch("click", { target: harness.node("#undo-template-button") });
+
+    // Their document, in the words they chose, in the language they chose.
+    assert.equal(form.title.value, "지민과 하준의 결혼식");
+    assert.equal(form.message.value, "귀한 걸음으로 축복해 주세요.");
+    assert.equal(form.subtitle.value, untypedSubtitle);
+    assert.match(form.subtitle.value, HANGUL);
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+test("an untouched restored draft is still our sample and follows a language switch", async () => {
+  const harness = await restoredDraftEditor();
+  const english = englishSample(harness.api.state.activeTemplate);
+
+  try {
+    await switchLanguage("en");
+
+    const form = harness.node("#invitation-form").elements;
+    assert.equal(form.title.value, english.title);
+    assert.equal(form.subtitle.value, english.subtitle);
+    assert.equal(form.message.value, english.message);
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+test("an edited restored draft is never retranslated by a language switch", async () => {
+  const harness = await restoredDraftEditor();
+  const form = harness.node("#invitation-form").elements;
+  // One edit is enough: from here the whole draft is theirs, and what tells
+  // the app so is the form itself, read back and compared with the baseline.
+  typeInto(harness, "message", "지난 한 해를 함께 걸어주신 분들께");
+  const kept = form.subtitle.value;
+
+  try {
+    await switchLanguage("en");
+
+    assert.equal(form.message.value, "지난 한 해를 함께 걸어주신 분들께");
+    assert.equal(form.subtitle.value, kept);
+    assert.match(form.subtitle.value, HANGUL);
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+/* The preview is an iframe seeded with the real standalone document, and only
+   its body is patched on a render — so the language it declares in
+   <html lang>, and every word of chrome baked into its head, are as old as
+   the last seed. A language switch has to re-seed it or the finished card
+   goes on describing itself in the language the studio opened in. */
+test("a language switch re-seeds the preview frame in the new language", async () => {
+  const harness = await startedEditor({
+    buildStandaloneHtml: InvitationCore.buildStandaloneHtml,
+    previewFrame: true
+  });
+  const frame = harness.node("#preview");
+
+  await harness.api.mountPreviewFrame();
+  assert.match(frame.srcdoc, /<html lang="ko">/);
+
+  try {
+    await switchLanguage("en");
+    assert.match(frame.srcdoc, /<html lang="en">/);
+  } finally {
+    await switchLanguage("ko");
+  }
+  assert.match(frame.srcdoc, /<html lang="ko">/);
+});
+
+/* One place answers "what was on the page when we put our sample there?", and
+   it answers by reading the form back — the invitation we just wrote into it
+   is not the same document (fillForm blanks a dateLabel that is only our own
+   rendering of the instant), so a snapshot of it never compares equal to a
+   later getFormData() and every untouched sample would read as edited. A
+   second assignment anywhere else is how that silently stops holding. */
+test("the applied baseline is only ever assigned inside captureAppliedBaseline", () => {
+  const source = read("assets/studio/app.js");
+  const helper = source.slice(source.indexOf("const captureAppliedBaseline = () => {"));
+  const body = helper.slice(0, helper.indexOf("\n};"));
+
+  assert.ok(body.includes("state.appliedBaseline = getFormData();"), body);
+  assert.equal([...source.matchAll(/state\.appliedBaseline\s*=[^=]/g)].length, 1);
 });
 
 test("template prepare errors preserve draft state and report failure status", async () => {
