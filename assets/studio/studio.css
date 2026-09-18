@@ -453,7 +453,7 @@ body[data-studio-stage="library"] .studio-footer {
 .content-item-toggle { color: var(--studio-ink); }
 .content-item-toggle::after { border-right-color: var(--studio-ink-muted); border-bottom-color: var(--studio-ink-muted); }
 .content-item-heading strong { color: var(--studio-accent); }
-.editor-form .content-item-heading > span:last-child { color: var(--studio-ink-soft); }
+.editor-form .content-item-heading > span:last-child { color: var(--studio-ink-muted); }
 .item-icon-button { color: var(--studio-accent); border-color: var(--studio-line-strong); }
 .remove-item-button { color: var(--studio-danger); }
 .content-empty { color: var(--studio-ink-muted); }
