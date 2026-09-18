@@ -4,7 +4,51 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const HANGUL = /[ㄱ-ㆎ가-힣]/;
-const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/.*$/gm, "$1");
+// String-aware comment stripper: walks the source one character at a time so a
+// "//" or "/* */" that appears inside a quoted string or template literal is
+// never mistaken for a comment. Backslash escapes inside strings are honored,
+// and template literals are allowed to span multiple lines.
+const stripComments = (source) => {
+  let out = "";
+  let i = 0;
+  const n = source.length;
+  while (i < n) {
+    const ch = source[i];
+    const next = source[i + 1];
+    if (ch === "/" && next === "/") {
+      while (i < n && source[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < n && !(source[i] === "*" && source[i + 1] === "/")) i++;
+      i = Math.min(i + 2, n);
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      out += ch;
+      i++;
+      while (i < n && source[i] !== quote) {
+        if (source[i] === "\\" && i + 1 < n) {
+          out += source[i] + source[i + 1];
+          i += 2;
+          continue;
+        }
+        out += source[i];
+        i++;
+      }
+      if (i < n) {
+        out += source[i];
+        i++;
+      }
+      continue;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+};
 const FILES = [
   "assets/media/image-tools.js", "assets/storage/invitation-storage.js", "assets/integrations/map-location.js",
   "assets/invitation/intro-effects.js", "assets/invitation/core.js", "assets/publishing/publishing.js",
@@ -141,4 +185,18 @@ test("normalizing an empty invitation fills the blanks in the active language", 
   } finally {
     InvitationI18n.setLanguage(previous);
   }
+});
+
+test("stripComments keeps a Korean string literal but drops a trailing line comment", () => {
+  const stripped = stripComments('const a = "//x/한글"; // 주석');
+  assert.equal(stripped, 'const a = "//x/한글"; ');
+  assert.match(stripped, HANGUL);
+  assert.doesNotMatch(stripped, /주석/);
+});
+
+test("stripComments removes a Korean block comment while a same-line Korean string survives", () => {
+  const stripped = stripComments('/* 주석 */ "안녕"');
+  assert.equal(stripped, ' "안녕"');
+  assert.match(stripped, HANGUL);
+  assert.doesNotMatch(stripped, /주석/);
 });
