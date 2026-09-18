@@ -392,6 +392,8 @@ test("every fixed hero title size becomes a clamp so 390px never forces a mid-wo
     .map(([, selector]) => selector.trim());
 
   assert.deepEqual(fixed, []);
+});
+
 /* The catalog is the source of truth for which designs exist, so this test
    walks it rather than a list retyped here: every template in
    invitation-data.json has to survive the three code paths a design is seen
