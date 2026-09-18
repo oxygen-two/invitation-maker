@@ -10,3 +10,4 @@ node_modules/
 .vercel/
 /public/
 .omc/
+.claude/worktrees/
