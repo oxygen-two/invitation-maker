@@ -219,7 +219,10 @@
       moveDownTitle: "아래로 이동",
       removeItem: "{type} 항목 삭제",
       removeItemTitle: "이 항목 삭제",
-      confirmRemove: "“{name}” 항목을 삭제할까요?",
+      menu: "더 보기",
+      menuLabel: "{type} 항목 작업",
+      confirmDelete: "“{name}” 항목을 삭제할까요?",
+      cancel: "취소",
 
       fallbackCourse: "코스 {index}",
       fallbackPhoto: "사진 {index}",
