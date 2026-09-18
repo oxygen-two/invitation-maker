@@ -35,22 +35,18 @@
      found, so the only person in the room is the reader.
 
      THE INVITATION INSIDE THE FRAME is somebody else's finished document. Its
-     baked chrome ("안내", the map button, the skip button) belongs to the
-     author, exactly as it does in a downloaded file — a Korean invitation must
-     not sprout English labels because an English speaker opened the link, and
-     an English one must not sprout Korean ones. But a PUBLISHED invitation
-     carries no record of the language its author was working in: the stored
-     document is whatever normalizeInvitation emits, and adding a field to it
-     would mean changing the publish payload, server/validation.cjs and every
-     stored record. So the frame is rendered in the product's home language,
-     which is what every publication to date was in fact authored and previewed
-     in. It is emphatically NOT the guest's language, because that would be
-     translating a stranger's document to suit the reader. */
+     baked chrome (the notice eyebrow, the map button, the skip button) belongs
+     to the AUTHOR, exactly as it does in a downloaded file, so it is rendered
+     in the language the record was published in — never the reader's, which
+     would mean translating a stranger's document to suit whoever opened the
+     link. A record published before publications carried a language falls back
+     to Korean, which is what all of them were in fact authored in. */
   const pageLanguage = (override) =>
     (I18n?.normalizeLanguage?.(override) ?? null)
     || I18n?.getLanguage?.()
     || I18n?.DEFAULT_LANGUAGE
     || "ko";
+  // Only for a record with no language of its own.
   const FRAME_LANGUAGE = I18n?.DEFAULT_LANGUAGE || "ko";
   const t = (key, values, language) => I18n?.t(key, values, language) ?? String(key);
 
@@ -142,7 +138,7 @@
         return null;
       }
       const data = await response.json();
-      renderFrame(frame, data.invitation);
+      renderFrame(frame, data.invitation, { language: data.language || FRAME_LANGUAGE });
       // Formatted for the reader — an expiry date is the product telling the
       // guest something, not part of the author's document.
       setStatus(data.expiresAt

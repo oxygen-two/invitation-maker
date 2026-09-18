@@ -71,6 +71,8 @@ const publishInvitation = async ({
     id: createPublicId(),
     createId: createPublicId,
     invitation: publishing.invitation,
+    // The author's language travels beside the invitation, never inside it.
+    language: publishing.language,
     tokenHash,
     idempotencyKeyHash: sha256(`idempotency:${tokenHash}:${idempotencyKey}`),
     contentHash: publishing.contentHash,

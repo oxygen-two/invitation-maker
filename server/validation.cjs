@@ -1,6 +1,7 @@
 const { createHash, randomInt } = require("node:crypto");
 const { Buffer } = require("node:buffer");
 const { normalizeInvitation } = require("../assets/invitation-core.js");
+const { DEFAULT_LANGUAGE, SUPPORTED } = require("../assets/i18n/i18n.js");
 const { DEFAULT_PUBLISHING_CONFIG } = require("./config/publishing.cjs");
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -12,6 +13,14 @@ const MAX_DEPTH = 12;
 const MAX_NODES = 3000;
 const MAX_ITEMS = 50;
 const MAX_PHOTOS = 8;
+
+/* The languages a publication may record. Taken from the i18n engine rather
+   than repeated here, so shipping a third language stays the one-file change
+   it is today (`LOCALES` in assets/i18n/i18n.js). The server can require that
+   file for the same reason it already requires the invitation core: both are
+   plain modules that work with no page around them. */
+const PUBLISHED_LANGUAGES = Object.freeze([...SUPPORTED]);
+const DEFAULT_PUBLISHED_LANGUAGE = DEFAULT_LANGUAGE;
 
 const badRequest = (message) => {
   const error = new Error(message);
@@ -222,10 +231,29 @@ const validateKnownInvitationFields = (invitation) => {
   }
 };
 
+/* The language the author was writing in, kept beside the invitation rather
+   than inside it: it describes the rendering a guest gets, not the document's
+   content, exactly as it does in a downloaded standalone file.
+
+   The field is optional — a client that predates it, or one whose i18n engine
+   failed to load, still publishes — and an absent one means Korean, which is
+   what every publication made before this field existed was in fact authored
+   and previewed in. Anything else is rejected outright rather than coerced:
+   only a code the product ships can be honoured at render time, so accepting
+   "en-GB" here would just be storing a value the viewer would silently drop. */
+const validatePublishedLanguage = (value) => {
+  if (value === undefined || value === null) return DEFAULT_PUBLISHED_LANGUAGE;
+  if (typeof value !== "string" || !PUBLISHED_LANGUAGES.includes(value)) {
+    throw badRequest(`$.language must be one of ${PUBLISHED_LANGUAGES.join(", ")}`);
+  }
+  return value;
+};
+
 const normalizeForPublishing = ({ body, maxPayloadBytes = DEFAULT_PUBLISHING_CONFIG.maxPayloadBytes }) => {
   if (!isPlainObject(body) || !isPlainObject(body.invitation)) throw badRequest("Missing invitation object");
   inspectJsonShape(body.invitation, "$.invitation");
   validateKnownInvitationFields(body.invitation);
+  const language = validatePublishedLanguage(body.language);
 
   const contentHash = sha256(stableStringify(body.invitation));
   const normalized = normalizeInvitation(body.invitation);
@@ -233,10 +261,12 @@ const normalizeForPublishing = ({ body, maxPayloadBytes = DEFAULT_PUBLISHING_CON
   delete storedInvitation.stops;
   const normalizedBytes = Buffer.byteLength(JSON.stringify(storedInvitation), "utf8");
   if (normalizedBytes > maxPayloadBytes) throw bodyTooLarge("Normalized invitation is too large");
-  return { invitation: storedInvitation, contentHash, normalizedBytes };
+  return { invitation: storedInvitation, contentHash, language, normalizedBytes };
 };
 
 module.exports = {
+  DEFAULT_PUBLISHED_LANGUAGE,
+  PUBLISHED_LANGUAGES,
   createPublicId,
   isValidPublicId,
   normalizeForPublishing,

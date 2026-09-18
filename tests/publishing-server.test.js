@@ -99,6 +99,7 @@ class FakeRepository {
     const record = {
       id: "AbCdEfGhIjKlMnOpQrStUv",
       invitation: input.invitation,
+      language: input.language || null,
       tokenHash: input.tokenHash,
       idempotencyKeyHash: input.idempotencyKeyHash,
       contentHash: input.contentHash,
@@ -414,6 +415,68 @@ test("GET never exposes secret hashes and denies expired records immediately", a
   repository.records.get("AbCdEfGhIjKlMnOpQrStUv").expiresAt = new Date(Date.now() - 1000).toISOString();
   const expired = await request(liveHandler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv");
   assert.equal(expired.status, 410);
+});
+
+/* A publication is a snapshot of somebody's finished document, and the language
+   it was written in is part of that snapshot: the shared page renders the
+   invitation's baked chrome from it. The field is optional on the way in so
+   older clients keep publishing, and it is always present on the way out so
+   the viewer never has to guess. */
+test("a publication is stored and served in the language its author wrote it in", async () => {
+  const repository = new FakeRepository();
+  const handler = createTestHandler(repository);
+
+  const published = await request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "Dinner at ours" }, language: "en" })
+  });
+
+  assert.equal(published.status, 201);
+  // The publish response gains nothing: only the read needs the language.
+  assert.deepEqual(Object.keys(published.body).sort(), ["expiresAt", "id", "url"]);
+  assert.equal(repository.publishes[0].language, "en");
+
+  const read = await request(handler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv");
+  assert.equal(read.status, 200);
+  assert.equal(read.body.language, "en");
+  assert.deepEqual(Object.keys(read.body).sort(), ["expiresAt", "invitation", "language"]);
+});
+
+test("a publication with no language of its own is Korean, the language every earlier one was written in", async () => {
+  const repository = new FakeRepository();
+  const handler = createTestHandler(repository);
+
+  await request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "저녁 초대" } })
+  });
+
+  assert.equal(repository.publishes[0].language, "ko");
+  assert.equal((await request(handler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv")).body.language, "ko");
+
+  // A record stored before the field existed carries no language at all.
+  delete repository.records.get("AbCdEfGhIjKlMnOpQrStUv").language;
+  assert.equal((await request(handler, "/api/invitations/AbCdEfGhIjKlMnOpQrStUv")).body.language, "ko");
+});
+
+test("POST rejects a language the product does not ship", async () => {
+  const repository = new FakeRepository();
+  const handler = createTestHandler(repository);
+  const publishWith = (language) => request(handler, "/api/invitations", {
+    method: "POST",
+    headers: bearerHeaders(),
+    body: JSON.stringify({ invitation: { title: "Dinner" }, language })
+  });
+
+  for (const language of ["xx", "en-US", "", 7, ["en"]]) {
+    const rejected = await publishWith(language);
+    assert.equal(rejected.status, 400, `language ${JSON.stringify(language)} should be refused`);
+    assert.equal(rejected.body.error.code, "BAD_REQUEST");
+    assert.equal(rejected.body.error.message, "Request does not match the publishing API contract.");
+  }
+  assert.equal(repository.publishes.length, 0, "nothing reaches the store on a refused language");
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;

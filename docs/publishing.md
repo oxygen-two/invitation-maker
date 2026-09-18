@@ -22,11 +22,13 @@ Publishing creates a snapshot. Editing a local draft does not change a previousl
 
 ## API
 
-`POST /api/invitations` accepts `{ "invitation": { ... } }`, with a UUID `Idempotency-Key` header and an `Authorization: Bearer <management-token>` header. The management token is 32 random bytes encoded as unpadded Base64url. Success returns `{ "id": "...", "url": "/i/...", "expiresAt": null }` (or an ISO expiry timestamp).
+`POST /api/invitations` accepts `{ "invitation": { ... }, "language": "ko" }`, with a UUID `Idempotency-Key` header and an `Authorization: Bearer <management-token>` header. The management token is 32 random bytes encoded as unpadded Base64url. Success returns `{ "id": "...", "url": "/i/...", "expiresAt": null }` (or an ISO expiry timestamp).
+
+`language` is the language the author was writing in when they pressed Publish. It is optional, it must be one of the languages the i18n engine registers (today `ko` or `en`) or the request is rejected with `400 BAD_REQUEST`, and an omitted one is stored as `ko`. It sits beside the invitation rather than inside it because it describes the rendering a guest gets, not the author's content: the shared page builds the invitation's baked chrome from it, exactly as a downloaded standalone file is built from the `<html lang>` it was exported with. See `docs/i18n.md`.
 
 A retry must reuse the same content, management token, and idempotency key. Do not generate a new key simply because a response was lost. A reused identity with different content is rejected.
 
-`GET /api/invitations/:id` returns only `{ "invitation": { ... }, "expiresAt": null }`. The read enforces expiry itself: an expired publication is excluded by the database query, so it answers `404 NOT_FOUND` and `/i/{id}` shows the missing-invitation page. No public listing endpoint is provided.
+`GET /api/invitations/:id` returns only `{ "invitation": { ... }, "language": "ko", "expiresAt": null }`. The language is always present: a record published before the field existed reads as `ko`, so the viewer never has to guess. The read enforces expiry itself: an expired publication is excluded by the database query, so it answers `404 NOT_FOUND` and `/i/{id}` shows the missing-invitation page. No public listing endpoint is provided.
 
 `DELETE /api/invitations/:id` requires the management token and returns HTTP 204 on success. Cancellation removes the remotely stored snapshot; a recipient's already downloaded HTML cannot be recalled.
 
