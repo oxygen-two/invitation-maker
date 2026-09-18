@@ -98,47 +98,55 @@
         <p class="lead" data-i18n="site.landing.hero.lead">디자인을 고르고, 내용을 채우고, 파일이나 링크로 보내세요.</p>
         <div class="actions">
           <a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="hero" data-i18n="site.landing.hero.cta">초대장 만들기</a>
-          <a class="text-link" href="/sample" target="_blank" rel="noopener" data-site-event="landing_sample_opened" data-i18n="site.landing.hero.sample">완성된 초대장 먼저 보기</a>
+          <a class="text-link" href="/sample" target="_blank" rel="noopener" data-site-event="landing_sample_opened"><span data-i18n="site.landing.hero.sample">완성된 초대장 먼저 보기</span> <span aria-hidden="true">↗</span></a>
         </div>
       </div>
       <div class="hero-media">
         <div class="phone"><img src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="휴대폰 화면에 열린 완성 초대장 예시" data-i18n-attr="alt:site.landing.hero.imageAlt"></div>
+        <span class="seal" aria-hidden="true">✳</span>
       </div>
     </section>
     <section aria-labelledby="steps-title">
+      <p class="eyebrow" data-i18n="site.landing.steps.eyebrow">HOW IT WORKS</p>
       <h2 id="steps-title" data-i18n="site.landing.steps.title">세 단계면 됩니다</h2>
       <div class="steps">
-        <article class="step"><h3 data-i18n="site.landing.steps.one.title">01 디자인 고르기</h3><p data-i18n="site.landing.steps.one.text">생일, 결혼, 돌잔치, 모임. 행사에 맞는 디자인을 고르면 샘플이 바로 보입니다.</p></article>
-        <article class="step"><h3 data-i18n="site.landing.steps.two.title">02 내용 채우기</h3><p data-i18n="site.landing.steps.two.text">제목, 일정, 장소, 메시지를 적고 사진을 더하세요. 미리보기는 하객이 받는 화면 그대로입니다.</p></article>
-        <article class="step"><h3 data-i18n="site.landing.steps.three.title">03 보관 · 파일 · 링크</h3><p data-i18n="site.landing.steps.three.text">이 브라우저에 보관하거나, 파일 하나로 내려받거나, 공개 링크로 보내세요.</p></article>
+        <article class="step"><span class="step-number" aria-hidden="true">01</span><h3 data-i18n="site.landing.steps.one.title">디자인 고르기</h3><p data-i18n="site.landing.steps.one.text">생일, 결혼, 돌잔치, 모임. 행사에 맞는 디자인을 고르면 샘플이 바로 보입니다.</p></article>
+        <article class="step"><span class="step-number" aria-hidden="true">02</span><h3 data-i18n="site.landing.steps.two.title">내용 채우기</h3><p data-i18n="site.landing.steps.two.text">제목, 일정, 장소, 메시지를 적고 사진을 더하세요. 미리보기는 하객이 받는 화면 그대로입니다.</p></article>
+        <article class="step"><span class="step-number" aria-hidden="true">03</span><h3 data-i18n="site.landing.steps.three.title">보관 · 파일 · 링크</h3><p data-i18n="site.landing.steps.three.text">이 브라우저에 보관하거나, 파일 하나로 내려받거나, 공개 링크로 보내세요.</p></article>
       </div>
     </section>
     <section aria-labelledby="designs-title">
+      <p class="eyebrow" data-i18n="site.landing.gallery.eyebrow">DESIGNS</p>
       <h2 id="designs-title" data-i18n="site.landing.gallery.title">디자인</h2>
       <p class="lead" data-i18n="site.landing.gallery.lead">취향으로 고르세요. 행사 유형마다 여러 디자인이 있습니다.</p>
       <!-- Alt text stays static Korean rather than data-i18n-attr: these are
            screenshots of Korean-language sample invitations, so describing
            them in English would misdescribe what the image actually shows. -->
-      <div class="designs">
-        <figure class="design"><img loading="lazy" src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 생일"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
-        <figure class="design"><img loading="lazy" src="/assets/media/site/design-wedding-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 결혼"><figcaption data-i18n="site.landing.gallery.wedding">결혼</figcaption></figure>
-        <figure class="design"><img loading="lazy" src="/assets/media/site/design-first-chapter-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 돌잔치"><figcaption data-i18n="site.landing.gallery.firstChapter">돌잔치</figcaption></figure>
-        <figure class="design"><img loading="lazy" src="/assets/media/site/design-golden-years-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 환갑"><figcaption data-i18n="site.landing.gallery.goldenYears">환갑</figcaption></figure>
-        <figure class="design"><img loading="lazy" src="/assets/media/site/design-botanical-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 데이트"><figcaption data-i18n="site.landing.gallery.botanical">데이트</figcaption></figure>
-        <figure class="design"><img loading="lazy" src="/assets/media/site/design-midnight-cinema-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 행사"><figcaption data-i18n="site.landing.gallery.midnightCinema">행사</figcaption></figure>
+      <div class="designs-wrap">
+        <div class="designs" tabindex="0" role="region" aria-label="디자인 목록" data-i18n-attr="aria-label:site.landing.gallery.stripLabel">
+          <figure class="design"><img loading="lazy" src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 생일"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
+          <figure class="design"><img loading="lazy" src="/assets/media/site/design-wedding-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 결혼"><figcaption data-i18n="site.landing.gallery.wedding">결혼</figcaption></figure>
+          <figure class="design"><img loading="lazy" src="/assets/media/site/design-first-chapter-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 돌잔치"><figcaption data-i18n="site.landing.gallery.firstChapter">돌잔치</figcaption></figure>
+          <figure class="design"><img loading="lazy" src="/assets/media/site/design-golden-years-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 환갑"><figcaption data-i18n="site.landing.gallery.goldenYears">환갑</figcaption></figure>
+          <figure class="design"><img loading="lazy" src="/assets/media/site/design-botanical-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 데이트"><figcaption data-i18n="site.landing.gallery.botanical">데이트</figcaption></figure>
+          <figure class="design"><img loading="lazy" src="/assets/media/site/design-midnight-cinema-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 행사"><figcaption data-i18n="site.landing.gallery.midnightCinema">행사</figcaption></figure>
+        </div>
       </div>
       <div class="actions"><a class="site-cta secondary" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="gallery" data-i18n="site.landing.gallery.cta">디자인 전체 보기</a></div>
     </section>
     <section aria-labelledby="trust-title">
+      <p class="eyebrow" data-i18n="site.landing.trust.eyebrow">PEACE OF MIND</p>
       <h2 id="trust-title" data-i18n="site.landing.trust.title">안심하고 쓰세요</h2>
       <div class="trust">
-        <article><h3 data-i18n="site.landing.trust.one.title">회원가입도 앱 설치도 없습니다</h3><p data-i18n="site.landing.trust.one.text">브라우저에서 열어 바로 만듭니다. 이메일도 전화번호도 묻지 않습니다.</p></article>
-        <article><h3 data-i18n="site.landing.trust.two.title">초안은 내 브라우저에만 남습니다</h3><p data-i18n="site.landing.trust.two.text">쓰는 동안 자동으로 저장되지만, 서버로 보내지 않습니다.</p></article>
-        <article><h3 data-i18n="site.landing.trust.three.title">파일은 영원히, 링크는 내가 정합니다</h3><p data-i18n="site.landing.trust.three.text">파일로 받으면 계속 내 것입니다. 공개 링크는 시간이 지나면 만료되고, 원할 때 취소할 수 있습니다.</p></article>
+        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg></span><h3 data-i18n="site.landing.trust.one.title">회원가입도 앱 설치도 없습니다</h3><p data-i18n="site.landing.trust.one.text">브라우저에서 열어 바로 만듭니다. 이메일도 전화번호도 묻지 않습니다.</p></article>
+        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></span><h3 data-i18n="site.landing.trust.two.title">초안은 내 브라우저에만 남습니다</h3><p data-i18n="site.landing.trust.two.text">쓰는 동안 자동으로 저장되지만, 서버로 보내지 않습니다.</p></article>
+        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12l2 2 4-5"/></svg></span><h3 data-i18n="site.landing.trust.three.title">파일은 영원히, 링크는 내가 정합니다</h3><p data-i18n="site.landing.trust.three.text">파일로 받으면 계속 내 것입니다. 공개 링크는 시간이 지나면 만료되고, 원할 때 취소할 수 있습니다.</p></article>
       </div>
       <a class="text-link" href="/guide#data" data-i18n="site.landing.trust.link">내 데이터는 어디에 저장되나요</a>
     </section>
     <section class="closing" aria-labelledby="closing-title">
+      <span class="closing-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg></span>
+      <p class="eyebrow" data-i18n="site.landing.closing.eyebrow">READY?</p>
       <h2 id="closing-title" data-i18n="site.landing.closing.title">지금 만들어 보세요</h2>
       <div class="actions"><a class="site-cta" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="footer" data-i18n="site.landing.closing.cta">초대장 만들기</a></div>
     </section>

@@ -35,15 +35,18 @@
           imageAlt: "A finished invitation open on a phone screen"
         },
         steps: {
+          eyebrow: "HOW IT WORKS",
           title: "Three steps",
-          one: { title: "01 Pick a design", text: "Birthdays, weddings, first birthdays, get-togethers. Choose a design for the occasion and see a sample right away." },
-          two: { title: "02 Fill it in", text: "Add the title, date, place, and a message, then photos if you like. The preview is exactly what your guests get." },
-          three: { title: "03 Keep · File · Link", text: "Keep it in this browser, download a single file, or share a public link." }
+          one: { title: "Pick a design", text: "Birthdays, weddings, first birthdays, get-togethers. Choose a design for the occasion and see a sample right away." },
+          two: { title: "Fill it in", text: "Add the title, date, place, and a message, then photos if you like. The preview is exactly what your guests get." },
+          three: { title: "Keep · File · Link", text: "Keep it in this browser, download a single file, or share a public link." }
         },
         gallery: {
+          eyebrow: "DESIGNS",
           title: "Designs",
           lead: "Choose by taste. Every occasion has several designs.",
           cta: "See all designs",
+          stripLabel: "Design list",
           bloomPortrait: "Birthday",
           wedding: "Wedding",
           firstChapter: "First birthday",
@@ -52,25 +55,28 @@
           midnightCinema: "Event"
         },
         trust: {
+          eyebrow: "PEACE OF MIND",
           title: "Use it with confidence",
           one: { title: "No account, no app", text: "Open it in a browser and start. We never ask for an email or a phone number." },
           two: { title: "Drafts stay in your browser", text: "Your work is saved as you go, but it is never sent to a server." },
           three: { title: "Files are yours forever, links are yours to end", text: "A downloaded file stays with you. A public link expires on its own and can be revoked whenever you want." },
           link: "Where is my data stored?"
         },
-        closing: { title: "Make one now", cta: "Make an invitation" }
+        closing: { eyebrow: "READY?", title: "Make one now", cta: "Make an invitation" }
       },
       guide: {
         title: "How it works",
         lead: "Pick a design, fill it in, and send it the way you prefer.",
         toc: { steps: "Three steps", finish: "Three ways to finish", data: "Where your data lives", faq: "Questions" },
         steps: {
+          eyebrow: "STEP BY STEP",
           title: "Three steps",
-          one: { title: "01 Design", text: "Choose the occasion first, then tap a design card to see the sample at full size. Press 'Use this design' when it feels right. You can change the design later without losing anything you have written.", alt: "The studio's design picker" },
-          two: { title: "02 Content", text: "Start with the basics: title, date, and message. The place and map link come next, and photos and effects are in collapsed sections. The preview on the right is exactly the document your guests receive.", alt: "The studio's content editor" },
-          three: { title: "03 Finish", text: "Choose one of three ways to finish. Your draft is saved to this browser as you write, so you can close the tab before this step and pick up later.", alt: "The studio's finish screen" }
+          one: { title: "Design", text: "Choose the occasion first, then tap a design card to see the sample at full size. Press 'Use this design' when it feels right. You can change the design later without losing anything you have written.", alt: "The studio's design picker" },
+          two: { title: "Content", text: "Start with the basics: title, date, and message. The place and map link come next, and photos and effects are in collapsed sections. The preview on the right is exactly the document your guests receive.", alt: "The studio's content editor" },
+          three: { title: "Finish", text: "Choose one of three ways to finish. Your draft is saved to this browser as you write, so you can close the tab before this step and pick up later.", alt: "The studio's finish screen" }
         },
         finish: {
+          eyebrow: "FINISHING",
           title: "Three ways to finish",
           lead: "Any of them works, and you can use more than one. The difference is where the invitation ends up.",
           tableLabel: "Comparison of the three ways to finish",
@@ -82,6 +88,7 @@
           fileText: "It is one file with the photos inside, so it opens in any browser. Attach it in a messenger or an email, or import it back into the library later to edit it."
         },
         data: {
+          eyebrow: "YOUR DATA",
           title: "Where your data lives",
           one: "Drafts and the library live only in this browser's storage. They are never sent to a server.",
           two: "Only public links are stored on the server. A link expires 7 days after it was last opened, and no matter how often it is opened, 30 days after publishing. An expired link no longer opens.",
@@ -92,6 +99,7 @@
           seven: "Clearing this browser's storage also erases your drafts and library. Download a file first if you want to keep them."
         },
         faq: {
+          eyebrow: "QUESTIONS",
           title: "Questions",
           q1: "How many photos can I add?",
           a1: "For a shared link the whole invitation must fit in 2MB — usually three or four photos. Saving as a file has no limit.",
@@ -110,7 +118,7 @@
           q8: "Can an expired link be restored?",
           a8: "No. Open the invitation from the library or the file and publish a new link."
         },
-        closing: { title: "Ready to make one?", cta: "Make an invitation" }
+        closing: { eyebrow: "READY?", title: "Ready to make one?", cta: "Make an invitation" }
       }
     }
   };
