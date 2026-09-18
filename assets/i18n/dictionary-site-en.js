@@ -124,11 +124,11 @@
         },
         closing: { eyebrow: "READY?", title: "Ready to make one?", cta: "Make an invitation" }
       },
-      /* The two legal pages. Full drafts: `[OPERATOR]` and `[CONTACT_EMAIL]`
-         are placeholders and must be replaced with the real operator name and
-         address before this is deployed to the public. The retention numbers
-         repeat the shipped defaults from docs/publishing.md and are checked
-         against server/config/publishing.cjs by tests/site-pages.test.js. */
+      /* The two legal pages. Full drafts naming the real operator, `오재성`
+         (kept in Korean here too, not romanized), and the real contact
+         address, `rojae@kakao.com`. The retention numbers repeat the shipped
+         defaults from docs/publishing.md and are checked against
+         server/config/publishing.cjs by tests/site-pages.test.js. */
       privacy: {
         title: "Privacy Policy",
         lead: "There is no sign-up here. We never ask for your name or your email. Even so, you should know exactly where your data goes while you make an invitation and send it.",
@@ -197,7 +197,7 @@
           title: "Deletion requests",
           lead: "A public link is the only thing we hold, so deleting it is simple.",
           one: "Open the studio in the browser that published the link and revoke it. The server copy is deleted straight away.",
-          two: "If that browser is gone, or you received the invitation rather than made it, email [CONTACT_EMAIL] with the link address and we will delete it after checking.",
+          two: "If that browser is gone, or you received the invitation rather than made it, email rojae@kakao.com with the link address and we will delete it after checking.",
           three: "An HTML file or a screenshot someone already saved cannot be recalled.",
           note: "We cannot delete drafts or library entries for you: they never left your browser. Remove them from the library list yourself."
         },
@@ -211,7 +211,7 @@
         contact: {
           eyebrow: "08",
           title: "Contact",
-          lead: "This service is operated by [OPERATOR]. Send privacy questions and deletion requests to [CONTACT_EMAIL].",
+          lead: "This service is operated by 오재성. Send privacy questions and deletion requests to rojae@kakao.com.",
           note: "If this policy changes, the date at the top of this page changes with it."
         }
       },
@@ -281,7 +281,7 @@
         contact: {
           eyebrow: "07",
           title: "Contact and changes",
-          lead: "This service is operated by [OPERATOR]. Send questions, reports and deletion requests to [CONTACT_EMAIL].",
+          lead: "This service is operated by 오재성. Send questions, reports and deletion requests to rojae@kakao.com.",
           note: "If these terms change, the date at the top of this page changes with them. Continuing to use the service after a change means you accept it."
         }
       }
