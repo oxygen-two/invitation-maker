@@ -86,7 +86,6 @@ test("English copy carries no leftover Korean, and Korean copy is actually Korea
   const englishOnlyInKorean = new Set([
     "meta.title", "meta.ogLocale", "maker.eyebrow", "preview.eyebrow",
     "library.eyebrow", "library.untitled", "content.linkUrl", "finish.replyContactPattern",
-    "publish.eyebrow",
     // The shared.html error eyebrows are decorative small-caps set in English
     // on Korean invitations too, matching the generated error pages. Same
     // reasoning as the INVITATION / DATE / PLACE words in the template art.
