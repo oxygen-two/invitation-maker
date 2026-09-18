@@ -158,20 +158,24 @@ const loadEditorHarness = ({
     scrollY: 0
   };
 
-  const makeControl = (card, selector, { attrs = {}, dataset = {}, value = "", checked = false } = {}) => {
+  const makeControl = (card, selector, { attrs = {}, dataset = {}, value = "", checked = false, hidden } = {}) => {
     const capturedPointers = new Set();
     return {
       attrs: { ...attrs },
       card,
       checked,
+      classList: makeClassList(),
       dataset: { ...dataset },
       disabled: Boolean(attrs.disabled),
+      hidden,
+      textContent: "",
       value,
       capturedPointers,
       closest(requested) {
         if (requested === selector) return this;
         if (requested === "[data-item-action]" && this.dataset.itemAction) return this;
         if (requested === "[data-drag-handle]" && selector === "[data-drag-handle]") return this;
+        if (requested === "[data-item-menu]" && selector.startsWith("[data-item-menu")) return this;
         if (requested === "[data-item-card]") return card;
         return null;
       },
@@ -225,7 +229,11 @@ const loadEditorHarness = ({
     addControl("[data-item-body]", { attrs: { hidden: !isOpen } });
     addControl("[data-item-summary]");
     addControl("[data-item-secondary-summary]");
-    for (const action of ["up", "down", "delete"]) {
+    addControl("[data-item-menu-button]", { attrs: { "aria-expanded": "false" } });
+    addControl("[data-item-menu-list]", { hidden: true });
+    addControl("[data-item-confirm]", { hidden: true });
+    addControl("[data-item-confirm-text]");
+    for (const action of ["up", "down", "delete", "confirm-delete", "cancel-delete"]) {
       addControl(`[data-item-action="${action}"]`, { dataset: { itemAction: action } });
     }
 
@@ -2175,12 +2183,121 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   assert.match(app, /data-link-field="url" type="url"/);
   assert.doesNotMatch(app, /data-drag-handle/);
   assert.match(app, /class="content-item-position" aria-hidden="true"/);
+  // Every action carries a type-qualified accessible name; the three that now
+  // live in the menu also carry visible copy, so they no longer need a title.
   for (const action of ["up", "down", "delete"]) {
-    assert.match(app, new RegExp(`data-item-action="${action}"[^>]+aria-label="[^"]+"[^>]+title="[^"]+"`));
+    assert.match(app, new RegExp(`data-item-action="${action}"[^>]+aria-label="[^"]+"`));
   }
   assert.match(app, /items:\s*getItemsData\(\)/);
   assert.doesNotMatch(app, /stops:\s*getStopsData\(\)/);
-  assert.match(app, /if \(action !== "delete"\)[\s\S]*?const items = getItemsData\(\)[\s\S]*?getDeleteItemName\(item, index\)[\s\S]*?items\.splice\(index, 1\)/);
+  assert.match(app, /const removeItemAt = \(index\) => \{[\s\S]*?items\.splice\(index, 1\)/);
+});
+
+/* B-6. Three icon buttons could not share a 390px header row with the type and
+   the summary, so they wrapped and doubled the card height; and the delete
+   step was a browser `confirm()`, the one dialog in the studio that cannot be
+   styled, translated, or dismissed the way every other one is. */
+test("item card actions collapse into one overflow menu", () => {
+  const app = read("assets/studio/app.js");
+
+  assert.match(app, /data-item-menu-button[^>]+aria-haspopup="true"[^>]+aria-expanded="false"[^>]+aria-controls="\$\{menuId\}"/);
+  assert.match(app, /<div class="content-item-menu-list" id="\$\{menuId\}" role="menu"[^>]*data-item-menu-list hidden>/);
+  assert.equal((app.match(/role="menuitem"/g) || []).length, 3);
+  for (const action of ["up", "down", "delete"]) {
+    assert.match(app, new RegExp(`role="menuitem" data-item-action="${action}"`));
+  }
+  // The header is a fixed three-column grid, so nothing in it can wrap.
+  assert.match(app, /content-item-handle[\s\S]*?content-item-grip[\s\S]*?content-item-position/);
+  assert.match(app, /renderItemMenu\(item, index, items\.length, menuId\)/);
+});
+
+test("deleting an item confirms inside the card instead of through window.confirm", () => {
+  const app = read("assets/studio/app.js");
+  const removal = app.match(/if \(action === "delete"\)[\s\S]*?\n  \}/)?.[0] || "";
+
+  assert.doesNotMatch(app, /window\.confirm\(t\("content\.confirm(?:Remove|Delete)"/);
+  assert.doesNotMatch(removal, /window\.confirm/);
+  assert.match(app, /data-item-confirm role="group"[^>]*hidden>/);
+  assert.match(app, /data-item-action="cancel-delete"/);
+  assert.match(app, /data-item-action="confirm-delete"/);
+  assert.match(app, /t\("content\.confirmDelete", \{ name: /);
+  assert.match(app, /escapeAttribute\(t\("content\.cancel"\)\)/);
+  // Focus lands on the safe half of the pair, which is also what Escape does.
+  assert.match(app, /card\.querySelector\('\[data-item-action="cancel-delete"\]'\)\?\.focus\(\)/);
+  assert.match(app, /event\.key === "Escape"[\s\S]*?closeItemConfirm\(card, \{ focusMenu: true \}\)/);
+
+  for (const translate of [ko, en]) {
+    assert.match(translate("content.confirmDelete", { name: "A" }), /A/);
+    assert.ok(translate("content.cancel").length > 0);
+    assert.ok(translate("content.menu").length > 0);
+    assert.match(translate("content.menuLabel", { type: "Course" }), /Course/);
+  }
+});
+
+test("the overflow menu opens, closes, and survives a reorder from inside itself", () => {
+  const { api, contentEditor, document } = loadEditorHarness();
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  const [first, second] = contentEditor.cards;
+  contentEditor.dispatch("click", { target: second.querySelector("[data-item-menu-button]") });
+  assert.equal(second.querySelector("[data-item-menu-button]").getAttribute("aria-expanded"), "true");
+  assert.equal(second.querySelector("[data-item-menu-list]").hidden, false);
+
+  // Only ever one menu open: opening the other card's closes the first.
+  contentEditor.dispatch("click", { target: first.querySelector("[data-item-menu-button]") });
+  assert.equal(second.querySelector("[data-item-menu-button]").getAttribute("aria-expanded"), "false");
+
+  contentEditor.dispatch("click", { target: contentEditor.cards[1].querySelector("[data-item-menu-button]") });
+  contentEditor.dispatch("click", { target: contentEditor.cards[1].querySelector('[data-item-action="up"]') });
+
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
+  const moved = contentEditor.cards[0];
+  assert.equal(moved.dataset.itemId, "course-b");
+  assert.equal(moved.querySelector("[data-item-menu-list]").hidden, false);
+  assert.equal(document.activeElement, moved.querySelector('[data-item-action="up"]'));
+});
+
+test("escape closes the menu and cancels a pending delete without losing the item", () => {
+  const { api, contentEditor, document } = loadEditorHarness();
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  const card = contentEditor.cards[0];
+  const menuButton = card.querySelector("[data-item-menu-button]");
+  contentEditor.dispatch("click", { target: menuButton });
+  contentEditor.dispatch("keydown", { key: "Escape", target: menuButton });
+  assert.equal(card.querySelector("[data-item-menu-list]").hidden, true);
+  assert.equal(document.activeElement, menuButton);
+
+  contentEditor.dispatch("click", { target: menuButton });
+  contentEditor.dispatch("click", { target: card.querySelector('[data-item-action="delete"]') });
+  assert.equal(card.querySelector("[data-item-menu-list]").hidden, true);
+  assert.equal(card.querySelector("[data-item-confirm]").hidden, false);
+  assert.match(card.querySelector("[data-item-confirm-text]").textContent, /course-a/);
+  assert.equal(document.activeElement, card.querySelector('[data-item-action="cancel-delete"]'));
+
+  contentEditor.dispatch("keydown", { key: "Escape", target: document.activeElement });
+  assert.equal(card.querySelector("[data-item-confirm]").hidden, true);
+  assert.equal(document.activeElement, menuButton);
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-a", "course-b"]);
+});
+
+test("alt plus an arrow key reorders the card the focus is in", () => {
+  const { api, contentEditor } = loadEditorHarness();
+  api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
+
+  const toggle = contentEditor.cards[0].querySelector("[data-toggle-item]");
+  toggle.focus();
+  contentEditor.dispatch("keydown", { key: "ArrowDown", altKey: true, target: toggle, preventDefault() {} });
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
+
+  // The boundary is a no-op rather than a wrap-around.
+  const top = contentEditor.cards[0].querySelector("[data-toggle-item]");
+  contentEditor.dispatch("keydown", { key: "ArrowUp", altKey: true, target: top, preventDefault() {} });
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
+
+  // Without the modifier the arrow keys stay the browser's.
+  contentEditor.dispatch("keydown", { key: "ArrowDown", target: top, preventDefault() {} });
+  assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-b", "course-a"]);
 });
 
 test("course labels use presets and reveal text entry only for a custom label", () => {
@@ -2542,9 +2659,12 @@ test("deletion focuses the adjacent surviving card and then the add control", ()
   const { api, contentEditor, document, node } = loadEditorHarness();
   api.renderContentEditor([course("course-a"), course("course-b"), course("course-c")], "course-a");
 
-  const deleteB = contentEditor.cards[1].querySelector('[data-item-action="delete"]');
-  deleteB.focus();
-  contentEditor.dispatch("click", { target: deleteB });
+  const confirmDelete = (card) => {
+    contentEditor.dispatch("click", { target: card.querySelector('[data-item-action="delete"]') });
+    contentEditor.dispatch("click", { target: card.querySelector('[data-item-action="confirm-delete"]') });
+  };
+
+  confirmDelete(contentEditor.cards[1]);
 
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["course-a", "course-c"]);
   assert.equal(contentEditor.querySelector(".content-item-card.is-open").dataset.itemId, "course-a");
@@ -2552,8 +2672,7 @@ test("deletion focuses the adjacent surviving card and then the add control", ()
   assert.equal(document.activeElement, contentEditor.cards[1].querySelector("[data-toggle-item]"));
 
   for (const id of ["course-c", "course-a"]) {
-    const card = contentEditor.cards.find((itemCard) => itemCard.dataset.itemId === id);
-    contentEditor.dispatch("click", { target: card.querySelector('[data-item-action="delete"]') });
+    confirmDelete(contentEditor.cards.find((itemCard) => itemCard.dataset.itemId === id));
   }
 
   assert.deepEqual(Array.from(api.getItemsData()), []);
@@ -2615,7 +2734,40 @@ test("ordered editor controls and thumbnails stay bounded on narrow screens", ()
   assert.doesNotMatch(css, /\.content-item-card\s*\{[^}]*touch-action:\s*none/s);
   assert.match(css, /\.content-item-position\s*\{[^}]*width:\s*26px[^}]*height:\s*26px/s);
   assert.match(css, /\.photo-editor-thumbnail\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3[^}]*object-fit:\s*cover/s);
-  assert.match(css, /@media\s*\(max-width:\s*420px\)[\s\S]*?\.item-editor-actions\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/s);
+});
+
+/* B-6, B-7. Both fixes are overrides in studio.css rather than edits to
+   style.css, because style.css is copied verbatim into every exported
+   invitation and none of this chrome exists there. */
+test("the item header keeps one row and the add buttons keep one shape", () => {
+  const studio = read("assets/studio/studio.css");
+
+  // Three fixed columns — grip, summary, menu — at every width, including the
+  // 420px breakpoint where style.css used to drop the actions onto row two.
+  assert.match(studio, /\.content-item-header\s*\{[^}]*grid-template-columns:\s*30px\s+minmax\(0,\s*1fr\)\s+44px/s);
+  assert.match(studio, /@media\s*\(max-width:\s*420px\)\s*\{[^}]*\.content-item-header\s*\{[^}]*grid-template-columns:\s*30px\s+minmax\(0,\s*1fr\)\s+44px/s);
+  assert.match(studio, /\.content-item-menu-button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
+  assert.match(studio, /\.content-item-menu-item\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(studio, /\.content-item-confirm-actions\s+button\s*\{[^}]*min-height:\s*44px/s);
+  // Both are laid out with `display: grid`, which outranks the user agent's
+  // `[hidden] { display: none }` — without this every card renders its menu
+  // and its delete confirmation open.
+  assert.match(studio, /\.content-item-menu-list\[hidden\],\s*\.content-item-confirm\[hidden\]\s*\{\s*display:\s*none/);
+  // The popover has to escape the card, which style.css clips.
+  assert.match(studio, /\.content-item-card\s*\{[^}]*overflow:\s*visible/s);
+
+  // Five equal columns on a roomy screen; one scrolling chip row below it,
+  // with a mask so the row reads as continuing past the right edge.
+  assert.match(studio, /@media\s*\(min-width:\s*600px\)\s*\{[^}]*\.content-editor-commands\s*\{[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(min-content,\s*1fr\)\)/s);
+  assert.match(studio, /@media\s*\(max-width:\s*599px\)\s*\{[^}]*\.content-editor-commands\s*\{[^}]*overflow-x:\s*auto/s);
+  assert.match(studio, /@media\s*\(max-width:\s*599px\)\s*\{[^}]*\.content-editor-commands\s*\{[^}]*mask-image:\s*linear-gradient/s);
+  assert.doesNotMatch(studio, /\.content-editor-commands\s*\{[^}]*flex-wrap:\s*wrap/s);
+
+  // Chrome colour only: no invitation palette variable may appear in the block.
+  const block = studio.slice(studio.indexOf("/* Item cards and add-item commands"));
+  assert.ok(block.length > 0, "the item-card block should be commented");
+  assert.doesNotMatch(block, /var\(--(?:wine|gold|cream|ink|line|white)/);
+  assert.match(block, /var\(--studio-/);
 });
 
 test("editor offers six English fonts and six Korean fonts", () => {

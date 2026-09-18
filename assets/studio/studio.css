@@ -492,3 +492,78 @@ a:focus-visible { outline-color: var(--studio-focus); }
 .error-panel p { color: var(--studio-ink-soft); }
 .saved-source { color: var(--studio-accent); border-color: var(--studio-line-strong); background: var(--studio-surface-alt); }
 .error-panel code { color: var(--studio-paper); background: var(--studio-ink); }
+
+/* Item cards and add-item commands (B-6, B-7) ----------------------------
+   style.css draws both of these from the invitation palette and is embedded
+   verbatim in every exported invitation, where none of this chrome exists —
+   so the fixes are overrides here rather than edits there.
+
+   B-6: the card header was `[n] [type · summary] [↑][↓][✕]`, and at 390px
+   the three icon buttons could not fit beside the summary, so they wrapped
+   and every card grew a second row. It is a fixed three-column grid now —
+   grip, summary, one ⋯ — that cannot wrap at any width, with the reorder and
+   delete actions inside the menu the ⋯ opens. The grip is a visual affordance
+   only: pointer drag-to-reorder was removed on purpose (it had no keyboard
+   equivalent and its `touch-action: none` stole scroll from a thumb), so the
+   order changes through the menu or Alt+↑/↓, never by dragging.
+
+   B-7: five add buttons right-aligned in a flex row wrapped 4+1 on desktop
+   and 3+2 on a phone, leaving an orphan. Five equal columns above 600px, one
+   scrolling chip row with a faded right edge below it. */
+.content-editor-header { display: block; }
+.content-editor-commands { display: grid; gap: 8px; justify-content: stretch; }
+.content-editor-commands .add-item-button { min-width: 0; padding-inline: 6px; color: var(--studio-accent-ink); border-color: var(--studio-accent); background: var(--studio-accent); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* `min-content` rather than 0 as the column floor: the editor column is about
+   390px wide whatever the viewport is, and five flat 1fr tracks there clip
+   "+ Contact" and "+ 연락처·링크" to an ellipsis. This keeps the five even
+   while they fit and lets the long label take the width it needs. */
+@media (min-width: 600px) {
+  .content-editor-commands { grid-template-columns: repeat(5, minmax(min-content, 1fr)); }
+}
+/* Below the grid the row scrolls sideways instead of wrapping: five chips at
+   their natural width always overflow a phone, and a mask says so at the edge
+   rather than letting the fifth chip end flush and look like the last one. */
+@media (max-width: 599px) {
+  .content-editor-commands { grid-auto-flow: column; grid-auto-columns: max-content; grid-template-columns: none; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-inline: contain; padding-bottom: 2px; scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); }
+  .content-editor-commands::-webkit-scrollbar { display: none; }
+}
+
+/* The popover has to leave the card, which style.css clips. */
+.content-item-card { overflow: visible; }
+.content-item-card.is-open .content-item-header { border-start-start-radius: 7px; border-start-end-radius: 7px; background: var(--studio-surface-alt); border-bottom-color: var(--studio-line); }
+.content-item-header { grid-template-columns: 30px minmax(0, 1fr) 44px; gap: 6px; padding: 8px 8px 8px 6px; }
+.content-item-handle { display: grid; justify-items: center; gap: 4px; }
+.content-item-grip { width: 9px; height: 14px; background-image: radial-gradient(circle at center, var(--studio-control-line) 1px, transparent 1.2px); background-size: 5px 5px; }
+.content-item-position { margin-inline-start: 0; color: var(--studio-ink-muted); border-color: var(--studio-line-strong); background: var(--studio-surface-alt); }
+.content-item-menu { position: relative; z-index: 4; }
+.content-item-menu-button { display: grid; width: 44px; height: 44px; place-items: center; padding: 0; color: var(--studio-ink-muted); border: 1px solid transparent; border-radius: 10px; background: transparent; font: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.content-item-menu-button:hover, .content-item-menu-button[aria-expanded="true"] { color: var(--studio-accent-deep); border-color: var(--studio-control-line); background: var(--studio-surface-alt); }
+/* `display: grid` outranks the UA's `[hidden] { display: none }`, so both
+   of these say it again for themselves — without this every card renders
+   its menu and its delete confirmation open. */
+.content-item-menu-list[hidden], .content-item-confirm[hidden] { display: none; }
+.content-item-menu-list { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); display: grid; min-width: 184px; padding: 6px; border: 1px solid var(--studio-line-strong); border-radius: 12px; background: var(--studio-surface); box-shadow: 0 14px 34px rgba(40, 43, 41, .16); }
+.content-item-menu-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 10px; color: var(--studio-ink); border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; text-align: start; white-space: nowrap; cursor: pointer; }
+.content-item-menu-item:hover { background: var(--studio-surface-alt); }
+.content-item-menu-icon { width: 16px; color: var(--studio-ink-muted); font-size: 15px; text-align: center; }
+.content-item-menu-item[aria-disabled="true"] { color: var(--studio-ink-soft); opacity: .45; cursor: not-allowed; }
+.content-item-menu-item[aria-disabled="true"]:hover { background: transparent; }
+.content-item-menu-item.remove-item-button { color: var(--studio-danger); }
+.content-item-menu-item.remove-item-button .content-item-menu-icon { color: var(--studio-danger); }
+
+/* The question sits in the card it is about, so the answer never covers the
+   thing being decided — which is exactly what confirm() did on a phone. */
+.content-item-confirm { display: grid; gap: 10px; padding: 12px; border-top: 1px solid var(--studio-line); background: var(--studio-warn-bg); }
+.content-item-card.is-confirming { border-color: var(--studio-danger); }
+.content-item-confirm-text { margin: 0; color: var(--studio-warn-ink); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.content-item-confirm-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.content-item-confirm-actions button { min-height: 44px; padding: 0 12px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.content-item-confirm-cancel { color: var(--studio-accent); border: 1px solid var(--studio-control-line); background: var(--studio-surface); }
+.content-item-confirm-delete { color: var(--studio-accent-ink); border: 1px solid var(--studio-danger); background: var(--studio-danger); }
+
+/* style.css drops the header's third column onto a second row here, which is
+   the wrap this task exists to remove; one ⋯ always fits, so it stays. */
+@media (max-width: 420px) {
+  .content-item-header { grid-template-columns: 30px minmax(0, 1fr) 44px; }
+  .content-item-menu-list { min-width: 168px; }
+}

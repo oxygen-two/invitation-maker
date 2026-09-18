@@ -445,16 +445,43 @@ const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-ca
   }
 });
 
-const renderItemActions = (item, index, itemCount) => {
+/* B-6. Three always-visible icon buttons could not share a 390px header row
+   with the item's type and summary, so they wrapped onto a second line and
+   doubled the height of every card. They live behind one ⋯ button now: the
+   header is a fixed three-column grid — grip, summary, menu — that cannot
+   wrap at any width, and the menu is a plain hidden <div role="menu"> the
+   button shows, because a popover here needs no library and no dependency.
+   The actions keep their data-item-action names, so the click handler, the
+   focus restore after a move, and Alt+↑/↓ all address them unchanged. */
+const renderItemMenu = (item, index, itemCount, menuId) => {
   const type = itemTypeLabel(item.type);
+  const menuLabel = escapeAttribute(t("content.menuLabel", { type }));
   return `
-    <div class="item-editor-actions">
-      <button class="item-icon-button" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}" title="${escapeAttribute(t("content.moveUpTitle"))}">↑</button>
-      <button class="item-icon-button" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}" title="${escapeAttribute(t("content.moveDownTitle"))}">↓</button>
-      <button class="item-icon-button remove-item-button" type="button" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}" title="${escapeAttribute(t("content.removeItemTitle"))}">×</button>
+    <div class="content-item-menu" data-item-menu>
+      <button class="content-item-menu-button" type="button" data-item-menu-button aria-haspopup="true" aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeAttribute(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
+      <div class="content-item-menu-list" id="${menuId}" role="menu" aria-label="${menuLabel}" data-item-menu-list hidden>
+        <button class="content-item-menu-item" type="button" role="menuitem" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeAttribute(t("content.moveUpTitle"))}</button>
+        <button class="content-item-menu-item" type="button" role="menuitem" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeAttribute(t("content.moveDownTitle"))}</button>
+        <button class="content-item-menu-item remove-item-button" type="button" role="menuitem" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeAttribute(t("content.removeItemTitle"))}</button>
+      </div>
     </div>
   `;
 };
+
+/* The delete step used to be window.confirm: the one dialog in the studio
+   that cannot be translated, styled, or dismissed the way every other one
+   is, and on a phone it covers the card you are deciding about. This row is
+   rendered with every card and stays hidden until Delete is chosen, so the
+   question and the answer sit inside the thing being deleted. */
+const renderItemConfirm = (item, index, confirmId) => `
+  <div class="content-item-confirm" id="${confirmId}" data-item-confirm role="group" aria-label="${escapeAttribute(t("content.removeItemTitle"))}" hidden>
+    <p class="content-item-confirm-text" data-item-confirm-text>${escapeAttribute(t("content.confirmDelete", { name: getDeleteItemName(item, index) }))}</p>
+    <div class="content-item-confirm-actions">
+      <button class="content-item-confirm-cancel" type="button" data-item-action="cancel-delete">${escapeAttribute(t("content.cancel"))}</button>
+      <button class="content-item-confirm-delete" type="button" data-item-action="confirm-delete">${escapeAttribute(t("content.removeItemTitle"))}</button>
+    </div>
+  </div>
+`;
 
 const renderCourseFields = (item, bodyId, isOpen) => {
   const checked = item.mapEnabled ? " checked" : "";
@@ -750,21 +777,27 @@ const renderContentEditor = (items = [], openId = items[0]?.id) => {
   dom.contentEditor.innerHTML = items.map((item, index) => {
     const isOpen = item.id === openId;
     const bodyId = `content-editor-body-${index}`;
+    const menuId = `content-editor-menu-${index}`;
+    const confirmId = `content-editor-confirm-${index}`;
     const typeLabel = itemTypeLabel(item.type);
     const primarySummary = getItemPrimarySummary(item);
     const secondarySummary = getItemSecondarySummary(item);
     return `
       <article class="content-item-card ${escapeAttribute(item.type)}-editor-card${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
         <div class="content-item-header">
-          <span class="content-item-position" aria-hidden="true">${index + 1}</span>
+          <span class="content-item-handle" aria-hidden="true">
+            <span class="content-item-grip"></span>
+            <span class="content-item-position" aria-hidden="true">${index + 1}</span>
+          </span>
           <button class="content-item-toggle" type="button" data-toggle-item aria-expanded="${isOpen}" aria-controls="${bodyId}">
             <span class="content-item-heading">
               <strong>${escapeAttribute(typeLabel)} · <span data-item-secondary-summary>${escapeAttribute(secondarySummary)}</span></strong>
               <span data-item-summary>${escapeAttribute(primarySummary)}</span>
             </span>
           </button>
-          ${renderItemActions(item, index, items.length)}
+          ${renderItemMenu(item, index, items.length, menuId)}
         </div>
+        ${renderItemConfirm(item, index, confirmId)}
         ${renderItemFields(item, bodyId, isOpen)}
       </article>
     `;
@@ -781,6 +814,59 @@ const setItemExpanded = (card, isOpen) => {
 
 const findItemCard = (itemId) => [...dom.contentEditor.querySelectorAll("[data-item-card]")]
   .find((card) => card.dataset.itemId === itemId);
+
+/* One menu open at a time, and never a menu open over a pending delete: both
+   are card-local state that a re-render throws away, so nothing here has to
+   be unwound when renderContentEditor replaces the markup. */
+const closeItemMenu = (card) => {
+  const button = card?.querySelector("[data-item-menu-button]");
+  const list = card?.querySelector("[data-item-menu-list]");
+  if (!button || !list) return;
+  button.setAttribute("aria-expanded", "false");
+  list.hidden = true;
+};
+
+const closeAllItemMenus = () => {
+  [...dom.contentEditor.querySelectorAll("[data-item-card]")].forEach(closeItemMenu);
+};
+
+const setItemMenuOpen = (card, isOpen) => {
+  closeAllItemMenus();
+  if (!card || !isOpen) return;
+  card.querySelector("[data-item-menu-button]")?.setAttribute("aria-expanded", "true");
+  const list = card.querySelector("[data-item-menu-list]");
+  if (list) list.hidden = false;
+};
+
+const isItemMenuOpen = (card) => card?.querySelector("[data-item-menu-list]")?.hidden === false;
+
+const openItemMenuFor = (itemId, focusSelector) => {
+  const card = findItemCard(itemId);
+  if (!card) return;
+  setItemMenuOpen(card, true);
+  card.querySelector(focusSelector)?.focus();
+};
+
+const closeItemConfirm = (card, { focusMenu = false } = {}) => {
+  const confirmRow = card?.querySelector("[data-item-confirm]");
+  if (!confirmRow || confirmRow.hidden !== false) return false;
+  confirmRow.hidden = true;
+  card.classList.remove("is-confirming");
+  if (focusMenu) card.querySelector("[data-item-menu-button]")?.focus();
+  return true;
+};
+
+const openItemConfirm = (card, index) => {
+  const confirmRow = card?.querySelector("[data-item-confirm]");
+  if (!confirmRow) return;
+  closeAllItemMenus();
+  const item = getItemsData()[index];
+  const text = card.querySelector("[data-item-confirm-text]");
+  if (text && item) text.textContent = t("content.confirmDelete", { name: getDeleteItemName(item, index) });
+  confirmRow.hidden = false;
+  card.classList.add("is-confirming");
+  card.querySelector('[data-item-action="cancel-delete"]')?.focus();
+};
 
 const restoreMobileScroll = (top) => {
   const target = Math.max(0, Number(top) || 0);
@@ -1845,6 +1931,7 @@ const getFocusedItemContext = () => {
 
   let selector = null;
   if (activeElement.matches("[data-toggle-item]")) selector = "[data-toggle-item]";
+  if (activeElement.matches("[data-item-menu-button]")) selector = "[data-item-menu-button]";
   if (activeElement.dataset.itemAction) selector = `[data-item-action="${activeElement.dataset.itemAction}"]`;
   if (activeElement.dataset.courseField) selector = `[data-course-field="${activeElement.dataset.courseField}"]`;
   if (activeElement.dataset.photoField) selector = `[data-photo-field="${activeElement.dataset.photoField}"]`;
@@ -2405,10 +2492,37 @@ dom.heroImageFrame.addEventListener("pointercancel", finishHeroImageDrag);
 dom.heroImageFrame.addEventListener("lostpointercapture", finishHeroImageDrag);
 dom.heroImageFrame.addEventListener("keydown", moveHeroImageByKeyboard);
 
+const removeItemAt = (index) => {
+  const items = getItemsData();
+  const item = items[index];
+  if (!item) return;
+
+  const openId = getOpenItemId();
+  items.splice(index, 1);
+  markAnalyticsEdit();
+  const focusId = items[Math.min(index, items.length - 1)]?.id || null;
+  const nextOpenId = openId === item.id
+    ? focusId
+    : openId;
+  renderContentEditor(items, nextOpenId);
+  renderPreview();
+  if (!focusId || !focusItemControl(focusId)) dom.addCourse.focus();
+};
+
 dom.contentEditor.addEventListener("click", (event) => {
+  const menuButton = event.target.closest("[data-item-menu-button]");
+  if (menuButton) {
+    const card = menuButton.closest("[data-item-card]");
+    const wasOpen = isItemMenuOpen(card);
+    closeItemConfirm(card);
+    setItemMenuOpen(card, !wasOpen);
+    return;
+  }
+
   const toggle = event.target.closest("[data-toggle-item]");
   if (toggle) {
     const card = toggle.closest("[data-item-card]");
+    closeAllItemMenus();
     setItemExpanded(card, card.querySelector("[data-item-body]").hidden);
     return;
   }
@@ -2423,26 +2537,64 @@ dom.contentEditor.addEventListener("click", (event) => {
   if (action === "up" || action === "down") {
     if (button.getAttribute("aria-disabled") === "true") return;
     const toIndex = action === "up" ? index - 1 : index + 1;
-    commitItemMove(index, toIndex, `[data-item-action="${action}"]`);
+    /* The menu the author reached for is gone with the old markup, so it is
+       re-opened on the card in its new place: moving an item three rows up
+       stays three presses rather than three round trips through the ⋯. */
+    const movedId = commitItemMove(index, toIndex, `[data-item-action="${action}"]`);
+    if (movedId) openItemMenuFor(movedId, `[data-item-action="${action}"]`);
     return;
   }
 
-  if (action !== "delete") return;
-  const items = getItemsData();
-  const item = items[index];
-  const itemName = getDeleteItemName(item, index);
-  if (!window.confirm(t("content.confirmRemove", { name: itemName }))) return;
+  if (action === "delete") {
+    openItemConfirm(card, index);
+    return;
+  }
 
-  const openId = getOpenItemId();
-  items.splice(index, 1);
-  markAnalyticsEdit();
-  const focusId = items[Math.min(index, items.length - 1)]?.id || null;
-  const nextOpenId = openId === item.id
-    ? focusId
-    : openId;
-  renderContentEditor(items, nextOpenId);
-  renderPreview();
-  if (!focusId || !focusItemControl(focusId)) dom.addCourse.focus();
+  if (action === "cancel-delete") {
+    closeItemConfirm(card, { focusMenu: true });
+    return;
+  }
+
+  if (action !== "confirm-delete") return;
+  removeItemAt(index);
+});
+
+/* Escape is the studio's one dismissal gesture: it takes back the pending
+   delete before it closes the menu, so the destructive state is always the
+   first thing the key undoes. */
+dom.contentEditor.addEventListener("keydown", (event) => {
+  const card = event.target.closest?.("[data-item-card]");
+  if (!card) return;
+
+  if (event.key === "Escape") {
+    if (closeItemConfirm(card, { focusMenu: true })) {
+      event.preventDefault?.();
+      return;
+    }
+    if (!isItemMenuOpen(card)) return;
+    closeItemMenu(card);
+    card.querySelector("[data-item-menu-button]")?.focus();
+    event.preventDefault?.();
+    return;
+  }
+
+  if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+  // macOS gives Option+↑/↓ to the caret inside a field, so the shortcut only
+  // answers on the card's own chrome — which is where a reorder is decided.
+  if (/^(?:INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName || "")) return;
+
+  const cards = [...dom.contentEditor.querySelectorAll("[data-item-card]")];
+  const index = cards.indexOf(card);
+  const toIndex = event.key === "ArrowUp" ? index - 1 : index + 1;
+  if (index < 0 || toIndex < 0 || toIndex >= cards.length) return;
+  event.preventDefault?.();
+  commitItemMove(index, toIndex, getFocusedItemContext()?.selector || "[data-toggle-item]");
+});
+
+// A menu is a transient overlay: anything clicked outside it dismisses it.
+document.addEventListener("click", (event) => {
+  if (event.target.closest?.("[data-item-menu]")) return;
+  closeAllItemMenus();
 });
 
 dom.contentEditor.addEventListener("input", (event) => {

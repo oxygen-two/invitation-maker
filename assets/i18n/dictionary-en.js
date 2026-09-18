@@ -224,6 +224,10 @@
       removeItem: "Delete this {type}",
       removeItemTitle: "Delete this item",
       confirmRemove: "Delete the “{name}” item?",
+      menu: "More actions",
+      menuLabel: "Actions for this {type}",
+      confirmDelete: "Delete “{name}”?",
+      cancel: "Cancel",
 
       fallbackCourse: "Course {index}",
       fallbackPhoto: "Photo {index}",
