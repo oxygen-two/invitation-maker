@@ -64,7 +64,14 @@ h3 { font-size: 18px; }
 .hero-media::after { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); aspect-ratio: 1; width: calc(min(88%, 460px) * 0.84); border: 1px dashed #b7c3b5; border-radius: 50%; }
 .phone { position: relative; width: min(300px, 100%); border-radius: 36px; padding: 12px; background: var(--ink); box-shadow: 0 30px 40px -24px #283d3260; transform: rotate(-4deg); }
 .phone img { display: block; width: 100%; height: auto; border-radius: 26px; background: #fff; }
-.seal { position: absolute; right: -8px; bottom: 22px; width: 48px; height: 48px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 19px; border: 4px solid var(--paper); }
+/* Positive insets (matching the error pages' own .seal) rather than the
+   earlier negative right/bottom offset: those were measured against
+   .hero-media's own padding box (its positioned ancestor), not against
+   .phone, so "right: -8px" placed the seal 8px past .hero-media's right
+   edge — past the overflow:hidden clip that also contains the backdrop
+   circle — clipping about a third of it off. A positive percentage inset
+   can't ever exceed the containing box on that axis. */
+.seal { position: absolute; right: 4%; bottom: 10%; width: 48px; height: 48px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 19px; border: 4px solid var(--paper); }
 .step-number { display: block; font-family: Georgia, "Times New Roman", serif; font-size: 44px; line-height: 1; color: var(--green); margin-bottom: 6px; }
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .step { padding: 20px; border: 1px solid var(--line); border-radius: 14px; background: #fff; border-top: 3px solid var(--green); }
