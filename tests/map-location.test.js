@@ -53,11 +53,12 @@ test("resolve rejects empty and unsuccessful geocoder results", async () => {
 
   await assert.rejects(() => MapLocation.resolve(maps, ""), (error) => {
     assert.equal(error.code, "EMPTY_QUERY");
-    return /장소 또는 주소/.test(error.message);
+    // The studio picks the wording from the code; the message is machine text.
+    return error.message === "EMPTY_QUERY";
   });
   await assert.rejects(() => MapLocation.resolve(maps, "존재하지 않는 장소"), (error) => {
     assert.equal(error.code, "NOT_FOUND");
-    return /찾지 못했습니다/.test(error.message);
+    return error.message === "NOT_FOUND";
   });
 });
 
@@ -73,7 +74,7 @@ test("resolve identifies unavailable geocoding separately from an empty result",
 
   await assert.rejects(() => MapLocation.resolve(maps, "서울 성동구 성수이로 88"), (error) => {
     assert.equal(error.code, "SERVICE_UNAVAILABLE");
-    return /사용할 수 없습니다/.test(error.message);
+    return error.message === "SERVICE_UNAVAILABLE";
   });
 });
 

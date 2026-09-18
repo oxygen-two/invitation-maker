@@ -17,6 +17,20 @@ const I18n = globalThis.InvitationI18n;
 const t = (key, values) => I18n?.t(key, values) ?? String(key);
 const percent = (value) => I18n?.formatPercent(value) ?? `${value}%`;
 
+/* assets/media/image-tools.js throws a code and no words, because it cannot
+   know the reader's language. The wording is chosen here, at the moment the
+   failure is printed, so a language switch between picking a file and seeing
+   it fail still reads correctly. An unrecognised code — or any other thrown
+   error — falls back to the generic line rather than leaking a raw message. */
+const IMAGE_ERROR_KEYS = Object.freeze({
+  type: "errors.image.type",
+  "source-size": "errors.image.sourceSize",
+  decode: "errors.image.decode",
+  "encoded-size": "errors.image.encodedSize"
+});
+const describeImageError = (error) =>
+  t(IMAGE_ERROR_KEYS[error?.code] || "errors.image.generic");
+
 /* The language an invitation rendered HERE is built in.
 
    Everything the studio renders — the live preview, the gallery thumbnails,
@@ -287,10 +301,17 @@ const mountPreviewFrame = () => new Promise((resolve) => {
   }, studioChrome());
 });
 
+/* The Hangul syllables block, 가-힣, written as escapes. It is a set of legal
+   filename characters and not copy, but spelling it literally would be the one
+   Hangul string left in this file and would have to be exempted from every
+   "no Korean outside the dictionaries" check. */
+const HANGUL_RANGE = "\\uac00-\\ud7a3";
+const FILENAME_SEPARATORS = new RegExp(`[^\\w${HANGUL_RANGE}-]+`, "g");
+
 const sanitizeFilename = (value) =>
   String(value || "invitation")
     .trim()
-    .replace(/[^\w가-힣-]+/g, "-")
+    .replace(FILENAME_SEPARATORS, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 48) || "invitation";
@@ -1921,10 +1942,7 @@ const handlePhotoSelection = async () => {
         };
         compressedPhotos.push({ fileName: file.name, index, item });
       } catch (error) {
-        const reason = error instanceof ImageTools.ImageError
-          ? error.message
-          : t("content.imageFailed");
-        statuses[index] = t("content.photoFailed", { file: file.name, reason });
+        statuses[index] = t("content.photoFailed", { file: file.name, reason: describeImageError(error) });
       }
     }
 
@@ -1980,10 +1998,8 @@ const handleHeroImageSelection = async () => {
     renderPreview();
     dom.heroImageStatus.textContent = t("hero.added", { file: file.name });
   } catch (error) {
-    const reason = error instanceof ImageTools.ImageError
-      ? error.message
-      : t("content.imageFailed");
-    dom.heroImageStatus.textContent = t("content.photoFailed", { file: file.name, reason });
+    dom.heroImageStatus.textContent =
+      t("content.photoFailed", { file: file.name, reason: describeImageError(error) });
   } finally {
     dom.heroImageInput.value = "";
     heroImageSelectionPending = false;

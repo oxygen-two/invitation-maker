@@ -112,10 +112,10 @@ test("exports the fixed IndexedDB repository contract", () => {
   assert.equal(typeof InvitationStorage.remove, "function");
 });
 
-test("open rejects clearly when IndexedDB is unavailable", async () => {
+test("open rejects with a machine code when IndexedDB is unavailable", async () => {
   await assert.rejects(
     () => InvitationStorage.open(undefined),
-    /IndexedDB.*사용할 수 없습니다/i
+    (error) => error.code === "IDB_UNAVAILABLE" && error.message === "IDB_UNAVAILABLE"
   );
 });
 
@@ -173,7 +173,7 @@ test("open closes a database connection that succeeds after a blocked rejection"
   const openPromise = InvitationStorage.open(indexedDB);
 
   request.onblocked();
-  await assert.rejects(openPromise, /업그레이드가 차단되었습니다/);
+  await assert.rejects(openPromise, (error) => error.code === "IDB_UPGRADE_BLOCKED");
   request.result = database;
   request.onsuccess();
 

@@ -127,6 +127,26 @@
     (I18n?.normalizeLanguage?.(value) ?? null) || DEFAULT_CHROME_LANGUAGE;
   const t = (key, language) => I18n?.t(key, undefined, language) ?? String(key);
 
+  /* The blank invitation. Its structure lives here; its words do not.
+
+     Everything a person reads — title, subtitle, location, message, and the
+     four course placeholders — is a dictionary key resolved when the default
+     is actually taken, so a studio opened in English starts in English instead
+     of showing the Korean the product was designed in. The four course LABELS
+     (MEET/CAFE/WALK/DINNER) stay as they are: they are the same letterspaced
+     typography the templates print, not copy (see docs/i18n.md).
+
+     Unlike the invitation's baked chrome, this resolves against the ACTIVE
+     language rather than DEFAULT_CHROME_LANGUAGE. A finished invitation is a
+     document and must not re-language itself; a blank one is a starting point
+     and should meet its author in their own language. */
+  const DEFAULT_COURSES = Object.freeze([
+    Object.freeze({ time: "14:00", label: "MEET", key: "Meet" }),
+    Object.freeze({ time: "15:00", label: "CAFE", key: "Cafe" }),
+    Object.freeze({ time: "17:00", label: "WALK", key: "Walk" }),
+    Object.freeze({ time: "19:00", label: "DINNER", key: "Dinner" })
+  ]);
+
   const defaultInvitation = {
     templateId: "royal",
     heroImage: null,
@@ -143,19 +163,35 @@
     mapLatitude: null,
     mapLongitude: null,
     mapZoom: 16,
-    title: "우리의 특별한 하루",
-    subtitle: "당신을 위해 준비한 초대장",
+    titleKey: "invitation.defaultTitle",
+    subtitleKey: "invitation.defaultSubtitle",
     dateLabel: "2026.09.12 SAT 14:00",
     host: "From. Rin",
-    location: "장소를 입력하세요",
+    locationKey: "invitation.defaultLocation",
     mapUrl: "",
-    message: "함께 걷고, 이야기하고, 오래 기억할 하루를 준비했어요.",
-    stops: [
-      { time: "14:00", label: "MEET", place: "만남 장소", note: "첫 만남 위치를 적어주세요." },
-      { time: "15:00", label: "CAFE", place: "카페", note: "대화하기 좋은 장소를 넣어주세요." },
-      { time: "17:00", label: "WALK", place: "산책", note: "날씨에 맞는 동선을 적어주세요." },
-      { time: "19:00", label: "DINNER", place: "저녁", note: "예약 정보나 추천 메뉴를 적어주세요." }
-    ]
+    messageKey: "invitation.defaultMessage"
+  };
+
+  /* The blank invitation's words, for one language. `defaultInvitation` above
+     holds only the parts that are the same in every language; this is what
+     callers and normalizeInvitation actually fall back to. */
+  const createDefaultInvitation = (language) => {
+    const lang = chromeLanguage(language ?? I18n?.getLanguage?.());
+    const { titleKey, subtitleKey, locationKey, messageKey, ...structure } = defaultInvitation;
+
+    return {
+      ...structure,
+      title: t(titleKey, lang),
+      subtitle: t(subtitleKey, lang),
+      location: t(locationKey, lang),
+      message: t(messageKey, lang),
+      stops: DEFAULT_COURSES.map(({ time, label, key }) => ({
+        time,
+        label,
+        place: t(`invitation.defaultCourse${key}Place`, lang),
+        note: t(`invitation.defaultCourse${key}Note`, lang)
+      }))
+    };
   };
 
   const particleEffects = new Set(["none", "petals", "hearts", "sparkle", "fireflies", "bubbles", "snow", "leaves", "confetti"]);
@@ -367,10 +403,10 @@
     mapZoom: item.mapZoom
   });
 
-  const normalizeItems = (input) => {
+  const normalizeItems = (input, blank = createDefaultInvitation()) => {
     const sourceItems = Array.isArray(input.items)
       ? input.items
-      : normalizeStops(input.stops || defaultInvitation.stops).map((stop) => ({ type: "course", ...stop }));
+      : normalizeStops(input.stops || blank.stops).map((stop) => ({ type: "course", ...stop }));
     const usedIds = new Set();
     let photoCount = 0;
     const normalized = [];
@@ -408,7 +444,8 @@
       : defaultInvitation.mapZoom;
     const requestedMap = input.mapEnabled === true || input.mapEnabled === "true" || input.mapEnabled === "on";
     const particleScale = input.particleScale ?? legacyParticleScales[input.particleSize];
-    const items = normalizeItems(input);
+    const blank = createDefaultInvitation();
+    const items = normalizeItems(input, blank);
     const stops = items
       .filter((item) => item.type === "course")
       .map(itemToStop);
@@ -426,17 +463,17 @@
       naverMapClientId: normalizeClientId(input.naverMapClientId),
       googleMapsApiKey: normalizeClientId(input.googleMapsApiKey),
       mapProvider: normalizeMapProvider(input.mapProvider),
-      title: input.title ?? defaultInvitation.title,
-      subtitle: input.subtitle ?? defaultInvitation.subtitle,
+      title: input.title ?? blank.title,
+      subtitle: input.subtitle ?? blank.subtitle,
       dateLabel: input.dateLabel ?? sampleDateLabel(),
       host: input.host ?? defaultInvitation.host,
-      location: input.location ?? defaultInvitation.location,
+      location: input.location ?? blank.location,
       mapUrl: normalizeMapUrl(input.mapUrl, input.mapUrl === undefined ? defaultInvitation.mapUrl : ""),
       mapEnabled: requestedMap && mapLatitude !== null && mapLongitude !== null,
       mapLatitude,
       mapLongitude,
       mapZoom,
-      message: input.message ?? defaultInvitation.message,
+      message: input.message ?? blank.message,
       items,
       stops
     };
@@ -774,6 +811,7 @@ ${introRuntime}
     MAX_PHOTOS,
     MAX_STOPS,
     defaultInvitation,
+    createDefaultInvitation,
     getInvitationStyle,
     normalizeInvitation,
     readStandaloneLanguage,
