@@ -623,7 +623,13 @@ const loadEditorHarness = ({
       async remove() {}
     },
     URL,
-    fetch: async () => ({ ok: true, json: async () => JSON.parse(read("invitation-data.json")) }),
+    /* Served off disk by path, so a language switch reads the real content
+       overlay instead of the Korean base data a second time. */
+    fetch: async (resource) => {
+      const file = String(resource).split("?")[0];
+      const served = file === "invitation-data.json" || /^assets\/i18n\/content-[a-z-]+\.json$/.test(file);
+      return { ok: served && fs.existsSync(path.join(root, file)), json: async () => JSON.parse(read(file)) };
+    },
     __previewRenders: 0,
     __fillFormCalls: 0,
     clearTimeout,
@@ -1987,6 +1993,117 @@ test("successful template apply fills once and undo restores the previous normal
   assert.equal(harness.api.state.undoSnapshot, null);
   assert.equal(harness.node("#undo-template-button").hidden, true);
   assert.equal(harness.document.activeElement.dataset.templateId, "royal");
+});
+
+/* Language switching after a design was applied ----------------------------
+   The studio's rule is about authorship, not about how far the author has
+   got: sample content is ours until they type over it, so it follows the
+   switcher, while anything they wrote is their document and is never
+   retranslated. These drive the real switcher, because handleLanguageChange
+   is what has to hold that rule, and they hand Korean back so the tests
+   after them still read the base data. */
+const englishContent = () => JSON.parse(read("assets/i18n/content-en.json"));
+const englishSample = (templateId) => englishContent().templates[templateId].defaults;
+const HANGUL = /[ㄱ-ㆎ가-힣]/;
+
+const switchLanguage = async (language) => {
+  InvitationI18n.setLanguage(language, { persist: false });
+  // The switch re-reads the content overlay, so let its awaits settle.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
+
+const startedEditor = async () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+  await harness.api.loadInitialData();
+  harness.api.fillForm(harness.api.state.invitation);
+  harness.api.renderTemplates();
+  return harness;
+};
+
+const applyDesign = (harness, occasionId, templateId) => {
+  harness.node("#occasion-list").dispatch("click", {
+    target: harness.node("#occasion-list").buttons.find((button) => button.dataset.occasionId === occasionId)
+  });
+  harness.node("#template-list").dispatch("click", {
+    target: harness.node("#template-list").buttons.find((button) => button.dataset.templateId === templateId)
+  });
+  harness.node("#apply-template-button").dispatch("click", { target: harness.node("#apply-template-button") });
+};
+
+const itemById = (harness, id) => harness.api.getItemsData().find((item) => item.id === id);
+
+test("an applied design's untouched sample follows a later language switch", async () => {
+  const harness = await startedEditor();
+  const english = englishSample("modern");
+
+  applyDesign(harness, "birthday", "modern");
+  // Nothing has been typed: the draft is still Korean sample text of ours.
+  assert.match(harness.node("#invitation-form").elements.subtitle.value, HANGUL);
+
+  try {
+    await switchLanguage("en");
+
+    const form = harness.node("#invitation-form").elements;
+    assert.equal(form.title.value, english.title);
+    assert.equal(form.subtitle.value, english.subtitle);
+    assert.equal(form.message.value, english.message);
+    assert.equal(form.host.value, english.host);
+    assert.equal(itemById(harness, "profile-1").name, english.items["profile-1"].name);
+    assert.equal(itemById(harness, "notice-1").heading, english.items["notice-1"].heading);
+    assert.equal(itemById(harness, "course-1").place, english.items["course-1"].place);
+    // The design the author chose is untouched: only the words changed.
+    assert.equal(harness.api.state.activeTemplate, "modern");
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+test("a design applied after a language switch carries no Korean sample text", async () => {
+  const harness = await startedEditor();
+
+  applyDesign(harness, "birthday", "modern");
+
+  try {
+    await switchLanguage("en");
+    applyDesign(harness, "birthday", "color-pop");
+
+    const form = harness.node("#invitation-form").elements;
+    assert.equal(harness.api.state.activeTemplate, "color-pop");
+    // A second apply preserves what is on the page, which is English by now.
+    assert.equal(form.title.value, englishSample("modern").title);
+    for (const field of ["title", "subtitle", "message", "host", "location"]) {
+      assert.doesNotMatch(form[field].value, HANGUL, `${field} kept Korean sample text`);
+    }
+    for (const item of harness.api.getItemsData()) {
+      assert.doesNotMatch(JSON.stringify(item), HANGUL, `${item.id} kept Korean sample text`);
+    }
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+test("a language switch never retranslates content the author edited", async () => {
+  const harness = await startedEditor();
+
+  applyDesign(harness, "birthday", "modern");
+  const form = harness.node("#invitation-form").elements;
+  // What the author types is what the form carries; the app reads the form
+  // back and compares it with the applied baseline to know it is theirs.
+  form.title.value = "민아의 서른 번째 생일";
+  const untranslated = itemById(harness, "notice-1").heading;
+
+  try {
+    await switchLanguage("en");
+
+    assert.equal(form.title.value, "민아의 서른 번째 생일");
+    // Their draft stays whole — the rest of it is not retranslated either.
+    assert.equal(itemById(harness, "notice-1").heading, untranslated);
+    // ...while the chrome around it does follow the switch.
+    assert.ok(harness.node("#template-list").innerHTML.includes(englishContent().templates.modern.name),
+      harness.node("#template-list").innerHTML.slice(0, 400));
+  } finally {
+    await switchLanguage("ko");
+  }
 });
 
 test("template prepare errors preserve draft state and report failure status", async () => {
