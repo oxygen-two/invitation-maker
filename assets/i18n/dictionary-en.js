@@ -462,7 +462,10 @@
       remove: "Delete",
       confirmRemove: "Remove “{title}” from the list?",
       untitled: "Untitled Invitation",
-      unknownDate: "No date"
+      unknownDate: "No date",
+      publishedTitle: "Published links",
+      publishedBody: "The public links made from this browser. This browser is also the only one that can take them down.",
+      thumbnailAlt: "Preview of {title}"
     },
 
     /* shared.html — the page a GUEST lands on at /i/<id>. Follows the

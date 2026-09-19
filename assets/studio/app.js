@@ -205,6 +205,10 @@ const setStudioStage = (stage) => {
   setMobileView(stage === 'finish' ? 'preview' : stage === 'library' ? 'library' : 'editor');
   window.scrollTo(0, 0);
   if (stage === 'gallery') requestAnimationFrame(syncTemplateThumbnailScales);
+  if (stage === 'library') {
+    renderLibraryPublications();
+    requestAnimationFrame(fillSavedThumbnails);
+  }
 };
 
 const dom = {
@@ -248,6 +252,7 @@ const dom = {
   uploadDropzone: document.querySelector(".upload-dropzone"),
   uploadStatus: document.querySelector("#upload-status"),
   savedList: document.querySelector("#saved-list"),
+  libraryPublications: document.querySelector("#library-publications"),
   particleScaleOutput: document.querySelector("[data-particle-scale-output]"),
   particleAmountOutput: document.querySelector("[data-particle-amount-output]"),
   mobileTabs: [...document.querySelectorAll(".mobile-view-tabs button[data-mobile-view]")]
@@ -678,6 +683,20 @@ const mountPublishing = () => {
     validate: () => validateForExport() && confirmReplyContact(),
     isBusy: hasPendingEditorOperation
   });
+};
+
+/* The library lists the same publications the share dialog does, from the same
+   browser store, so taking a link down does not mean remembering which dialog
+   it was behind. */
+let libraryPublicationList;
+const renderLibraryPublications = () => {
+  if (!dom.libraryPublications) return;
+  if (!libraryPublicationList) {
+    libraryPublicationList = globalThis.InvitationPublishing?.mountPublicationList?.({
+      node: dom.libraryPublications
+    });
+  }
+  libraryPublicationList?.render?.();
 };
 
 const syncTemplateAvailability = () => {
@@ -1566,34 +1585,40 @@ const mirrorThumbnailHeadingRules = (documentRef) => {
   }
 };
 
-const renderTemplateThumbnail = (template) => {
-  const rendered = InvitationCore.renderInvitationBody({
-    ...template.defaults,
-    templateId: template.id,
-    layoutFamily: template.familyId,
-    particleEffect: "none",
-    introEffect: "none",
-    mapEnabled: false
-  }, studioChrome());
+/* One invitation's hero, scaled into a card-sized box: what a gallery card
+   shows for a design, and what a library card shows for a saved invitation. */
+const heroThumbnailMarkup = (invitation) => {
+  const rendered = InvitationCore.renderInvitationBody(invitation, studioChrome());
   const article = rendered.match(/<article\b[^>]*>/i)?.[0];
   const hero = rendered.match(/<(header|section)\b[^>]*class=["'][^"']*\binvite-hero\b[^"']*["'][^>]*>[\s\S]*?<\/\1>/i)?.[0];
   if (!article || !hero) return "";
   return `${article.replace(/>$/, ' data-template-thumbnail aria-hidden="true" inert>')}${demoteThumbnailOutline(hero)}</article>`;
 };
 
+const scaleThumbnail = (viewport) => {
+  const thumbnail = viewport?.querySelector("[data-template-thumbnail]");
+  const hero = thumbnail?.querySelector(".invite-hero");
+  const width = viewport?.getBoundingClientRect().width || 0;
+  if (!thumbnail || !hero || width <= 0) return;
+  const heroHeight = Math.max(hero.scrollHeight || 0, hero.offsetHeight || 0);
+  const scale = Math.min(width / 430, viewport.clientHeight / (heroHeight || 1));
+  thumbnail.style.setProperty("--template-thumbnail-scale", String(scale));
+  thumbnail.style.setProperty("--template-thumbnail-left", `${(width - 430 * scale) / 2}px`);
+};
+
+const renderTemplateThumbnail = (template) => heroThumbnailMarkup({
+  ...template.defaults,
+  templateId: template.id,
+  layoutFamily: template.familyId,
+  particleEffect: "none",
+  introEffect: "none",
+  mapEnabled: false
+});
+
 const syncTemplateThumbnailScales = () => {
   templateThumbnailObserver?.disconnect();
   const viewports = [...dom.templates.querySelectorAll("[data-template-thumbnail-viewport]")];
-  const resize = (viewport) => {
-    const thumbnail = viewport.querySelector("[data-template-thumbnail]");
-    const hero = thumbnail?.querySelector(".invite-hero");
-    const width = viewport.getBoundingClientRect().width;
-    if (!thumbnail || !hero || width <= 0) return;
-    const heroHeight = Math.max(hero.scrollHeight || 0, hero.offsetHeight || 0);
-    const scale = Math.min(width / 430, viewport.clientHeight / (heroHeight || 1));
-    thumbnail.style.setProperty("--template-thumbnail-scale", String(scale));
-    thumbnail.style.setProperty("--template-thumbnail-left", `${(width - 430 * scale) / 2}px`);
-  };
+  const resize = scaleThumbnail;
   viewports.forEach(resize);
   if (typeof ResizeObserver !== "function") return;
   templateThumbnailObserver = new ResizeObserver((entries) => entries.forEach(({ target }) => resize(target.closest('[data-template-thumbnail-viewport]'))));
@@ -1928,6 +1953,7 @@ const renderSaved = () => {
 
   dom.savedList.innerHTML = state.saved.map((item) => `
     <article class="saved-item">
+      <div class="saved-thumbnail" data-saved-thumbnail data-id="${escapeAttribute(item.id)}" role="img" aria-label="${escapeAttribute(t("library.thumbnailAlt", { title: item.title }))}"></div>
       <div class="saved-item-copy">
         <strong>${escapeAttribute(item.title)}</strong>
         <div class="saved-item-meta">
@@ -1942,6 +1968,61 @@ const renderSaved = () => {
       </div>
     </article>
   `).join("");
+  fillSavedThumbnails();
+};
+
+/* A library card used to be a title and a date, so two invitations with the
+   same title were indistinguishable. Each card now shows the invitation it
+   holds, rendered the way a gallery card is: the hero only, scaled down,
+   inert. Parsing a stored file is not free — it may carry photos — so it
+   happens when the card comes into view, and the markup is kept per id. */
+const savedThumbnailMarkup = new Map();
+
+const savedThumbnailFor = (item) => {
+  if (savedThumbnailMarkup.has(item.id)) return savedThumbnailMarkup.get(item.id);
+  let markup = "";
+  try {
+    const invitation = parseInvitationHtml(item.html);
+    markup = heroThumbnailMarkup({ ...invitation, particleEffect: "none", introEffect: "none", mapEnabled: false });
+  } catch {
+    markup = "";
+  }
+  savedThumbnailMarkup.set(item.id, markup);
+  return markup;
+};
+
+const fillSavedThumbnail = (viewport) => {
+  if (!viewport || viewport.dataset?.filled === "true") return;
+  const item = state.saved.find((saved) => saved.id === viewport.dataset?.id);
+  if (!item) return;
+  const markup = savedThumbnailFor(item);
+  viewport.dataset.filled = "true";
+  if (!markup) return;
+  viewport.innerHTML = markup;
+  // Once now, and once after layout has measured the hero it just received.
+  scaleThumbnail(viewport);
+  setTimeout(() => scaleThumbnail(viewport), 0);
+};
+
+/* Filled a few at a time rather than all at once: a stored invitation may
+   carry photos, and parsing twenty of them in one go would stall the frame the
+   library just painted. The library holds at most MAX_SAVED cards, so there is
+   no need for viewport tracking — and IntersectionObserver never fires in a
+   backgrounded tab, which would leave the cards blank exactly where this was
+   hardest to notice. */
+const fillSavedThumbnails = () => {
+  const found = dom.savedList?.querySelectorAll?.("[data-saved-thumbnail]");
+  const viewports = found ? [...found] : [];
+  if (!viewports.length) return;
+  let index = 0;
+  const step = () => {
+    const slice = viewports.slice(index, index + 3);
+    if (!slice.length) return;
+    slice.forEach(fillSavedThumbnail);
+    index += slice.length;
+    setTimeout(step, 0);
+  };
+  step();
 };
 
 const refreshSaved = async () => {

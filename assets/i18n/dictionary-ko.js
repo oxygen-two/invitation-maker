@@ -469,7 +469,10 @@
       remove: "삭제",
       confirmRemove: "“{title}” 초대장을 목록에서 삭제할까요?",
       untitled: "Untitled Invitation",
-      unknownDate: "날짜 정보 없음"
+      unknownDate: "날짜 정보 없음",
+      publishedTitle: "발행한 링크",
+      publishedBody: "이 브라우저에서 만든 공개 링크입니다. 링크를 내릴 수 있는 것도 이 브라우저뿐입니다.",
+      thumbnailAlt: "{title} 미리보기"
     },
 
     /* shared.html — the page a GUEST lands on at /i/<id>.

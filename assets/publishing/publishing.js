@@ -279,6 +279,77 @@
     `;
   };
 
+  /* The published links are the author's own record of what is live, and they
+     were readable in one place only: inside the share dialog, behind the
+     finish step. The library is where someone goes to find an invitation they
+     made, so it renders the same list from the same store through this. */
+  const mountPublicationList = ({
+    node,
+    client = createClient(),
+    clipboard = root.navigator?.clipboard,
+    onChange,
+    setStatus = () => {}
+  } = {}) => {
+    if (!node) return { render: () => {} };
+
+    const copyUrl = async (url) => {
+      const absolute = new URL(url, root.location?.href || "https://invitation-maker-one.vercel.app").href;
+      try {
+        await clipboard?.writeText?.(absolute);
+        setStatus(t("copied"));
+      } catch (error) {
+        reportFault("publish_copy", error);
+        setStatus(t("copyFailed"));
+      }
+    };
+
+    const render = () => {
+      let publications = [];
+      try {
+        publications = client.list();
+      } catch (error) {
+        reportFault("publish_list", error);
+        setStatus(error.message || t("storageUnavailable"));
+      }
+      node.innerHTML = publications.length ? publications.map((item) => `
+        <article class="publication-card" data-publication-id="${escapeHtml(item.id)}">
+          <div>
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${formatExpiry(item.expiresAt)}</span>
+          </div>
+          <div class="publication-card-actions">
+            <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("cardOpen"))}</a>
+            <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">${escapeHtml(t("cardCopy"))}</button>
+            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
+          </div>
+        </article>
+      `).join("") : `<p class="publication-empty">${escapeHtml(t("listEmpty"))}</p>`;
+    };
+
+    node.addEventListener("click", async (event) => {
+      const copy = event.target.closest?.('[data-publish-action="copy"]');
+      if (copy) {
+        await copyUrl(copy.dataset.publicationUrl);
+        return;
+      }
+      const revoke = event.target.closest?.('[data-publish-action="revoke"]');
+      if (!revoke) return;
+      const revokedId = revoke.dataset.publicationId;
+      try {
+        await client.remove(revokedId);
+        setStatus(t("deleted"));
+      } catch (error) {
+        reportFault("publish_revoke", error, { status: statusCodeFromError(error) });
+        setStatus(t("deleteFailed"));
+      }
+      render();
+      onChange?.(revokedId);
+    });
+
+    render();
+    return { render };
+  };
+
   const mount = ({
     client = createClient(),
     clipboard = root.navigator?.clipboard,
@@ -482,7 +553,7 @@
     return { renderList };
   };
 
-  const api = { API_ROOT, MAX_PUBLISH_BYTES, STORAGE_KEY, byteLength, createClient, formatExpiry, mount, prepareBody };
+  const api = { API_ROOT, MAX_PUBLISH_BYTES, STORAGE_KEY, byteLength, createClient, formatExpiry, mount, mountPublicationList, prepareBody };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.InvitationPublishing = api;
 })(typeof window !== "undefined" ? window : globalThis);
