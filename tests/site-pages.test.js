@@ -77,16 +77,21 @@ test("site dictionaries merge onto the main dictionary instead of replacing it",
   assert.match(source, /register\("ko"/);
 });
 
+/* The legal and guide pages quote the retention policy in words. The numbers
+   they quote are the shipped defaults, so they are read out of the config
+   rather than written here: changing eventGraceDays, maxLifetimeDays or
+   maxEventLeadDays must fail this suite until the prose is updated too, which
+   a literal 7 or 30 could never do. */
+const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
+const days = (value) => new RegExp(`\\b${value}\\b`);
+
 test("guide policy numbers match the shipped defaults", () => {
-  const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
   const publishing = read("assets/publishing/publishing.js");
   const maxBytes = Number(publishing.match(/MAX_PUBLISH_BYTES = (\d+)/)[1]);
   const ko = require("../assets/i18n/dictionary-site-ko.js");
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.idleWindowDays, 7);
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays, 30);
   assert.equal(maxBytes, 2_000_000);
-  assert.match(ko.site.guide.data.two, /7일/);
-  assert.match(ko.site.guide.data.two, /30일/);
+  assert.match(ko.site.guide.data.two, days(DEFAULT_PUBLISHING_CONFIG.idleWindowDays));
+  assert.match(ko.site.guide.data.two, days(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays));
   assert.match(ko.site.guide.faq.a1, /2MB/);
 });
 
@@ -360,22 +365,33 @@ test("the legal pages carry the same head discipline as the guide", () => {
   }
 });
 
-test("the privacy page states the shipped retention defaults and calls them defaults", () => {
-  const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
+test("the privacy page and the terms state every shipped retention default", () => {
   const ko = require("../assets/i18n/dictionary-site-ko.js");
   const en = require("../assets/i18n/dictionary-site-en.js");
+  const { eventGraceDays, idleWindowDays, maxEventLeadDays, maxLifetimeDays } = DEFAULT_PUBLISHING_CONFIG;
 
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.idleWindowDays, 7);
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays, 30);
   for (const [name, dictionary] of [["ko", ko], ["en", en]]) {
     const retention = dictionary.site.privacy.retention;
-    assert.match(retention.one, /\b7\b/, `${name}: the idle window is missing`);
-    assert.match(retention.two, /\b7\b/, `${name}: the sliding rule is missing`);
-    assert.match(retention.three, /\b30\b/, `${name}: the max lifetime is missing`);
-    assert.match(retention.note, /\b7\b[\s\S]*\b30\b/, `${name}: the note should name both numbers`);
+    assert.match(retention.one, days(idleWindowDays), `${name}: the idle window is missing`);
+    assert.match(retention.two, days(idleWindowDays), `${name}: the sliding rule is missing`);
+    assert.match(retention.three, days(maxLifetimeDays), `${name}: the max lifetime is missing`);
+    assert.match(retention.three, days(eventGraceDays), `${name}: the event grace is missing`);
+    // The lead bound is the half of the event rule a reader can actually be
+    // caught out by: a date far enough ahead extends nothing at all.
+    assert.match(retention.three, days(maxEventLeadDays), `${name}: the event lead bound is missing`);
+    assert.match(
+      retention.note,
+      new RegExp(`\\b${idleWindowDays}\\b[\\s\\S]*\\b${maxLifetimeDays}\\b`),
+      `${name}: the note should name both numbers`
+    );
+
+    // The terms make the same promises and so must carry the same bounds —
+    // including the lead bound, which they used to omit while privacy stated it.
     const expiry = dictionary.site.terms.expiry;
-    assert.match(expiry.one, /\b7\b/);
-    assert.match(expiry.two, /\b30\b/);
+    assert.match(expiry.one, days(idleWindowDays), `${name}: terms omit the idle window`);
+    assert.match(expiry.two, days(maxLifetimeDays), `${name}: terms omit the max lifetime`);
+    assert.match(expiry.two, days(eventGraceDays), `${name}: terms omit the event grace`);
+    assert.match(expiry.two, days(maxEventLeadDays), `${name}: terms omit the event lead bound`);
   }
   assert.match(ko.site.privacy.retention.note, /기본값/, "ko must say these are defaults");
   assert.match(en.site.privacy.retention.note, /defaults/, "en must say these are defaults");

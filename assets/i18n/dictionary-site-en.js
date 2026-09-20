@@ -285,7 +285,7 @@
           title: "How long a public link lives",
           lead: "A public link is not permanent storage.",
           one: "It expires 7 days after it was last opened. Opening it pushes that forward, at most once every 6 hours.",
-          two: "However often it is opened, it expires 30 days after publishing. An invitation that carries a date stays open until 7 days after that date.",
+          two: "However often it is opened, it expires 30 days after publishing. An invitation that carries a date stays open until 7 days after that date, though a date more than 400 days after publishing does not extend anything.",
           three: "The 7 days, 30 days, and the week after the event are today's operating defaults and the operator can change them. An expired or revoked link cannot be restored; open the invitation again and publish a new one."
         },
         contact: {

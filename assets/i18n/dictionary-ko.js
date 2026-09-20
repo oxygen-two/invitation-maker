@@ -31,7 +31,7 @@
       twitterTitle: "Invitation Studio · 작은 초대, 소중한 순간",
       twitterDescription: "마음에 드는 디자인에 나만의 이야기를 담아 나만의 초대장을 만들어보세요.",
       twitterImageAlt: "봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간",
-      schemaDescription: "생일, 결혼, 모임 등 소중한 날을 위한 모바일 초대장을 무료로 만드는 웹 앱입니다. 회원가입 없이 디자인을 고르고 내용을 채워 사진이 담긴 HTML 파일로 내려받거나, 원하면 링크로도 공유할 수 있습니다."
+      schemaDescription: "생일, 결혼, 모임처럼 소중한 날의 모바일 초대장을 무료로 만드는 웹 앱이에요. 회원가입 없이 디자인을 고르고 내용을 채워, 사진이 담긴 HTML 파일로 내려받거나 링크로 공유할 수 있어요."
     },
 
     lang: {
@@ -56,7 +56,7 @@
        legal pages load. */
     consent: {
       regionLabel: "쿠키 및 분석 동의",
-      message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않습니다.",
+      message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않아요.",
       privacyLink: "개인정보처리방침 보기",
       accept: "분석 허용",
       deny: "필수만 사용"
@@ -98,19 +98,19 @@
       continueToEditor: "내용 편집하기",
       undo: "되돌리기",
       start: "이 디자인으로 시작",
-      startNamed: "{name}로 시작",
+      startNamed: "{name} 디자인으로 시작",
       keepDraft: "현재 초안 유지",
       applied: "적용됨",
       selectTemplate: "{name} 템플릿 선택",
       selectTemplateApplied: ", 현재 적용됨",
       summaryApplied: "적용된 디자인: {name}",
-      summaryPending: "선택: {name} · 적용 전까지 현재 초안은 유지됩니다.",
-      summaryEmpty: "적용할 템플릿을 선택해 주세요.",
+      summaryPending: "선택: {name} · 적용하기 전까지 지금 초안은 그대로 있어요.",
+      summaryEmpty: "적용할 템플릿을 골라 주세요.",
       dockLabel: "선택한 디자인",
       dockSelected: "선택한 디자인 · {name}",
-      dockEmpty: "디자인을 선택해 주세요",
+      dockEmpty: "디자인을 골라 주세요",
       dockBack: "디자인 목록",
-      applyFailed: "템플릿을 적용하지 못했습니다. 현재 초안은 그대로 유지됩니다.",
+      applyFailed: "템플릿을 적용하지 못했어요. 지금 초안은 그대로예요.",
       sheetTitle: "디자인 미리보기",
       sheetFrameTitle: "디자인 샘플 미리보기",
       sheetClose: "닫기"
@@ -126,7 +126,7 @@
       dateCustomToggle: "직접 써서 넣을게요",
       dateLabel: "직접 쓴 일시",
       dateCustomPlaceholder: "예: 벚꽃 지는 토요일 저녁",
-      dateCustomHint: "여기에 쓰면 위에서 고른 날짜 대신 이 문장이 그대로 보입니다. 비워 두면 손님의 언어에 맞춰 날짜가 표시돼요.",
+      dateCustomHint: "여기에 쓰면 위에서 고른 날짜 대신 이 문장이 그대로 나와요. 비워 두면 손님의 언어에 맞춰 날짜를 보여 줘요.",
       host: "보내는 사람",
       message: "메시지",
 
@@ -136,7 +136,7 @@
       mapProvider: "지도 서비스",
       mapProviderNaver: "네이버 지도",
       mapProviderGoogle: "Google 지도",
-      mapProviderHint: "국내 장소는 네이버 지도, 해외 장소는 Google 지도가 정확해요. 손님의 지도 버튼도 이 서비스로 열립니다.",
+      mapProviderHint: "국내 장소는 네이버 지도, 해외 장소는 Google 지도가 정확해요. 손님이 누르는 지도 버튼도 이 서비스로 열려요.",
       mapUrl: "지도 링크",
       mapUrlPlaceholder: "네이버 지도 또는 Google 지도 링크 (선택)",
       mapEnabled: "대표 장소에 지도 넣기",
@@ -154,7 +154,7 @@
       particleAmountValue: "파티클 양 {value}",
       englishFont: "영문 폰트",
       scriptFont: "본문 글꼴",
-      scriptFontHint: "초대장 본문에 사용되는 문자 체계의 글꼴입니다.",
+      scriptFontHint: "초대장 본문 글자에 쓰는 글꼴이에요.",
 
       heroTitle: "첫 화면 배경",
       heroHint: "사진 · 위치 · 확대",
@@ -217,10 +217,10 @@
       remove: "삭제",
       removeTitle: "배경 사진 삭제",
       fileLabel: "첫 화면 배경 사진 파일 선택",
-      processing: "{file}: 배경 사진을 처리하고 있습니다.",
-      added: "{file}: 배경 사진을 추가했습니다.",
-      wasReset: "배경 사진 위치와 확대를 초기화했습니다.",
-      wasRemoved: "템플릿 기본 배경으로 되돌렸습니다."
+      processing: "{file}: 배경 사진을 다듬고 있어요.",
+      added: "{file}: 배경 사진을 넣었어요.",
+      wasReset: "배경 사진 위치와 확대를 처음으로 되돌렸어요.",
+      wasRemoved: "템플릿 기본 배경으로 되돌렸어요."
     },
 
     content: {
@@ -231,8 +231,8 @@
       addNotice: "+ 안내",
       addProfile: "+ 인물 소개",
       addLink: "+ 연락처·링크",
-      empty: "코스나 사진을 추가해 초대장을 구성하세요.",
-      limitReached: "초대장 항목은 최대 {max}개까지 추가할 수 있습니다.",
+      empty: "코스나 사진을 더해 초대장을 채워 보세요.",
+      limitReached: "초대장 항목은 최대 {max}개까지 넣을 수 있어요.",
 
       typeCourse: "코스",
       typePhoto: "사진",
@@ -257,11 +257,11 @@
       fallbackProfile: "인물 소개 {index}",
       fallbackLink: "연락처·링크 {index}",
 
-      summaryCourse: "장소를 입력하세요",
-      summaryPhoto: "설명을 입력하세요",
-      summaryNotice: "안내 내용을 입력하세요",
-      summaryProfile: "소개할 인물을 입력하세요",
-      summaryLink: "연락처나 링크를 입력하세요",
+      summaryCourse: "장소를 적어 주세요",
+      summaryPhoto: "설명을 적어 주세요",
+      summaryNotice: "안내 내용을 적어 주세요",
+      summaryProfile: "소개할 사람을 적어 주세요",
+      summaryLink: "연락처나 링크를 적어 주세요",
       timeUnset: "시간 미정",
 
       courseTime: "시간",
@@ -278,11 +278,11 @@
       photoThumbnailAlt: "선택한 사진 미리보기",
       photoAlt: "대체 텍스트",
       photoCaption: "사진 설명",
-      photoProcessing: "{file}: 사진을 처리하고 있습니다.",
-      photoAdded: "{file}: 사진을 추가했습니다.",
+      photoProcessing: "{file}: 사진을 다듬고 있어요.",
+      photoAdded: "{file}: 사진을 넣었어요.",
       photoFailed: "{file}: {reason}",
-      photoOverCapacity: "{file}: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다.",
-      photoSkipped: "{file}: 사진 처리를 완료했지만 {limit} 제한으로 추가하지 않았습니다.",
+      photoOverCapacity: "{file}: 고를 때 남아 있던 자리보다 많아서 건너뛰었어요.",
+      photoSkipped: "{file}: 다듬기는 끝났지만 {limit} 개수가 꽉 차서 넣지 못했어요.",
       limitItems: "초대장 항목",
       limitPhotos: "사진",
 
@@ -303,27 +303,27 @@
        language switch mid-upload still reads correctly. */
     errors: {
       image: {
-        type: "JPEG, PNG, WebP 파일만 사용할 수 있습니다.",
-        sourceSize: "원본 이미지는 15 MiB 이하여야 합니다.",
-        decode: "이미지를 읽을 수 없습니다.",
-        encodedSize: "이미지를 600 KiB 이하로 압축할 수 없습니다.",
-        generic: "이미지를 처리할 수 없습니다."
+        type: "JPEG, PNG, WebP 파일만 쓸 수 있어요.",
+        sourceSize: "원본 이미지는 15 MiB까지만 올릴 수 있어요.",
+        decode: "이미지를 읽지 못했어요.",
+        encodedSize: "이미지를 600 KiB 아래로 줄이지 못했어요.",
+        generic: "이미지를 다루지 못했어요."
       }
     },
 
     map: {
-      loading: "지도를 불러오는 중입니다.",
-      searching: "지도 위치를 찾고 있습니다.",
-      ready: "지도 위치를 확인했습니다.",
-      empty: "장소 또는 주소를 입력해 주세요.",
-      pending: "장소 입력을 마치면 지도 위치를 확인합니다.",
-      notFound: "장소를 찾지 못했습니다. 네이버 지도는 주소로만 찾을 수 있어요. 도로명 주소를 입력하거나, 장소 이름이나 해외 장소라면 지도 서비스를 Google 지도로 바꿔 주세요.",
-      notFoundGoogle: "장소를 찾지 못했습니다. 주소를 더 자세히 입력하거나 지도 링크를 붙여 넣어 주세요.",
-      serviceUnavailable: "지도 위치 검색을 사용할 수 없습니다. NAVER Geocoding 설정을 확인해 주세요.",
-      serviceUnavailableGoogle: "지도 위치 검색을 사용할 수 없습니다. Google Maps Geocoding API 설정을 확인해 주세요.",
+      loading: "지도를 불러오고 있어요.",
+      searching: "지도에서 위치를 찾고 있어요.",
+      ready: "지도에서 위치를 찾았어요.",
+      empty: "장소나 주소를 적어 주세요.",
+      pending: "장소를 다 적으면 지도에서 위치를 찾아 볼게요.",
+      notFound: "장소를 찾지 못했어요. 네이버 지도는 주소로만 찾을 수 있어요. 도로명 주소를 적거나, 장소 이름으로 찾고 싶거나 해외 장소라면 지도 서비스를 Google 지도로 바꿔 주세요.",
+      notFoundGoogle: "장소를 찾지 못했어요. 주소를 더 자세히 적거나 지도 링크를 붙여 넣어 주세요.",
+      serviceUnavailable: "지도 위치 검색을 쓸 수 없어요. NAVER Geocoding 설정을 확인해 주세요.",
+      serviceUnavailableGoogle: "지도 위치 검색을 쓸 수 없어요. Google Maps Geocoding API 설정을 확인해 주세요.",
       invalidUrl: "네이버 지도 또는 Google 지도 링크를 확인해 주세요.",
-      urlUnavailable: "이 링크에서는 위치를 자동으로 확인할 수 없습니다. 지도 열기 버튼으로 확인해 주세요.",
-      unavailable: "지도를 불러올 수 없습니다. 아래 버튼으로 확인하세요.",
+      urlUnavailable: "이 링크로는 위치를 자동으로 찾을 수 없어요. 지도 열기 버튼으로 확인해 주세요.",
+      unavailable: "지도를 불러오지 못했어요. 아래 버튼으로 열어 보세요.",
       retry: "지도 다시 시도"
     },
 
@@ -342,7 +342,7 @@
       /* Shown only to a guest whose own device sits in another zone. {zone} is
          an IANA name and stays untranslated — it is what their calendar app
          calls the same place. */
-      timeZoneNote: "{zone} 기준 시간입니다.",
+      timeZoneNote: "{zone} 기준 시간이에요.",
       skipIntro: "건너뛰기",
       skipIntroLabel: "인트로 건너뛰기",
 
@@ -386,12 +386,12 @@
       downloadDialogTail: "이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.",
       downloadButton: "HTML 다운로드",
       shareDialogLead: "공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만",
-      shareDialogStrong: "링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만",
+      shareDialogStrong: "링크를 내릴 수 있는 권한은 이 브라우저에만",
       shareDialogTail: "저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.",
       shareDialogPanelLabel: "공개 링크 발행",
-      shareDialogPrivacy: "일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열립니다. 일시가 없으면 마지막으로 열린 뒤 7일, 최대 30일까지 열립니다. 그 전에 내리는 것은 이 브라우저에서만 할 수 있습니다.",
+      shareDialogPrivacy: "일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열려요. 일시가 없으면 마지막으로 열린 뒤 7일, 길어도 30일까지 열려요. 그보다 먼저 내리는 건 이 브라우저에서만 할 수 있어요.",
       privacyLink: "개인정보처리방침 보기",
-      confirmReplyContact: "회신을 요청하는 항목에 연락처나 링크가 없습니다. 연락 수단 없이 다운로드할까요?\n취소하면 연락처 입력으로 이동합니다.",
+      confirmReplyContact: "회신을 받는 항목에 연락처나 링크가 없어요. 연락할 방법 없이 다운로드할까요?\n취소하면 연락처를 적는 곳으로 돌아가요.",
       /* Matched against the label and value the AUTHOR typed, to notice an
          RSVP item with no way to reply. Locale-specific because an English
          author writes "RSVP" or "Reply", not "회신". Source string rather
@@ -403,74 +403,74 @@
        studio's language like every other control here. Nothing in this section
        reaches a guest. */
     publish: {
-      consent: "공개 링크를 만들면 주소를 아는 누구나 볼 수 있고, 만료일은 아래 목록에 표시됩니다.",
-      limitHint: "사진은 자동으로 압축되어 페이지가 가볍게 유지됩니다.",
+      consent: "공개 링크를 만들면 주소를 아는 사람은 누구나 볼 수 있고, 만료일은 아래 목록에서 확인할 수 있어요.",
+      limitHint: "사진은 자동으로 압축해서 페이지를 가볍게 유지해요.",
       publishButton: "공개 링크 만들기",
       openLink: "링크 열기",
       copyLink: "링크 복사",
       share: "공유 시트 열기",
       copyMessage: "초대 메시지 복사",
       qrLabel: "공개 링크 QR 코드",
-      revokeLink: "취소",
-      listTitle: "이 브라우저의 발행 목록",
-      listEmpty: "아직 공개한 초대장이 없습니다.",
+      revokeLink: "링크 내리기",
+      listTitle: "이 브라우저에서 발행한 링크",
+      listEmpty: "아직 공개한 초대장이 없어요.",
       cardOpen: "열기",
       cardCopy: "복사",
-      cardRevoke: "취소",
+      cardRevoke: "내리기",
       defaultTitle: "공개 초대장",
 
       noExpiry: "자동 만료 없음",
       expiryUnknown: "만료일 확인 필요",
 
-      busy: "사진 처리나 저장이 끝난 뒤 발행할 수 있습니다.",
+      busy: "사진 다듬기나 저장이 끝난 뒤에 발행할 수 있어요.",
       invalid: "초대장 내용을 먼저 확인해 주세요.",
-      publishing: "공개 링크를 만들고 있습니다.",
-      published: "공개 링크를 만들었습니다.",
-      recovering: "이전 발행 요청을 먼저 확인하고 있습니다.",
-      recovered: "이전 발행 요청을 확인했습니다.",
-      publishFailed: "발행에 실패했습니다. 다시 누르면 같은 요청으로 재시도합니다.",
-      copied: "링크를 복사했습니다.",
-      copyFailed: "링크를 복사하지 못했습니다.",
-      messageCopied: "초대 메시지를 복사했습니다.",
-      messageCopyFailed: "초대 메시지를 복사하지 못했습니다.",
-      shareFailed: "공유 시트를 열지 못했습니다.",
-      deleting: "공개 링크를 취소하고 있습니다.",
-      deleted: "공개 링크를 취소했습니다.",
-      deleteFailed: "공개 링크 취소에 실패했습니다.",
+      publishing: "공개 링크를 만들고 있어요.",
+      published: "공개 링크를 만들었어요.",
+      recovering: "이전 발행 요청부터 확인하고 있어요.",
+      recovered: "이전 발행 요청을 확인했어요.",
+      publishFailed: "발행하지 못했어요. 다시 누르면 같은 요청으로 한 번 더 시도해요.",
+      copied: "링크를 복사했어요.",
+      copyFailed: "링크를 복사하지 못했어요.",
+      messageCopied: "초대 메시지를 복사했어요.",
+      messageCopyFailed: "초대 메시지를 복사하지 못했어요.",
+      shareFailed: "공유 시트를 열지 못했어요.",
+      deleting: "공개 링크를 내리고 있어요.",
+      deleted: "공개 링크를 내렸어요.",
+      deleteFailed: "공개 링크를 내리지 못했어요.",
 
-      storageUnavailable: "브라우저 저장 공간을 사용할 수 없습니다.",
-      noStorage: "브라우저 저장 공간에 기록하지 못해 발행할 수 없습니다.",
-      storeUnreadable: "이 브라우저의 발행 정보를 읽지 못했습니다. 기존 링크 취소 정보 보호를 위해 새 발행을 중단했습니다.",
-      tooLarge: "2MB 이하 초대장만 공개 링크로 발행할 수 있습니다.",
-      tokenFailed: "보안 토큰을 만들 수 없습니다.",
-      requestKeyFailed: "요청 키를 만들 수 없습니다.",
-      badResponse: "발행 응답이 올바르지 않습니다.",
-      nothingToRevoke: "취소할 수 있는 발행 정보가 없습니다.",
+      storageUnavailable: "브라우저 저장 공간을 쓸 수 없어요.",
+      noStorage: "브라우저 저장 공간에 기록하지 못해 발행하지 못했어요.",
+      storeUnreadable: "이 브라우저의 발행 정보를 읽지 못했어요. 이미 만든 링크를 내릴 열쇠까지 잃지 않도록 새 발행은 멈췄어요.",
+      tooLarge: "2MB 이하 초대장만 공개 링크로 발행할 수 있어요.",
+      tokenFailed: "보안 토큰을 만들지 못했어요.",
+      requestKeyFailed: "요청 키를 만들지 못했어요.",
+      badResponse: "발행 응답이 올바르지 않아요.",
+      nothingToRevoke: "내릴 수 있는 발행 정보가 없어요.",
 
-      conflict: "이전 발행 요청과 다른 내용입니다. 잠시 후 다시 시도해 주세요.",
-      serverTooLarge: "초대장이 2MB를 넘었습니다. 사진을 줄인 뒤 다시 시도해 주세요.",
-      rateLimited: "발행 횟수가 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.",
-      storeNotReady: "발행 서버 저장소가 준비되지 않았습니다. 잠시 후 다시 시도해 주세요."
+      conflict: "이전 발행 요청과 내용이 달라요. 잠시 후 다시 시도해 주세요.",
+      serverTooLarge: "초대장이 2MB를 넘었어요. 사진을 줄인 뒤 다시 시도해 주세요.",
+      rateLimited: "발행 횟수가 잠시 제한됐어요. 조금 뒤에 다시 시도해 주세요.",
+      storeNotReady: "발행 서버가 아직 준비되지 않았어요. 잠시 후 다시 시도해 주세요."
     },
 
     library: {
       eyebrow: "Library",
-      heading: "나의 초대장",
+      heading: "보관함",
       uploadLabel: "다운로드된 HTML 등록",
-      emptyTitle: "아직 등록된 초대장이 없어요",
-      emptyBody: "여기서 완성한 초대장이나 다운로드한 HTML 파일을 끌어다 놓으면 이 목록에 모여요.",
+      emptyTitle: "보관함이 아직 비어 있어요",
+      emptyBody: "여기서 완성한 초대장이나 다운로드한 HTML 파일을 끌어다 놓으면 보관함에 모여요.",
       startNew: "새 초대장 만들기",
-      dropzone: "HTML 파일을 여기로 끌어다 놓거나 선택하세요",
-      sourceUpload: "HTML 등록",
-      sourceGenerated: "직접 제작",
+      dropzone: "HTML 파일을 여기로 끌어다 놓거나 골라 주세요",
+      sourceUpload: "불러옴",
+      sourceGenerated: "여기서 만듦",
       open: "열기",
       download: "다운로드",
       remove: "삭제",
-      confirmRemove: "“{title}” 초대장을 목록에서 삭제할까요?",
-      untitled: "Untitled Invitation",
+      confirmRemove: "“{title}” 초대장을 보관함에서 지울까요?",
+      untitled: "제목 없는 초대장",
       unknownDate: "날짜 정보 없음",
       publishedTitle: "발행한 링크",
-      publishedBody: "이 브라우저에서 만든 공개 링크입니다. 링크를 내릴 수 있는 것도 이 브라우저뿐입니다.",
+      publishedBody: "이 브라우저에서 만든 공개 링크예요. 링크를 내릴 수 있는 것도 이 브라우저뿐이에요.",
       thumbnailAlt: "{title} 미리보기"
     },
 
@@ -488,7 +488,7 @@
       brandHome: "Invitation Studio 홈",
       headerNote: "마음을 전하는 작은 시작",
       footerNote: "작은 초대, 소중한 순간.",
-      loading: "초대장을 불러오는 중입니다.",
+      loading: "초대장을 불러오고 있어요.",
       frameTitle: "공개 초대장",
       backToStudio: "스튜디오로 돌아가기",
       expires: "만료: {date}",
@@ -497,17 +497,17 @@
          pages (scripts/build-error-pages.cjs) and the decorative small-caps
          typography the panel was designed around. */
       notFoundEyebrow: "A LITTLE DETOUR",
-      notFoundTitle: "초대장을 찾을 수 없습니다.",
+      notFoundTitle: "초대장을 찾을 수 없어요.",
       notFoundDescription: "주소가 달라졌거나, 더 이상 사용할 수 없는 링크일 수 있어요.",
-      notFoundHint: "초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요.",
+      notFoundHint: "초대장을 받으셨다면 보내 주신 분께 링크를 다시 확인해 달라고 해 주세요.",
 
       goneEyebrow: "THIS CHAPTER IS CLOSED",
-      goneTitle: "초대장이 만료되었습니다.",
+      goneTitle: "초대장이 만료됐어요.",
       goneDescription: "설정된 열람 기간이 지나 더 이상 볼 수 없어요.",
-      goneHint: "초대장을 보내준 분에게 새로운 링크를 요청해 주세요.",
+      goneHint: "초대장을 보내 주신 분께 새 링크를 요청해 주세요.",
 
       failedEyebrow: "A BRIEF PAUSE",
-      failedTitle: "초대장을 불러오지 못했습니다.",
+      failedTitle: "초대장을 불러오지 못했어요.",
       failedDescription: "일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
       failedHint: "오류가 계속되면 잠시 후 다시 방문해 주세요."
     },
@@ -529,13 +529,13 @@
         headerNote: "마음을 전하는 작은 시작",
         footerNote: "작은 초대, 소중한 순간.",
         offline: "인터넷 연결이 끊겨 있어요. 연결을 확인한 뒤 다시 시도해 주세요.",
-        reloadHint: "다시 시도하려면 브라우저의 새로고침을 이용해 주세요."
+        reloadHint: "다시 시도하려면 브라우저의 새로고침을 눌러 주세요."
       },
 
       400: {
         eyebrow: "CHECK THE LINK",
         title: "링크를 다시 확인해 주세요.",
-        description: "요청을 이해하지 못했어요. 전달받은 링크가 빠짐없이 복사되었는지 확인해 주세요.",
+        description: "요청을 이해하지 못했어요. 받으신 링크가 빠짐없이 복사됐는지 확인해 주세요.",
         hint: "링크 전체를 복사해 새 창에서 열어보세요.",
         action: "스튜디오로 돌아가기"
       },
@@ -543,16 +543,16 @@
       401: {
         eyebrow: "ACCESS REQUIRED",
         title: "접근 확인이 필요해요.",
-        description: "이 페이지를 열려면 인증이 필요합니다.",
-        hint: "링크를 보내준 분에게 접근 방법을 확인해 주세요.",
+        description: "이 페이지를 열려면 인증이 필요해요.",
+        hint: "링크를 보내 주신 분께 여는 방법을 물어봐 주세요.",
         action: "스튜디오로 돌아가기"
       },
 
       403: {
         eyebrow: "PRIVATE INVITATION",
         title: "지금은 열 수 없는 페이지예요.",
-        description: "이 요청으로는 페이지에 접근할 수 없습니다.",
-        hint: "링크를 보내준 분에게 공유 범위를 확인해 주세요.",
+        description: "이 요청으로는 페이지를 열 수 없어요.",
+        hint: "링크를 보내 주신 분께 누구까지 볼 수 있는지 물어봐 주세요.",
         action: "스튜디오로 돌아가기"
       },
 
@@ -560,7 +560,7 @@
         eyebrow: "A LITTLE DETOUR",
         title: "찾으시는 페이지가 없어요.",
         description: "주소가 달라졌거나, 더 이상 사용할 수 없는 링크일 수 있어요.",
-        hint: "초대장을 받으셨다면 보내준 분에게 링크를 다시 확인해 주세요.",
+        hint: "초대장을 받으셨다면 보내 주신 분께 링크를 다시 확인해 달라고 해 주세요.",
         action: "스튜디오로 돌아가기"
       },
 
@@ -576,14 +576,14 @@
       410: {
         eyebrow: "THIS CHAPTER IS CLOSED",
         title: "이 링크는 더 이상 사용할 수 없어요.",
-        description: "요청하신 페이지의 제공이 종료되었습니다.",
-        hint: "초대장을 보내준 분에게 새로운 링크를 요청해 주세요.",
+        description: "이 페이지는 더 이상 제공하지 않아요.",
+        hint: "초대장을 보내 주신 분께 새 링크를 요청해 주세요.",
         action: "스튜디오로 돌아가기"
       },
 
       429: {
         eyebrow: "ONE MOMENT, PLEASE",
-        title: "잠시 쉰었다가 다시 만나요.",
+        title: "잠시 쉬었다가 다시 만나요.",
         description: "짧은 시간에 요청이 많이 들어왔어요. 잠시 후 다시 시도해 주세요.",
         hint: "반복해서 새로고침하지 말고 잠시 기다려 주세요.",
         action: "스튜디오로 돌아가기",
@@ -619,8 +619,8 @@
 
       504: {
         eyebrow: "A LITTLE MORE TIME",
-        title: "응답이 늘어지고 있어요.",
-        description: "서버의 응답을 기다리다 연결이 끝났어요. 잠시 후 다시 시도해 주세요.",
+        title: "응답이 오래 걸리고 있어요.",
+        description: "서버 응답을 기다리다 연결이 끊겼어요. 잠시 후 다시 시도해 주세요.",
         hint: "저장 작업 중이었다면 다시 저장하기 전에 결과를 확인해 주세요.",
         action: "스튜디오로 돌아가기",
         reload: "다시 시도"
@@ -633,21 +633,21 @@
        keeps the language baked into the saved file. */
     viewer: {
       documentTitle: "초대장 열기",
-      loadingTitle: "초대장을 불러오는 중입니다.",
+      loadingTitle: "초대장을 불러오고 있어요.",
       loadingBody: "잠시만 기다려 주세요.",
       footerNote: "작은 초대, 소중한 순간.",
-      errorTitle: "초대장을 열 수 없습니다.",
-      errorBody: "등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요.",
-      backToStudio: "제작기로 돌아가기"
+      errorTitle: "초대장을 열 수 없어요.",
+      errorBody: "보관함에 아직 있는지 확인한 뒤 다시 시도해 주세요.",
+      backToStudio: "스튜디오로 돌아가기"
     },
 
     status: {
-      draftKept: "이 기기에 초안을 보관합니다",
+      draftKept: "이 기기에 초안을 보관해요",
       draftSaving: "초안 저장 중…",
       draftSaved: "이 기기에 초안 저장됨",
       draftFailed: "자동 저장 실패 · HTML로 다운로드해 주세요",
-      draftRestored: "이전 초안을 복구했습니다",
-      draftUnavailable: "자동 저장 사용 불가 · HTML로 다운로드해 주세요",
+      draftRestored: "이전 초안을 되살렸어요",
+      draftUnavailable: "자동 저장 불가 · HTML로 다운로드해 주세요",
       draftKeptShort: "초안",
       draftSavingShort: "저장 중…",
       draftSavedShort: "저장됨",
@@ -655,26 +655,26 @@
       draftRestoredShort: "복원됨",
       draftUnavailableShort: "자동 저장 불가",
 
-      saved: "목록에 등록했습니다.",
-      savedUnsynchronized: "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.",
-      saveFailed: "브라우저 저장 공간에 기록하지 못해 등록에 실패했습니다.",
+      saved: "보관함에 저장했어요.",
+      savedUnsynchronized: "저장은 됐지만 보관함 정리를 마치지 못했어요.",
+      saveFailed: "브라우저 저장 공간에 기록하지 못해 저장하지 못했어요.",
 
-      uploaded: "초대장을 등록했습니다.",
-      uploadedUnsynchronized: "등록은 완료했지만 저장 목록 정리를 마치지 못했습니다.",
-      uploadTooLarge: "10MB 이하의 초대장 HTML만 등록할 수 있습니다.",
-      uploadUnsupported: "이 제작기에서 다운로드한 HTML만 등록할 수 있습니다.",
+      uploaded: "초대장을 보관함에 담았어요.",
+      uploadedUnsynchronized: "불러오기는 됐지만 보관함 정리를 마치지 못했어요.",
+      uploadTooLarge: "10MB 이하 초대장 HTML만 보관함에 담을 수 있어요.",
+      uploadUnsupported: "이 스튜디오에서 다운로드한 HTML만 보관함에 담을 수 있어요.",
 
-      removed: "등록된 초대장을 삭제했습니다.",
-      removedUnsynchronized: "삭제는 완료했지만 저장 목록 새로고침을 마치지 못했습니다.",
-      removeFailed: "브라우저 저장 공간을 변경하지 못했습니다.",
+      removed: "보관함에서 초대장을 지웠어요.",
+      removedUnsynchronized: "삭제는 됐지만 보관함 새로고침을 마치지 못했어요.",
+      removeFailed: "브라우저 저장 공간을 바꾸지 못했어요.",
 
-      storageUnavailable: "등록 목록 저장소를 열지 못했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.",
-      migrationUnavailable: "기존 등록 목록 마이그레이션을 시작하지 못했습니다. 기존 데이터는 그대로 유지됩니다.",
-      syncIncomplete: "등록 목록 동기화를 마치지 못했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.",
-      syncFailed: "등록 목록 동기화에 실패했습니다. 제작과 다운로드는 계속 사용할 수 있습니다.",
+      storageUnavailable: "보관함 저장소를 열지 못했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
+      migrationUnavailable: "예전 보관함을 옮기는 작업을 시작하지 못했어요. 기존 데이터는 그대로 있어요.",
+      syncIncomplete: "보관함 동기화를 마치지 못했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
+      syncFailed: "보관함 동기화에 실패했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
 
-      bootFailedTitle: "초기 데이터를 불러오지 못했습니다.",
-      bootFailedBody: "별도 JSON 파일을 읽기 때문에 로컬 서버나 배포 환경에서 열어야 합니다."
+      bootFailedTitle: "초기 데이터를 불러오지 못했어요.",
+      bootFailedBody: "별도의 JSON 파일을 읽어야 해서, 로컬 서버나 배포된 주소에서 열어 주세요."
     }
   };
 });

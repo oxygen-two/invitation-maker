@@ -68,7 +68,7 @@
     <div class="studio-bar-meta">
       <p id="draft-status" role="status">
         <svg class="draft-status-icon" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M5 10h10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span id="draft-status-text" data-i18n="status.draftKept">이 기기에 초안을 보관합니다</span>
+        <span id="draft-status-text" data-i18n="status.draftKept">이 기기에 초안을 보관해요</span>
         <span class="draft-status-short" aria-hidden="true" data-i18n="status.draftKeptShort">초안</span>
       </p>
       <a class="studio-guide-link" href="/guide" data-i18n="header.guideLink">사용법</a>
@@ -131,7 +131,7 @@
             <details class="full date-custom-field" data-date-custom>
               <summary data-i18n="editor.dateCustomToggle">직접 써서 넣을게요</summary>
               <label class="full"><span data-i18n="editor.dateLabel">직접 쓴 일시</span><input name="dateLabel" type="text" autocomplete="off" data-i18n-attr="placeholder:editor.dateCustomPlaceholder" placeholder="예: 벚꽃 지는 토요일 저녁"></label>
-              <small data-i18n="editor.dateCustomHint">여기에 쓰면 위에서 고른 날짜 대신 이 문장이 그대로 보입니다. 비워 두면 손님의 언어에 맞춰 날짜가 표시돼요.</small>
+              <small data-i18n="editor.dateCustomHint">여기에 쓰면 위에서 고른 날짜 대신 이 문장이 그대로 나와요. 비워 두면 손님의 언어에 맞춰 날짜를 보여 줘요.</small>
             </details>
             <label><span data-i18n="editor.host">보내는 사람</span><input name="host" type="text" autocomplete="off"></label>
             <label class="full"><span data-i18n="editor.message">메시지</span><textarea name="message" rows="4"></textarea></label>
@@ -150,7 +150,7 @@
                 <label class="map-provider-option"><input name="mapProvider" type="radio" value="naver" checked><span data-i18n="editor.mapProviderNaver">네이버 지도</span></label>
                 <label class="map-provider-option"><input name="mapProvider" type="radio" value="google"><span data-i18n="editor.mapProviderGoogle">Google 지도</span></label>
               </div>
-              <small data-i18n="editor.mapProviderHint">국내 장소는 네이버 지도, 해외 장소는 Google 지도가 정확해요. 손님의 지도 버튼도 이 서비스로 열립니다.</small>
+              <small data-i18n="editor.mapProviderHint">국내 장소는 네이버 지도, 해외 장소는 Google 지도가 정확해요. 손님이 누르는 지도 버튼도 이 서비스로 열려요.</small>
             </fieldset>
             <label><span data-i18n="editor.location">장소 또는 주소</span><input name="location" type="text" autocomplete="off"></label>
             <label><span data-i18n="editor.mapUrl">지도 링크</span><input name="mapUrl" type="url" autocomplete="off" data-i18n-attr="placeholder:editor.mapUrlPlaceholder" placeholder="네이버 지도 또는 Google 지도 링크 (선택)"></label>
@@ -208,7 +208,7 @@
               <select name="koreanFont" data-i18n-attr="aria-label:editor.scriptFont" aria-label="본문 글꼴">
                 <option value="gowun-batang" data-i18n="fonts.gowunBatang">고운바탕</option><option value="noto-serif-kr" data-i18n="fonts.notoSerifKr">노토 명조</option><option value="nanum-myeongjo" data-i18n="fonts.nanumMyeongjo">나눔명조</option><option value="nanum-gothic" data-i18n="fonts.nanumGothic">나눔고딕</option><option value="song-myung" data-i18n="fonts.songMyung">송명</option><option value="gmarket-sans">Gmarket Sans</option>
               </select>
-              <small data-i18n="editor.scriptFontHint">초대장 본문에 사용되는 문자 체계의 글꼴입니다.</small>
+              <small data-i18n="editor.scriptFontHint">초대장 본문 글자에 쓰는 글꼴이에요.</small>
             </label>
           </div>
         </details>
@@ -315,8 +315,8 @@
           <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
         </div>
         <div class="studio-dialog-body">
-          <p><span data-i18n="finish.shareDialogLead">공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만</span> <strong data-i18n="finish.shareDialogStrong">링크를 취소(폐기)할 수 있는 권한은 이 브라우저에만</strong><span data-i18n="finish.shareDialogTail">저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</span></p>
-          <p class="share-dialog-privacy"><span data-i18n="finish.shareDialogPrivacy">일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열립니다. 일시가 없으면 마지막으로 열린 뒤 7일, 최대 30일까지 열립니다. 그 전에 내리는 것은 이 브라우저에서만 할 수 있습니다.</span> <a href="/privacy" data-i18n="finish.privacyLink">개인정보처리방침 보기</a></p>
+          <p><span data-i18n="finish.shareDialogLead">공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만</span> <strong data-i18n="finish.shareDialogStrong">링크를 내릴 수 있는 권한은 이 브라우저에만</strong><span data-i18n="finish.shareDialogTail">저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.</span></p>
+          <p class="share-dialog-privacy"><span data-i18n="finish.shareDialogPrivacy">일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열려요. 일시가 없으면 마지막으로 열린 뒤 7일, 길어도 30일까지 열려요. 그보다 먼저 내리는 건 이 브라우저에서만 할 수 있어요.</span> <a href="/privacy" data-i18n="finish.privacyLink">개인정보처리방침 보기</a></p>
           <section id="publishing-panel" class="publishing-panel" data-i18n-attr="aria-label:finish.shareDialogPanelLabel" aria-label="공개 링크 발행"></section>
         </div>
       </dialog>
@@ -345,10 +345,10 @@
     <section class="library-panel">
       <div class="panel-title">
         <p class="eyebrow" data-i18n="library.eyebrow">Library</p>
-        <h2 data-i18n="library.heading">나의 초대장</h2>
+        <h2 data-i18n="library.heading">보관함</h2>
       </div>
       <div class="upload-box">
-        <label for="html-upload" class="upload-dropzone" data-i18n="library.dropzone">HTML 파일을 여기로 끌어다 놓거나 선택하세요</label>
+        <label for="html-upload" class="upload-dropzone" data-i18n="library.dropzone">HTML 파일을 여기로 끌어다 놓거나 골라 주세요</label>
         <input id="html-upload" type="file" accept=".html,text/html" class="upload-input-visually-hidden">
         <p id="upload-status" class="upload-status" role="status" aria-live="polite"></p>
       </div>
@@ -358,7 +358,7 @@
            a live link is the part of it other people are holding. -->
       <section class="library-published">
         <h3 data-i18n="library.publishedTitle">발행한 링크</h3>
-        <p class="library-published-body" data-i18n="library.publishedBody">이 브라우저에서 만든 공개 링크입니다. 링크를 내릴 수 있는 것도 이 브라우저뿐입니다.</p>
+        <p class="library-published-body" data-i18n="library.publishedBody">이 브라우저에서 만든 공개 링크예요. 링크를 내릴 수 있는 것도 이 브라우저뿐이에요.</p>
         <div id="library-publications" class="publication-list"></div>
       </section>
     </section>

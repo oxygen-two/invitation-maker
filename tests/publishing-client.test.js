@@ -664,7 +664,7 @@ test("unreadable publishing storage fails clearly instead of overwriting saved t
     (error) => {
       assert.equal(error.message, publishCopy("storeUnreadable"));
       assert.equal(error.code, "STORE_UNREADABLE");
-      assert.match(error.message, /발행 정보를 읽지 못했습니다/);
+      assert.match(error.message, /발행 정보를 읽지 못했어요/);
       return true;
     }
   );
@@ -824,7 +824,7 @@ test("mount surfaces actionable publish failures without injecting raw server te
   await harness.clickPublish();
 
   assert.equal(harness.status.textContent, publishCopy("rateLimited"));
-  assert.equal(publishCopy("rateLimited"), "발행 횟수가 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.");
+  assert.equal(publishCopy("rateLimited"), "발행 횟수가 잠시 제한됐어요. 조금 뒤에 다시 시도해 주세요.");
   assert.doesNotMatch(harness.status.textContent, /raw noisy/);
 });
 
@@ -844,7 +844,7 @@ test("mount announces pending snapshot recovery before retrying edited content",
   assert.equal(messages[0], publishCopy("recovering"));
   assert.match(messages[0], /이전 발행 요청/);
   assert.ok(harness.status.textContent.startsWith(publishCopy("recovered")));
-  assert.match(harness.status.textContent, /이전 발행 요청을 확인했습니다/);
+  assert.match(harness.status.textContent, /이전 발행 요청을 확인했어요/);
 });
 
 test("public viewer fetches only public invitation data into a sandboxed iframe", async () => {
