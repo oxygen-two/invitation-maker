@@ -637,6 +637,74 @@ test("a public read slides the expiry forward and throttles repeated writes", as
   assert.equal(repository.refreshes.length, 2);
 });
 
+/* The event floor (PR #47) is well covered as a pure function in
+   publishing-event-expiry.test.js, but the wiring was not: the only dateTime
+   the handler had ever been given was a malformed shape asserted to 400. This
+   drives the whole chain — normalizeForPublishing -> storedInvitation.dateTime
+   -> calculateExpiresAt -> the stamped expiry — through the real handler.
+   callHandler is used rather than request() because the Vercel pre-parsed body
+   path is the one that hands the invitation over as an object. */
+test("POST stamps an expiry past the event an invitation announces", async () => {
+  const repository = new FakeRepository();
+  const { handler } = createClockedHandler(repository);
+  // Sixty days out: well past the 30-day ceiling the sliding window alone
+  // would have stopped at, and well inside maxEventLeadDays.
+  const eventDay = new Date(PUBLISHED_AT.getTime() + 60 * DAY_MS);
+  const dateTime = `${eventDay.toISOString().slice(0, 16)}:00`;
+
+  const result = await callHandler(handler, {
+    method: "POST",
+    url: "/api/invitations",
+    headers: bearerHeaders({ host: "maker.example" }),
+    body: { invitation: { title: "\uc9d1\ub4e4\uc774", dateTime, timeZone: "Asia/Seoul" } }
+  });
+
+  assert.equal(result.status, 201);
+  // The seconds survive the trip as far as normalization and no further: the
+  // store holds the canonical minute form, and the floor is read from it.
+  assert.equal(repository.publishes[0].invitation.dateTime, eventDay.toISOString().slice(0, 16));
+  assert.equal(result.body.expiresAt, at(60 + 7).toISOString(), "the event floor did not reach the stamped expiry");
+  assert.ok(new Date(result.body.expiresAt) > at(30), "the floor must outrank the lifetime ceiling");
+  assert.equal(repository.records.get(result.body.id).expiresAt, result.body.expiresAt);
+
+  // The same publish with no event date stops at the idle window, which is
+  // what makes the assertion above about the dateTime and not about the clock.
+  const plain = new FakeRepository();
+  const withoutEvent = await callHandler(createClockedHandler(plain).handler, {
+    method: "POST",
+    url: "/api/invitations",
+    headers: bearerHeaders({ host: "maker.example" }),
+    body: { invitation: { title: "\uc9d1\ub4e4\uc774" } }
+  });
+  assert.equal(withoutEvent.body.expiresAt, at(7).toISOString());
+});
+
+test("a public read of an invitation with an event keeps the link open until after it", async () => {
+  const repository = new FakeRepository();
+  const { clock, handler } = createClockedHandler(repository);
+  const eventDay = new Date(PUBLISHED_AT.getTime() + 60 * DAY_MS);
+
+  const published = await callHandler(handler, {
+    method: "POST",
+    url: "/api/invitations",
+    headers: bearerHeaders({ host: "maker.example" }),
+    body: { invitation: { title: "\uc9d1\ub4e4\uc774", dateTime: eventDay.toISOString().slice(0, 16) } }
+  });
+  assert.equal(published.status, 201);
+
+  // Day 50: nobody has opened it in weeks, so the sliding window alone would
+  // land on day 57 — before the event. The floor holds it open past the day.
+  clock.now = at(50);
+  const viewed = await request(handler, `/api/invitations/${published.body.id}`);
+  assert.equal(viewed.status, 200);
+  assert.equal(viewed.body.expiresAt, at(67).toISOString());
+  assert.equal(repository.refreshes.length, 0, "the floor was already stamped; a read that changes nothing must not write");
+
+  // And once the event and its grace are past, the record retires normally.
+  clock.now = at(68);
+  assert.equal((await request(handler, `/api/invitations/${published.body.id}`)).status, 410);
+});
+
 test("the sliding expiry never exceeds the publication's hard lifetime ceiling", async () => {
   const repository = new FakeRepository();
   const { clock, handler } = createClockedHandler(repository);

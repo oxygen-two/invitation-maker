@@ -17,8 +17,18 @@ const positive = (value) => (Number.isFinite(value) && value > 0 ? value : 0);
    ignored here: the widest zone spread is under a day, and the grace window
    below is measured in days, so honouring the zone would change nothing a
    guest can notice while adding a zone-conversion of its own. */
+/* The seconds are optional because a stored value may carry them. Writes are
+   normalized on the way in (validation.cjs -> normalizeInvitation), but
+   refreshPublicationExpiry reads `record.invitation.dateTime` straight out of
+   storage, and a document written before that normalization existed — or
+   backfilled from invitation-data.json, where all 29 dateTime values are the
+   seconds form — would otherwise fail this pattern and lose its event floor
+   silently and permanently. Accepting and discarding them here matches what
+   normalizeDateTime does at assets/invitation/core.js:374, which is the only
+   other parser of this field. A date with no time at all is still refused:
+   "2026-05-01" names no instant. */
 const eventInstantFrom = (dateTime) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(dateTime || "").trim());
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2})?$/.exec(String(dateTime || "").trim());
   if (!match) return null;
   const [, year, month, day, hour, minute] = match;
   const instant = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
