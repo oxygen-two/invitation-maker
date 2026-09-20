@@ -355,13 +355,13 @@
       defaultLocation: "장소 추후 안내",
       defaultMessage: "함께 걷고, 이야기하고, 오래 기억할 하루를 준비했어요.",
       defaultCourseMeetPlace: "만남 장소",
-      defaultCourseMeetNote: "첫 만남 위치를 적어주세요.",
+      defaultCourseMeetNote: "여기서 먼저 모여요.",
       defaultCourseCafePlace: "카페",
-      defaultCourseCafeNote: "대화하기 좋은 장소를 넣어주세요.",
+      defaultCourseCafeNote: "커피 한 잔 하며 이야기 나눠요.",
       defaultCourseWalkPlace: "산책",
-      defaultCourseWalkNote: "날씨에 맞는 동선을 적어주세요.",
+      defaultCourseWalkNote: "날씨 좋으면 천천히 걸어요.",
       defaultCourseDinnerPlace: "저녁",
-      defaultCourseDinnerNote: "예약 정보나 추천 메뉴를 적어주세요."
+      defaultCourseDinnerNote: "예약해 두었으니 편하게 오세요."
     },
 
     preview: {

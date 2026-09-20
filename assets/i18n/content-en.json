@@ -60,7 +60,7 @@
         "message": "I want to share good food, laughter, and a few small surprises with the people who made this year brighter.",
         "items": {
           "profile-1": { "name": "Alex", "role": "Birthday Host", "description": "The reason we are all here. Bring plenty of cheer." },
-          "notice-1": { "heading": "Dress code", "body": "Add one bright accent so the photos come out lovely." },
+          "notice-1": { "heading": "Dress code", "body": "A bright accent or two makes the photos pop." },
           "course-1": { "place": "Loft party room", "note": "Doors open ten minutes early." },
           "link-1": { "label": "RSVP", "value": "Let me know if you can come" }
         }

@@ -350,13 +350,13 @@
       defaultLocation: "Venue to be announced",
       defaultMessage: "A day to walk together, talk, and remember for a long time.",
       defaultCourseMeetPlace: "Meeting point",
-      defaultCourseMeetNote: "Say where to meet first.",
+      defaultCourseMeetNote: "We'll gather here before heading in.",
       defaultCourseCafePlace: "Cafe",
-      defaultCourseCafeNote: "Add a good spot to sit and talk.",
+      defaultCourseCafeNote: "A quiet corner to catch up over coffee.",
       defaultCourseWalkPlace: "Walk",
-      defaultCourseWalkNote: "Add a route that suits the weather.",
+      defaultCourseWalkNote: "A relaxed stroll, weather permitting.",
       defaultCourseDinnerPlace: "Dinner",
-      defaultCourseDinnerNote: "Add the booking or a dish to try."
+      defaultCourseDinnerNote: "A table's booked; come hungry."
     },
 
     preview: {
