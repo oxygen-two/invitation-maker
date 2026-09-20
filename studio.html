@@ -366,6 +366,26 @@
           <section id="publishing-panel" class="publishing-panel" data-i18n-attr="aria-label:finish.shareDialogPanelLabel" aria-label="공개 링크 발행"></section>
         </div>
       </dialog>
+
+      <!-- The studio's one confirmation (B-6). window.confirm is the only
+           dialog here that cannot be translated, styled or dismissed the way
+           the others are, and on a phone it covers the very thing being
+           decided about. The question and the accept label are written by
+           whoever asks; everything else — Escape, the focus trap, returning
+           focus to what raised it — comes from showModal. -->
+      <dialog id="confirm-dialog" class="studio-dialog studio-confirm" aria-labelledby="confirm-dialog-title">
+        <div class="studio-dialog-header">
+          <h2 id="confirm-dialog-title" data-i18n="content.confirmTitle">확인해 주세요</h2>
+          <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
+        </div>
+        <div class="studio-dialog-body">
+          <p id="confirm-dialog-message" class="studio-confirm-message"></p>
+          <div class="studio-confirm-actions">
+            <button type="button" class="secondary-button" data-dialog-close data-i18n="content.cancel">취소</button>
+            <button id="confirm-dialog-accept" class="primary-button studio-dialog-primary" type="button"></button>
+          </div>
+        </div>
+      </dialog>
     </section>
 
     <section class="preview-panel">

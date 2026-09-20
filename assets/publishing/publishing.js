@@ -574,7 +574,11 @@
         setStatus(t("busy"));
         return;
       }
-      if (!validate()) {
+      /* The studio's validate() can end in a question asked inside the page
+         (an RSVP item with nothing to reply to), so it answers with a promise.
+         Reading the promise itself would be truthy every time and publish
+         whatever the author answered. */
+      if (!await validate()) {
         setStatus(t("invalid"));
         return;
       }

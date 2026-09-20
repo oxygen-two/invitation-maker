@@ -100,6 +100,21 @@ const makeClassList = (className = "") => {
   };
 };
 
+/* The studio's own confirmation. Saying yes is a click on the accept button;
+   every other way out — Cancel, ✕, Escape, the backdrop — is the close event,
+   which is what a browser <dialog> reports too. */
+const makeConfirmDialog = (base) => ({
+  ...base,
+  open: false,
+  showModal() { this.open = true; },
+  close() {
+    if (!this.open) return;
+    this.open = false;
+    this.dispatch("close");
+  }
+});
+const acceptConfirm = (harness) => harness.node("#confirm-dialog-accept").dispatch("click");
+
 const course = (id, place = id) => ({
   id,
   type: "course",
@@ -607,6 +622,7 @@ const loadEditorHarness = ({
       }
     });
   }
+  selectors.set("#confirm-dialog", makeConfirmDialog(genericNode()));
   selectors.set("#sample-sheet", {
     ...genericNode(),
     open: false,
@@ -653,6 +669,7 @@ const loadEditorHarness = ({
   source += `\n;globalThis.__editorTest = {
     beginHeroImageDrag: typeof beginHeroImageDrag === "function" ? beginHeroImageDrag : undefined,
     captureAppliedBaseline,
+    confirmReplyContact,
     commitItemMove,
     fillForm,
     getHeroImageDragState: () => typeof heroImageDragState === "undefined" ? null : heroImageDragState,
@@ -1138,6 +1155,8 @@ const loadLibraryHarness = ({
     }
   };
   nodes.set("#invitation-form", form);
+  nodes.set("#confirm-dialog", makeConfirmDialog({ ...genericNode(), ...makeEventTarget() }));
+  nodes.set("#confirm-dialog-accept", { ...genericNode(), ...makeEventTarget() });
 
   const document = {
     ...makeEventTarget(),
@@ -1716,6 +1735,7 @@ test("saved deletion waits for durability and restores the clicked button", asyn
   };
 
   const deletion = harness.api.handleSavedAction({ target: button });
+  acceptConfirm(harness);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(button.disabled, true);
   assert.equal(harness.api.state.saved.length, 1);
@@ -1787,7 +1807,9 @@ test("durable deletion updates local state when repository refresh fails", async
     closest(selector) { return selector === "[data-action]" ? this : null; }
   };
 
-  await harness.api.handleSavedAction({ target: button });
+  const deletion = harness.api.handleSavedAction({ target: button });
+  acceptConfirm(harness);
+  await deletion;
 
   assert.equal(harness.repositoryRecords.length, 0);
   assert.equal(harness.api.state.saved.length, 0);
@@ -3333,6 +3355,100 @@ test("deleting an item confirms inside the card instead of through window.confir
     assert.ok(translate("content.menu").length > 0);
     assert.match(translate("content.menuLabel", { type: "Course" }), /Course/);
   }
+});
+
+/* B-6. The item card got its in-page confirmation; two destructive questions
+   were left behind on window.confirm — the one dialog here that cannot be
+   translated, styled or dismissed the way every other one is, and on a phone
+   it covers the thing being decided about. */
+test("nothing in the studio asks a question through window.confirm", () => {
+  for (const file of [
+    "assets/studio/app.js",
+    "assets/publishing/publishing.js",
+    "assets/publishing/shared-invitation.js",
+    "assets/invitation/viewer.js",
+    "assets/site/site.js"
+  ]) {
+    assert.doesNotMatch(
+      read(file),
+      /(?:window|root|globalThis|self)\.confirm\(|(?<![\w.])confirm\(/,
+      `${file} still asks through a browser confirm`
+    );
+  }
+  // The studio's own confirmation is a <dialog>, like every other overlay here.
+  assert.match(read("studio.html"), /<dialog id="confirm-dialog"[^>]*aria-labelledby="confirm-dialog-title"/);
+});
+
+test("deleting a library card asks in the page, and cancelling keeps the invitation", async () => {
+  const existing = {
+    id: "ask-first",
+    title: "Evening invite",
+    createdAt: "2026-09-05T00:00:00.000Z",
+    source: "generated",
+    html: validInvitationHtml("Evening invite")
+  };
+  const removed = [];
+  const harness = loadLibraryHarness({ records: [existing], remove: async (id) => { removed.push(id); } });
+  await harness.api.refreshSaved();
+  const button = {
+    dataset: { action: "delete", id: existing.id },
+    disabled: false,
+    closest(selector) { return selector === "[data-action]" ? this : null; }
+  };
+  const dialog = harness.node("#confirm-dialog");
+
+  const cancelled = harness.api.handleSavedAction({ target: button });
+  assert.equal(dialog.open, true, "the question is asked before anything is deleted");
+  assert.equal(harness.node("#confirm-dialog-message").textContent, ko("library.confirmRemove", { title: existing.title }));
+  assert.equal(harness.node("#confirm-dialog-accept").textContent, ko("library.remove"));
+
+  // Escape, ✕, Cancel and the backdrop all arrive as the dialog's close event.
+  dialog.close();
+  await cancelled;
+
+  assert.deepEqual(removed, []);
+  assert.equal(harness.api.state.saved.length, 1);
+  assert.equal(button.disabled, false);
+
+  const confirmed = harness.api.handleSavedAction({ target: button });
+  assert.equal(dialog.open, true);
+  harness.node("#confirm-dialog-accept").dispatch("click");
+  await confirmed;
+
+  assert.deepEqual(removed, [existing.id]);
+  assert.equal(harness.api.state.saved.length, 0);
+  assert.equal(dialog.open, false, "answering closes the question");
+  assert.match(harness.node("#upload-status").textContent, /삭제했습니다/);
+});
+
+test("the reply-contact check asks in the page and sends a no back to the editor", async () => {
+  const harness = loadEditorHarness();
+  const { api, node } = harness;
+  api.renderContentEditor([
+    { id: "link-rsvp", type: "link", label: "RSVP", value: "신랑 측", url: "" }
+  ], null);
+  const dialog = node("#confirm-dialog");
+
+  const declined = api.confirmReplyContact();
+  assert.equal(dialog.open, true);
+  assert.equal(node("#confirm-dialog-message").textContent, ko("finish.confirmReplyContact"));
+  assert.equal(node("#confirm-dialog-accept").textContent, ko("finish.confirmReplyContinue"));
+
+  dialog.close();
+  assert.equal(await declined, false);
+  // Saying no is a request to go and fix it, so the field is waiting.
+  assert.equal(harness.document.activeElement, harness.contentEditor.cards[0].querySelector('[data-link-field="url"]'));
+
+  const accepted = api.confirmReplyContact();
+  node("#confirm-dialog-accept").dispatch("click");
+  assert.equal(await accepted, true);
+
+  // An item that carries a way to reply is never asked about at all.
+  api.renderContentEditor([
+    { id: "link-rsvp", type: "link", label: "RSVP", value: "010-1234-5678", url: "" }
+  ], null);
+  assert.equal(await api.confirmReplyContact(), true);
+  assert.equal(dialog.open, false);
 });
 
 test("the overflow menu opens, closes, and survives a reorder from inside itself", () => {

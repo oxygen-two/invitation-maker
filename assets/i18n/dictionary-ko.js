@@ -253,6 +253,9 @@
       menuLabel: "{type} 항목 작업",
       confirmDelete: "“{name}” 항목을 삭제할까요?",
       cancel: "취소",
+      // The title of the studio's own confirmation dialog (B-6). The question
+      // itself is written by whoever raises it.
+      confirmTitle: "확인해 주세요",
 
       fallbackCourse: "코스 {index}",
       fallbackPhoto: "사진 {index}",
@@ -395,6 +398,7 @@
       shareDialogPrivacy: "일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열려요. 일시가 없으면 마지막으로 열린 뒤 7일, 길어도 30일까지 열려요. 그보다 먼저 내리는 건 이 브라우저에서만 할 수 있어요.",
       privacyLink: "개인정보처리방침 보기",
       confirmReplyContact: "회신을 받는 항목에 연락처나 링크가 없어요. 연락할 방법 없이 다운로드할까요?\n취소하면 연락처를 적는 곳으로 돌아가요.",
+      confirmReplyContinue: "그대로 진행",
       /* Matched against the label and value the AUTHOR typed, to notice an
          RSVP item with no way to reply. Locale-specific because an English
          author writes "RSVP" or "Reply", not "회신". Source string rather

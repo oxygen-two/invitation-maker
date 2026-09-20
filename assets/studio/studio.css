@@ -348,6 +348,13 @@ body:not([data-studio-stage="finish"]) #save-button .finish-choice-desc { displa
 .share-dialog-privacy a { color: var(--studio-accent); font-weight: 650; }
 .studio-dialog-body .publishing-panel { padding: 0; border-top: 0; }
 .studio-dialog-primary { width: 100%; }
+/* B-6. The studio's own confirmation. Narrower than the finish dialogs — it
+   carries one question and two answers — and the question keeps the line break
+   the copy writes, because the second line is what Cancel does. */
+.studio-confirm { width: min(380px, calc(100vw - 32px)); }
+.studio-confirm-message { white-space: pre-line; }
+.studio-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-confirm-actions > button { flex: 1 1 140px; min-height: 44px; }
 @media (prefers-reduced-motion: no-preference) {
   .studio-dialog[open] { animation: studio-dialog-in 180ms ease; }
   .studio-dialog[open]::backdrop { animation: studio-dialog-backdrop-in 180ms ease; }

@@ -817,6 +817,39 @@ test("mount renders an independent finish section and forwards validate/getValue
   assert.match(root.innerHTML, /data-i18n="publish\.publishButton"/);
 });
 
+/* The studio's validate() now ends in a question asked inside the page (the
+   reply-contact check), so it answers with a promise. A publish that read the
+   promise itself would see an object, call it true, and publish regardless of
+   the answer. */
+test("publishing waits for the studio's answer before it sends anything", async () => {
+  const published = [];
+  let answer;
+  const harness = createPublishingMountHarness({
+    client: {
+      list: () => [],
+      publish: async (value) => {
+        published.push(value);
+        return { id: "waited", url: "/i/waited", expiresAt: null };
+      }
+    },
+    validate: () => new Promise((resolve) => { answer = resolve; })
+  });
+
+  const declined = harness.clickPublish();
+  answer(false);
+  await declined;
+
+  assert.deepEqual(published, [], "nothing is sent while the author is still being asked");
+  assert.equal(harness.status.textContent, publishCopy("invalid"));
+  assert.equal(harness.root.querySelector("#publish-button").disabled, false);
+
+  const accepted = harness.clickPublish();
+  answer(true);
+  await accepted;
+
+  assert.equal(published.length, 1);
+});
+
 test("mount surfaces actionable publish failures without injecting raw server text", async () => {
   const harness = createPublishingMountHarness({
     client: {

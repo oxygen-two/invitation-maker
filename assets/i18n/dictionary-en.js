@@ -257,6 +257,7 @@
       menuLabel: "Actions for this {type}",
       confirmDelete: "Delete “{name}”?",
       cancel: "Cancel",
+      confirmTitle: "Please confirm",
 
       fallbackCourse: "Course {index}",
       fallbackPhoto: "Photo {index}",
@@ -393,6 +394,7 @@
       shareDialogPrivacy: "An invitation with a date stays open until a week after that date. Without one, it stays open 7 days after it was last opened, and 30 days at the most. Taking it down sooner is something only this browser can do.",
       privacyLink: "Read the privacy policy",
       confirmReplyContact: "This item asks for a reply but has no contact or link. Download it without a way to reply?\nCancel to go back and add one.",
+      confirmReplyContinue: "Continue anyway",
       replyContactPattern: "rsvp|reply|respond|contact|attend"
     },
 

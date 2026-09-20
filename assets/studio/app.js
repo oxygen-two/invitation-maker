@@ -318,6 +318,9 @@ const dom = {
   openShareDialog: document.querySelector("#open-share-dialog-button"),
   downloadDialog: document.querySelector("#download-dialog"),
   shareDialog: document.querySelector("#share-dialog"),
+  confirmDialog: document.querySelector("#confirm-dialog"),
+  confirmMessage: document.querySelector("#confirm-dialog-message"),
+  confirmAccept: document.querySelector("#confirm-dialog-accept"),
   upload: document.querySelector("#html-upload"),
   uploadDropzone: document.querySelector(".upload-dropzone"),
   uploadStatus: document.querySelector("#upload-status"),
@@ -596,11 +599,13 @@ const renderItemMenu = (item, index, itemCount, menuId) => {
   `;
 };
 
-/* The delete step used to be window.confirm: the one dialog in the studio
+/* The delete step used to be a browser confirm: the one dialog in the studio
    that cannot be translated, styled, or dismissed the way every other one
    is, and on a phone it covers the card you are deciding about. This row is
    rendered with every card and stays hidden until Delete is chosen, so the
-   question and the answer sit inside the thing being deleted. */
+   question and the answer sit inside the thing being deleted. The two
+   questions with no card to sit in go through askInPage below; there is no
+   browser confirm left anywhere in the studio. */
 const renderItemConfirm = (item, index, confirmId) => `
   <div class="content-item-confirm" id="${confirmId}" data-item-confirm role="group" aria-label="${escapeAttribute(t("content.removeItemTitle"))}" hidden>
     <p class="content-item-confirm-text" data-item-confirm-text>${escapeAttribute(t("content.confirmDelete", { name: getDeleteItemName(item, index) }))}</p>
@@ -761,7 +766,9 @@ const hasPendingEditorOperation = () =>
 const mountPublishing = () => {
   globalThis.InvitationPublishing?.mount?.({
     getValue: getFormData,
-    validate: () => validateForExport() && confirmReplyContact(),
+    // The reply-contact check ends in a question asked inside the page, so
+    // this answers with a promise and the panel awaits it.
+    validate: async () => validateForExport() && await confirmReplyContact(),
     isBusy: hasPendingEditorOperation
   });
 };
@@ -1016,6 +1023,47 @@ const openItemConfirm = (card, index) => {
   card.classList.add("is-confirming");
   card.querySelector('[data-item-action="cancel-delete"]')?.focus();
 };
+
+/* The same question an item card asks inside itself, for the two places with
+   no card to put a row in: the reply-contact check (raised from inside the
+   download and share dialogs) and a library card's delete. Both were
+   window.confirm — the one dialog here that cannot be translated or styled
+   like the others, and on a phone it covers the thing being decided about.
+
+   Answering yes is the accept button. Every other way out — Cancel, ✕,
+   Escape, the backdrop — arrives as the dialog's close event and is a no. The
+   focus trap and the return of focus to whatever raised it are showModal's. */
+let confirmSettle = null;
+let confirmAnswer = false;
+const settleConfirm = () => {
+  const settle = confirmSettle;
+  confirmSettle = null;
+  settle?.(confirmAnswer);
+};
+const askInPage = ({ question, acceptLabel }) => new Promise((resolve) => {
+  // A page with no dialog to ask with is not permission to go ahead.
+  if (!dom.confirmDialog?.showModal) {
+    resolve(false);
+    return;
+  }
+  confirmAnswer = false;
+  settleConfirm();
+  confirmSettle = resolve;
+  dom.confirmMessage.textContent = question;
+  dom.confirmAccept.textContent = acceptLabel;
+  dom.confirmDialog.showModal();
+});
+dom.confirmAccept?.addEventListener("click", () => {
+  confirmAnswer = true;
+  dom.confirmDialog.close();
+});
+dom.confirmDialog?.querySelectorAll?.("[data-dialog-close]")?.forEach((button) => {
+  button.addEventListener("click", () => dom.confirmDialog.close());
+});
+dom.confirmDialog?.addEventListener("click", (event) => {
+  if (event.target === dom.confirmDialog) dom.confirmDialog.close();
+});
+dom.confirmDialog?.addEventListener("close", settleConfirm);
 
 const restoreMobileScroll = (top) => {
   const target = Math.max(0, Number(top) || 0);
@@ -2244,7 +2292,7 @@ const validateForExport = () => {
   return false;
 };
 
-const confirmReplyContact = () => {
+const confirmReplyContact = async () => {
   // The vocabulary that marks an item as asking for a reply is language-
   // specific — an English author writes "RSVP" or "Reply", never "회신" — so
   // the pattern comes from the dictionary rather than being hard-coded here.
@@ -2253,7 +2301,13 @@ const confirmReplyContact = () => {
     && replyWords.test(`${entry.label} ${entry.value}`)
     && !entry.url && !/(?:\b0[1-9]\d?[ -]?\d{3,4}[ -]?\d{4}\b|\+[1-9][\d ()-]{7,}\d\b|[^\s@]+@[^\s@]+\.[^\s@]+)/.test(entry.value));
   if (!item) return true;
-  if (window.confirm(t('finish.confirmReplyContact'))) return true;
+  const proceed = await askInPage({
+    question: t('finish.confirmReplyContact'),
+    acceptLabel: t('finish.confirmReplyContinue')
+  });
+  if (proceed) return true;
+  // moveFocus:false — the field the author has to fix is about to take focus
+  // below, and the stage heading must not take it first.
   setStudioStage('edit', { moveFocus: false });
   const card = findItemCard(item.id);
   if (card) {
@@ -2435,7 +2489,11 @@ const handleSavedAction = async (event) => {
     trackAnalytics("html_downloaded", { template_id: undefined, occasion: undefined }, `download:library:${item.id}`);
   }
   if (button.dataset.action === "delete") {
-    if (!window.confirm(t("library.confirmRemove", { title: item.title }))) return;
+    const confirmed = await askInPage({
+      question: t("library.confirmRemove", { title: item.title }),
+      acceptLabel: t("library.remove")
+    });
+    if (!confirmed) return;
     button.disabled = true;
     try {
       await InvitationStorage.remove(item.id);
@@ -3423,7 +3481,7 @@ phoneViewport?.addEventListener?.('change', (event) => {
 dom.download.addEventListener("click", async () => {
   if (hasPendingEditorOperation()) return;
   if (!validateForExport()) return;
-  if (!confirmReplyContact()) return;
+  if (!await confirmReplyContact()) return;
   /* Inlining the art and building the document are both awaited, and an
      unhandled rejection inside a listener is invisible: the button would
      simply do nothing. Reported and said out loud, the way saveCurrent does. */
