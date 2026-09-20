@@ -665,6 +665,7 @@
       saved: "보관함에 저장했어요.",
       savedUnsynchronized: "저장은 됐지만 보관함 정리를 마치지 못했어요.",
       saveFailed: "브라우저 저장 공간에 기록하지 못해 저장하지 못했어요.",
+      downloadFailed: "초대장 파일을 만들지 못했어요. 잠시 뒤에 다시 시도해 주세요.",
 
       uploaded: "초대장을 보관함에 담았어요.",
       uploadedUnsynchronized: "불러오기는 됐지만 보관함 정리를 마치지 못했어요.",

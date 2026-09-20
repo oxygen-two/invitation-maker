@@ -45,6 +45,18 @@ const getFaviconLinks = (html) => [...html.matchAll(/<link\b[^>]*>/gi)]
   })
   .filter(({ rel = "" }) => rel.toLowerCase().split(/\s+/).some((token) => token === "icon" || token.endsWith("-icon")));
 
+/* A stub that fails the first call and behaves for every later one. Harnesses
+   outlive their test — each one subscribes to the shared i18n engine — so a
+   stub that failed forever would break whichever later test switches language. */
+const onlyOnce = (failing, afterwards) => {
+  let used = false;
+  return (...args) => {
+    if (used) return afterwards(...args);
+    used = true;
+    return failing(...args);
+  };
+};
+
 const deferred = () => {
   let resolve;
   let reject;
@@ -147,6 +159,10 @@ const loadEditorHarness = ({
   putDraft,
   getDraft,
   previewFrame = false,
+  /* A frame whose document never reaches a usable body: mountPreviewFrame
+     settles false and previewHost stays null, which is the state a 5s frame
+     timeout leaves the studio in. */
+  previewFrameBody = true,
   reducedMotion = false,
   mobile = false,
   /* A downloaded invitation has to open with no network, so the one picture
@@ -572,13 +588,16 @@ const loadEditorHarness = ({
   if (previewFrame) {
     const frameDocument = {
       ...makeEventTarget(),
-      body: { replaceChildren() {} },
+      body: previewFrameBody ? { replaceChildren() {} } : null,
       createElement: () => genericNode(),
       documentElement: {}
     };
     selectors.set("#preview", {
       ...genericNode(),
       tagName: "IFRAME",
+      // The panel the frame sits in, which is where a message about the studio
+      // itself has to go when the frame never produced a host.
+      parentElement: node(".preview-panel"),
       contentDocument: frameDocument,
       seeds: [],
       get srcdoc() { return this.seeds.at(-1) || ""; },
@@ -645,6 +664,7 @@ const loadEditorHarness = ({
     getPendingPreviewMapKey: () => pendingPreviewMapKey,
     handleHeroImageSelection: typeof handleHeroImageSelection === "function" ? handleHeroImageSelection : undefined,
     handlePhotoSelection,
+    init,
     loadInitialData,
     mountPreviewFrame,
     openSampleSheet,
@@ -700,6 +720,13 @@ const loadEditorHarness = ({
     },
     PresetApplication,
     TemplateCatalog,
+    /* Only init() reaches for these, and only to install stylesheets this
+       fake DOM has nowhere to put. */
+    TemplateRenderers: {
+      ensureStyles() {},
+      getStyles: () => "",
+      render: () => ""
+    },
     InvitationI18n,
     InvitationStorage: {
       DRAFT_LANGUAGE_FALLBACK: InvitationStorage.DRAFT_LANGUAGE_FALLBACK,
@@ -1565,6 +1592,91 @@ test("manual save failures keep the localized status and report a draft-save fau
 
   assert.equal(harness.node("#save-status").textContent, ko("status.saveFailed"));
   assert.deepEqual(reports, [{ error: failure, context: "draft_save" }]);
+});
+
+/* B-1. Four hand-copied busy checks had drifted: three of them had lost
+   saveWritePending, so Download and both finish cards stayed live while the
+   library was mid-write. There is one check now, and this holds every control
+   that reads it to the same answer. */
+test("every export control waits on the same pending check, a library write included", async () => {
+  const pending = deferred();
+  const harness = loadEditorHarness({ put: () => pending.promise });
+  const busyControls = ["#download-button", "#save-button", "#open-download-dialog-button", "#add-photo-button"];
+
+  const save = harness.api.saveCurrent();
+
+  for (const selector of busyControls) {
+    assert.equal(harness.node(selector).disabled, true, `${selector} stays disabled while the write is in flight`);
+  }
+
+  pending.resolve();
+  await save;
+
+  for (const selector of busyControls) {
+    assert.equal(harness.node(selector).disabled, false, `${selector} comes back once the write settles`);
+  }
+});
+
+test("the share card hides with the rest of its row while a design is waiting to be applied", async () => {
+  const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation });
+  const { api, node } = harness;
+  await api.loadInitialData();
+  api.fillForm(api.state.invitation);
+  api.renderTemplates();
+
+  node("#template-list").dispatch("click", {
+    target: node("#template-list").buttons.find((button) => button.dataset.templateId !== api.state.activeTemplate)
+  });
+
+  assert.equal(node("#start-template-button").hidden, false, "the apply prompt is what this row offers instead");
+  assert.equal(node("#save-button").hidden, true);
+  assert.equal(node("#open-download-dialog-button").hidden, true);
+  assert.equal(node("#open-share-dialog-button").hidden, true, "Share by link cannot outlive its row-siblings");
+  // #download-button lives inside the download dialog, not in this row, so
+  // hiding it there was a no-op pretending to be a guard.
+  assert.equal(node("#download-button").hidden, false);
+
+  node("#apply-template-button").dispatch("click", { target: node("#apply-template-button") });
+
+  assert.equal(node("#open-share-dialog-button").hidden, false);
+  assert.equal(node("#open-download-dialog-button").hidden, false);
+});
+
+test("a download that cannot be built says so instead of failing silently", async () => {
+  const failure = new Error("Jane Doe at 10 Downing Street");
+  const reports = [];
+  /* Only the download's own build fails. Every harness stays subscribed to the
+     shared i18n engine for the rest of the file, so a stub that failed forever
+     would break whichever later test switches language. */
+  const failOnce = onlyOnce(() => { throw failure; }, (invitation) => JSON.stringify(invitation));
+  const harness = loadEditorHarness({ buildStandaloneHtml: failOnce });
+  harness.window.InvitationErrorReporting = {
+    reportError(error, context) { reports.push({ error, context }); }
+  };
+
+  harness.node("#download-button").dispatch("click", { target: harness.node("#download-button") });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(harness.node("#save-status").textContent, ko("status.downloadFailed"));
+  assert.deepEqual(reports, [{ error: failure, context: "download" }]);
+});
+
+test("a boot failure is readable even when the preview frame never produced a host", async () => {
+  const harness = loadEditorHarness({
+    previewFrame: true,
+    previewFrameBody: false,
+    normalizeInvitation: onlyOnce(() => { throw new Error("catalog unreadable"); }, (value) => value)
+  });
+  harness.window.InvitationErrorReporting = { reportError() {} };
+
+  await harness.api.init();
+
+  // previewHost is null here — exactly what a 5s frame timeout leaves behind —
+  // so the panel goes to the section the frame sits in rather than nowhere.
+  const panel = harness.node(".preview-panel").innerHTML;
+  assert.match(panel, /class="error-panel"/);
+  assert.ok(panel.includes(ko("status.bootFailedTitle")), "the boot failure names itself");
+  assert.ok(panel.includes(ko("status.bootFailedBody")));
 });
 
 test("generated save waits for durability and restores the save button", async () => {

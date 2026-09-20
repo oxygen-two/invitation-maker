@@ -804,9 +804,13 @@ const syncTemplateAvailability = () => {
   const needsApply = Boolean(pending && pending.id !== state.activeTemplate);
   dom.startTemplate.hidden = !needsApply;
   dom.keepDraft.hidden = !needsApply;
-  dom.download.hidden = needsApply;
+  /* The finish row is all three cards or none of them: a design waiting to be
+     applied is not the design an export would carry. #download-button is not
+     in this row — it lives inside the download dialog — so hiding it here only
+     looked like a guard. */
   dom.save.hidden = needsApply;
   dom.openDownloadDialog.hidden = needsApply;
+  dom.openShareDialog.hidden = needsApply;
   dom.startTemplate.disabled = busy;
   dom.keepDraft.disabled = busy;
   dom.startTemplate.textContent = pending ? t("gallery.startNamed", { name: pending.name }) : t("gallery.start");
@@ -824,14 +828,11 @@ const syncAddItemAvailability = (items) => {
   const itemsFull = items.length >= InvitationCore.MAX_ITEMS;
   dom.addCourse.disabled = itemsFull;
   dom.addItemButtons.forEach((button) => { button.disabled = itemsFull; });
-  dom.addPhoto.disabled = photoSelectionPending
-    || heroImageSelectionPending
-    || saveWritePending
-    || itemsFull
-    || photoCount >= InvitationCore.MAX_PHOTOS;
-  dom.download.disabled = photoSelectionPending || heroImageSelectionPending;
-  dom.save.disabled = photoSelectionPending || heroImageSelectionPending || saveWritePending;
-  dom.openDownloadDialog.disabled = photoSelectionPending || heroImageSelectionPending;
+  const busy = hasPendingEditorOperation();
+  dom.addPhoto.disabled = busy || itemsFull || photoCount >= InvitationCore.MAX_PHOTOS;
+  dom.download.disabled = busy;
+  dom.save.disabled = busy;
+  dom.openDownloadDialog.disabled = busy;
   syncHeroImageAvailability();
   syncTemplateAvailability();
 };
@@ -1113,7 +1114,7 @@ const syncIntroReplayAvailability = () => {
 };
 
 const syncHeroImageAvailability = () => {
-  const busy = heroImageSelectionPending || photoSelectionPending || saveWritePending;
+  const busy = hasPendingEditorOperation();
   dom.heroImageSelect.disabled = busy;
   dom.heroImageInput.disabled = busy;
   dom.heroImageScale.disabled = busy || !state.heroImage;
@@ -2388,7 +2389,7 @@ const migrateLegacySaved = async () => {
 };
 
 const saveCurrent = async () => {
-  if (photoSelectionPending || heroImageSelectionPending || saveWritePending) return;
+  if (hasPendingEditorOperation()) return;
   if (!validateForExport()) return;
   saveWritePending = true;
   syncAddItemAvailability(getItemsData());
@@ -2562,7 +2563,7 @@ const getAvailablePhotoCapacity = () => {
 
 const handlePhotoSelection = async () => {
   const files = [...dom.photoInput.files];
-  if (photoSelectionPending || heroImageSelectionPending || saveWritePending) {
+  if (hasPendingEditorOperation()) {
     dom.photoInput.value = "";
     return;
   }
@@ -2628,7 +2629,7 @@ const handlePhotoSelection = async () => {
 
 const handleHeroImageSelection = async () => {
   const file = dom.heroImageInput.files?.[0];
-  if (!file || heroImageSelectionPending || photoSelectionPending || saveWritePending) {
+  if (!file || hasPendingEditorOperation()) {
     dom.heroImageInput.value = "";
     return;
   }
@@ -2996,15 +2997,21 @@ const init = async () => {
     }
   } catch (error) {
     reportFault("boot", error);
-    if (previewHost) {
-      previewHost.innerHTML = `
+    /* previewHost is null until the frame has loaded, and stays null when it
+       times out (see mountPreviewFrame) — which is exactly the shape of boot a
+       failure is most likely to arrive in. Writing the panel only when it
+       exists left a blank, inert studio saying nothing, so the message falls
+       back to the section the frame sits in, and then to the page itself. */
+    const host = previewHost || previewFrame?.parentElement || (previewFrame ? null : dom.preview);
+    const panel = `
       <div class="error-panel">
         <strong>${escapeAttribute(t("status.bootFailedTitle"))}</strong>
         <p>${escapeAttribute(t("status.bootFailedBody"))}</p>
         <code>python3 -m http.server 4173</code>
       </div>
     `;
-    }
+    if (host) host.innerHTML = panel;
+    else document.body.insertAdjacentHTML?.("afterbegin", panel);
   }
 };
 
@@ -3414,14 +3421,22 @@ phoneViewport?.addEventListener?.('change', (event) => {
 });
 
 dom.download.addEventListener("click", async () => {
-  if (photoSelectionPending || heroImageSelectionPending) return;
+  if (hasPendingEditorOperation()) return;
   if (!validateForExport()) return;
   if (!confirmReplyContact()) return;
-  const invitation = getFormData();
-  const html = InvitationCore.buildStandaloneHtml(invitation, await portableOptions(invitation, studioChrome()));
-  trackAnalyticsCompletion(invitation);
-  downloadHtml(html, invitation.title);
-  trackAnalytics("html_downloaded", {}, `download:editor:${analyticsPageRevision}:${state.activeTemplate}:${analyticsEditRevision}`);
+  /* Inlining the art and building the document are both awaited, and an
+     unhandled rejection inside a listener is invisible: the button would
+     simply do nothing. Reported and said out loud, the way saveCurrent does. */
+  try {
+    const invitation = getFormData();
+    const html = InvitationCore.buildStandaloneHtml(invitation, await portableOptions(invitation, studioChrome()));
+    trackAnalyticsCompletion(invitation);
+    downloadHtml(html, invitation.title);
+    trackAnalytics("html_downloaded", {}, `download:editor:${analyticsPageRevision}:${state.activeTemplate}:${analyticsEditRevision}`);
+  } catch (error) {
+    reportFault("download", error);
+    dom.saveStatus.textContent = t("status.downloadFailed");
+  }
 });
 
 dom.save.addEventListener("click", saveCurrent);

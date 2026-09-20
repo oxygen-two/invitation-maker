@@ -648,6 +648,7 @@
       saved: "Added to your library.",
       savedUnsynchronized: "Added, but the library could not finish tidying up.",
       saveFailed: "Could not write to browser storage, so it was not added.",
+      downloadFailed: "The invitation file could not be built. Please try again in a moment.",
 
       uploaded: "Invitation added.",
       uploadedUnsynchronized: "Added, but the library could not finish tidying up.",
