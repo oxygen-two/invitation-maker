@@ -298,8 +298,28 @@ test("subscribers are told about a language change and one failure cannot strand
   }
 });
 
+/* A generated sample date is a WALL CLOCK, not an instant: the ISO string
+   carries no offset, so it is parsed as local time and then formatted in that
+   same local zone. The two cancel, which is why these literals hold on a
+   runner in any zone. That cancellation is the contract — it is what lets an
+   author in Seoul and a reader in Los Angeles both see the hour that was
+   typed — so it is asserted here rather than left as a coincidence the CI
+   matrix would only report as a mystery failure. */
+const assertParsesAsWallClock = (iso) => {
+  const parsed = new Date(iso);
+  const [date, time] = iso.split("T");
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  assert.equal(parsed.getFullYear(), year, iso);
+  assert.equal(parsed.getMonth() + 1, month, iso);
+  assert.equal(parsed.getDate(), day, iso);
+  assert.equal(parsed.getHours(), hour, iso);
+  assert.equal(parsed.getMinutes(), minute, iso);
+};
+
 test("sample dates are built through Intl and differ per language", () => {
   const iso = "2026-09-12T14:00:00";
+  assertParsesAsWallClock(iso);
 
   const korean = InvitationI18n.formatSampleDate(iso, "ko");
   // Named with its region so this assertion cannot depend on the region the
@@ -319,6 +339,9 @@ test("sample dates are built through Intl and differ per language", () => {
 
 test("English regional variants read day-first on a 24-hour clock", () => {
   const iso = "2026-12-19T17:00:00";
+  // December, so a host zone east or west of the generator's would be the one
+  // thing able to move this date across a year boundary. It cannot: see above.
+  assertParsesAsWallClock(iso);
 
   assert.equal(InvitationI18n.formatSampleDate(iso, "en-GB"), "19 Dec 2026, 17:00");
   assert.equal(InvitationI18n.formatSampleDate(iso, "en-AU"), "19 Dec 2026, 17:00");
@@ -359,14 +382,24 @@ test("numbers and percentages go through Intl rather than string concatenation",
 });
 
 test("saved-record timestamps are formatted for the reader's language", () => {
+  // Unlike a sample date this one IS an instant (it carries Z), so nothing
+  // cancels: the calendar day it lands on is the reader's, and a loose /2026/
+  // would have passed on the wrong year for a stamp near a year boundary read
+  // from a negative offset. The zone is named so the whole string can be
+  // asserted instead, which is also a stronger test of the per-language format.
   const stamp = "2026-09-12T05:00:00.000Z";
+  const options = { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" };
 
-  const korean = InvitationI18n.formatDateTime(stamp, { year: "numeric", month: "short", day: "numeric" }, "ko");
-  const english = InvitationI18n.formatDateTime(stamp, { year: "numeric", month: "short", day: "numeric" }, "en");
+  const korean = InvitationI18n.formatDateTime(stamp, options, "ko");
+  const english = InvitationI18n.formatDateTime(stamp, options, "en");
 
-  assert.match(korean, /2026/);
-  assert.match(english, /2026/);
+  assert.equal(korean, "2026년 9월 12일");
+  assert.equal(english, "Sep 12, 2026");
   assert.notEqual(korean, english);
+
+  // Without a named zone the studio still renders the reader's own day, which
+  // is the behaviour the library cards want; only the year is safe to pin.
+  assert.match(InvitationI18n.formatDateTime(stamp, { year: "numeric" }, "ko"), /2026/);
   assert.equal(InvitationI18n.formatDateTime("nonsense", {}, "en"), null);
 });
 

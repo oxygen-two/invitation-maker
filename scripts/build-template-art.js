@@ -110,5 +110,32 @@ const sourceForTemplate = () => {
   return map;
 };
 
-fs.writeFileSync(OUTPUT_FILE, serialize(readArt()));
-fs.writeFileSync(INDEX_FILE, serializeIndex(sourceForTemplate()));
+/* The generated pair, as the sources say they should be. Both are pure string
+   building over `node:fs` reads — no browser, no network — which is what lets
+   CI verify them the way it verifies the error pages. */
+const render = () => [
+  [OUTPUT_FILE, serialize(readArt())],
+  [INDEX_FILE, serializeIndex(sourceForTemplate())]
+];
+
+/* --check regenerates in memory and compares, so a decoration that was swapped
+   without re-running the generator fails the build instead of shipping a
+   template-art.js that disagrees with the .webp files beside it. */
+const main = (argv = process.argv.slice(2)) => {
+  const check = argv.includes("--check");
+  for (const [target, contents] of render()) {
+    const name = path.relative(path.resolve(__dirname, ".."), target);
+    if (!check) {
+      fs.writeFileSync(target, contents);
+      continue;
+    }
+    if (!fs.existsSync(target) || fs.readFileSync(target, "utf8") !== contents) {
+      throw new Error(`Outdated generated file: ${name}. Run \`node scripts/build-template-art.js\`.`);
+    }
+  }
+  console.log(`${check ? "Verified" : "Generated"} ${render().length} template art modules.`);
+};
+
+if (require.main === module) main();
+
+module.exports = { INDEX_FILE, OUTPUT_FILE, main, readArt, render, serialize, serializeIndex, sourceForTemplate };
