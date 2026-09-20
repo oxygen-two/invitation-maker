@@ -8,6 +8,7 @@ const ContentOrder = require("../assets/studio/content-order.js");
 const HeroImage = require("../assets/media/hero-image.js");
 const InvitationCore = require("../assets/invitation/core.js");
 const PresetApplication = require("../assets/studio/preset-application.js");
+const InvitationStorage = require("../assets/storage/invitation-storage.js");
 const InvitationI18n = require("../assets/i18n/i18n.js");
 const dictionaryKo = require("../assets/i18n/dictionary-ko.js");
 const dictionaryEn = require("../assets/i18n/dictionary-en.js");
@@ -144,6 +145,7 @@ const loadEditorHarness = ({
   renderInvitationBody = () => "",
   put,
   putDraft,
+  getDraft,
   previewFrame = false,
   reducedMotion = false,
   mobile = false,
@@ -646,6 +648,7 @@ const loadEditorHarness = ({
     setStudioStage,
     renderContentEditor,
     renderTemplates,
+    restoreEditorContent,
     removeHeroImage: typeof removeHeroImage === "function" ? removeHeroImage : undefined,
     resetHeroImage: typeof resetHeroImage === "function" ? resetHeroImage : undefined,
     saveDraft,
@@ -693,9 +696,17 @@ const loadEditorHarness = ({
     TemplateCatalog,
     InvitationI18n,
     InvitationStorage: {
+      DRAFT_LANGUAGE_FALLBACK: InvitationStorage.DRAFT_LANGUAGE_FALLBACK,
       async list() { return []; },
       async put(record) { if (put) await put(record); },
-      async putDraft(record) { if (putDraft) await putDraft(record); },
+      /* The real repository fills the draft's language in on the way out, so
+         a record handed to this fake reaches the app the way a real read
+         would — including a legacy record that was written without one. */
+      async getDraft() {
+        const draft = getDraft ? await getDraft() : undefined;
+        return draft ? { ...draft, language: draft.language || InvitationStorage.DRAFT_LANGUAGE_FALLBACK } : draft;
+      },
+      async putDraft(invitation, language) { if (putDraft) await putDraft(invitation, language); },
       async remove() {}
     },
     URL,
@@ -2167,16 +2178,15 @@ const switchLanguage = async (language) => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-/* Boot, in the order init() does it: the sample is filled into the form and
-   the baseline is then read back off the form — never snapshotted from the
-   invitation — which is the whole reason an untouched sample can still be
-   recognised as ours several designs later. */
+/* Boot, through the function init() boots with: the draft is restored if
+   there is one, the form is filled from whichever invitation won, and the
+   baseline is read back off the form — never snapshotted from the invitation
+   — which is the whole reason an untouched sample can still be recognised as
+   ours several designs later. */
 const startedEditor = async (options = {}) => {
   const harness = loadEditorHarness({ normalizeInvitation: InvitationCore.normalizeInvitation, ...options });
   await harness.api.loadInitialData();
-  harness.api.fillForm(harness.api.state.invitation);
-  harness.api.captureAppliedBaseline();
-  harness.api.renderTemplates();
+  await harness.api.restoreEditorContent();
   return harness;
 };
 
@@ -2373,6 +2383,131 @@ test("an edited restored draft is never retranslated by a language switch", asyn
   } finally {
     await switchLanguage("ko");
   }
+});
+
+/* Reopening the studio in another language --------------------------------
+   The rule that governs a live language switch has to govern boot too, and
+   boot is the harder half: the draft comes back from storage with no memory
+   of the studio it was written in unless the record carries one. Without it,
+   an English sample autosaved by an English studio reopens word for word
+   inside a Korean one — our writing, in a language this reader did not
+   choose. So the record carries the language, and boot asks the same
+   authorship question a switch asks before it rewrites anything. */
+
+const koreanSample = (templateId) => JSON.parse(read("invitation-data.json"))
+  .templates.find((template) => template.id === templateId).defaults;
+
+/* A draft exactly as the studio autosaves one: the invitation the form is
+   holding, and the language its words were written in, taken from the call
+   saveDraft actually makes rather than assembled by hand. */
+const draftSavedIn = async (language, prepareDraft = () => {}) => {
+  const writes = [];
+  const harness = await startedEditor({
+    putDraft: async (invitation, saved) => { writes.push({ invitation, language: saved }); }
+  });
+  try {
+    await switchLanguage(language);
+    prepareDraft(harness);
+    // renderPreview is stubbed in this harness, so the read of the form it
+    // does before every autosave is done here instead.
+    harness.api.state.invitation = harness.api.getFormData();
+    harness.api.setDraftReady(true);
+    harness.api.saveDraft();
+    await harness.api.waitForDraftWrite();
+  } finally {
+    await switchLanguage("ko");
+  }
+  return { id: "current", updatedAt: "2026-09-19T00:00:00.000Z", ...writes.at(-1) };
+};
+
+/* A cold start with that draft in storage, in a studio speaking `language`. */
+const bootedEditor = async (draft, { language = "ko", ...options } = {}) => {
+  await switchLanguage(language);
+  const harness = loadEditorHarness({
+    normalizeInvitation: InvitationCore.normalizeInvitation,
+    getDraft: async () => draft,
+    ...options
+  });
+  await harness.api.loadInitialData();
+  await harness.api.restoreEditorContent();
+  return harness;
+};
+
+test("an untouched sample autosaved in another language reopens in this one", async () => {
+  const draft = await draftSavedIn("en", (harness) => applyDesign(harness, "birthday", "modern"));
+  assert.equal(draft.language, "en");
+  assert.equal(draft.invitation.templateId, "modern");
+  assert.equal(draft.invitation.title, englishSample("modern").title);
+
+  const harness = await bootedEditor(draft);
+  const form = harness.node("#invitation-form").elements;
+  const korean = koreanSample("modern");
+
+  // The design is the author's choice and survives; only our words change.
+  assert.equal(harness.api.state.activeTemplate, "modern");
+  assert.equal(form.title.value, korean.title);
+  assert.equal(form.subtitle.value, korean.subtitle);
+  assert.equal(form.message.value, korean.message);
+  assert.equal(form.host.value, korean.host);
+  assert.equal(itemById(harness, "notice-1").heading, korean.items.find((item) => item.id === "notice-1").heading);
+  // Restored, not started over.
+  assert.equal(harness.node("#draft-status-text").textContent, ko("status.draftRestored"));
+  // And the baseline is the sample now on the page, so the next switch can
+  // still tell that these words are ours.
+  assert.equal(PresetApplication.isDirty(harness.api.getFormData(), harness.api.state.appliedBaseline), false);
+});
+
+test("a draft the author wrote in is never retranslated at boot", async () => {
+  const draft = await draftSavedIn("en", (harness) => {
+    applyDesign(harness, "birthday", "modern");
+    typeInto(harness, "title", "Mina's thirtieth birthday");
+  });
+
+  const harness = await bootedEditor(draft);
+  const form = harness.node("#invitation-form").elements;
+
+  assert.equal(form.title.value, "Mina's thirtieth birthday");
+  // The rest of the draft is theirs too, down to the words they left alone.
+  assert.equal(form.subtitle.value, draft.invitation.subtitle);
+  assert.equal(form.message.value, englishSample("modern").message);
+  for (const field of ["title", "subtitle", "message", "host", "location"]) {
+    assert.doesNotMatch(form[field].value, HANGUL, `${field} was retranslated`);
+  }
+  assert.equal(harness.node("#draft-status-text").textContent, ko("status.draftRestored"));
+});
+
+test("a draft saved before the studio recorded its language is read as Korean", async () => {
+  const draft = await draftSavedIn("ko", (harness) => applyDesign(harness, "birthday", "modern"));
+  // The record as putDraft wrote it before it knew about language.
+  const legacy = { id: draft.id, invitation: draft.invitation, updatedAt: draft.updatedAt };
+  assert.equal(legacy.language, undefined);
+  const korean = koreanSample("modern");
+
+  const reopenedInKorean = await bootedEditor(legacy);
+  assert.equal(reopenedInKorean.node("#invitation-form").elements.title.value, korean.title);
+  assert.equal(reopenedInKorean.node("#draft-status-text").textContent, ko("status.draftRestored"));
+
+  try {
+    // ...and because the missing field means Korean rather than "unknown",
+    // an English studio still knows these words are ours to replace.
+    const reopenedInEnglish = await bootedEditor(legacy, { language: "en" });
+    assert.equal(reopenedInEnglish.node("#invitation-form").elements.title.value, englishSample("modern").title);
+  } finally {
+    await switchLanguage("ko");
+  }
+});
+
+test("a library save made from a relocalized draft is built in the studio's language", async () => {
+  const draft = await draftSavedIn("en", (harness) => applyDesign(harness, "birthday", "modern"));
+  const written = [];
+  const harness = await bootedEditor(draft, {
+    buildStandaloneHtml: (invitation, options) => JSON.stringify({ title: invitation.title, language: options.language }),
+    put: async (record) => { written.push(record); }
+  });
+
+  await harness.api.saveCurrent();
+
+  assert.deepEqual(JSON.parse(written.at(-1).html), { title: koreanSample("modern").title, language: "ko" });
 });
 
 /* The preview is an iframe seeded with the real standalone document, and only

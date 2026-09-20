@@ -26,7 +26,15 @@ const settleRequest = (request, { result, error } = {}) => {
 };
 
 const createFakeIndexedDB = ({ autoComplete = true } = {}) => {
-  const records = new Map();
+  /* One map per object store, so the drafts store the studio autosaves into
+     is exercised by the same fake as the library store rather than by a
+     second one that could drift from it. */
+  const stores = new Map();
+  const storeFor = (name) => {
+    if (!stores.has(name)) stores.set(name, new Map());
+    return stores.get(name);
+  };
+  const records = storeFor(InvitationStorage.STORE_NAME);
   const calls = { open: [], createObjectStore: [], transaction: [], transactionObjects: [] };
   let upgraded = false;
 
@@ -49,7 +57,7 @@ const createFakeIndexedDB = ({ autoComplete = true } = {}) => {
         onerror: null,
         onabort: null,
         objectStore(storeName) {
-          assert.equal(storeName, InvitationStorage.STORE_NAME);
+          const entries = storeFor(storeName);
           const complete = (request, result) => {
             nextTask(() => {
               request.result = result;
@@ -63,17 +71,17 @@ const createFakeIndexedDB = ({ autoComplete = true } = {}) => {
 
           return {
             getAll() {
-              return complete(createRequest(), [...records.values()]);
+              return complete(createRequest(), [...entries.values()]);
             },
             get(id) {
-              return complete(createRequest(), records.get(id));
+              return complete(createRequest(), entries.get(id));
             },
             put(record) {
-              records.set(record.id, record);
+              entries.set(record.id, record);
               return complete(createRequest(), record.id);
             },
             delete(id) {
-              records.delete(id);
+              entries.delete(id);
               return complete(createRequest(), undefined);
             }
           };
@@ -87,6 +95,8 @@ const createFakeIndexedDB = ({ autoComplete = true } = {}) => {
 
   return {
     calls,
+    stores,
+    storeFor,
     open(name, version) {
       calls.open.push({ name, version });
       const request = createRequest();
@@ -263,4 +273,72 @@ test("list places invalid createdAt records after valid dates with deterministic
     "invalid-a",
     "invalid-z"
   ]);
+});
+
+/* The draft record ----------------------------------------------------------
+   A draft is the invitation the studio autosaves plus the one fact about it
+   that the invitation itself cannot carry: the studio language its words were
+   written in. Without that, a draft restored in another language cannot be
+   asked whether its sample is still ours to replace. */
+
+const withFakeIndexedDB = (t, options) => {
+  const originalIndexedDB = globalThis.indexedDB;
+  const indexedDB = createFakeIndexedDB(options);
+  globalThis.indexedDB = indexedDB;
+  t.after(() => {
+    if (originalIndexedDB === undefined) delete globalThis.indexedDB;
+    else globalThis.indexedDB = originalIndexedDB;
+  });
+  return indexedDB;
+};
+
+test("the draft record carries the studio language beside the invitation", async (t) => {
+  const indexedDB = withFakeIndexedDB(t);
+  const invitation = { templateId: "modern", title: "Mina's thirtieth" };
+
+  await InvitationStorage.putDraft(invitation, "en");
+  const draft = await InvitationStorage.getDraft();
+
+  assert.equal(draft.id, "current");
+  assert.deepEqual(draft.invitation, invitation);
+  assert.equal(draft.language, "en");
+  assert.match(draft.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  // Drafts live in their own store: the library listing must never see one.
+  assert.equal(indexedDB.calls.transaction.every((call) => call.name === "drafts"), true);
+  assert.deepEqual(await InvitationStorage.list(), []);
+});
+
+test("a draft written before the language field existed reads as Korean", async (t) => {
+  const indexedDB = withFakeIndexedDB(t);
+  const invitation = { templateId: "royal", title: "지민과 하준의 결혼식" };
+  // Exactly the shape putDraft wrote before it knew about language.
+  indexedDB.storeFor("drafts").set("current", {
+    id: "current",
+    invitation,
+    updatedAt: "2026-09-01T00:00:00.000Z"
+  });
+
+  const draft = await InvitationStorage.getDraft();
+
+  assert.equal(draft.language, InvitationStorage.DRAFT_LANGUAGE_FALLBACK);
+  assert.equal(InvitationStorage.DRAFT_LANGUAGE_FALLBACK, "ko");
+  // Nothing else about the legacy record is rewritten on the way out.
+  assert.deepEqual(draft.invitation, invitation);
+  assert.equal(draft.updatedAt, "2026-09-01T00:00:00.000Z");
+});
+
+test("a draft saved without a language is stored as Korean rather than blank", async (t) => {
+  withFakeIndexedDB(t);
+
+  await InvitationStorage.putDraft({ templateId: "royal" });
+  assert.equal((await InvitationStorage.getDraft()).language, "ko");
+
+  await InvitationStorage.putDraft({ templateId: "royal" }, "   ");
+  assert.equal((await InvitationStorage.getDraft()).language, "ko");
+});
+
+test("an absent draft stays absent rather than becoming an empty Korean record", async (t) => {
+  withFakeIndexedDB(t);
+
+  assert.equal(await InvitationStorage.getDraft(), undefined);
 });

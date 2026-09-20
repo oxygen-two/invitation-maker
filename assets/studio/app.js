@@ -174,10 +174,16 @@ const setDraftStatus = (key, values) => {
 const saveDraft = () => {
   if (!draftReady) return;
   const invitation = PresetApplication.snapshot(state.invitation);
+  /* Saved beside the invitation, not inside it: it is a fact about the words'
+     authorship, not about the card. It is the only thing that lets the next
+     boot ask whether a restored sample is still ours to rewrite, which is the
+     same question a live language switch asks and could not otherwise be put
+     to a draft that came back from storage. */
+  const language = I18n?.getLanguage?.();
   const revision = ++draftRevision;
   const edited = analyticsEditRevision > 0;
   setDraftStatus('status.draftSaving');
-  draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation)).then(() => {
+  draftWrite = draftWrite.then(() => InvitationStorage.putDraft(invitation, language)).then(() => {
     if (edited) trackAnalytics("draft_saved", {}, "draft");
     if (revision === draftRevision) setDraftStatus('status.draftSaved');
   }).catch((error) => {
@@ -1845,6 +1851,44 @@ const captureAppliedBaseline = () => {
 const showsUntouchedSample = () =>
   !personalDraft || !PresetApplication.isDirty(getFormData(), state.appliedBaseline);
 
+/* Rewrites the sample on the page in the studio's current language, from the
+   active design's own localized preset — and from the starting sample for a
+   design the catalog no longer carries, which is all a draft on a retired
+   design has left to fall back to. preserveContent: false is the whole point:
+   the words are ours to replace. prepare still carries the author's map
+   service across, because that was their choice and not a template's look.
+
+   Whether the words ARE ours is the caller's question, and there are two
+   callers asking it of the same content for the same reason: a language
+   switch while the studio is open, and a draft restored into a studio
+   speaking a different language than the one it was written in. Returns false
+   when there is nothing to rebuild from, which is the caller's cue to leave
+   the content where it is. */
+const relocalizeSample = () => {
+  const activePreset = TemplateCatalog.getPreset(state.catalog, state.activeTemplate);
+  if (activePreset) {
+    const { next } = PresetApplication.prepare({
+      current: getFormData(),
+      preset: activePreset,
+      preserveContent: false,
+      naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
+    });
+    state.invitation = next;
+  } else if (state.localizedDefault) {
+    state.invitation = InvitationCore.normalizeInvitation({
+      ...state.localizedDefault,
+      mapProvider: defaultMapProvider(),
+      templateId: state.activeTemplate,
+      naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
+    });
+  } else {
+    return false;
+  }
+  fillForm(state.invitation);
+  captureAppliedBaseline();
+  return true;
+};
+
 const applyPendingTemplate = () => {
   if (hasPendingEditorOperation()) return;
   const preset = TemplateCatalog.getPreset(state.catalog, state.pendingTemplateId);
@@ -2688,6 +2732,18 @@ const applyContentLanguage = async () => {
   return data;
 };
 
+/* A design's sample as ANOTHER language's catalog would have built it. Only
+   boot asks, and only about a draft that came back from a studio speaking
+   that language: to know whether such a draft is still our sample, there has
+   to be a sample to compare it with. The active catalog is left exactly where
+   it is — the studio is not in that language now, and this is a question
+   about the past. The overlay fetch is the same cached one a switch uses. */
+const presetInLanguage = async (templateId, language) => {
+  if (!state.rawData) return null;
+  const data = localizeCatalogData(state.rawData, await loadContentOverlay(language));
+  return TemplateCatalog.getPreset(TemplateCatalog.normalizeCatalog(data), templateId);
+};
+
 const loadInitialData = async () => {
   const response = await fetch("invitation-data.json", { cache: "no-store" });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -2719,6 +2775,65 @@ const loadInitialData = async () => {
   // reading an untouched sample compares equal to.
 };
 
+/* The autosaved draft, back on the page. Returns the studio language it was
+   written in — the repository answers "ko" for a draft written before that
+   was recorded, because there was only Korean then — or null when there is
+   nothing to restore, which is also what a failed read reports: the studio
+   opens on its own sample either way. */
+const restoreDraft = async () => {
+  try {
+    const draft = await InvitationStorage.getDraft();
+    if (!draft?.invitation || !TemplateCatalog.getPreset(state.catalog, draft.invitation.templateId)) return null;
+    state.invitation = PresetApplication.snapshot(draft.invitation);
+    state.activeTemplate = state.invitation.templateId;
+    state.pendingTemplateId = state.activeTemplate;
+    state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
+    personalDraft = true;
+    setDraftStatus('status.draftRestored');
+    return draft.language || null;
+  } catch (error) {
+    reportFault("draft_load", error);
+    setDraftStatus('status.draftUnavailable');
+    return null;
+  }
+};
+
+/* Boot's content step. Both paths — the starting sample and a restored draft
+   — end by filling the form and taking the baseline off it, once, because
+   that is the one reading an untouched sample compares equal to.
+
+   A draft restored from a studio speaking another language gets one question
+   first, and it is the same question a live language switch asks: is this
+   still our sample, or has the author written in it? It cannot be put to the
+   draft on its own — everything compares equal to itself — so the form is
+   filled first with the sample that draft WOULD be, rebuilt from its own
+   language's preset, and THAT reading becomes the baseline. An untouched
+   sample then compares equal to it and is rewritten in the studio's language
+   exactly as a switch would rewrite it. Anything the author wrote does not
+   compare equal, and stays in the words and the language they chose. */
+const restoreEditorContent = async () => {
+  const draftLanguage = await restoreDraft();
+  renderTemplates();
+
+  const language = I18n?.getLanguage?.() ?? null;
+  const asSavedPreset = draftLanguage && language && draftLanguage !== language
+    ? await presetInLanguage(state.activeTemplate, draftLanguage)
+    : null;
+  if (asSavedPreset) {
+    fillForm(PresetApplication.prepare({
+      current: state.invitation,
+      preset: asSavedPreset,
+      preserveContent: false,
+      naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
+    }).next);
+    captureAppliedBaseline();
+  }
+
+  fillForm(state.invitation);
+  if (asSavedPreset && showsUntouchedSample() && relocalizeSample()) return;
+  captureAppliedBaseline();
+};
+
 const init = async () => {
   // The landing page at "/" sends anyone who has opened the studio before
   // straight back here. This flag is the only thing it reads; it is not the
@@ -2735,27 +2850,7 @@ const init = async () => {
     mirrorThumbnailHeadingRules(document);
     await mountPreviewFrame();
     await loadInitialData();
-    try {
-      const draft = await InvitationStorage.getDraft();
-      if (draft?.invitation && TemplateCatalog.getPreset(state.catalog, draft.invitation.templateId)) {
-        state.invitation = PresetApplication.snapshot(draft.invitation);
-        state.activeTemplate = state.invitation.templateId;
-        state.pendingTemplateId = state.activeTemplate;
-        state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
-        personalDraft = true;
-        setDraftStatus('status.draftRestored');
-      }
-    } catch (error) {
-      reportFault("draft_load", error);
-      setDraftStatus('status.draftUnavailable');
-    }
-    renderTemplates();
-    fillForm(state.invitation);
-    /* Both boot paths — the starting sample and a restored draft — end here,
-       so the baseline is taken here, once, from the form they both filled.
-       A restored draft is the author's (personalDraft), but if it is still
-       our sample untouched this is what lets a later language switch say so. */
-    captureAppliedBaseline();
+    await restoreEditorContent();
     mountPublishing();
     renderPreview();
     draftReady = true;
@@ -3270,34 +3365,7 @@ const handleLanguageChange = async () => {
 
   if (state.rawData) {
     await applyContentLanguage();
-    const untouchedSample = showsUntouchedSample();
-    const activePreset = untouchedSample
-      ? TemplateCatalog.getPreset(state.catalog, state.activeTemplate)
-      : null;
-    if (activePreset) {
-      // preserveContent: false is the whole point — the words are ours to
-      // replace. prepare still carries the author's map service across.
-      const { next } = PresetApplication.prepare({
-        current: getFormData(),
-        preset: activePreset,
-        preserveContent: false,
-        naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
-      });
-      state.invitation = next;
-      fillForm(next);
-      captureAppliedBaseline();
-    } else if (untouchedSample && state.localizedDefault) {
-      // A draft on a design the catalog no longer carries still has the
-      // starting sample to fall back to.
-      state.invitation = InvitationCore.normalizeInvitation({
-        ...state.localizedDefault,
-        mapProvider: defaultMapProvider(),
-        templateId: state.activeTemplate,
-        naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
-      });
-      fillForm(state.invitation);
-      captureAppliedBaseline();
-    } else {
+    if (!(showsUntouchedSample() && relocalizeSample())) {
       // Re-render the item cards so their field labels and placeholder
       // summaries follow the new language without touching the values.
       renderContentEditor(getItemsData(), getOpenItemId());
