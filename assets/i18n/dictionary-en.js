@@ -663,6 +663,7 @@
 
       storageUnavailable: "The library store could not be opened. Making and downloading still work.",
       migrationUnavailable: "The existing library could not start migrating. Your existing data is untouched.",
+      migrationIncomplete: "Some older invitations could not be moved over. The originals are untouched, and reopening this page tries again.",
       syncIncomplete: "The library could not finish syncing. Making and downloading still work.",
       syncFailed: "The library failed to sync. Making and downloading still work.",
 

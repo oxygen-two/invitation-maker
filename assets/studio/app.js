@@ -137,11 +137,10 @@ const trackAnalytics = (event, properties = {}, dedupKey = event) => {
 };
 
 // Diagnostics are best-effort and carry only the reporter's closed fields.
-const reportFault = (context, error, options) => {
-  try {
-    window.InvitationErrorReporting?.reportError?.(error, context, options);
-  } catch { /* Diagnostics must not interrupt authoring either. */ }
-};
+// The swallowing is the reporter's own contract (assets/analytics/error-reporting.js),
+// so this is the binding to it rather than a third copy of the same try/catch.
+const reportFault = (context, error, options) =>
+  window.InvitationErrorReporting?.reportFault?.(context, error, options);
 // The words on the page have just been written in the language the studio is
 // speaking — either by us, or by the author typing into it.
 const markContentLanguage = () => {
@@ -436,23 +435,13 @@ const sanitizeFilename = (value) =>
     .replace(/^-|-$/g, "")
     .slice(0, 48) || "invitation";
 
-const escapeAttribute = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#039;"
-})[char]);
+const { escapeHtml } = globalThis.InvitationText;
 
 // A record's createdAt is a machine timestamp, so it is formatted for the
-// reader's language rather than printed as stored.
-const formatSavedDate = (value) => I18n?.formatDateTime(value, {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit"
-}) ?? t("library.unknownDate");
+// reader's language rather than printed as stored — in the one shape every
+// timestamp in the product uses, including the published-link expiries the
+// library lists right beside these cards.
+const formatSavedDate = (value) => I18n?.formatTimestamp(value) ?? t("library.unknownDate");
 
 const createItemId = (type) => {
   if (globalThis.crypto?.randomUUID) return `${type}-${globalThis.crypto.randomUUID()}`;
@@ -503,7 +492,10 @@ const createEmptyItem = (type) => {
   }
 };
 
-const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-card]")].map((card) => {
+/* One card, read back off its own fields. The summaries in the card header
+   are written from this too, so what the header says while you type and what
+   the next render puts there are the same sentence by construction. */
+const readItemFromCard = (card) => {
   const id = card.dataset.itemId;
   const type = card.dataset.itemType;
 
@@ -563,7 +555,9 @@ const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-ca
       };
     }
   }
-});
+};
+
+const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-card]")].map(readItemFromCard);
 
 /* B-6. Three always-visible icon buttons could not share a 390px header row
    with the item's type and summary, so they wrapped onto a second line and
@@ -586,14 +580,14 @@ const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-ca
    three actions out of the Tab order to gain nothing a reader can use. */
 const renderItemMenu = (item, index, itemCount, menuId) => {
   const type = itemTypeLabel(item.type);
-  const menuLabel = escapeAttribute(t("content.menuLabel", { type }));
+  const menuLabel = escapeHtml(t("content.menuLabel", { type }));
   return `
     <div class="content-item-menu" data-item-menu>
-      <button class="content-item-menu-button" type="button" data-item-menu-button aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeAttribute(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
+      <button class="content-item-menu-button" type="button" data-item-menu-button aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeHtml(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
       <div class="content-item-menu-list" id="${menuId}" role="group" aria-label="${menuLabel}" data-item-menu-list hidden>
-        <button class="content-item-menu-item" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeAttribute(t("content.moveUpTitle"))}</button>
-        <button class="content-item-menu-item" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeAttribute(t("content.moveDownTitle"))}</button>
-        <button class="content-item-menu-item remove-item-button" type="button" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeAttribute(t("content.removeItemTitle"))}</button>
+        <button class="content-item-menu-item" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeHtml(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeHtml(t("content.moveUpTitle"))}</button>
+        <button class="content-item-menu-item" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeHtml(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeHtml(t("content.moveDownTitle"))}</button>
+        <button class="content-item-menu-item remove-item-button" type="button" data-item-action="delete" aria-label="${escapeHtml(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeHtml(t("content.removeItemTitle"))}</button>
       </div>
     </div>
   `;
@@ -607,11 +601,11 @@ const renderItemMenu = (item, index, itemCount, menuId) => {
    questions with no card to sit in go through askInPage below; there is no
    browser confirm left anywhere in the studio. */
 const renderItemConfirm = (item, index, confirmId) => `
-  <div class="content-item-confirm" id="${confirmId}" data-item-confirm role="group" aria-label="${escapeAttribute(t("content.removeItemTitle"))}" hidden>
-    <p class="content-item-confirm-text" data-item-confirm-text>${escapeAttribute(t("content.confirmDelete", { name: getDeleteItemName(item, index) }))}</p>
+  <div class="content-item-confirm" id="${confirmId}" data-item-confirm role="group" aria-label="${escapeHtml(t("content.removeItemTitle"))}" hidden>
+    <p class="content-item-confirm-text" data-item-confirm-text>${escapeHtml(t("content.confirmDelete", { name: getDeleteItemName(item, index) }))}</p>
     <div class="content-item-confirm-actions">
-      <button class="content-item-confirm-cancel" type="button" data-item-action="cancel-delete">${escapeAttribute(t("content.cancel"))}</button>
-      <button class="content-item-confirm-delete" type="button" data-item-action="confirm-delete">${escapeAttribute(t("content.removeItemTitle"))}</button>
+      <button class="content-item-confirm-cancel" type="button" data-item-action="cancel-delete">${escapeHtml(t("content.cancel"))}</button>
+      <button class="content-item-confirm-delete" type="button" data-item-action="confirm-delete">${escapeHtml(t("content.removeItemTitle"))}</button>
     </div>
   </div>
 `;
@@ -624,40 +618,40 @@ const renderCourseFields = (item, bodyId, isOpen) => {
   return `
     <div id="${bodyId}" class="course-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
       <label>
-        <span>${escapeAttribute(t("content.courseTime"))}</span>
-        <input data-course-field="time" type="time" step="600" value="${escapeAttribute(item.time)}">
+        <span>${escapeHtml(t("content.courseTime"))}</span>
+        <input data-course-field="time" type="time" step="600" value="${escapeHtml(item.time)}">
       </label>
       <label>
-        <span>${escapeAttribute(t("content.courseLabel"))}</span>
-        <select data-course-label-preset aria-label="${escapeAttribute(t("content.courseLabelSelect"))}">
+        <span>${escapeHtml(t("content.courseLabel"))}</span>
+        <select data-course-label-preset aria-label="${escapeHtml(t("content.courseLabelSelect"))}">
           ${COURSE_LABEL_PRESETS.map((preset) => `<option value="${preset}"${labelPreset === preset ? " selected" : ""}>${preset}</option>`).join("")}
-          <option value="custom"${labelPreset === "custom" ? " selected" : ""}>${escapeAttribute(t("content.courseLabelCustom"))}</option>
+          <option value="custom"${labelPreset === "custom" ? " selected" : ""}>${escapeHtml(t("content.courseLabelCustom"))}</option>
         </select>
       </label>
       <label class="full custom-label-field" data-custom-label-field${labelPreset === "custom" ? "" : " hidden"}>
-        <span>${escapeAttribute(t("content.courseLabelCustom"))}</span>
-        <input data-course-field="label" type="text" value="${escapeAttribute(labelPreset === "custom" ? label : labelPreset)}" placeholder="${escapeAttribute(t("content.courseLabelPlaceholder"))}" autocomplete="off">
+        <span>${escapeHtml(t("content.courseLabelCustom"))}</span>
+        <input data-course-field="label" type="text" value="${escapeHtml(labelPreset === "custom" ? label : labelPreset)}" placeholder="${escapeHtml(t("content.courseLabelPlaceholder"))}" autocomplete="off">
       </label>
       <label class="full">
-        <span>${escapeAttribute(t("content.coursePlace"))}</span>
-        <input data-course-field="place" type="text" value="${escapeAttribute(item.place)}" autocomplete="off">
+        <span>${escapeHtml(t("content.coursePlace"))}</span>
+        <input data-course-field="place" type="text" value="${escapeHtml(item.place)}" autocomplete="off">
       </label>
       <label class="full">
-        <span>${escapeAttribute(t("content.courseNote"))}</span>
-        <textarea data-course-field="note" rows="2">${escapeAttribute(item.note)}</textarea>
+        <span>${escapeHtml(t("content.courseNote"))}</span>
+        <textarea data-course-field="note" rows="2">${escapeHtml(item.note)}</textarea>
       </label>
       <label class="full">
-        <span>${escapeAttribute(t("content.courseMapUrl"))}</span>
-        <input data-course-field="mapUrl" type="url" value="${escapeAttribute(item.mapUrl)}" placeholder="${escapeAttribute(t("content.courseMapUrlPlaceholder"))}" autocomplete="off">
+        <span>${escapeHtml(t("content.courseMapUrl"))}</span>
+        <input data-course-field="mapUrl" type="url" value="${escapeHtml(item.mapUrl)}" placeholder="${escapeHtml(t("content.courseMapUrlPlaceholder"))}" autocomplete="off">
       </label>
       <label class="full checkbox-field">
         <input data-course-field="mapEnabled" type="checkbox"${checked}>
-        <span>${escapeAttribute(t("content.courseMapEnabled"))}</span>
+        <span>${escapeHtml(t("content.courseMapEnabled"))}</span>
       </label>
       <div class="full map-settings stop-map-settings" data-course-map-settings${hidden}>
-        <input data-course-field="mapLatitude" type="hidden" value="${escapeAttribute(item.mapLatitude ?? "")}">
-        <input data-course-field="mapLongitude" type="hidden" value="${escapeAttribute(item.mapLongitude ?? "")}">
-        <input data-course-field="mapZoom" type="hidden" value="${escapeAttribute(item.mapZoom || 16)}">
+        <input data-course-field="mapLatitude" type="hidden" value="${escapeHtml(item.mapLatitude ?? "")}">
+        <input data-course-field="mapLongitude" type="hidden" value="${escapeHtml(item.mapLongitude ?? "")}">
+        <input data-course-field="mapZoom" type="hidden" value="${escapeHtml(item.mapZoom || 16)}">
         <small class="stop-map-message" data-course-map-message role="status" aria-live="polite"></small>
       </div>
     </div>
@@ -679,20 +673,19 @@ const syncCourseLabelPreset = (select) => {
     labelInput.value = select.value;
   }
 
-  const time = card.querySelector('[data-course-field="time"]').value || t("content.timeUnset");
-  card.querySelector("[data-item-secondary-summary]").textContent = `${time} · ${labelInput.value || "PLACE"}`;
+  syncItemSummaries(card);
 };
 
 const renderPhotoFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="photo-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
-    <img class="photo-editor-thumbnail" data-photo-thumbnail src="${escapeAttribute(item.src)}" alt="${escapeAttribute(item.alt || t("content.photoThumbnailAlt"))}">
+    <img class="photo-editor-thumbnail" data-photo-thumbnail src="${escapeHtml(item.src)}" alt="${escapeHtml(item.alt || t("content.photoThumbnailAlt"))}">
     <label class="full">
-      <span>${escapeAttribute(t("content.photoAlt"))}</span>
-      <input data-photo-field="alt" type="text" value="${escapeAttribute(item.alt)}" autocomplete="off">
+      <span>${escapeHtml(t("content.photoAlt"))}</span>
+      <input data-photo-field="alt" type="text" value="${escapeHtml(item.alt)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>${escapeAttribute(t("content.photoCaption"))}</span>
-      <textarea data-photo-field="caption" rows="2">${escapeAttribute(item.caption)}</textarea>
+      <span>${escapeHtml(t("content.photoCaption"))}</span>
+      <textarea data-photo-field="caption" rows="2">${escapeHtml(item.caption)}</textarea>
     </label>
   </div>
 `;
@@ -700,12 +693,12 @@ const renderPhotoFields = (item, bodyId, isOpen) => `
 const renderNoticeFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="notice-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
     <label class="full">
-      <span>${escapeAttribute(t("content.noticeHeading"))}</span>
-      <input data-notice-field="heading" type="text" value="${escapeAttribute(item.heading)}" autocomplete="off">
+      <span>${escapeHtml(t("content.noticeHeading"))}</span>
+      <input data-notice-field="heading" type="text" value="${escapeHtml(item.heading)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>${escapeAttribute(t("content.noticeBody"))}</span>
-      <textarea data-notice-field="body" rows="2">${escapeAttribute(item.body)}</textarea>
+      <span>${escapeHtml(t("content.noticeBody"))}</span>
+      <textarea data-notice-field="body" rows="2">${escapeHtml(item.body)}</textarea>
     </label>
   </div>
 `;
@@ -713,16 +706,16 @@ const renderNoticeFields = (item, bodyId, isOpen) => `
 const renderProfileFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="profile-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
     <label>
-      <span>${escapeAttribute(t("content.profileName"))}</span>
-      <input data-profile-field="name" type="text" value="${escapeAttribute(item.name)}" autocomplete="off">
+      <span>${escapeHtml(t("content.profileName"))}</span>
+      <input data-profile-field="name" type="text" value="${escapeHtml(item.name)}" autocomplete="off">
     </label>
     <label>
-      <span>${escapeAttribute(t("content.profileRole"))}</span>
-      <input data-profile-field="role" type="text" value="${escapeAttribute(item.role)}" autocomplete="off">
+      <span>${escapeHtml(t("content.profileRole"))}</span>
+      <input data-profile-field="role" type="text" value="${escapeHtml(item.role)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>${escapeAttribute(t("content.profileDescription"))}</span>
-      <textarea data-profile-field="description" rows="2">${escapeAttribute(item.description)}</textarea>
+      <span>${escapeHtml(t("content.profileDescription"))}</span>
+      <textarea data-profile-field="description" rows="2">${escapeHtml(item.description)}</textarea>
     </label>
   </div>
 `;
@@ -730,16 +723,16 @@ const renderProfileFields = (item, bodyId, isOpen) => `
 const renderLinkFields = (item, bodyId, isOpen) => `
   <div id="${bodyId}" class="link-editor-grid" data-item-body${isOpen ? "" : " hidden"}>
     <label>
-      <span>${escapeAttribute(t("content.linkLabel"))}</span>
-      <input data-link-field="label" type="text" value="${escapeAttribute(item.label)}" autocomplete="off">
+      <span>${escapeHtml(t("content.linkLabel"))}</span>
+      <input data-link-field="label" type="text" value="${escapeHtml(item.label)}" autocomplete="off">
     </label>
     <label>
-      <span>${escapeAttribute(t("content.linkValue"))}</span>
-      <input data-link-field="value" type="text" value="${escapeAttribute(item.value)}" autocomplete="off">
+      <span>${escapeHtml(t("content.linkValue"))}</span>
+      <input data-link-field="value" type="text" value="${escapeHtml(item.value)}" autocomplete="off">
     </label>
     <label class="full">
-      <span>${escapeAttribute(t("content.linkUrl"))}</span>
-      <input data-link-field="url" type="url" value="${escapeAttribute(item.url)}" autocomplete="off">
+      <span>${escapeHtml(t("content.linkUrl"))}</span>
+      <input data-link-field="url" type="url" value="${escapeHtml(item.url)}" autocomplete="off">
     </label>
   </div>
 `;
@@ -844,19 +837,25 @@ const syncAddItemAvailability = (items) => {
   syncTemplateAvailability();
 };
 
+/* A field holding only spaces is an empty field: the author sees nothing in
+   it, so the header must not show it either. The live handler trimmed and the
+   renderer did not, which is how a card could sit there with a header full of
+   whitespace until the next render replaced it. */
+const firstFilled = (...values) => values.map((value) => String(value ?? "").trim()).find(Boolean) || "";
+
 const getItemPrimarySummary = (item) => {
   switch (item.type) {
     case "photo":
-      return item.caption || item.alt || t("content.summaryPhoto");
+      return firstFilled(item.caption, item.alt) || t("content.summaryPhoto");
     case "notice":
-      return item.heading || item.body || t("content.summaryNotice");
+      return firstFilled(item.heading, item.body) || t("content.summaryNotice");
     case "profile":
-      return item.name || item.role || t("content.summaryProfile");
+      return firstFilled(item.name, item.role) || t("content.summaryProfile");
     case "link":
-      return item.label || item.value || item.url || t("content.summaryLink");
+      return firstFilled(item.label, item.value, item.url) || t("content.summaryLink");
     case "course":
     default:
-      return item.place || t("content.summaryCourse");
+      return firstFilled(item.place) || t("content.summaryCourse");
   }
 };
 
@@ -867,13 +866,22 @@ const getItemSecondarySummary = (item) => {
     case "notice":
       return "NOTICE";
     case "profile":
-      return item.role || "PROFILE";
+      return firstFilled(item.role) || "PROFILE";
     case "link":
-      return item.value || item.url || "LINK";
+      return firstFilled(item.value, item.url) || "LINK";
     case "course":
     default:
-      return `${item.time || t("content.timeUnset")} · ${item.label || "PLACE"}`;
+      return `${firstFilled(item.time) || t("content.timeUnset")} · ${firstFilled(item.label) || "PLACE"}`;
   }
+};
+
+/* The card header, rewritten from the card's own fields. Called from every
+   keystroke that can change what it says, so the header the author is reading
+   is always the one the next render would produce. */
+const syncItemSummaries = (card) => {
+  const item = readItemFromCard(card);
+  card.querySelector("[data-item-summary]").textContent = getItemPrimarySummary(item);
+  card.querySelector("[data-item-secondary-summary]").textContent = getItemSecondarySummary(item);
 };
 
 const getDeleteItemName = (item, index) => {
@@ -926,7 +934,7 @@ const renderContentEditor = (items = [], openId = items[0]?.id) => {
   syncAddItemAvailability(items);
 
   if (!items.length) {
-    dom.contentEditor.innerHTML = `<p class="content-empty">${escapeAttribute(t("content.empty"))}</p>`;
+    dom.contentEditor.innerHTML = `<p class="content-empty">${escapeHtml(t("content.empty"))}</p>`;
     return;
   }
 
@@ -939,7 +947,7 @@ const renderContentEditor = (items = [], openId = items[0]?.id) => {
     const primarySummary = getItemPrimarySummary(item);
     const secondarySummary = getItemSecondarySummary(item);
     return `
-      <article class="content-item-card ${escapeAttribute(item.type)}-editor-card${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeAttribute(item.id)}" data-item-type="${item.type}">
+      <article class="content-item-card ${escapeHtml(item.type)}-editor-card${isOpen ? " is-open" : ""}" data-item-card data-item-id="${escapeHtml(item.id)}" data-item-type="${item.type}">
         <div class="content-item-header">
           <span class="content-item-handle" aria-hidden="true">
             <span class="content-item-grip"></span>
@@ -947,8 +955,8 @@ const renderContentEditor = (items = [], openId = items[0]?.id) => {
           </span>
           <button class="content-item-toggle" type="button" data-toggle-item aria-expanded="${isOpen}" aria-controls="${bodyId}">
             <span class="content-item-heading">
-              <strong>${escapeAttribute(typeLabel)} · <span data-item-secondary-summary>${escapeAttribute(secondarySummary)}</span></strong>
-              <span data-item-summary>${escapeAttribute(primarySummary)}</span>
+              <strong>${escapeHtml(typeLabel)} · <span data-item-secondary-summary>${escapeHtml(secondarySummary)}</span></strong>
+              <span data-item-summary>${escapeHtml(primarySummary)}</span>
             </span>
           </button>
           ${renderItemMenu(item, index, items.length, menuId)}
@@ -1241,7 +1249,7 @@ const populateTimeZoneSelect = () => {
   const select = dom.form.elements.timeZone;
   if (!select) return;
   select.innerHTML = timeZoneOptions()
-    .map((zone) => `<option value="${escapeAttribute(zone)}">${escapeAttribute(zone)}</option>`)
+    .map((zone) => `<option value="${escapeHtml(zone)}">${escapeHtml(zone)}</option>`)
     .join("");
   select.value = deviceTimeZone() || select.value;
 };
@@ -1777,8 +1785,8 @@ const OCCASION_GROUP_LABEL_KEYS = Object.freeze({
 const renderOccasionChip = (occasion) => {
   const isActive = occasion.id === state.activeOccasion;
   return `
-      <button class="occasion-chip${isActive ? " is-active" : ""}" type="button" data-occasion-id="${escapeAttribute(occasion.id)}" aria-pressed="${isActive}">
-        ${escapeAttribute(occasion.name)}
+      <button class="occasion-chip${isActive ? " is-active" : ""}" type="button" data-occasion-id="${escapeHtml(occasion.id)}" aria-pressed="${isActive}">
+        ${escapeHtml(occasion.name)}
       </button>
     `;
 };
@@ -1792,8 +1800,8 @@ const renderTemplates = () => {
   dom.occasions.innerHTML = TemplateCatalog.getOccasionsByGroup(state.catalog).map(({ group, occasions }) => {
     const label = t(OCCASION_GROUP_LABEL_KEYS[group] || "gallery.occasionListLabel");
     return `
-      <div class="occasion-group" role="group" aria-label="${escapeAttribute(label)}">
-        <span class="occasion-group-label" aria-hidden="true">${escapeAttribute(label)}</span>
+      <div class="occasion-group" role="group" aria-label="${escapeHtml(label)}">
+        <span class="occasion-group-label" aria-hidden="true">${escapeHtml(label)}</span>
         <div class="occasion-group-chips">${occasions.map(renderOccasionChip).join("")}</div>
       </div>
     `;
@@ -1811,12 +1819,12 @@ const renderTemplates = () => {
         </div>
         <div class="template-card-copy">
           <div class="template-card-heading">
-            <strong>${escapeAttribute(template.name)}</strong>
-            ${isApplied ? `<small class="template-chip-status">${escapeAttribute(t("gallery.applied"))}</small>` : ""}
+            <strong>${escapeHtml(template.name)}</strong>
+            ${isApplied ? `<small class="template-chip-status">${escapeHtml(t("gallery.applied"))}</small>` : ""}
           </div>
-          <p>${escapeAttribute(template.note)}</p>
+          <p>${escapeHtml(template.note)}</p>
         </div>
-        <button class="template-chip" type="button" data-template-id="${escapeAttribute(template.id)}" aria-label="${escapeAttribute(t("gallery.selectTemplate", { name: template.name }) + (isApplied ? t("gallery.selectTemplateApplied") : ""))}" aria-pressed="${isPending}"></button>
+        <button class="template-chip" type="button" data-template-id="${escapeHtml(template.id)}" aria-label="${escapeHtml(t("gallery.selectTemplate", { name: template.name }) + (isApplied ? t("gallery.selectTemplateApplied") : ""))}" aria-pressed="${isPending}"></button>
       </article>
     `;
   }).join("");
@@ -2060,7 +2068,10 @@ const applyPendingTemplate = () => {
     trackAnalytics("template_selected", {}, `template:${state.activeTemplate}`);
     setStudioStage('edit');
     return true;
-  } catch {
+  } catch (error) {
+    // A preset the catalog accepted but prepare could not apply is a bug in
+    // the catalog, and the author is the last person able to diagnose it.
+    reportFault("template_apply", error);
     dom.saveStatus.textContent = t("gallery.applyFailed");
   }
 };
@@ -2128,9 +2139,9 @@ const renderSaved = () => {
     dom.savedList.innerHTML = `
       <div class="library-empty">
         ${LIBRARY_EMPTY_ENVELOPE_SVG}
-        <p class="library-empty-title">${escapeAttribute(t("library.emptyTitle"))}</p>
-        <p class="library-empty-body">${escapeAttribute(t("library.emptyBody"))}</p>
-        <button type="button" class="library-empty-start" data-action="start-new">${escapeAttribute(t("library.startNew"))}</button>
+        <p class="library-empty-title">${escapeHtml(t("library.emptyTitle"))}</p>
+        <p class="library-empty-body">${escapeHtml(t("library.emptyBody"))}</p>
+        <button type="button" class="library-empty-start" data-action="start-new">${escapeHtml(t("library.startNew"))}</button>
       </div>
     `;
     return;
@@ -2138,18 +2149,18 @@ const renderSaved = () => {
 
   dom.savedList.innerHTML = state.saved.map((item) => `
     <article class="saved-item">
-      <div class="saved-thumbnail" data-saved-thumbnail data-id="${escapeAttribute(item.id)}" role="img" aria-label="${escapeAttribute(t("library.thumbnailAlt", { title: item.title }))}"></div>
+      <div class="saved-thumbnail" data-saved-thumbnail data-id="${escapeHtml(item.id)}" role="img" aria-label="${escapeHtml(t("library.thumbnailAlt", { title: item.title }))}"></div>
       <div class="saved-item-copy">
-        <strong>${escapeAttribute(item.title)}</strong>
+        <strong>${escapeHtml(item.title)}</strong>
         <div class="saved-item-meta">
-          <span class="saved-source">${escapeAttribute(t(item.source === "upload" ? "library.sourceUpload" : "library.sourceGenerated"))}</span>
-          <time datetime="${escapeAttribute(item.createdAt)}">${escapeAttribute(formatSavedDate(item.createdAt))}</time>
+          <span class="saved-source">${escapeHtml(t(item.source === "upload" ? "library.sourceUpload" : "library.sourceGenerated"))}</span>
+          <time datetime="${escapeHtml(item.createdAt)}">${escapeHtml(formatSavedDate(item.createdAt))}</time>
         </div>
       </div>
       <div class="saved-actions">
-        <button type="button" data-action="open" data-id="${escapeAttribute(item.id)}">${escapeAttribute(t("library.open"))}</button>
-        <button type="button" data-action="download" data-id="${escapeAttribute(item.id)}">${escapeAttribute(t("library.download"))}</button>
-        <button type="button" data-action="delete" data-id="${escapeAttribute(item.id)}">${escapeAttribute(t("library.remove"))}</button>
+        <button type="button" data-action="open" data-id="${escapeHtml(item.id)}">${escapeHtml(t("library.open"))}</button>
+        <button type="button" data-action="download" data-id="${escapeHtml(item.id)}">${escapeHtml(t("library.download"))}</button>
+        <button type="button" data-action="delete" data-id="${escapeHtml(item.id)}">${escapeHtml(t("library.remove"))}</button>
       </div>
     </article>
   `).join("");
@@ -2169,7 +2180,10 @@ const savedThumbnailFor = (item) => {
   try {
     const invitation = parseInvitationHtml(item.html);
     markup = heroThumbnailMarkup({ ...invitation, particleEffect: "none", introEffect: "none", mapEnabled: false });
-  } catch {
+  } catch (error) {
+    // The card survives without its picture, but a stored file this studio
+    // wrote and can no longer parse is worth knowing about.
+    reportFault("library_thumbnail", error);
     markup = "";
   }
   savedThumbnailMarkup.set(item.id, markup);
@@ -2263,7 +2277,10 @@ const synchronizeSaved = async (protectedId = null) => {
     await enforceSavedLimit(protectedId);
     await refreshSaved();
     return true;
-  } catch {
+  } catch (error) {
+    // The caller turns this into "saved, but the library could not tidy up",
+    // which tells the author what to expect but nothing about why.
+    reportFault("library_sync", error);
     return false;
   }
 };
@@ -2378,6 +2395,19 @@ const makeSavedItem = (html, title, source = "generated", legacy = {}) => ({
   html
 });
 
+/* Whether the library already holds this record. Asked of the store rather
+   than of state.saved: this runs on boot, before the library has been read. */
+const findMigratedRecord = async (id) => {
+  const key = typeof id === "string" ? id.trim() : "";
+  if (!key) return null;
+  try {
+    return await InvitationStorage.get?.(key) || null;
+  } catch (error) {
+    reportFault("library_migration", error);
+    return null;
+  }
+};
+
 const migrateLegacySaved = async () => {
   let remaining;
   try {
@@ -2407,39 +2437,52 @@ const migrateLegacySaved = async () => {
   }
 
   let migrated = 0;
+  let failed = 0;
   let synchronized = true;
   for (const legacyItem of [...remaining]) {
     const occurrenceIndex = remaining.indexOf(legacyItem);
     if (occurrenceIndex < 0 || !legacyItem || typeof legacyItem.html !== "string") continue;
 
-    let record;
-    try {
-      const invitation = parseInvitationHtml(legacyItem.html);
-      const rebuiltHtml = InvitationCore.buildStandaloneHtml(
-        invitation,
-        await portableOptions(invitation, standaloneOptionsFor(legacyItem.html))
-      );
-      const source = legacyItem.source === "upload" ? "upload" : "generated";
-      record = makeSavedItem(rebuiltHtml, invitation.title, source, legacyItem);
-      await InvitationStorage.put(record);
-      upsertSavedState(record);
-    } catch {
-      continue;
+    /* A record already in the library is done, however this list still reads:
+       a previous run wrote it and then failed to prune the list. Rebuilding it
+       from the legacy HTML would undo everything the author has changed since,
+       every boot, silently — so it is pruned here rather than re-migrated. */
+    let record = await findMigratedRecord(legacyItem.id);
+    if (!record) {
+      try {
+        const invitation = parseInvitationHtml(legacyItem.html);
+        const rebuiltHtml = InvitationCore.buildStandaloneHtml(
+          invitation,
+          await portableOptions(invitation, standaloneOptionsFor(legacyItem.html))
+        );
+        const source = legacyItem.source === "upload" ? "upload" : "generated";
+        record = makeSavedItem(rebuiltHtml, invitation.title, source, legacyItem);
+        await InvitationStorage.put(record);
+        upsertSavedState(record);
+      } catch (error) {
+        // The record stays on the legacy list, untouched and re-tryable. What
+        // it must not be is invisible: boot says how many were left behind.
+        reportFault("library_migration", error);
+        failed += 1;
+        continue;
+      }
     }
 
     remaining.splice(occurrenceIndex, 1);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(remaining));
       migrated += 1;
-    } catch {
+    } catch (error) {
+      reportFault("library_migration", error);
       remaining.splice(occurrenceIndex, 0, legacyItem);
+      failed += 1;
       continue;
     }
 
     if (!await synchronizeSaved(record.id)) synchronized = false;
   }
 
-  return { checkpointed: true, migrated, retained: remaining.length, synchronized };
+  return { checkpointed: true, failed, migrated, retained: remaining.length, synchronized };
 };
 
 const saveCurrent = async () => {
@@ -2501,11 +2544,13 @@ const handleSavedAction = async (event) => {
       let synchronized = true;
       try {
         await refreshSaved();
-      } catch {
+      } catch (error) {
+        reportFault("library_refresh", error);
         synchronized = false;
       }
       dom.uploadStatus.textContent = t(synchronized ? "status.removed" : "status.removedUnsynchronized");
-    } catch {
+    } catch (error) {
+      reportFault("library_remove", error);
       dom.uploadStatus.textContent = t("status.removeFailed");
     } finally {
       button.disabled = false;
@@ -2535,7 +2580,10 @@ const registerUploadedHtml = async (file) => {
     parsedSuccessfully = true;
     const result = await saveRecord(makeSavedItem(rebuiltHtml, invitation.title, "upload"));
     dom.uploadStatus.textContent = t(result.synchronized ? "status.uploaded" : "status.uploadedUnsynchronized");
-  } catch {
+  } catch (error) {
+    // Two different failures reach here — a file this studio cannot read, and
+    // a store that would not take one it could — and the author is told which.
+    reportFault("library_upload", error);
     dom.uploadStatus.textContent = t(parsedSuccessfully ? "status.saveFailed" : "status.uploadUnsupported");
   } finally {
     dom.upload.value = "";
@@ -2755,7 +2803,8 @@ const beginHeroImageDrag = (event) => {
       crop: HeroImage.normalizeCrop(state.heroImage)
     };
     dom.heroImageFrame.classList.add("is-dragging");
-  } catch {
+  } catch (error) {
+    reportFault("hero_image_drag", error);
     heroImageDragState = null;
   }
 };
@@ -3046,6 +3095,8 @@ const init = async () => {
       const synchronized = await synchronizeSaved();
       if (!migration.checkpointed) {
         dom.uploadStatus.textContent = t("status.migrationUnavailable");
+      } else if (migration.failed) {
+        dom.uploadStatus.textContent = t("status.migrationIncomplete");
       } else if (!synchronized) {
         dom.uploadStatus.textContent = t("status.syncIncomplete");
       }
@@ -3063,8 +3114,8 @@ const init = async () => {
     const host = previewHost || previewFrame?.parentElement || (previewFrame ? null : dom.preview);
     const panel = `
       <div class="error-panel">
-        <strong>${escapeAttribute(t("status.bootFailedTitle"))}</strong>
-        <p>${escapeAttribute(t("status.bootFailedBody"))}</p>
+        <strong>${escapeHtml(t("status.bootFailedTitle"))}</strong>
+        <p>${escapeHtml(t("status.bootFailedBody"))}</p>
         <code>python3 -m http.server 4173</code>
       </div>
     `;
@@ -3315,44 +3366,17 @@ document.addEventListener("click", (event) => {
   closeAllItemMenus();
 });
 
+/* Every keystroke inside a card rewrites that card's header. This used to be
+   one branch per field, each re-deriving the summary formula by hand — three
+   copies of it in this file, which had to agree or the header changed as you
+   typed. The header is written from the card itself now (B-8). */
 dom.contentEditor.addEventListener("input", (event) => {
   const card = event.target.closest("[data-item-card]");
   if (!card) return;
-  const value = event.target.value.trim();
-  if (event.target.dataset.courseField === "place") {
-    card.querySelector("[data-item-summary]").textContent = value || t("content.summaryCourse");
-  }
-  if (event.target.dataset.courseField === "time" || event.target.dataset.courseField === "label") {
-    const time = card.querySelector('[data-course-field="time"]').value || t("content.timeUnset");
-    const label = card.querySelector('[data-course-field="label"]').value || "PLACE";
-    card.querySelector("[data-item-secondary-summary]").textContent = `${time} · ${label}`;
-  }
   if (event.target.dataset.photoField === "alt") {
-    card.querySelector("[data-photo-thumbnail]").alt = value || t("content.photoThumbnailAlt");
+    card.querySelector("[data-photo-thumbnail]").alt = event.target.value.trim() || t("content.photoThumbnailAlt");
   }
-  if (event.target.dataset.photoField === "alt" || event.target.dataset.photoField === "caption") {
-    const alt = card.querySelector('[data-photo-field="alt"]').value.trim();
-    const caption = card.querySelector('[data-photo-field="caption"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = caption || alt || t("content.summaryPhoto");
-  }
-  if (event.target.dataset.noticeField) {
-    const heading = card.querySelector('[data-notice-field="heading"]').value.trim();
-    const body = card.querySelector('[data-notice-field="body"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = heading || body || t("content.summaryNotice");
-  }
-  if (event.target.dataset.profileField) {
-    const name = card.querySelector('[data-profile-field="name"]').value.trim();
-    const role = card.querySelector('[data-profile-field="role"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = name || role || t("content.summaryProfile");
-    card.querySelector("[data-item-secondary-summary]").textContent = role || "PROFILE";
-  }
-  if (event.target.dataset.linkField) {
-    const label = card.querySelector('[data-link-field="label"]').value.trim();
-    const valueText = card.querySelector('[data-link-field="value"]').value.trim();
-    const url = card.querySelector('[data-link-field="url"]').value.trim();
-    card.querySelector("[data-item-summary]").textContent = label || valueText || url || t("content.summaryLink");
-    card.querySelector("[data-item-secondary-summary]").textContent = valueText || url || "LINK";
-  }
+  syncItemSummaries(card);
 });
 
 
@@ -3535,7 +3559,7 @@ const populateLanguageSwitcher = () => {
   if (!languageSelect || !I18n) return;
   languageSelect.innerHTML = I18n.getLanguages()
     .map(({ language, label }) =>
-      `<option value="${escapeAttribute(language)}">${escapeAttribute(label)}</option>`)
+      `<option value="${escapeHtml(language)}">${escapeHtml(label)}</option>`)
     .join('');
   languageSelect.value = I18n.getLanguage();
 };
@@ -3578,7 +3602,14 @@ const handleLanguageChange = async () => {
 
 if (I18n) {
   populateLanguageSwitcher();
-  I18n.subscribe(() => { handleLanguageChange(); });
+  /* Nobody awaits a language change, so a rejection here used to be discarded
+     by the runtime: half the studio in the new language, half in the old, and
+     nothing said anywhere. */
+  I18n.subscribe(() => {
+    handleLanguageChange().catch((error) => {
+      reportFault("language_change", error);
+    });
+  });
   languageSelect?.addEventListener('change', () => {
     // Persisted: this is the one signal that records a decision made here.
     I18n.setLanguage(languageSelect.value);

@@ -41,14 +41,10 @@
      reaches a guest — what a guest sees lives in shared-invitation.js. */
   const t = (key, values) => I18n?.t(`publish.${key}`, values) ?? `publish.${key}`;
 
-  // Diagnostics are best-effort and carry only the reporter's closed fields.
-  const reportFault = (context, error, options) => {
-    try {
-      root.InvitationErrorReporting?.reportError?.(error, context, options);
-    } catch {
-      // Publishing is the user's work; diagnostics never get to interrupt it.
-    }
-  };
+  // Diagnostics are best-effort and carry only the reporter's closed fields;
+  // being best-effort is the reporter's own contract, not a copy kept here.
+  const reportFault = (context, error, options) =>
+    root.InvitationErrorReporting?.reportFault?.(context, error, options);
 
   const encodeBase64Url = (bytes) => {
     if (typeof Buffer !== "undefined") return Buffer.from(bytes).toString("base64url");
@@ -235,11 +231,12 @@
 
   const formatExpiry = (value) => {
     if (!value) return t("noExpiry");
-    return I18n?.formatDateTime(value, { dateStyle: "medium", timeStyle: "short" }) ?? t("expiryUnknown");
+    return I18n?.formatTimestamp(value) ?? t("expiryUnknown");
   };
-  const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  })[char]);
+  const { escapeHtml } = (() => {
+    if (typeof module !== "undefined" && module.exports) return require("../shared/text.js");
+    return root.InvitationText;
+  })();
 
   /* The static copy carries data-i18n as well as its rendered text, so the
      engine's applyDom pass re-translates this panel on a language change
@@ -278,37 +275,55 @@
     `;
   };
 
+  const PUBLIC_ORIGIN = "https://invitation-maker-one.vercel.app";
+  const absoluteUrl = (url, location) => {
+    try {
+      return new URL(url, location?.href || location?.origin || PUBLIC_ORIGIN).href;
+    } catch {
+      return url;
+    }
+  };
+
+  /* Revoking is the one thing on a card that cannot be undone, and the address
+     is already in other people's hands — it used to happen on the first click.
+     The question is asked inside the card it is about, the way the editor's
+     item cards ask it, and never through the browser's own confirm dialog. It
+     is rendered with every card, hidden, so both mounts of this list ask it. */
+  const renderPublicationCards = (publications) => publications.length ? publications.map((item) => `
+        <article class="publication-card" data-publication-id="${escapeHtml(item.id)}">
+          <div>
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${formatExpiry(item.expiresAt)}</span>
+          </div>
+          <div class="publication-card-actions">
+            <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("cardOpen"))}</a>
+            <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">${escapeHtml(t("cardCopy"))}</button>
+            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}" aria-expanded="false" aria-controls="revoke-confirm-${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
+          </div>
+          <div class="publication-confirm" id="revoke-confirm-${escapeHtml(item.id)}" data-revoke-confirm="${escapeHtml(item.id)}" role="group" aria-label="${escapeHtml(t("cardRevoke"))}" hidden>
+            <p class="publication-confirm-text">${escapeHtml(t("confirmRevoke", { title: item.title }))}</p>
+            <div class="publication-confirm-actions">
+              <button class="publication-confirm-keep" type="button" data-publish-action="revoke-cancel" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("confirmRevokeKeep"))}</button>
+              <button class="publication-confirm-revoke" type="button" data-publish-action="revoke-confirm" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("confirmRevokeAccept"))}</button>
+            </div>
+          </div>
+        </article>
+      `).join("") : `<p class="publication-empty">${escapeHtml(t("listEmpty"))}</p>`;
+
   /* The published links are the author's own record of what is live, and they
-     were readable in one place only: inside the share dialog, behind the
-     finish step. The library is where someone goes to find an invitation they
-     made, so it renders the same list from the same store through this. */
-  const mountPublicationList = ({
+     are readable in two places: inside the share dialog, behind the finish
+     step, and in the library, which is where someone goes to find an
+     invitation they made. That was two copies of this list, with their own
+     copy and revoke handlers beside them — so a fix to one silently skipped
+     the other. One list, mounted twice. */
+  const createPublicationList = ({
     node,
-    client = createClient(),
-    clipboard = root.navigator?.clipboard,
-    onChange,
-    setStatus = () => {}
-  } = {}) => {
-    if (!node) return { render: () => {} };
-
-    const copyUrl = async (url) => {
-      const absolute = new URL(url, root.location?.href || "https://invitation-maker-one.vercel.app").href;
-      try {
-        await clipboard?.writeText?.(absolute);
-        setStatus(t("copied"));
-      } catch (error) {
-        reportFault("publish_copy", error);
-        setStatus(t("copyFailed"));
-      }
-    };
-
-    /* Revoking is the one thing here that cannot be undone, and the address is
-       already in other people's hands — it used to happen on the first click.
-       The question is asked inside the card it is about, the way the editor's
-       item cards ask it, and never through the browser's own confirm dialog:
-       the one dialog in the studio that cannot be translated, styled, or
-       dismissed like the rest, and that on a phone covers the card you are
-       deciding about. */
+    client,
+    clipboard,
+    location,
+    onRevoked,
+    setStatus
+  }) => {
     let openConfirmId = null;
     const revokeButtons = () => [...(node.querySelectorAll?.('[data-publish-action="revoke"]') || [])];
     const revokeButtonFor = (id) =>
@@ -349,26 +364,42 @@
         setStatus(error.message || t("storageUnavailable"));
       }
       openConfirmId = null;
-      node.innerHTML = publications.length ? publications.map((item) => `
-        <article class="publication-card" data-publication-id="${escapeHtml(item.id)}">
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <span>${formatExpiry(item.expiresAt)}</span>
-          </div>
-          <div class="publication-card-actions">
-            <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("cardOpen"))}</a>
-            <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">${escapeHtml(t("cardCopy"))}</button>
-            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}" aria-expanded="false" aria-controls="revoke-confirm-${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
-          </div>
-          <div class="publication-confirm" id="revoke-confirm-${escapeHtml(item.id)}" data-revoke-confirm="${escapeHtml(item.id)}" role="group" aria-label="${escapeHtml(t("cardRevoke"))}" hidden>
-            <p class="publication-confirm-text">${escapeHtml(t("confirmRevoke", { title: item.title }))}</p>
-            <div class="publication-confirm-actions">
-              <button class="publication-confirm-keep" type="button" data-publish-action="revoke-cancel" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("confirmRevokeKeep"))}</button>
-              <button class="publication-confirm-revoke" type="button" data-publish-action="revoke-confirm" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("confirmRevokeAccept"))}</button>
-            </div>
-          </div>
-        </article>
-      `).join("") : `<p class="publication-empty">${escapeHtml(t("listEmpty"))}</p>`;
+      node.innerHTML = renderPublicationCards(publications);
+    };
+
+    const copyUrl = async (url) => {
+      try {
+        await clipboard?.writeText?.(absoluteUrl(url, location));
+        setStatus(t("copied"));
+      } catch (error) {
+        reportFault("publish_copy", error);
+        setStatus(t("copyFailed"));
+      }
+    };
+
+    /* Taking a link down is the one irreversible thing on this card, and it
+       reaches a network, so it says what it is doing before it starts. */
+    const revoke = async (id) => {
+      // Where the card sat, so focus can go to whatever takes its place.
+      const position = revokeButtons().findIndex((button) => button.dataset?.publicationId === id);
+      closeRevokeConfirm();
+      setStatus(t("deleting"));
+      try {
+        await client.remove(id);
+        setStatus(t("deleted"));
+        onRevoked?.(id);
+      } catch (error) {
+        reportFault("publish_revoke", error, { status: statusCodeFromError(error) });
+        setStatus(t("deleteFailed"));
+      }
+      render();
+      /* render() replaces the markup, so the button that was just pressed no
+         longer exists and focus would fall out of the list entirely. It goes
+         to the card that moved up into the gap — or to the last one, when the
+         gap was at the end — and to the list itself when nothing is left. */
+      const remaining = revokeButtons();
+      const next = remaining[Math.min(Math.max(position, 0), remaining.length - 1)];
+      (next || node)?.focus?.();
     };
 
     node.addEventListener("click", async (event) => {
@@ -388,28 +419,7 @@
         return;
       }
       const answered = event.target.closest?.('[data-publish-action="revoke-confirm"]');
-      if (!answered) return;
-      const revokedId = answered.dataset.publicationId;
-      // Where the card sat, so focus can go to whatever takes its place.
-      const position = revokeButtons().findIndex((button) => button.dataset?.publicationId === revokedId);
-      closeRevokeConfirm();
-      setStatus(t("deleting"));
-      try {
-        await client.remove(revokedId);
-        setStatus(t("deleted"));
-      } catch (error) {
-        reportFault("publish_revoke", error, { status: statusCodeFromError(error) });
-        setStatus(t("deleteFailed"));
-      }
-      render();
-      /* render() replaces the markup, so the button that was just pressed no
-         longer exists and focus would fall out of the list entirely. It goes
-         to the card that moved up into the gap — or to the last one, when the
-         gap was at the end — and to the list itself when nothing is left. */
-      const remaining = revokeButtons();
-      const next = remaining[Math.min(Math.max(position, 0), remaining.length - 1)];
-      (next || node)?.focus?.();
-      onChange?.(revokedId);
+      if (answered) await revoke(answered.dataset.publicationId);
     });
 
     // Escape answers the question the safe way, wherever it is asked.
@@ -419,6 +429,26 @@
     });
 
     render();
+    return { copyUrl, render, revoke };
+  };
+
+  const mountPublicationList = ({
+    node,
+    client = createClient(),
+    clipboard = root.navigator?.clipboard,
+    location = root.location,
+    onChange,
+    setStatus = () => {}
+  } = {}) => {
+    if (!node) return { render: () => {} };
+    const { render } = createPublicationList({
+      node,
+      client,
+      clipboard,
+      location,
+      onRevoked: onChange,
+      setStatus
+    });
     return { render };
   };
 
@@ -457,18 +487,21 @@
     let latestDate = "";
     let pending = false;
     const setStatus = (message) => { status.textContent = message; };
-    const absoluteUrl = (url) => {
-      try { return new URL(url, location?.origin || "http://localhost").href; } catch { return url; }
-    };
+    const linkUrl = (url) => absoluteUrl(url, location);
     const syncBusy = () => { publishButton.disabled = pending || Boolean(isBusy()); };
-    const copyUrl = async (url) => {
-      try {
-        await clipboard?.writeText?.(absoluteUrl(url));
-        setStatus(t("copied"));
-      } catch {
-        setStatus(t("copyFailed"));
-      }
-    };
+    /* The same list the library mounts, from the same store, with the same
+       copy and revoke behind its cards. The only thing this mount adds is what
+       to do when the link being taken down is the one the panel is showing. */
+    const publicationList = createPublicationList({
+      node: listNode,
+      client,
+      clipboard,
+      location,
+      onRevoked: (revokedId) => { if (revokedId === latestId) hideResult(); },
+      setStatus
+    });
+    const renderList = publicationList.render;
+    const copyUrl = publicationList.copyUrl;
     /* The QR code is the offline half of sharing: a phone pointed at a laptop
        screen, or at a printed card. It is drawn from the ABSOLUTE url, because
        "/i/abc" means nothing to a camera. A failure here never blocks the link
@@ -492,7 +525,7 @@
       if (shareButton) shareButton.hidden = false;
       if (messageButton) messageButton.hidden = false;
       if (revokeButton) revokeButton.hidden = false;
-      renderQr(absoluteUrl(result.url));
+      renderQr(linkUrl(result.url));
     };
     const hideResult = () => {
       link.hidden = true;
@@ -509,7 +542,7 @@
     const shareLink = async () => {
       if (!latestUrl || typeof share !== "function") return;
       try {
-        await share({ title: latestTitle || t("defaultTitle"), url: absoluteUrl(latestUrl) });
+        await share({ title: latestTitle || t("defaultTitle"), url: linkUrl(latestUrl) });
       } catch (error) {
         // Dismissing the sheet is a decision, not a failure to report.
         if (error?.name === "AbortError") return;
@@ -523,7 +556,7 @@
        out cleanly instead of leaving a bare "· ·" between title and url. */
     const copyMessage = async () => {
       if (!latestUrl) return;
-      const parts = [latestTitle || t("defaultTitle"), latestDate, absoluteUrl(latestUrl)]
+      const parts = [latestTitle || t("defaultTitle"), latestDate, linkUrl(latestUrl)]
         .map((part) => String(part ?? "").trim())
         .filter(Boolean);
       const message = parts.join(" · ");
@@ -533,40 +566,6 @@
       } catch {
         setStatus(t("messageCopyFailed"));
       }
-    };
-    const revokePublication = async (id, onSuccess) => {
-      setStatus(t("deleting"));
-      try {
-        await client.remove(id);
-        setStatus(t("deleted"));
-        renderList();
-        onSuccess?.();
-      } catch (error) {
-        reportFault("publish_revoke", error, { status: statusCodeFromError(error) });
-        setStatus(t("deleteFailed"));
-      }
-    };
-    const renderList = () => {
-      let publications = [];
-      try {
-        publications = client.list();
-      } catch (error) {
-        reportFault("publish_list", error);
-        setStatus(error.message || t("storageUnavailable"));
-      }
-      listNode.innerHTML = publications.length ? publications.map((item) => `
-        <article class="publication-card" data-publication-id="${escapeHtml(item.id)}">
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <span>${formatExpiry(item.expiresAt)}</span>
-          </div>
-          <div class="publication-card-actions">
-            <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("cardOpen"))}</a>
-            <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">${escapeHtml(t("cardCopy"))}</button>
-            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
-          </div>
-        </article>
-      `).join("") : `<p class="publication-empty">${escapeHtml(t("listEmpty"))}</p>`;
     };
     publishButton.addEventListener("click", async () => {
       if (pending) return;
@@ -609,22 +608,8 @@
     shareButton?.addEventListener("click", () => { shareLink(); });
     messageButton?.addEventListener("click", () => { copyMessage(); });
     revokeButton?.addEventListener("click", () => {
-      if (latestId) revokePublication(latestId, hideResult);
+      if (latestId) publicationList.revoke(latestId);
     });
-    listNode.addEventListener("click", async (event) => {
-      const copy = event.target.closest?.('[data-publish-action="copy"]');
-      if (copy) {
-        await copyUrl(copy.dataset.publicationUrl);
-        return;
-      }
-      const revoke = event.target.closest?.('[data-publish-action="revoke"]');
-      if (!revoke) return;
-      const revokedId = revoke.dataset.publicationId;
-      await revokePublication(revokedId, () => {
-        if (revokedId === latestId) hideResult();
-      });
-    });
-    renderList();
     syncBusy();
     return { renderList };
   };

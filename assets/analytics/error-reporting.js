@@ -54,6 +54,7 @@
     "/assets/publishing/publishing.js",
     "/assets/publishing/qr.js",
     "/assets/publishing/shared-invitation.js",
+    "/assets/shared/text.js",
     "/assets/site/consent.js",
     "/assets/site/site.js",
     "/assets/storage/invitation-storage.js",
@@ -270,6 +271,19 @@
     });
   };
 
+  /* What the studio, the publish panel and the shared page all want from this
+     module: report it, and never let a diagnostic failure interrupt the work
+     it is a diagnostic about. Each of the three used to keep its own copy of
+     this try/catch, so a change to what reporting means reached whichever of
+     them the author of the change happened to remember. */
+  const reportFault = (context, error, options) => {
+    try {
+      reportError(error, context, options);
+    } catch {
+      // Diagnostics never get to interrupt the page they are watching.
+    }
+  };
+
   const reportFailure = (context, options) => {
     const extra = options && typeof options === "object" ? options : {};
     return report({
@@ -394,6 +408,7 @@
     report,
     reportError,
     reportFailure,
+    reportFault,
     reset
   });
 

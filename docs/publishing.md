@@ -100,7 +100,9 @@ The script drops one index, never a document, and never touches the counters col
 
 Publications created earlier have `expiresAtDate: null`, which reads as "no expiry set" and stays readable forever. `node scripts/backfill-expiry.cjs` gives them an expiry. It defaults to a dry run, refuses non-loopback MongoDB hosts unless `PUBLISH_BACKFILL_ALLOW_REMOTE=1` is set, and requires `--apply` to write. It never deletes: it only sets `expiresAt`/`expiresAtDate`, after which the read path stops serving those records and the future batch deletion service removes them.
 
-Records whose `createdAt` is already older than the ceiling would stop being readable the instant their honest expiry was written. Those get `now + idle window` instead, so a link shared today still works for a week; the dry-run summary reports that grace bucket separately, along with the total scanned, the records that already had an expiry, and the records newly given one. Records with no usable `createdAt` are treated the same way. Re-running the script is safe: records that already have an expiry are left untouched.
+The expiry it plans is the one `server/publishing/expiry.cjs` computes for a live read — the same sliding window, ceiling and event floor the API writes with — so a backfilled record and a republished one agree about when a link dies. An invitation that names its event is therefore backfilled to a week after that event, not to the 30-day ceiling.
+
+Records whose honest expiry is already in the past would stop being readable the instant it was written. Those get `now + idle window` instead, so a link shared today still works for a week; the dry-run summary reports that grace bucket separately, along with the total scanned, the records that already had an expiry, and the records newly given one. Records with no usable `createdAt` are treated the same way. Re-running the script is safe: records that already have an expiry are left untouched.
 
 Do not trust arbitrary client-supplied forwarded-IP headers. Configure trusted proxy behavior only for a deployment that overwrites those headers and prevents direct bypass of that proxy.
 

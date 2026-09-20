@@ -7,6 +7,7 @@ const vm = require("node:vm");
 const ContentOrder = require("../assets/studio/content-order.js");
 const HeroImage = require("../assets/media/hero-image.js");
 const InvitationCore = require("../assets/invitation/core.js");
+const InvitationText = require("../assets/shared/text.js");
 const PresetApplication = require("../assets/studio/preset-application.js");
 const InvitationStorage = require("../assets/storage/invitation-storage.js");
 const InvitationI18n = require("../assets/i18n/i18n.js");
@@ -745,6 +746,7 @@ const loadEditorHarness = ({
       render: () => ""
     },
     InvitationI18n,
+    InvitationText,
     InvitationStorage: {
       DRAFT_LANGUAGE_FALLBACK: InvitationStorage.DRAFT_LANGUAGE_FALLBACK,
       async list() { return []; },
@@ -986,6 +988,7 @@ const loadIntroLifecycleHarness = () => {
     InvitationCore,
     InvitationI18n,
     InvitationIntro,
+    InvitationText,
     InvitationStorage: { async list() { return []; }, async open() { return { close() {} }; }, async put() {}, async remove() {} },
     URL,
     clearTimeout() {},
@@ -1220,6 +1223,7 @@ const loadLibraryHarness = ({
     ImageTools: { ImageError: class ImageError extends Error {}, compress: async () => ({}) },
     InvitationCore,
     InvitationI18n,
+    InvitationText,
     InvitationStorage,
     URL,
     clearTimeout,
@@ -1240,6 +1244,7 @@ const loadLibraryHarness = ({
     savedList,
     storage,
     values,
+    window,
     writes
   };
 };
@@ -1319,6 +1324,70 @@ test("legacy migration removes only each successfully durable occurrence", async
   );
 });
 
+/* B-8. One helper per job, for the four that had grown copies: escaping,
+   fault reporting, timestamp formatting, and the publication list. */
+test("every renderer escapes through the one shared helper", () => {
+  const shared = read("assets/shared/text.js");
+  assert.match(shared, /const escapeHtml = /);
+  assert.match(shared, /root\.InvitationText = /);
+
+  const consumers = [
+    "assets/invitation/core.js",
+    "assets/invitation/intro-effects.js",
+    "assets/invitation/viewer.js",
+    "assets/publishing/publishing.js",
+    "assets/studio/app.js",
+    "assets/site/site.js"
+  ];
+  for (const file of consumers) {
+    const source = read(file);
+    assert.doesNotMatch(source, /replace\(\/\[&<>"'\]\/g/, `${file} still carries its own escape table`);
+    assert.match(source, /InvitationText/, `${file} does not reach for the shared escape`);
+  }
+  // Every page that loads one of those must load the helper first.
+  const scriptAt = (html, file) => Math.max(html.indexOf(`src="${file}"`), html.indexOf(`src="/${file}"`));
+  for (const page of ["studio.html", "viewer.html", "shared.html", "index.html", "guide.html", "privacy.html", "terms.html"]) {
+    const html = read(page);
+    const textAt = scriptAt(html, "assets/shared/text.js");
+    assert.ok(textAt > 0, `${page} does not load the shared text helper`);
+    for (const consumer of consumers) {
+      const at = scriptAt(html, consumer);
+      if (at > 0) assert.ok(textAt < at, `${page} loads ${consumer} before the helper it needs`);
+    }
+  }
+  const { escapeHtml } = require("../assets/shared/text.js");
+  assert.equal(escapeHtml(`<a href="x">it's & so</a>`), "&lt;a href=&quot;x&quot;&gt;it&#039;s &amp; so&lt;/a&gt;");
+});
+
+test("diagnostics go through one best-effort reporter", () => {
+  const reporting = read("assets/analytics/error-reporting.js");
+  assert.match(reporting, /const reportFault = \(context, error, options\)/);
+  assert.match(reporting, /\n    reportFault,?\n/);
+
+  for (const file of ["assets/studio/app.js", "assets/publishing/publishing.js", "assets/publishing/shared-invitation.js"]) {
+    const source = read(file);
+    assert.match(source, /InvitationErrorReporting\?\.reportFault\?\./, `${file} does not use the shared reporter`);
+    assert.doesNotMatch(source, /InvitationErrorReporting\?\.reportError\?\./, `${file} still keeps its own copy`);
+  }
+});
+
+test("a saved date and a link's expiry are the same kind of timestamp", () => {
+  const stamp = "2026-09-12T05:00:00.000Z";
+  assert.equal(
+    InvitationI18n.formatTimestamp(stamp, "ko"),
+    InvitationI18n.formatDateTime(stamp, { dateStyle: "medium", timeStyle: "short" }, "ko")
+  );
+  assert.notEqual(InvitationI18n.formatTimestamp(stamp, "ko"), InvitationI18n.formatTimestamp(stamp, "en"));
+  assert.equal(InvitationI18n.formatTimestamp("nonsense", "ko"), null);
+
+  // The library card and the published-link card sit on the same screen.
+  for (const file of ["assets/studio/app.js", "assets/publishing/publishing.js", "assets/publishing/shared-invitation.js"]) {
+    const source = read(file);
+    assert.match(source, /formatTimestamp\(/, `${file} formats timestamps its own way`);
+    assert.doesNotMatch(source, /dateStyle: "medium"/, `${file} still spells out the format`);
+  }
+});
+
 test("legacy migration checkpoints unique IDs before duplicate records can overwrite", async () => {
   const legacy = [
     { id: "duplicate", html: validInvitationHtml("First duplicate") },
@@ -1357,7 +1426,11 @@ test("generated migration IDs cannot claim a later unique legacy ID", async () =
   assert.equal(new Set(checkpointIds).size, 2);
 });
 
-test("missing legacy ID is reused after a post-put checkpoint failure", async () => {
+/* A record whose write succeeded and whose checkpoint failed is already in the
+   library. The old loop put it back on the legacy list, so every boot rebuilt
+   it from the legacy HTML and wrote it over the record the author has been
+   editing since. It is recognised and pruned now, not rebuilt. */
+test("missing legacy ID is reused after a post-put checkpoint failure, and the record is never rebuilt", async () => {
   let failRemovalCheckpoint = true;
   const putIds = [];
   const harness = loadLibraryHarness({
@@ -1376,14 +1449,83 @@ test("missing legacy ID is reused after a post-put checkpoint failure", async ()
   assert.deepEqual(putIds, [checkpointedId]);
   assert.equal(harness.repositoryRecords.length, 1);
 
+  // What the author does next: they open that invitation and change it.
+  harness.repositoryRecords[0] = { ...harness.repositoryRecords[0], title: "Edited since" };
+
   failRemovalCheckpoint = false;
   const resumed = await harness.api.migrateLegacySaved();
 
   assert.equal(resumed.migrated, 1);
-  assert.deepEqual(putIds, [checkpointedId, checkpointedId]);
+  assert.deepEqual(putIds, [checkpointedId], "the second boot writes nothing: the record is already there");
   assert.equal(harness.repositoryRecords.length, 1);
   assert.equal(harness.repositoryRecords[0].id, checkpointedId);
+  assert.equal(harness.repositoryRecords[0].title, "Edited since", "the author's own edit survives the next boot");
   assert.deepEqual(JSON.parse(harness.values.get("invitation-maker.saved")), []);
+});
+
+test("a legacy record that cannot be migrated is reported and said out loud", async () => {
+  const reported = [];
+  const harness = loadLibraryHarness({
+    put: async (record) => {
+      if (record.title === "Unmigratable") throw new Error("Jane Doe at 10 Downing Street");
+    }
+  });
+  harness.window.InvitationErrorReporting = {
+    reportFault: (context, error) => reported.push({ context, error })
+  };
+  harness.values.set("invitation-maker.saved", JSON.stringify([
+    { id: "keeps-working", html: validInvitationHtml("Fine") },
+    { id: "stuck", html: validInvitationHtml("Unmigratable") }
+  ]));
+
+  const result = await harness.api.migrateLegacySaved();
+
+  assert.equal(result.migrated, 1);
+  assert.equal(result.failed, 1, "a record left behind is counted, not swallowed");
+  assert.equal(reported.length, 1);
+  assert.equal(reported[0].context, "library_migration");
+  assert.equal(reported[0].error.message, "Jane Doe at 10 Downing Street");
+  // The record itself is untouched: the legacy list still holds it.
+  assert.deepEqual(
+    Array.from(JSON.parse(harness.values.get("invitation-maker.saved")), (record) => record.id),
+    ["stuck"]
+  );
+});
+
+/* B-7. Eleven catches bound no error and reported nothing. Thirteen others are
+   documented best-effort and stay as they are; these are the ones where the
+   author is left with a silent failure. */
+test("the studio's failures are reported with the error that caused them", () => {
+  const app = read("assets/studio/app.js");
+  const contexts = [
+    "template_apply",
+    "library_thumbnail",
+    "library_sync",
+    "library_remove",
+    "library_refresh",
+    "library_upload",
+    "library_migration",
+    "language_change",
+    "hero_image_drag"
+  ];
+  for (const context of contexts) {
+    assert.match(app, new RegExp(`reportFault\\("${context}", error`), `${context} is still swallowed`);
+  }
+  // A language switch is awaited by nobody, so a rejection there used to leave
+  // the studio half-relocalized with nothing said anywhere.
+  assert.match(app, /handleLanguageChange\(\)\.catch\(\(error\) => \{/);
+});
+
+test("a migration that leaves records behind says so on boot", () => {
+  const app = read("assets/studio/app.js");
+  const init = app.match(/const init = async \(\) => \{[\s\S]*?\n\};/)?.[0] || "";
+
+  assert.match(init, /migration\.failed/, "boot never mentions the records it could not move");
+  assert.match(init, /t\("status\.migrationIncomplete"\)/);
+  for (const translate of [ko, en]) {
+    assert.notEqual(translate("status.migrationIncomplete"), translate("status.migrationUnavailable"));
+    assert.ok(translate("status.migrationIncomplete").length > 0);
+  }
 });
 
 test("failed identity checkpoint prevents every legacy IndexedDB write", async () => {
@@ -1482,6 +1624,7 @@ test("active intro survives download import storage and viewer rebuild", async (
   const result = vm.runInNewContext(viewerSource, {
     DOMParser: invitationParser,
     InvitationCore,
+    InvitationText,
     InvitationStorage: { async get() { return stored; } },
     URLSearchParams,
     document: {
@@ -1531,6 +1674,7 @@ test("one preset per family survives upload registration and viewer rebuild with
     const result = vm.runInNewContext(viewerSource, {
       DOMParser: invitationParser,
       InvitationCore,
+      InvitationText,
       InvitationStorage: { async get() { return stored; } },
       URLSearchParams,
       document: {
@@ -1574,7 +1718,7 @@ test("autosave failures keep the localized status and report a draft-save fault"
   const reports = [];
   const harness = loadEditorHarness({ putDraft: async () => { throw failure; } });
   harness.window.InvitationErrorReporting = {
-    reportError(error, context) { reports.push({ error, context }); }
+    reportFault(context, error) { reports.push({ error, context }); }
   };
   harness.api.setDraftReady(true);
 
@@ -1587,7 +1731,7 @@ test("autosave failures keep the localized status and report a draft-save fault"
 
 test("setDraftStatus updates the short label and icon for the failed state, not a frozen 'Saved'", async () => {
   const harness = loadEditorHarness({ putDraft: async () => { throw new Error("disk full"); } });
-  harness.window.InvitationErrorReporting = { reportError() {} };
+  harness.window.InvitationErrorReporting = { reportFault() {} };
   harness.api.setDraftReady(true);
 
   harness.api.saveDraft();
@@ -1604,7 +1748,7 @@ test("manual save failures keep the localized status and report a draft-save fau
   const reports = [];
   const harness = loadEditorHarness({ put: async () => { throw failure; } });
   harness.window.InvitationErrorReporting = {
-    reportError(error, context) { reports.push({ error, context }); }
+    reportFault(context, error) { reports.push({ error, context }); }
   };
 
   await harness.api.saveCurrent();
@@ -1670,7 +1814,7 @@ test("a download that cannot be built says so instead of failing silently", asyn
   const failOnce = onlyOnce(() => { throw failure; }, (invitation) => JSON.stringify(invitation));
   const harness = loadEditorHarness({ buildStandaloneHtml: failOnce });
   harness.window.InvitationErrorReporting = {
-    reportError(error, context) { reports.push({ error, context }); }
+    reportFault(context, error) { reports.push({ error, context }); }
   };
 
   harness.node("#download-button").dispatch("click", { target: harness.node("#download-button") });
@@ -1686,7 +1830,7 @@ test("a boot failure is readable even when the preview frame never produced a ho
     previewFrameBody: false,
     normalizeInvitation: onlyOnce(() => { throw new Error("catalog unreadable"); }, (value) => value)
   });
-  harness.window.InvitationErrorReporting = { reportError() {} };
+  harness.window.InvitationErrorReporting = { reportFault() {} };
 
   await harness.api.init();
 
@@ -1873,6 +2017,7 @@ test("viewer awaits IndexedDB and rebuilds only a typed JSON invitation payload"
   const context = {
     DOMParser: invitationParser,
     InvitationCore,
+    InvitationText,
     InvitationStorage: {
       async get(id) {
         requestedId = id;
@@ -1915,6 +2060,7 @@ test("viewer rejects stored HTML containing duplicate invitation payloads", asyn
     InvitationCore,
     // viewer.html loads the engine in <head>, so the sandbox carries it too.
     InvitationI18n,
+    InvitationText,
     InvitationStorage: { async get() { return { id: "duplicate", html: duplicated }; } },
     URLSearchParams,
     document: {
@@ -1946,6 +2092,7 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
     DOMParser: invitationParser,
     InvitationCore,
     InvitationI18n,
+    InvitationText,
     InvitationStorage: {
       async get() {
         return { id: "bad", html: '<script id="invitation-data" type="application/json">[]</script>' };
@@ -3183,6 +3330,7 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
 
   const browser = { URL };
   browser.globalThis = browser;
+  vm.runInNewContext(read("assets/shared/text.js"), browser, { filename: "assets/shared/text.js" });
   vm.runInNewContext(read("assets/invitation/template-catalog.js"), browser, { filename: "assets/invitation/template-catalog.js" });
   vm.runInNewContext(read("assets/invitation/template-art.js"), browser, { filename: "assets/invitation/template-art.js" });
   vm.runInNewContext(read("assets/invitation/template-renderers.js"), browser, { filename: "assets/invitation/template-renderers.js" });
@@ -3296,7 +3444,7 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
   assert.match(app, /case "notice"[\s\S]*?data-notice-field="\$\{field\}"[\s\S]*?heading: value\("heading"\)[\s\S]*?body: value\("body"\)/);
   assert.match(app, /case "profile"[\s\S]*?data-profile-field="\$\{field\}"[\s\S]*?name: value\("name"\)[\s\S]*?role: value\("role"\)[\s\S]*?description: value\("description"\)/);
   assert.match(app, /case "link"[\s\S]*?data-link-field="\$\{field\}"[\s\S]*?label: value\("label"\)[\s\S]*?value: value\("value"\)[\s\S]*?url: value\("url"\)/);
-  assert.match(app, /data-item-id="\$\{escapeAttribute\(item\.id\)\}"/);
+  assert.match(app, /data-item-id="\$\{escapeHtml\(item\.id\)\}"/);
   assert.match(app, /data-item-type="\$\{item\.type\}"/);
   assert.match(app, /data-course-field="time" type="time" step="600"/);
   assert.match(app, /data-notice-field="heading"/);
@@ -3344,7 +3492,7 @@ test("deleting an item confirms inside the card instead of through window.confir
   assert.match(app, /data-item-action="cancel-delete"/);
   assert.match(app, /data-item-action="confirm-delete"/);
   assert.match(app, /t\("content\.confirmDelete", \{ name: /);
-  assert.match(app, /escapeAttribute\(t\("content\.cancel"\)\)/);
+  assert.match(app, /escapeHtml\(t\("content\.cancel"\)\)/);
   // Focus lands on the safe half of the pair, which is also what Escape does.
   assert.match(app, /card\.querySelector\('\[data-item-action="cancel-delete"\]'\)\?\.focus\(\)/);
   assert.match(app, /event\.key === "Escape"[\s\S]*?closeItemConfirm\(card, \{ focusMenu: true \}\)/);
@@ -3451,6 +3599,56 @@ test("the reply-contact check asks in the page and sends a no back to the editor
   assert.equal(dialog.open, false);
 });
 
+/* The card header's summary was written three times — once by the renderer,
+   once by the input handler, once by the course-label select — and the three
+   had to agree or the header changed as you typed. They are one function now,
+   and this is the check that they cannot drift again. */
+test("the summary a card shows while typing is the summary it renders with", () => {
+  const { api, contentEditor } = loadEditorHarness({ maxItems: 8 });
+  const items = [
+    course("course-a", "성수"),
+    photo("photo-a", "첫 만남"),
+    { id: "notice-a", type: "notice", heading: "주차", body: "건물 뒤편" },
+    { id: "profile-a", type: "profile", name: "김하늘", role: "신부", description: "" },
+    { id: "link-a", type: "link", label: "회신", value: "010-0000-0000", url: "" }
+  ];
+  const summaries = (markup) => [...markup.matchAll(/<span data-item-summary>([^<]*)<\/span>/g)].map(([, text]) => text);
+  const secondaries = (markup) => [...markup.matchAll(/<span data-item-secondary-summary>([^<]*)<\/span>/g)].map(([, text]) => text);
+
+  api.renderContentEditor(items, null);
+
+  const edits = [
+    ['[data-course-field="place"]', "연남"],
+    ['[data-course-field="time"]', "18:30"],
+    ['[data-photo-field="caption"]', "웨딩 촬영"],
+    ['[data-notice-field="heading"]', "드레스 코드"],
+    ['[data-profile-field="role"]', "신랑"],
+    ['[data-link-field="value"]', "010-1111-2222"],
+    // Whitespace is where the two summaries disagreed: the live handler
+    // trimmed before falling back, the renderer did not, so a card could show
+    // a blank header until the next render.
+    ['[data-course-field="place"]', "   "],
+    ['[data-notice-field="heading"]', "  "]
+  ];
+
+  for (const [selector, value] of edits) {
+    const index = contentEditor.cards.findIndex((candidate) => candidate.querySelector(selector));
+    const card = contentEditor.cards[index];
+    const field = card.querySelector(selector);
+    field.value = value;
+    contentEditor.dispatch("input", { target: field });
+
+    // What the author is reading right now, and what the card would say if it
+    // were rendered again from the very same fields.
+    const live = card.querySelector("[data-item-summary]").textContent;
+    const liveSecondary = card.querySelector("[data-item-secondary-summary]").textContent;
+    api.renderContentEditor(api.getItemsData(), null);
+
+    assert.equal(summaries(contentEditor.innerHTML)[index], live, `${selector}="${value}" summary`);
+    assert.equal(secondaries(contentEditor.innerHTML)[index], liveSecondary, `${selector}="${value}" secondary summary`);
+  }
+});
+
 test("the overflow menu opens, closes, and survives a reorder from inside itself", () => {
   const { api, contentEditor, document } = loadEditorHarness();
   api.renderContentEditor([course("course-a"), course("course-b")], "course-a");
@@ -3545,7 +3743,7 @@ test("course labels use presets and reveal text entry only for a custom label", 
   // The custom option is still the last one and still carries a real label —
   // now resolved from the dictionary, and asserted to be distinct from every
   // preset so "custom" can never be mistaken for one of them.
-  assert.match(app, /<option value="custom"[^>]*>\$\{escapeAttribute\(t\("content\.courseLabelCustom"\)\)\}<\/option>/);
+  assert.match(app, /<option value="custom"[^>]*>\$\{escapeHtml\(t\("content\.courseLabelCustom"\)\)\}<\/option>/);
   for (const translate of [ko, en]) {
     const custom = translate("content.courseLabelCustom");
     assert.ok(custom.length > 0);

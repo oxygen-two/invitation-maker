@@ -15,9 +15,7 @@
 const viewerLanguage = () => globalThis.InvitationI18n?.getLanguage?.() ?? "ko";
 const viewerCopy = (key) => globalThis.InvitationI18n?.t(key, undefined, viewerLanguage()) ?? key;
 
-const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-}[char]));
+const { escapeHtml } = globalThis.InvitationText;
 
 const showError = (message) => {
   const main = document.querySelector("main");

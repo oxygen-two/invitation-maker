@@ -346,14 +346,12 @@
     }
   };
 
-  const escapeHtml = (value = "") =>
-    String(value).replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    })[char]);
+  const { escapeHtml } = (() => {
+    if (typeof module !== "undefined" && module.exports) {
+      try { return require("../shared/text.js"); } catch { return root.InvitationText || {}; }
+    }
+    return root.InvitationText;
+  })();
 
   /* The instant the built-in sample invitation is set at. A dateLabel the
      author typed is free text and is rendered verbatim everywhere — nothing

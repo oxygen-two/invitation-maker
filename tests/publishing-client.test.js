@@ -376,6 +376,58 @@ test("mounting against no node is a no-op with a render that cannot throw", () =
   assert.equal(mounted.render(), undefined);
 });
 
+/* The library and the share dialog show the author the same live links, and
+   used to do it through two byte-identical renderers with their own copy and
+   revoke handlers beside them. Anything fixed in one silently skipped the
+   other — which is how the library list ended up with no "taking it down…"
+   and the dialog list with no report when a copy failed. */
+test("the library list and the dialog list are one list", async () => {
+  const records = [publication("aaa"), publication("bbb")];
+  const client = {
+    list: () => records,
+    publish: async () => ({ id: "aaa", url: "/i/aaa", expiresAt: null }),
+    remove: async (id) => { records.splice(records.findIndex((entry) => entry.id === id), 1); }
+  };
+  const dialogStatuses = [];
+  const library = createPublicationListHarness({ client });
+  const dialog = createPublishingMountHarness({ client, statusMessages: dialogStatuses });
+
+  assert.equal(library.node.innerHTML, dialog.root.querySelector("#published-list").innerHTML,
+    "both mounts render the same markup from the same records");
+
+  await library.click("bbb", "revoke");
+  assert.deepEqual(library.statusMessages, [publishCopy("deleting"), publishCopy("deleted")]);
+
+  // The same words, in the same order, from the dialog's own revoke button.
+  await dialog.clickPublish();
+  dialogStatuses.length = 0;
+  dialog.click("#revoke-publication-link");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(dialogStatuses, [publishCopy("deleting"), publishCopy("deleted")]);
+  assert.equal(dialog.root.querySelector("#publish-result-link").hidden, true,
+    "the panel stops showing a link it has just taken down");
+});
+
+test("a copy the clipboard refuses is reported, not only shown", async () => {
+  const reported = [];
+  const restore = globalThis.InvitationErrorReporting;
+  globalThis.InvitationErrorReporting = { reportFault: (context) => reported.push(context) };
+  try {
+    const harness = createPublicationListHarness({
+      client: { list: () => [publication("aaa")] },
+      clipboard: { writeText: async () => { throw new Error("clipboard blocked"); } }
+    });
+
+    await harness.click("aaa", "copy");
+
+    assert.deepEqual(harness.statusMessages, [publishCopy("copyFailed")]);
+    assert.deepEqual(reported, ["publish_copy"], "a clipboard that refuses is a fault worth a diagnostic");
+  } finally {
+    globalThis.InvitationErrorReporting = restore;
+  }
+});
+
 /* B-9: the dialog used to say "Share a link", then "SHARE", then "Public link",
    and only promised the expiry date AFTER the author had already published. */
 

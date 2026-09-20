@@ -36,7 +36,11 @@ const cssRule = (css, selector) => {
 };
 const loadCoreWithoutIntro = () => {
   const module = { exports: {} };
+  /* Every optional dependency is missing; escaping is not one of them. It is
+     the last thing between an author's text and the markup it lands in, so
+     core is allowed to render without an intro engine and never without it. */
   const missingIntro = (request) => {
+    if (request === "../shared/text.js") return require("../assets/shared/text.js");
     const error = new Error(`Cannot find module '${request}'`);
     error.code = "MODULE_NOT_FOUND";
     throw error;

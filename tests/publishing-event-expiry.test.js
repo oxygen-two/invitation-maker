@@ -163,3 +163,46 @@ test("a record with no event date is still left on the sliding window by a read"
   assert.ok(new Date(applied) < daysAfter(publishedAt, config.maxLifetimeDays));
   assert.deepEqual(writes, [applied]);
 });
+
+/* The backfill wrote the expiry policy out a second time — a min() of the
+   sliding window and the ceiling — and PR #47's event floor never reached it.
+   A record for an event three weeks out would have been stamped with an expiry
+   a week from now, against a live link guests are holding. */
+test("the backfill plans expiries with the one expiry formula", () => {
+  const { createExpiryPlanner } = require("../scripts/backfill-expiry.cjs");
+  const plan = createExpiryPlanner(config);
+  const now = new Date("2026-03-01T00:00:00.000Z");
+  const target = (record) => expiryTargetAt({
+    createdAt: record.createdAt,
+    now,
+    idleWindowDays: config.idleWindowDays,
+    maxLifetimeDays: config.maxLifetimeDays,
+    dateTime: record.invitation?.dateTime,
+    eventGraceDays: config.eventGraceDays,
+    maxEventLeadDays: config.maxEventLeadDays
+  });
+
+  const withEvent = { id: "a", createdAt: "2026-02-25T00:00:00.000Z", invitation: { dateTime: "2026-05-01T14:00" } };
+  const planned = plan(withEvent, now);
+  assert.equal(planned.bucket, "normal");
+  assert.equal(isoDay(planned.expiresAt), "2026-05-08", "the event floor outranks the sliding window here too");
+  assert.equal(planned.expiresAt.getTime(), target(withEvent).getTime());
+
+  const quiet = { id: "b", createdAt: "2026-02-25T00:00:00.000Z" };
+  assert.equal(plan(quiet, now).expiresAt.getTime(), target(quiet).getTime());
+
+  // A record already past its ceiling would stop being readable the instant an
+  // honest expiry was written, so it keeps its full idle window instead.
+  const ancient = { id: "c", createdAt: "2025-01-01T00:00:00.000Z" };
+  assert.equal(plan(ancient, now).bucket, "grace");
+  assert.equal(isoDay(plan(ancient, now).expiresAt), isoDay(daysAfter(now, config.idleWindowDays)));
+
+  const undated = { id: "d" };
+  assert.equal(plan(undated, now).bucket, "missingCreatedAt");
+  assert.equal(isoDay(plan(undated, now).expiresAt), isoDay(daysAfter(now, config.idleWindowDays)));
+
+  // And the formula itself is required, not restated.
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "scripts/backfill-expiry.cjs"), "utf8");
+  assert.match(source, /expiryTargetAt/);
+  assert.doesNotMatch(source, /maxLifetimeMs/, "the ceiling is expiry.cjs's to compute");
+});
