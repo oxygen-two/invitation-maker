@@ -51,12 +51,18 @@ node scripts/build-site-media.cjs --check   # 산출물 존재·용량만 확인
 
 | 파일 | 픽셀 크기 | 비고 |
 | --- | --- | --- |
-| `design-<id>-2x.jpg` (6장 공통) | 668×1374 | `#preview` iframe을 `deviceScaleFactor: 2`로 캡처 |
+| `design-<id>-2x.jpg` (6장 공통) | 780×1374 | `#preview` iframe을 `deviceScaleFactor: 2`로 캡처 |
 | `guide-step-0{1,2,3}-2x.jpg` | 2880×1800 | 1440×900 데스크톱 뷰포트를 2배로 캡처 |
 
 파일명 접미사는 `-2x`이고 `@` 문자는 쓰지 않는다 — `server/http/static.cjs`의 정적 파일 허용 정규식이 `[0-9A-Za-z_./-]`만 통과시켜 `@`가 들어간 경로는 404가 나기 때문이다(라우팅 정규식을 완화하는 대신 파일명을 URL 안전한 문자로 맞췄다). 새 이미지를 추가할 때도 이 규칙을 따른다. 히어로 전용 이미지 파일은 따로 없다 — 히어로가 보여주는 것은 갤러리 첫 카드와 같은 `bloom-portrait` 디자인이라 `design-bloom-portrait-2x.jpg`를 그대로 재사용한다.
 
 `index.html`/`guide.html`의 `<img width height>`는 이 실측 픽셀 크기와 같아야 한다 — 다르면 레이아웃 시프트(CLS)가 생기고, `sips -g pixelWidth -g pixelHeight <파일>`로 언제든 재확인할 수 있다. 스튜디오 UI가 바뀌어 캡처 구도가 달라지면(예: 상단 바에 링크가 하나 늘어 높이가 바뀌는 경우) 반드시 재생성 후 이 크기를 다시 재고 HTML의 `width`/`height` 속성도 같이 맞춘다 — 이번 작업에서 스튜디오 상단 바에 "사용법" 링크를 추가한 뒤 `guide-step-*` 세 장을 다시 찍은 것이 그 예다. 데스크톱 캡처 세 장은 각각 찍기 직전에 `window.scrollTo(0, 0)`으로 맨 위로 되돌린다 — Playwright가 클릭한 요소를 자동으로 화면에 스크롤해 넣는 동작 때문에, 스크롤을 되돌리지 않으면 상단 바(와 "사용법" 링크)가 프레임 밖으로 밀려날 수 있다.
+
+캡처 스크립트는 스튜디오의 실제 선택자를 그대로 누르므로, 스튜디오 UI가 바뀌면 조용히 타임아웃으로 멈춘다. 지금 기준으로 눌러야 하는 것은 두 갈래다 — 900px 초과에서는 갤러리 그리드 아래의 `#apply-template-button` 하나이고, 900px 이하에서는 카드를 누르면 먼저 모달 `<dialog>`인 `#sample-sheet`이 열리므로 그 안의 `#sample-sheet-apply`를 눌러야 한다. 모달이 열려 있는 동안 뒤쪽의 `#gallery-dock`은 inert라서 같은 동작을 하는 `#gallery-create`를 겨눈 클릭은 시트의 iframe에 먹힌다. `#preview`는 갤러리 단계 내내 `display:none`이므로 이 단계에서 프레임을 기다리면 안 된다(적용 후 편집 단계에서만 보인다).
+
+캡처용 컨텍스트는 페이지가 뜨기 전에 `localStorage["invitation-maker.consent"]`를 `"denied"`로 심는다. 쿠키·분석 동의 배너는 뷰포트 하단에 고정되어 모든 스크린샷 안으로 들어오기 때문이고, 같은 초기화 스크립트가 `localStorage`와 초안이 사는 IndexedDB(`invitation-maker`)를 비워 디자인 여섯 장이 서로의 초안을 물려받지 않게 한다 — 디자인을 적용해도 이미 쓴 내용은 유지되는 것이 현재 동작이라, 초안이 남아 있으면 여섯 장이 모두 첫 디자인의 문구를 달고 찍힌다.
+
+캡처 로케일은 `ko-KR`이다. 랜딩의 디자인 이미지 여섯 장과 가이드 캡처 세 장은 모두 한국어 샘플을 찍은 것이고, `index.html`의 해당 `alt` 문구가 `data-i18n-attr` 없이 한국어로 고정되어 있는 이유도 그것이다(영어로 설명하면 이미지에 실제로 보이는 것과 어긋난다).
 
 ## 5. 검증
 

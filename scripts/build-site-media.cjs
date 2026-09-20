@@ -47,20 +47,66 @@ if (process.argv.includes("--check")) {
 
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
 
-// At <=900px wide the studio replaces the desktop "#preview-apply-button"
-// with the "#gallery-dock" bar (see scripts/verify-studio.cjs), so applying
-// a design has two different UIs depending on viewport width. Applying
-// always advances the studio to the edit stage, where the mobile preview
-// tab actually renders the card (the gallery stage's preview tab is known
-// to render blank), so screenshots are taken there.
+// Every page here is a first visit, and a first visit is shown the cookie and
+// analytics banner (assets/site/consent.js), which is position:fixed to the
+// bottom of the viewport and therefore sits inside every screenshot this
+// script takes — over the foot of the phone card, over the guide's apply row.
+// It is not part of the product being photographed, so each context answers
+// the question before the first document runs, exactly as a returning visitor
+// arrives: the answer is a plain string in localStorage, and "denied" is the
+// answer that both closes the banner and keeps analytics off in the captures.
+const CONSENT_KEY = "invitation-maker.consent";
+// Fresh contexts already start with empty storage; clearing it again here is
+// what makes that a property of the script rather than of Playwright's
+// defaults. It matters because applying a design no longer resets the editor:
+// PresetApplication keeps whatever the author has written, so a run that
+// inherited a draft would photograph six designs all carrying the first one's
+// content. The IndexedDB database the draft lives in (assets/storage/
+// invitation-storage.js) is dropped before any page script can open it.
+const startClean = (context) => context.addInitScript(([key, answer]) => {
+  try {
+    localStorage.clear();
+    localStorage.setItem(key, answer);
+  } catch { /* storage disabled: the banner check below still fails loudly */ }
+  try { indexedDB.deleteDatabase("invitation-maker"); } catch { /* nothing to drop */ }
+}, [CONSENT_KEY, "denied"]);
+
+const newStudioContext = async (browser, viewport) => {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 2, locale: "ko-KR" });
+  await startClean(context);
+  return context;
+};
+
+// The banner is built and appended by script, so "it is not in the DOM" is the
+// only honest way to say it is gone. Asserted right before the first capture of
+// each context rather than trusted, because a silent regression here would not
+// break the run — it would just quietly paste a black bar across every image.
+const assertNoConsentBanner = async (page, where) => {
+  if (await page.locator("#invitation-consent").count()) {
+    throw new Error(`${where}: the consent banner is still on the page and would appear in the capture`);
+  }
+};
+
+// Applying a design has two different UIs depending on viewport width. Above
+// 900px the gallery renders every design live at card size and one apply
+// button, "#apply-template-button", sits under the grid. At or below 900px the
+// cards are 160px thumbnails, so tapping one raises the design full size in the
+// "#sample-sheet" modal <dialog> and the apply button to press is the sheet's
+// own — the "#gallery-dock" bar carries the same action but a modal dialog
+// makes everything behind it inert, so a click aimed at the dock is swallowed
+// by the sheet's iframe. (That is exactly how this script broke: the sheet
+// arrived in PR #39 and the dock click has been timing out ever since.)
+//
+// Applying always advances the studio to the edit stage, where the mobile
+// preview tab actually renders the card (the gallery stage hides #preview
+// outright), so screenshots are taken there.
 const applyDesign = async (page, { id, occasion }, width) => {
   await page.locator(`[data-occasion-id="${occasion}"]`).click();
   await page.locator(`[data-template-id="${id}"]`).click();
   if (width <= 900) {
-    await page.locator("#gallery-dock").waitFor();
-    await page.locator("#gallery-create").click();
+    await page.locator("#sample-sheet[open] #sample-sheet-apply").click();
   } else {
-    await page.locator("#preview-apply-button").click();
+    await page.locator("#apply-template-button").click();
   }
   // On phone widths the preview iframe lives in the (currently hidden)
   // preview tab until it's switched to below, so wait for the card to be
@@ -87,13 +133,14 @@ const applyDesign = async (page, { id, occasion }, width) => {
     // untouched defaults.
     const phoneWidth = 390;
     for (const design of DESIGNS) {
-      const phoneContext = await browser.newContext({ viewport: { width: phoneWidth, height: 844 }, deviceScaleFactor: 2, locale: "ko-KR" });
+      const phoneContext = await newStudioContext(browser, { width: phoneWidth, height: 844 });
       const phone = await phoneContext.newPage();
       // bloom-portrait's default RSVP item has no phone/email in it, which
       // makes the download flow below raise a native confirm() asking the
       // author to double check; auto-accept it like verify-studio.cjs does.
       phone.on("dialog", (dialog) => dialog.accept());
       await phone.goto(`${baseUrl}/studio`);
+      await assertNoConsentBanner(phone, `design-${design.id}`);
       await applyDesign(phone, design, phoneWidth);
       await phone.locator('.mobile-view-tabs [data-mobile-view="preview"]').click();
       await phone.locator("#preview").screenshot({ path: path.join(mediaDir, `design-${design.id}-2x.jpg`), ...JPEG_OPTIONS });
@@ -128,35 +175,35 @@ const applyDesign = async (page, { id, occasion }, width) => {
     // Desktop screenshots of the three stages for the guide. Each screenshot
     // waits for a real element of the stage it is capturing rather than a
     // bare timeout, which was flaky on slower machines.
-    const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, locale: "ko-KR" });
+    const desktopContext = await newStudioContext(browser, { width: 1440, height: 900 });
+    const desktop = await desktopContext.newPage();
     await desktop.goto(`${baseUrl}/studio`);
+    await assertNoConsentBanner(desktop, "guide-step-01");
     await desktop.locator('[data-occasion-id="birthday"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').click();
     await desktop.locator('[data-template-id="bloom-portrait"]').waitFor({ state: "visible" });
     // Step 01 illustrates picking a design AND applying it, so the capture
-    // must wait for both the enlarged sample card (in the gallery preview
-    // frame) and the apply button to actually be there before the shot is
-    // taken, not just for the clicked template card.
-    await desktop.locator("#preview-apply-button").waitFor({ state: "visible" });
-    // The gallery-stage preview renders the selected design into #preview
-    // but does not necessarily make the card visible there (it can be
-    // scrolled/clipped inside the panel) — attached to the DOM is the
-    // meaningful signal that the render has actually happened, same as the
-    // phone captures above.
-    await desktop.frameLocator("#preview").locator(".invitation-card").waitFor({ state: "attached" });
+    // must wait for the apply row to have caught up with the card that was
+    // just tapped, not just for the card. There is no preview frame to wait
+    // for here: the desktop gallery renders every design live in its own card,
+    // so studio.css hides #preview for the whole gallery stage and the panel
+    // that used to hold it now only hosts the apply prompt. "#template-summary"
+    // is that prompt — it names the selected design, so it is filled in by the
+    // same render that marks the card selected, and unlike the hidden frame it
+    // is actually in the picture.
+    await desktop.locator("#apply-template-button").waitFor({ state: "visible" });
+    await desktop.waitForFunction(() => document.querySelector("#template-summary")?.textContent.trim().length > 0);
     // The gallery grid at 1440x900 puts the selected card and the apply
     // prompt below the fold together — scrolling back to (0,0) would hide
-    // #preview-apply-button entirely, and the button is the point of this
+    // #apply-template-button entirely, and the button is the point of this
     // step's screenshot (the guide's prose walks the reader through pressing
     // it). scrollIntoViewIfNeeded() on the button also pushes the top bar
-    // well out of frame (checked: studio-bar's box goes to y < -700), so
-    // unlike steps 02/03 this capture does NOT reset scroll to the top —
-    // the studio-bar's 12px "사용법" link is still verified, just via the
-    // step 02/03 captures below and the direct Playwright check in the
-    // final-fix report, not this one.
-    await desktop.locator("#preview-apply-button").scrollIntoViewIfNeeded();
+    // well out of frame, so unlike steps 02/03 this capture does NOT reset
+    // scroll to the top — the studio-bar's "사용법" link is still shown, just
+    // by the step 02/03 captures below and not by this one.
+    await desktop.locator("#apply-template-button").scrollIntoViewIfNeeded();
     await desktop.screenshot({ path: path.join(mediaDir, "guide-step-01-2x.jpg"), fullPage: false, ...JPEG_OPTIONS });
-    await desktop.locator("#preview-apply-button").click();
+    await desktop.locator("#apply-template-button").click();
     await desktop.frameLocator("#preview").locator(".invitation-card").waitFor();
     await desktop.evaluate(() => window.scrollTo(0, 0));
     await desktop.screenshot({ path: path.join(mediaDir, "guide-step-02-2x.jpg"), ...JPEG_OPTIONS });
