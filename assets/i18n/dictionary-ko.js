@@ -456,7 +456,6 @@
     library: {
       eyebrow: "Library",
       heading: "보관함",
-      uploadLabel: "다운로드된 HTML 등록",
       emptyTitle: "보관함이 아직 비어 있어요",
       emptyBody: "여기서 완성한 초대장이나 다운로드한 HTML 파일을 끌어다 놓으면 보관함에 모여요.",
       startNew: "새 초대장 만들기",

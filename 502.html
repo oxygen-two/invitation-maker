@@ -58,7 +58,7 @@ footer{border-top:1px solid var(--line);font-size:11px;letter-spacing:1px;color:
 <header><a class="brand" href="/" data-error-label="brandHome" aria-label="Invitation Studio 홈"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a><span class="header-note" data-error-text="headerNote">마음을 전하는 작은 시작</span></header>
 <main id="main" tabindex="-1"><div class="art" aria-hidden="true"><div class="halo"></div><div class="envelope"><svg viewBox="0 0 360 330" fill="none"><path class="env-back" d="M24 144 180 32l156 112v153H24Z" fill="#c6d1c1"/><rect class="env-card" x="61" y="62" width="238" height="222" rx="5" fill="#fffdf8" stroke="#d8ded1"/><rect class="env-card-inner" x="75" y="76" width="210" height="194" rx="2" stroke="#e3e5da"/><path class="env-heart" d="M180 153c-42-24-26-51-10-35l10 10 10-10c16-16 32 11-10 35Z" fill="#7e957b"/><path class="env-lines" d="M133 180h94M152 195h56" stroke="#b6c1ad" stroke-width="2" stroke-linecap="round"/><path class="env-front" d="m24 144 156 96 156-96v153H24Z" fill="#d9e1d1" stroke="#b7c5b2"/><path class="env-flap" d="m24 297 134-97c13-10 31-10 44 0l134 97" fill="#e5eadf" stroke="#b7c5b2"/></svg></div><span class="seal">✳</span></div>
 <section class="content" aria-labelledby="error-title"><p class="eyebrow" data-error-text="eyebrow">RECONNECTING</p><p class="code" data-error-code>502</p><h1 id="error-title" data-error-text="title">연결이 잠시 끊겼어요.</h1><p class="description" data-error-text="description">서버에서 정상적인 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.</p>
-<p class="offline" data-offline data-error-text="offline" role="status" hidden>인터넷 연결이 끊겨 있어요. 연결을 확인한 뒤 다시 시도해 주세요.</p>
+<p class="offline" data-offline role="status"></p>
 <div class="actions"><a class="primary" href="/"><span data-error-text="action">스튜디오로 돌아가기</span><span aria-hidden="true">&nbsp;↗</span></a><button type="button" data-retry data-error-text="reload" hidden>다시 시도</button></div>
 <p class="hint" data-error-text="hint">입력 내용을 바꿀 필요는 없어요. 잠시 기다려 주세요.</p><noscript><p class="hint">다시 시도하려면 브라우저의 새로고침을 눌러 주세요.</p></noscript></section></main>
 <footer><span>INVITATION STUDIO</span><span class="footer-note" data-error-text="footerNote">작은 초대, 소중한 순간.</span></footer>
@@ -78,8 +78,15 @@ footer{border-top:1px solid var(--line);font-size:11px;letter-spacing:1px;color:
     const value = copy[node.dataset.errorLabel];
     if (value) node.setAttribute('aria-label', value);
   }
+  // The notice is rendered empty and stays in the tree: a role="status" region
+  // only announces what appears INSIDE it after it is being observed, so a
+  // pre-filled node revealed by flipping the hidden attribute changes nothing a
+  // screen reader is listening for, and is silent exactly when it matters.
+  // Writing the
+  // sentence in — and clearing it again — is the change that gets announced.
+  // .offline:empty keeps the empty region out of the visual layout.
   const offline = document.querySelector('[data-offline]');
-  const update = () => { offline.hidden = navigator.onLine !== false; };
+  const update = () => { offline.textContent = navigator.onLine === false ? copy.offline : ''; };
   addEventListener('online', update); addEventListener('offline', update); update();
   const retry = document.querySelector('[data-retry]');
   if (retry) {

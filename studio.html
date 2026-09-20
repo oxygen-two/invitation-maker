@@ -25,16 +25,21 @@
   <meta name="twitter:description" data-i18n-attr="content:meta.twitterDescription" content="마음에 드는 디자인에 나만의 이야기를 담아 나만의 초대장을 만들어보세요.">
   <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
   <meta name="twitter:image:alt" data-i18n-attr="content:meta.twitterImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
-  <!-- Structured data stays in the served default language on purpose: a
-       crawler sees this document before any script runs, so describing it as
-       anything other than what was served would be a lie to the indexer. -->
-  <script type="application/ld+json">
+  <!-- Served in the default language, then corrected. A crawler that runs no
+       script reads exactly what was served, so the baked Korean is never a
+       lie. One that does run scripts gets <html lang> rewritten by the engine
+       to the language it actually asked for, and the block below would then
+       be the one thing on the page still claiming Korean — so the same
+       resolution that moves <html lang> moves description and inLanguage with
+       it, from meta.schemaDescription. Structured data and the document it
+       describes never disagree. -->
+  <script type="application/ld+json" id="page-schema">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Invitation Studio",
     "url": "https://invitation-maker-one.vercel.app/",
-    "description": "생일, 결혼, 모임 등 소중한 날을 위한 모바일 초대장을 무료로 만드는 웹 앱입니다. 회원가입 없이 디자인을 고르고 내용을 채워 사진이 담긴 HTML 파일로 내려받거나, 원하면 링크로도 공유할 수 있습니다.",
+    "description": "생일, 결혼, 모임처럼 소중한 날의 모바일 초대장을 무료로 만드는 웹 앱이에요. 회원가입 없이 디자인을 고르고 내용을 채워, 사진이 담긴 HTML 파일로 내려받거나 링크로 공유할 수 있어요.",
     "inLanguage": "ko",
     "applicationCategory": "DesignApplication",
     "operatingSystem": "Any (web browser)",
@@ -61,6 +66,26 @@
   <script src="assets/i18n/dictionary-ko.js"></script>
   <script src="assets/i18n/dictionary-en.js"></script>
   <script>InvitationI18n.init();</script>
+  <script>
+    /* Keep the JSON-LD block in step with the language the engine settled on.
+       It is a whole-document rewrite rather than a patch because JSON-LD has
+       no per-field binding, and it runs as text through JSON.parse/stringify,
+       so nothing here can inject markup. init() does not notify subscribers,
+       hence the explicit first call. */
+    (() => {
+      const node = document.getElementById("page-schema");
+      if (!node) return;
+      let schema;
+      try { schema = JSON.parse(node.textContent); } catch { return; }
+      const sync = (language) => {
+        schema.inLanguage = language;
+        schema.description = InvitationI18n.t("meta.schemaDescription", undefined, language);
+        node.textContent = JSON.stringify(schema, null, 2);
+      };
+      sync(InvitationI18n.getLanguage());
+      InvitationI18n.subscribe(sync);
+    })();
+  </script>
 </head>
 <body data-mobile-view="editor" data-studio-stage="gallery">
   <header class="studio-bar">

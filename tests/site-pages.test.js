@@ -136,6 +136,36 @@ test("the landing page owns the root's search metadata", () => {
   assert.match(landing, /og:image" content="https:\/\/invitation-maker-one\.vercel\.app\/assets\/media\/social-preview-v1\.png"/);
 });
 
+test("the structured data is served in Korean and follows the language the engine picks", () => {
+  const I18n = loadI18n();
+  for (const page of ["index.html", "studio.html"]) {
+    const html = read(page);
+    const block = html.match(/<script type="application\/ld\+json" id="page-schema">([\s\S]*?)<\/script>/);
+    assert.ok(block, `${page}: the JSON-LD block is missing or unnamed`);
+
+    // Served Korean, matching what <html lang="ko"> promises a crawler that
+    // runs no script — and matching the dictionary, so there is one home for
+    // the sentence rather than a copy baked into two documents.
+    const schema = JSON.parse(block[1]);
+    assert.equal(schema.inLanguage, "ko", `${page}: the served structured data must be Korean`);
+    assert.equal(schema.description, I18n.t("meta.schemaDescription", undefined, "ko"),
+      `${page}: the baked description has drifted from meta.schemaDescription`);
+
+    // And rewritten for a reader whose language the engine resolved to
+    // something else, because <html lang> is rewritten for them too and the
+    // two must never disagree.
+    assert.match(html, /getElementById\("page-schema"\)/, `${page}: nothing reads the JSON-LD block`);
+    assert.match(html, /schema\.inLanguage = language/, `${page}: inLanguage never follows the switch`);
+    assert.match(html, /InvitationI18n\.t\("meta\.schemaDescription", undefined, language\)/,
+      `${page}: the description never follows the switch`);
+    assert.match(html, /InvitationI18n\.subscribe\(sync\)/, `${page}: a later language change is ignored`);
+    // init() resolves without notifying subscribers, so the first pass is explicit.
+    assert.match(html, /sync\(InvitationI18n\.getLanguage\(\)\)/, `${page}: the first pass never runs`);
+    assert.ok(html.indexOf("InvitationI18n.init()") < html.indexOf("getElementById(\"page-schema\")"),
+      `${page}: the schema sync must run after the language is resolved`);
+  }
+});
+
 test("the landing page sends returning studio users straight to /studio, but never from /welcome", () => {
   const landing = read("index.html");
   const script = landing.match(/<script>([\s\S]*?)<\/script>/)[1];
