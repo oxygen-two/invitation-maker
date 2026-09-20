@@ -453,6 +453,48 @@ test("the content overlay translates every Korean leaf without touching structur
   assert.deepEqual(leaked, [], "structural fields must never appear in a translation overlay");
 });
 
+test("no template default or overlay leaf ships an imperative placeholder as sample content", () => {
+  /* Sample content is what a guest sees if the author never touches a field.
+     "Add the cafe name" or "카페 이름을 입력하세요" read as an instruction left
+     on the page, not an invitation — the author is being told to fill in the
+     very field they are looking at. Every template default and its English
+     overlay must instead read like a finished, if generic, invitation. */
+  const base = readJson("invitation-data.json");
+  const overlay = readJson("assets/i18n/content-en.json");
+  const koreanPlaceholder = /입력하세요|입력해 주세요/;
+  const englishPlaceholder = /Your name here|Add the |Enter /;
+
+  const violations = [];
+  const walk = (node, where) => {
+    if (typeof node === "string") {
+      if (koreanPlaceholder.test(node) || englishPlaceholder.test(node)) violations.push(`${where}: "${node}"`);
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => walk(item, `${where}[${index}]`));
+    } else if (node && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) walk(value, `${where}.${key}`);
+    }
+  };
+
+  for (const template of base.templates) walk(template.defaults, `invitation-data.json:templates.${template.id}.defaults`);
+  walk(base.defaultInvitation, "invitation-data.json:defaultInvitation");
+  for (const [id, translated] of Object.entries(overlay.templates || {})) {
+    walk(translated.defaults, `content-en.json:templates.${id}.defaults`);
+  }
+  walk(overlay.defaultInvitation, "content-en.json:defaultInvitation");
+
+  assert.deepEqual(violations, [], "sample content reads as an instruction to fill in the field, not as content");
+});
+
+test("the blank invitation's default location reads as a sample, not an instruction", () => {
+  // invitation.defaultLocation ships as real `location` text on a brand-new
+  // invitation (see createDefaultInvitation in assets/invitation/core.js), so
+  // it must not be phrased as an instruction either.
+  assert.doesNotMatch(dictionaryKo.invitation.defaultLocation, /입력하세요|입력해 주세요/);
+  assert.doesNotMatch(dictionaryEn.invitation.defaultLocation, /Your name here|Add the |Enter /);
+});
+
 test("the English samples and defaults name no Korean-only place or phone format", () => {
   /* A-3: the English studio used to open on Hongdae, Cheongdam and
      010-0000-0000, which tells a reader outside Korea that the product is

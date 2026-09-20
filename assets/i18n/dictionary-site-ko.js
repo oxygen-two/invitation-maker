@@ -75,6 +75,16 @@
           botanical: "데이트",
           midnightCinema: "행사"
         },
+        designs: {
+          alt: {
+            bloomPortrait: "초대장 디자인 예시 · 생일",
+            wedding: "초대장 디자인 예시 · 결혼",
+            firstChapter: "초대장 디자인 예시 · 돌잔치",
+            goldenYears: "초대장 디자인 예시 · 환갑",
+            botanical: "초대장 디자인 예시 · 데이트",
+            midnightCinema: "초대장 디자인 예시 · 행사"
+          }
+        },
         trust: {
           eyebrow: "PEACE OF MIND",
           title: "안심하고 쓰세요",

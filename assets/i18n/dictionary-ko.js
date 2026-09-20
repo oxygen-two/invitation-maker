@@ -160,7 +160,7 @@
       heroHint: "사진 · 위치 · 확대",
 
       contentTitle: "초대장 항목",
-      contentHint: "↑ ↓ 로 순서 변경",
+      contentHint: "메뉴 · Alt+↑↓로 순서 변경",
 
       reviewButton: "완성 미리보기"
     },
@@ -352,7 +352,7 @@
          rather than the language a finished invitation was built in. */
       defaultTitle: "우리의 특별한 하루",
       defaultSubtitle: "당신을 위해 준비한 초대장",
-      defaultLocation: "장소를 입력하세요",
+      defaultLocation: "장소 추후 안내",
       defaultMessage: "함께 걷고, 이야기하고, 오래 기억할 하루를 준비했어요.",
       defaultCourseMeetPlace: "만남 장소",
       defaultCourseMeetNote: "첫 만남 위치를 적어주세요.",
@@ -403,8 +403,7 @@
        studio's language like every other control here. Nothing in this section
        reaches a guest. */
     publish: {
-      consent: "공개 링크를 만들면 주소를 아는 누구나 링크로 볼 수 있습니다.",
-      expiryPolicy: "링크마다 만료일은 아래 목록에 표시됩니다.",
+      consent: "공개 링크를 만들면 주소를 아는 누구나 볼 수 있고, 만료일은 아래 목록에 표시됩니다.",
       limitHint: "사진은 자동으로 압축되어 페이지가 가볍게 유지됩니다.",
       publishButton: "공개 링크 만들기",
       openLink: "링크 열기",

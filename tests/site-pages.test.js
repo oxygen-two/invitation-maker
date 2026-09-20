@@ -212,6 +212,25 @@ test("the landing's design shelf has six figures and the guide's finish table la
   for (const [tag] of cells) assert.match(tag, /data-i18n-attr="data-label:site\.guide\.finish\.head\.\w+"/, `${tag} is missing data-label binding`);
 });
 
+test("no Korean alt/aria-label/title attribute ships untranslated on the site pages", () => {
+  const hasHangul = (value) => /[가-힣]/.test(value);
+  for (const page of ["index.html", "guide.html", "privacy.html", "terms.html"]) {
+    const html = read(page);
+    const tags = [...html.matchAll(/<[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/g)].map((match) => match[0]);
+    for (const tag of tags) {
+      const attributes = parseTagAttributes(tag);
+      const binding = attributes["data-i18n-attr"] || "";
+      const boundAttrs = new Set(binding.split(";").map((pair) => pair.split(":")[0].trim()).filter(Boolean));
+      for (const attr of ["alt", "aria-label", "title"]) {
+        const value = attributes[attr];
+        if (value && hasHangul(value)) {
+          assert.ok(boundAttrs.has(attr), `${page}: ${attr}="${value}" is untranslated Korean with no data-i18n-attr binding`);
+        }
+      }
+    }
+  }
+});
+
 test("the studio links to the guide and the landing", () => {
   const studio = read("studio.html");
   assert.match(studio, /<a class="studio-guide-link" href="\/guide" data-i18n="header\.guideLink">사용법<\/a>/);

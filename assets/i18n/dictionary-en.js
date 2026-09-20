@@ -158,7 +158,7 @@
       heroHint: "Photo · position · zoom",
 
       contentTitle: "Invitation items",
-      contentHint: "↑ ↓ to reorder",
+      contentHint: "Menu · Alt+↑↓ to reorder",
 
       reviewButton: "Review & finish"
     },
@@ -347,7 +347,7 @@
          language they are working in, not the language of a finished file. */
       defaultTitle: "Our special day",
       defaultSubtitle: "An invitation made for you",
-      defaultLocation: "Add the venue",
+      defaultLocation: "Venue to be announced",
       defaultMessage: "A day to walk together, talk, and remember for a long time.",
       defaultCourseMeetPlace: "Meeting point",
       defaultCourseMeetNote: "Say where to meet first.",
@@ -396,8 +396,7 @@
     /* The publish panel. The studio talking to the author, so it follows the
        studio's language. Nothing in this section reaches a guest. */
     publish: {
-      consent: "A public link lets anyone who has the address open it.",
-      expiryPolicy: "Each link shows its own expiry date in the list below.",
+      consent: "A public link lets anyone who has the address open it, and its expiry date appears in the list below.",
       limitHint: "Photos are compressed so the page stays small.",
       publishButton: "Create a public link",
       openLink: "Open link",

@@ -184,15 +184,13 @@ test("the panel points at each link's own expiry instead of repeating the rule",
   const html = harness.root.innerHTML;
 
   // The rule itself lives in the dialog's static markup (tests/site-pages.test.js),
-  // and this panel renders inside that dialog. Stating it in both places printed
-  // the same sentence twice above the publish button, which buried the one line
-  // that matters: only this browser can take a link down.
-  assert.ok(html.includes(publishCopy("expiryPolicy")), "the panel still says where an expiry date can be read");
-  assert.doesNotMatch(publishCopy("expiryPolicy"), /7일|30일|7 days|30 days/);
-  assert.ok(html.indexOf(publishCopy("consent")) < html.indexOf(publishCopy("expiryPolicy")),
-    "the consent sentence opens the panel and the expiry pointer follows it");
-  assert.ok(html.indexOf(publishCopy("expiryPolicy")) < html.indexOf("publish-button"),
-    "both come before the publish button");
+  // and this panel renders inside that dialog. A separate expiryPolicy sentence
+  // used to repeat that same idea a third time above the publish button; it was
+  // folded into the consent sentence so the panel makes its point once.
+  assert.ok(html.includes(publishCopy("consent")), "the panel still says where an expiry date can be read");
+  assert.doesNotMatch(publishCopy("consent"), /7일|30일|7 days|30 days/);
+  assert.ok(html.indexOf(publishCopy("consent")) < html.indexOf("publish-button"),
+    "the consent sentence comes before the publish button");
   assert.doesNotMatch(publishCopy("consent"), /발행 후 만료일/,
     "the consent sentence no longer defers the expiry to after publishing");
 });
@@ -602,7 +600,7 @@ test("mount renders an independent finish section and forwards validate/getValue
   assert.match(root.innerHTML, /publish-result-link/);
   assert.match(root.innerHTML, /published-list/);
   assert.ok(root.innerHTML.includes(publishCopy("consent")));
-  assert.match(publishCopy("consent"), /누구나 링크로 볼 수 있습니다/);
+  assert.match(publishCopy("consent"), /누구나 볼 수 있고/);
   // The static copy is bound as well as rendered, so the engine's applyDom
   // pass retranslates the panel on a language change without a remount.
   assert.match(root.innerHTML, /data-i18n="publish\.consent"/);
