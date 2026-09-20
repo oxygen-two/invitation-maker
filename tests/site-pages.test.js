@@ -216,19 +216,176 @@ test("the guide has the anchors the landing and the studio link to", () => {
   assert.doesNotMatch(guide, /<script>\s*try \{/, "the guide never redirects");
 });
 
-test("site media and the sample invitation are checked in", () => {
+// Every site image is rendered twice by scripts/build-site-media.cjs, once per
+// site language: Korean keeps the plain name because that is the file the HTML
+// serves without JavaScript, English takes the "-en" suffix.
+const SITE_MEDIA_BASES = [
+  ...["bloom-portrait", "wedding", "first-chapter", "golden-years", "botanical", "midnight-cinema"].map((id) => `design-${id}-2x`),
+  "guide-step-01-2x", "guide-step-02-2x", "guide-step-03-2x"
+];
+const SITE_MEDIA_LANGUAGE_SUFFIX = { ko: "", en: "-en" };
+
+test("site media and the sample invitation are checked in, in both languages", () => {
   const files = [
-    ...["bloom-portrait", "wedding", "first-chapter", "golden-years", "botanical", "midnight-cinema"].map((id) => `assets/media/site/design-${id}-2x.jpg`),
-    "assets/media/site/guide-step-01-2x.jpg",
-    "assets/media/site/guide-step-02-2x.jpg",
-    "assets/media/site/guide-step-03-2x.jpg",
+    ...SITE_MEDIA_BASES.flatMap((base) =>
+      Object.values(SITE_MEDIA_LANGUAGE_SUFFIX).map((suffix) => `assets/media/site/${base}${suffix}.jpg`)),
     "sample.html"
   ];
+  assert.equal(files.length, 19, "nine images per language plus sample.html");
   for (const file of files) assert.ok(fs.statSync(path.join(root, file)).size > 1000, `${file} is missing or empty`);
   const sample = read("sample.html");
   assert.match(sample, /<meta name="robots" content="noindex">/);
   assert.match(sample, /class="invitation-card"/);
   assert.match(sample, /data-template="bloom-portrait"/);
+});
+
+/* The pictures on the landing and the guide are screenshots of a translated
+   studio, so they are translated too and the reader's language picks one at
+   runtime (assets/site/site.js). Three things have to hold for that to be
+   safe, and none of them is visible from a single file, so they are asserted
+   together: nothing points at a site image without naming both renders, the
+   attribute the document actually ships is the Korean one, and every file
+   named on either side is really checked in. */
+test("every site image on the landing and the guide names a render per language", () => {
+  const imageTag = /<(?:img|source)\b[^>]*>/gi;
+  let checked = 0;
+
+  for (const page of ["index.html", "guide.html"]) {
+    const html = read(page);
+    for (const [tag] of [...html.matchAll(imageTag)].map((match) => [match[0]])) {
+      const attributes = parseTagAttributes(tag);
+      const pointsAtSiteMedia = Object.values(attributes).some((value) => value.includes("/assets/media/site/"));
+      if (!pointsAtSiteMedia) continue;
+      checked += 1;
+
+      // parseTagAttributes only sees attributes that carry a value, and
+      // data-site-media is a bare flag, so it is matched on the raw tag.
+      assert.match(tag, /\bdata-site-media\b/, `${page}: ${tag} points at site media but is not marked data-site-media`);
+      for (const language of ["ko", "en"]) {
+        const source = attributes[`data-src-${language}`];
+        assert.ok(source, `${page}: ${tag} names no data-src-${language}`);
+        assert.ok(
+          fs.statSync(path.join(root, source.replace(/^\//, ""))).size > 1000,
+          `${page}: ${source} is missing or empty`
+        );
+      }
+      // The served default has to be the Korean render, not one of the pair
+      // chosen at random: it is what a reader with no JavaScript downloads.
+      assert.equal(attributes.src, attributes["data-src-ko"], `${page}: ${tag} does not serve the Korean render by default`);
+      // A candidate list must swap as a unit, or a 2x URL from the previous
+      // language survives behind a 1x one.
+      if (attributes.srcset) {
+        for (const language of ["ko", "en"]) {
+          assert.ok(attributes[`data-srcset-${language}`], `${page}: ${tag} has a srcset but no data-srcset-${language}`);
+        }
+        assert.equal(attributes.srcset, attributes["data-srcset-ko"]);
+      }
+    }
+  }
+
+  // Seven on the landing (the hero reuses the gallery's first design) and
+  // three on the guide.
+  assert.equal(checked, 10, "expected every landing and guide site image to be checked");
+});
+
+/* The swap itself, run rather than read. site.js is a plain IIFE over a window
+   object, so a hand-built document is enough to exercise it — the same trick
+   the studio's contract tests use — and that keeps this a test of what the
+   function does instead of how it is currently written. */
+const fakeMediaNode = (attributes) => {
+  const node = {
+    attributes: { ...attributes },
+    dataset: {},
+    getAttribute: (name) => (name in node.attributes ? node.attributes[name] : null),
+    setAttribute: (name, value) => { node.attributes[name] = value; }
+  };
+  for (const [name, value] of Object.entries(attributes)) {
+    const data = /^data-(.+)$/.exec(name);
+    if (data) node.dataset[data[1].replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
+  }
+  return node;
+};
+
+const runSiteScript = (nodes, language = "ko") => {
+  const subscribers = [];
+  // readyState "loading" keeps init() waiting on DOMContentLoaded, which this
+  // document never fires: the swap is what is under test, not the boot.
+  const documentStub = {
+    readyState: "loading",
+    body: { dataset: {} },
+    addEventListener: () => {},
+    querySelector: () => null,
+    querySelectorAll: (selector) => (selector === "[data-site-media]" ? nodes : [])
+  };
+  const context = {
+    document: documentStub,
+    InvitationI18n: {
+      applyDom: () => {},
+      getLanguage: () => language,
+      subscribe: (listener) => subscribers.push(listener)
+    }
+  };
+  context.window = context;
+  require("node:vm").runInNewContext(read("assets/site/site.js"), context);
+  return { site: context.InvitationSite, subscribers };
+};
+
+test("the language swap moves an image to the render for the resolved language and back", () => {
+  const image = fakeMediaNode({
+    src: "/assets/media/site/design-wedding-2x.jpg",
+    "data-site-media": "",
+    "data-src-ko": "/assets/media/site/design-wedding-2x.jpg",
+    "data-src-en": "/assets/media/site/design-wedding-2x-en.jpg"
+  });
+  const { site } = runSiteScript([image]);
+
+  site.applySiteMedia("en");
+  assert.equal(image.getAttribute("src"), "/assets/media/site/design-wedding-2x-en.jpg");
+  site.applySiteMedia("ko");
+  assert.equal(image.getAttribute("src"), "/assets/media/site/design-wedding-2x.jpg");
+});
+
+test("the language swap carries srcset with src, so no candidate survives from the previous language", () => {
+  const source = fakeMediaNode({
+    srcset: "/assets/media/site/design-wedding-2x.jpg 2x",
+    "data-site-media": "",
+    "data-srcset-ko": "/assets/media/site/design-wedding-2x.jpg 2x",
+    "data-srcset-en": "/assets/media/site/design-wedding-2x-en.jpg 2x"
+  });
+  const { site } = runSiteScript([source]);
+
+  site.applySiteMedia("en");
+  assert.equal(source.getAttribute("srcset"), "/assets/media/site/design-wedding-2x-en.jpg 2x");
+});
+
+test("a language with no render of its own leaves the served default in place", () => {
+  const image = fakeMediaNode({
+    src: "/assets/media/site/design-wedding-2x.jpg",
+    "data-site-media": "",
+    "data-src-ko": "/assets/media/site/design-wedding-2x.jpg",
+    "data-src-en": "/assets/media/site/design-wedding-2x-en.jpg"
+  });
+  const { site } = runSiteScript([image]);
+
+  // A third language added to the dictionaries before its images exist must
+  // show the wrong language rather than an empty frame.
+  site.applySiteMedia("ja");
+  assert.equal(image.getAttribute("src"), "/assets/media/site/design-wedding-2x.jpg");
+});
+
+test("the swap is subscribed to the language engine, so a switch with no reload moves the pictures", () => {
+  const image = fakeMediaNode({
+    src: "/assets/media/site/design-wedding-2x.jpg",
+    "data-site-media": "",
+    "data-src-ko": "/assets/media/site/design-wedding-2x.jpg",
+    "data-src-en": "/assets/media/site/design-wedding-2x-en.jpg"
+  });
+  const { site, subscribers } = runSiteScript([image]);
+  site.init();
+
+  assert.equal(subscribers.length, 1, "site.js must subscribe to language changes");
+  subscribers[0]("en");
+  assert.equal(image.getAttribute("src"), "/assets/media/site/design-wedding-2x-en.jpg");
 });
 
 test("the sitemap lists the landing, the guide, and the studio but not the sample", () => {
