@@ -4,6 +4,31 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const studio = fs.readFileSync(path.join(root, "assets/studio/studio.css"), "utf8");
+const base = fs.readFileSync(path.join(root, "assets/studio/style.css"), "utf8");
+
+/* studio.css opens with the token block and nothing above it, so "the body"
+   of the file is everything past that first `}`. Both colour guards below
+   read the same slice: a literal is a leak in a rule, never in the token
+   declarations themselves. */
+const studioBody = studio.slice(studio.indexOf("}") + 1);
+/* Comments name these queries in prose — a rule that says where the one phone
+   block lives is not a second phone block. Count what ships, not what reads. */
+const studioCode = studio.replace(/\/\*[\s\S]*?\*\//g, "");
+
+/* Every rule of a stylesheet as [selector, declarations] pairs, with comments
+   stripped first so a selector quoted in prose is not mistaken for one that
+   ships. An at-rule's own header is skipped (it carries `@`) while the rules
+   inside it are read like any other — which is what we want on both sides: a
+   palette read inside a media block still repaints, and a pin written inside
+   one still pins. */
+const cssRules = (source) => {
+  const rules = [];
+  const flat = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const [, selector, body] of flat.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+    rules.push([selector.trim().replace(/\s+/g, " "), body]);
+  }
+  return rules;
+};
 
 test("studio.css declares the chrome token set", () => {
   for (const token of ["--studio-paper", "--studio-ink", "--studio-ink-muted", "--studio-accent", "--studio-accent-ink", "--studio-line", "--studio-surface", "--studio-surface-alt", "--studio-warn-bg", "--studio-warn-ink", "--studio-danger"]) {
@@ -22,8 +47,71 @@ test("editor components that used to inherit invitation colours are pinned to ch
 });
 
 test("studio.css uses no raw green/ink hex outside the token block", () => {
-  const body = studio.slice(studio.indexOf("}") + 1); // everything after the :root block
-  assert.doesNotMatch(body, /#314e41|#282b29|#59645e|#647168/i, "raw chrome hex found; use var(--studio-*)");
+  assert.doesNotMatch(studioBody, /#314e41|#282b29|#59645e|#647168/i, "raw chrome hex found; use var(--studio-*)");
+});
+
+/* The hex guard above was the whole colour check, and two `rgba()` leaks
+   walked straight past it — a dock shadow and a menu shadow, each an exact
+   channel match for a token that was already declared. A translucent colour
+   is still one of the chrome roles, so it reads the `--studio-*-rgb` channels
+   from the token block rather than re-typing the triple where nothing ties it
+   back. `#000` mask stops are not colour: a `mask-image` gradient needs an
+   opaque stop and any colour would do, so they are exempt by name. */
+test("studio.css writes no raw rgb/rgba/hsl colour outside the token block", () => {
+  const maskFree = studioBody.replace(/-?(?:webkit-)?mask-image:[^;]*;/g, "");
+  // A literal channel right after the paren is the leak; `rgba(var(--…), .16)`
+  // is the token form this guard is steering toward, so it must not match.
+  const leaks = [...maskFree.matchAll(/\b(?:rgba?|hsla?)\(\s*[0-9.][^)]*\)/g)].map(([found]) => found);
+  assert.deepEqual(leaks, [], "raw colour function outside the token block; add or use a --studio-*-rgb channel token");
+  // And the channels the two former leaks now read have to actually exist.
+  for (const token of ["--studio-ink-rgb", "--studio-accent-deep-rgb"]) {
+    assert.match(studio, new RegExp(`${token}:\\s*\\d+,\\s*\\d+,\\s*\\d+`), `${token} missing`);
+  }
+});
+
+/* One `@media (max-width: 900px)` block, not five.
+   A media query adds no specificity, so when the same selector is declared in
+   two copies of the same query only source order decides — which made every
+   append-only merge a coin toss. That is how `.preview-panel` kept a
+   `padding: 12px` that defeated the B-4 preview-width fix declared 460 lines
+   later, and how #draft-status kept an 11px size under the 12px floor the
+   copy below it existed to set. */
+test("the phone breakpoint is declared exactly once in studio.css", () => {
+  const opens = studioCode.match(/@media\s*\(max-width:\s*900px\)\s*\{/g) || [];
+  assert.equal(opens.length, 1, `@media (max-width: 900px) opens ${opens.length} times; fold them into one block`);
+});
+
+/* The same argument for the motion switch: three `reduce` blocks, two of them
+   on consecutive lines. */
+test("the reduced-motion switch is declared exactly once in studio.css", () => {
+  const opens = studioCode.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{/g) || [];
+  assert.equal(opens.length, 1, `prefers-reduced-motion: reduce opens ${opens.length} times; fold them into one block`);
+});
+
+/* The palette-leak guard used to read studio.css alone, so it could not see
+   the half of the chrome that style.css draws. style.css paints the library —
+   card frames, thumbnail beds, the published-links divider — from `--line`,
+   `--cream-*`, `--ink-soft` and the `--wine-*` scale, all of which are
+   re-declared under seventeen `body[data-template=…]` blocks in that same
+   file. Left alone, choosing a loud design repaints the frame around saved
+   invitations that have nothing to do with it. Every such rule needs a
+   studio.css override for the same selector; this finds the ones that don't. */
+test("every library rule style.css paints from the invitation palette is pinned in studio.css", () => {
+  const PALETTE = /var\(--(?:line|ink-soft|ink|white|card|cream-\d+|wine-\d+|gold-\d+|rose-\d+)\b/;
+  const LIBRARY = /(?:^|,\s*)\.(?:saved-|library-|upload-|empty-state|error-panel)/;
+  const pinned = new Set(cssRules(studio).map(([selector]) => selector));
+  const unpinned = [];
+
+  for (const [selector, body] of cssRules(base)) {
+    if (!LIBRARY.test(selector) || !PALETTE.test(body)) continue;
+    // The pin may be written for the whole group or for any single selector
+    // in it — both state the same rule where a studio reader looks for it.
+    const parts = selector.split(",").map((part) => part.trim());
+    if (pinned.has(selector) || parts.some((part) => pinned.has(part))) continue;
+    unpinned.push(selector);
+  }
+
+  assert.deepEqual(unpinned, [], "library chrome reads the invitation palette with no --studio-* override");
 });
 
 /* The consent banner is fixed to the bottom of the viewport at a z-index the
