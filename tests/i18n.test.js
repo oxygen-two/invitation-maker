@@ -241,9 +241,51 @@ test("studio.html serves the default language and lets the engine correct it", (
   assert.ok(i18nAt > 0 && i18nAt < koAt && koAt < enAt && enAt < initAt && initAt < bodyAt);
 
   // The switcher is reachable by keyboard, labelled, and out of the stage nav.
-  assert.match(index, /<select id="language-select"[^>]*data-i18n-attr="aria-label:lang\.switcherLabel"/);
+  // Its name comes from the <label> bound to it and from nothing else: an
+  // aria-label overrides that label, so the control announced one name while
+  // the words tied to it said another (label-in-name). The label is the name.
   assert.match(index, /<label for="language-select" data-i18n="lang\.switcherDescription">/);
+  assert.doesNotMatch(index, /<select id="language-select"[^>]*aria-label/);
   assert.ok(index.indexOf('id="language-select"') < index.indexOf('class="studio-steps"'));
+});
+
+/* Every page that ships the switcher ships the same pair, and none of them may
+   re-introduce the aria-label that outranks the visible binding. */
+test("no language switcher names itself twice", () => {
+  for (const page of ["index.html", "studio.html", "guide.html", "privacy.html", "terms.html"]) {
+    const markup = read(page);
+    assert.match(markup, /<label for="language-select" data-i18n="(?:lang\.switcherDescription|site\.header\.langDescription)">/, page);
+    assert.doesNotMatch(markup, /<select id="language-select"[^>]*aria-label/, `${page}: the switcher overrides its own label`);
+  }
+});
+
+/* The studio's own chrome — the skip link, the heading that survives a stage
+   change, the hero frame's role description — is copy like any other, so it is
+   bound to keys both dictionaries answer rather than frozen into the markup. */
+test("the studio chrome added for keyboard users is bound to keys, not literals", () => {
+  const studio = read("studio.html");
+
+  assert.match(studio, /<a class="skip" href="#main" data-i18n="nav\.skipToContent">/);
+  assert.match(studio, /<main id="main" tabindex="-1">/);
+  assert.match(studio, /<h1 id="studio-heading"[^>]*tabindex="-1"[^>]*data-i18n="nav\.gallery"/);
+  assert.match(
+    studio,
+    /id="hero-image-frame"[^>]*data-i18n-attr="aria-label:hero\.frameLabel;aria-roledescription:hero\.frameRole"/
+  );
+
+  for (const key of [
+    "nav.skipToContent", "nav.gallery", "nav.edit", "nav.finish", "nav.library",
+    "status.stageChanged", "hero.frameRole", "hero.movedTo",
+    "publish.confirmRevoke", "publish.confirmRevokeKeep", "publish.confirmRevokeAccept"
+  ]) {
+    for (const language of ["ko", "en"]) {
+      assert.notEqual(InvitationI18n.t(key, undefined, language), key, `${key} is missing from ${language}`);
+    }
+  }
+  // The placeholders the studio fills are the ones both dictionaries expect.
+  assert.match(InvitationI18n.t("status.stageChanged", { stage: "Library" }, "en"), /Library/);
+  assert.match(InvitationI18n.t("hero.movedTo", { x: 40, y: 60 }, "en"), /40[\s\S]*60/);
+  assert.match(InvitationI18n.t("publish.confirmRevoke", { title: "Picnic" }, "en"), /Picnic/);
 });
 
 test("setLanguage updates the document language and every bound node", () => {

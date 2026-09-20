@@ -201,6 +201,8 @@
     region.setAttribute("role", "region");
     region.setAttribute("tabindex", "-1");
     region.setAttribute("data-i18n-attr", "aria-label:consent.regionLabel");
+    // The banner arrives after the page has been read, so it has to say so.
+    region.setAttribute("aria-live", "polite");
     region.setAttribute("aria-label", translate("consent.regionLabel", "Cookie and analytics choice"));
 
     const text = doc.createElement("p");
@@ -272,11 +274,19 @@
      page the visitor came to read. */
   const open = ({ focus = false } = {}) => {
     const doc = documentRef();
-    if (!doc?.createElement || !doc.body?.append) return false;
+    if (!doc?.createElement || !doc.body?.prepend) return false;
     if (!banner || !banner.isConnected) {
       if (!injectStyle(doc)) return false;
       banner = build(doc);
-      doc.body.append(banner);
+      /* Appended last, the banner was painted over the foot of the viewport
+         while sitting behind every link on the page: a keyboard visitor had
+         to walk the whole document before being offered the choice. It goes
+         at the top instead — just after the skip link, which stays the first
+         stop on every page that ships one, so getting to the content is still
+         one Tab and answering the banner is two. */
+      const skipLink = doc.body.querySelector?.(".skip");
+      if (skipLink?.after) skipLink.after(banner);
+      else doc.body.prepend(banner);
     }
     banner.hidden = false;
     reserveSpace(true);

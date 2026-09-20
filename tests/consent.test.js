@@ -74,6 +74,12 @@ const makeElement = (tagName) => {
         this.children.push(node);
       }
     },
+    prepend(...nodes) {
+      for (const node of nodes) {
+        if (node && typeof node === "object") node.isConnected = true;
+        this.children.unshift(node);
+      }
+    },
     focus() {
       element.focused = true;
     },
@@ -388,4 +394,44 @@ test("every page that loads analytics also loads the consent banner", () => {
     // answer themselves rather than calling into this file.
     assert.ok(reporterAt > 0 && consentAt > reporterAt, `${page} must load consent.js after error-reporting.js`);
   }
+});
+
+/* Batch 5 — the banner was appended last, after every link and control on the
+   page, while being painted over the foot of the viewport. A keyboard visitor
+   had to walk the whole document before being offered the choice, and nothing
+   announced that a choice had appeared at all. It is now the first thing in
+   the body and a polite live region, so it is one Tab away and it speaks. */
+test("the consent banner is reachable from the top of the page and announces itself", () => {
+  const { body, documentRef } = makeDocument();
+  const other = makeElement("div");
+  body.append(other);
+  loadConsent({ documentRef });
+
+  const banner = documentRef.getElementById("invitation-consent");
+  assert.ok(banner, "the banner should be added on a first visit");
+  assert.equal(body.children[0], banner, "the banner is still behind the rest of the page");
+  assert.equal(banner.getAttribute("aria-live"), "polite");
+});
+
+/* Every page but the guest invitation ships a skip link, and it stays the
+   first stop: reaching the content is one Tab, answering the banner is two. */
+test("where there is a skip link the banner falls in behind it, never at the end", () => {
+  const { body, documentRef } = makeDocument();
+  const skip = makeElement("a");
+  skip.className = "skip";
+  skip.after = (node) => { body.children.splice(body.children.indexOf(skip) + 1, 0, node); node.isConnected = true; };
+  body.append(skip);
+  body.append(makeElement("main"));
+  loadConsent({ documentRef });
+
+  const banner = documentRef.getElementById("invitation-consent");
+  assert.equal(body.children[0], skip, "the skip link must stay the first stop");
+  assert.equal(body.children[1], banner, "the banner must follow the skip link");
+});
+
+test("consent.js puts the banner at the top rather than appending it last", () => {
+  const source = fs.readFileSync(path.join(root, "assets/site/consent.js"), "utf8");
+  assert.match(source, /skipLink\?\.after/);
+  assert.match(source, /doc\.body\.prepend\(banner\)/);
+  assert.doesNotMatch(source, /doc\.body\.append\(banner\)/);
 });

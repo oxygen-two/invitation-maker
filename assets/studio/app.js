@@ -217,9 +217,35 @@ const saveDraft = () => {
   });
 };
 
+/* A stage change swaps the whole page. The heading that named it used to live
+   inside .maker-header, which two of the four stages hide, so finish and
+   library rendered headingless; and nothing moved focus, so a screen reader
+   went on reading a page that was no longer there while focus sat on the nav
+   button that had been pressed.
+
+   #studio-heading is now the one h1, a sibling of .app-shell that no stage
+   rule can hide. It names the stage from the same keys the stage nav uses,
+   takes focus on every change (tabindex="-1", so only programmatically), and
+   #studio-stage-status says the same thing politely for the readers that
+   announce a live region sooner than they announce a focus move. The warm
+   display line in .maker-header is still there as the section heading under
+   it, and still follows gallery/edit as it always did. */
+const STAGE_HEADING_KEYS = {
+  gallery: 'nav.gallery',
+  edit: 'nav.edit',
+  finish: 'nav.finish',
+  library: 'nav.library'
+};
+
+const stageHeadingText = (stage) => t(STAGE_HEADING_KEYS[stage] || STAGE_HEADING_KEYS.gallery);
+
 const syncStudioHeading = (stage = document.body.dataset.studioStage) => {
-  document.querySelector('#studio-heading').textContent =
-    t(stage === 'gallery' ? 'maker.headingGallery' : 'maker.headingEdit');
+  const heading = document.querySelector('#studio-heading');
+  if (heading) heading.textContent = stageHeadingText(stage);
+  const display = document.querySelector('#maker-display-heading');
+  if (display) {
+    display.textContent = t(stage === 'gallery' ? 'maker.headingGallery' : 'maker.headingEdit');
+  }
 };
 
 const setStudioStage = (stage) => {
@@ -235,6 +261,10 @@ const setStudioStage = (stage) => {
   }
   setMobileView(stage === 'finish' ? 'preview' : stage === 'library' ? 'library' : 'editor');
   window.scrollTo(0, 0);
+  const heading = document.querySelector('#studio-heading');
+  heading?.focus?.();
+  const stageStatus = document.querySelector('#studio-stage-status');
+  if (stageStatus) stageStatus.textContent = t('status.stageChanged', { stage: stageHeadingText(stage) });
   if (stage === 'gallery') requestAnimationFrame(syncTemplateThumbnailScales);
   if (stage === 'library') {
     renderLibraryPublications();
@@ -527,20 +557,31 @@ const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-ca
    with the item's type and summary, so they wrapped onto a second line and
    doubled the height of every card. They live behind one ⋯ button now: the
    header is a fixed three-column grid — grip, summary, menu — that cannot
-   wrap at any width, and the menu is a plain hidden <div role="menu"> the
-   button shows, because a popover here needs no library and no dependency.
+   wrap at any width, and the panel is a plain hidden <div> the button shows,
+   because a popover here needs no library and no dependency.
    The actions keep their data-item-action names, so the click handler, the
-   focus restore after a move, and Alt+↑/↓ all address them unchanged. */
+   focus restore after a move, and Alt+↑/↓ all address them unchanged.
+
+   It carried the menu and menuitem roles and none of what those roles
+   promise: arrow-key roving between items, Home/End, a single tab stop for
+   the whole list. Rather than build that machinery for three buttons, the
+   roles are gone. What is left is the disclosure this always was — a button
+   with aria-expanded and aria-controls over a named group — and its keyboard
+   contract is already complete and already implemented: Tab walks the three
+   actions in order, Escape closes the panel and gives the ⋯ button its focus
+   back, a click anywhere outside dismisses it, and a reorder made from inside
+   restores focus to the action that made it. A menu role would have taken the
+   three actions out of the Tab order to gain nothing a reader can use. */
 const renderItemMenu = (item, index, itemCount, menuId) => {
   const type = itemTypeLabel(item.type);
   const menuLabel = escapeAttribute(t("content.menuLabel", { type }));
   return `
     <div class="content-item-menu" data-item-menu>
-      <button class="content-item-menu-button" type="button" data-item-menu-button aria-haspopup="true" aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeAttribute(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
-      <div class="content-item-menu-list" id="${menuId}" role="menu" aria-label="${menuLabel}" data-item-menu-list hidden>
-        <button class="content-item-menu-item" type="button" role="menuitem" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeAttribute(t("content.moveUpTitle"))}</button>
-        <button class="content-item-menu-item" type="button" role="menuitem" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeAttribute(t("content.moveDownTitle"))}</button>
-        <button class="content-item-menu-item remove-item-button" type="button" role="menuitem" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeAttribute(t("content.removeItemTitle"))}</button>
+      <button class="content-item-menu-button" type="button" data-item-menu-button aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeAttribute(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
+      <div class="content-item-menu-list" id="${menuId}" role="group" aria-label="${menuLabel}" data-item-menu-list hidden>
+        <button class="content-item-menu-item" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeAttribute(t("content.moveUpTitle"))}</button>
+        <button class="content-item-menu-item" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeAttribute(t("content.moveDownTitle"))}</button>
+        <button class="content-item-menu-item remove-item-button" type="button" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeAttribute(t("content.removeItemTitle"))}</button>
       </div>
     </div>
   `;
@@ -723,8 +764,13 @@ let libraryPublicationList;
 const renderLibraryPublications = () => {
   if (!dom.libraryPublications) return;
   if (!libraryPublicationList) {
+    /* Mounted without a setStatus, copy and revoke reported into the default
+       no-op: the author pressed Copy and nothing said anything, on screen or
+       to a reader. The list writes into the polite line rendered beside it. */
+    const status = document.querySelector('#library-publication-status');
     libraryPublicationList = globalThis.InvitationPublishing?.mountPublicationList?.({
-      node: dom.libraryPublications
+      node: dom.libraryPublications,
+      setStatus: (message) => { if (status) status.textContent = String(message ?? ''); }
     });
   }
   libraryPublicationList?.render?.();
@@ -2681,6 +2727,13 @@ const moveHeroImageByKeyboard = (event) => {
     frameHeight: bounds.height
   });
   state.heroImage = { src: state.heroImage.src, ...crop };
+  // A pan with no feedback is a control that answers silently: the frame is a
+  // group now, and where it moved to goes to the line the rest of the hero
+  // editor already speaks through.
+  dom.heroImageStatus.textContent = t("hero.movedTo", {
+    x: Math.round(crop.positionX),
+    y: Math.round(crop.positionY)
+  });
   markAnalyticsEdit();
   syncHeroImageEditor();
   renderPreview();

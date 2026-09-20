@@ -302,6 +302,38 @@
       }
     };
 
+    /* Revoking is the one thing here that cannot be undone, and the address is
+       already in other people's hands — it used to happen on the first click.
+       The question is asked inside the card it is about, the way the editor's
+       item cards ask it, and never through the browser's own confirm dialog:
+       the one dialog in the studio that cannot be translated, styled, or
+       dismissed like the rest, and that on a phone covers the card you are
+       deciding about. */
+    let openConfirmId = null;
+    const revokeButtonFor = (id) =>
+      node.querySelector?.(`[data-publish-action="revoke"][data-publication-id="${id}"]`);
+    const closeRevokeConfirm = ({ focusTrigger = false } = {}) => {
+      const closedId = openConfirmId;
+      openConfirmId = null;
+      for (const row of node.querySelectorAll?.("[data-revoke-confirm]") || []) row.hidden = true;
+      for (const button of node.querySelectorAll?.('[data-publish-action="revoke"]') || []) {
+        button.setAttribute?.("aria-expanded", "false");
+      }
+      if (focusTrigger && closedId) revokeButtonFor(closedId)?.focus?.();
+      return Boolean(closedId);
+    };
+    const openRevokeConfirm = (id) => {
+      closeRevokeConfirm();
+      const row = node.querySelector?.(`[data-revoke-confirm="${id}"]`);
+      if (!row) return;
+      row.hidden = false;
+      openConfirmId = id;
+      revokeButtonFor(id)?.setAttribute?.("aria-expanded", "true");
+      // Focus lands on the half that changes nothing, which is also where
+      // Escape leaves you.
+      node.querySelector?.(`[data-publish-action="revoke-cancel"][data-publication-id="${id}"]`)?.focus?.();
+    };
+
     const render = () => {
       let publications = [];
       try {
@@ -310,6 +342,7 @@
         reportFault("publish_list", error);
         setStatus(error.message || t("storageUnavailable"));
       }
+      openConfirmId = null;
       node.innerHTML = publications.length ? publications.map((item) => `
         <article class="publication-card" data-publication-id="${escapeHtml(item.id)}">
           <div>
@@ -319,7 +352,14 @@
           <div class="publication-card-actions">
             <a data-publish-action="open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("cardOpen"))}</a>
             <button type="button" data-publish-action="copy" data-publication-url="${escapeHtml(item.url)}">${escapeHtml(t("cardCopy"))}</button>
-            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
+            <button type="button" data-publish-action="revoke" data-publication-id="${escapeHtml(item.id)}" aria-expanded="false" aria-controls="revoke-confirm-${escapeHtml(item.id)}">${escapeHtml(t("cardRevoke"))}</button>
+          </div>
+          <div class="publication-confirm" id="revoke-confirm-${escapeHtml(item.id)}" data-revoke-confirm="${escapeHtml(item.id)}" role="group" aria-label="${escapeHtml(t("cardRevoke"))}" hidden>
+            <p class="publication-confirm-text">${escapeHtml(t("confirmRevoke", { title: item.title }))}</p>
+            <div class="publication-confirm-actions">
+              <button class="publication-confirm-keep" type="button" data-publish-action="revoke-cancel" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("confirmRevokeKeep"))}</button>
+              <button class="publication-confirm-revoke" type="button" data-publish-action="revoke-confirm" data-publication-id="${escapeHtml(item.id)}">${escapeHtml(t("confirmRevokeAccept"))}</button>
+            </div>
           </div>
         </article>
       `).join("") : `<p class="publication-empty">${escapeHtml(t("listEmpty"))}</p>`;
@@ -331,9 +371,21 @@
         await copyUrl(copy.dataset.publicationUrl);
         return;
       }
-      const revoke = event.target.closest?.('[data-publish-action="revoke"]');
-      if (!revoke) return;
-      const revokedId = revoke.dataset.publicationId;
+      const keep = event.target.closest?.('[data-publish-action="revoke-cancel"]');
+      if (keep) {
+        closeRevokeConfirm({ focusTrigger: true });
+        return;
+      }
+      const ask = event.target.closest?.('[data-publish-action="revoke"]');
+      if (ask) {
+        openRevokeConfirm(ask.dataset.publicationId);
+        return;
+      }
+      const answered = event.target.closest?.('[data-publish-action="revoke-confirm"]');
+      if (!answered) return;
+      const revokedId = answered.dataset.publicationId;
+      closeRevokeConfirm();
+      setStatus(t("deleting"));
       try {
         await client.remove(revokedId);
         setStatus(t("deleted"));
@@ -343,6 +395,12 @@
       }
       render();
       onChange?.(revokedId);
+    });
+
+    // Escape answers the question the safe way, wherever it is asked.
+    node.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (closeRevokeConfirm({ focusTrigger: true })) event.preventDefault?.();
     });
 
     render();

@@ -1038,3 +1038,143 @@ test("shared viewer CSS preserves hidden iframe and removes the empty status str
   assert.match(html, /#shared-invitation-frame\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
   assert.match(html, /#shared-invitation-status:empty\s*\{\s*display:\s*none;\s*\}/);
 });
+
+/* Batch 5 — taking a live link down.
+
+   Revoking is the one irreversible thing the library can do, and the address
+   is already in other people's hands. It used to fire on the first click. The
+   question is now asked inside the card it is about, the way the item cards in
+   the editor ask it — never through window.confirm, the one dialog in the
+   studio that cannot be translated, styled, or dismissed like the rest. */
+const attributeMatches = (element, selector) =>
+  [...String(selector).matchAll(/\[([a-z-]+)(?:="([^"]*)")?\]/g)]
+    .every(([, name, value]) => (value === undefined
+      ? Object.hasOwn(element.attributes, name)
+      : element.attributes[name] === value));
+
+const makePublicationListNode = () => {
+  const listeners = new Map();
+  const node = {
+    activeElement: null,
+    elements: [],
+    html: "",
+    addEventListener(type, handler) {
+      listeners.set(type, [...(listeners.get(type) || []), handler]);
+    },
+    async dispatch(type, event) {
+      for (const handler of listeners.get(type) || []) await handler(event);
+    },
+    querySelector(selector) {
+      return node.elements.find((element) => attributeMatches(element, selector)) || null;
+    },
+    querySelectorAll(selector) {
+      return node.elements.filter((element) => attributeMatches(element, selector));
+    },
+    set innerHTML(markup) {
+      node.html = markup;
+      node.elements = [...String(markup).matchAll(/<[a-z]+\b([^>]*)>/g)].map(([, attributesText]) => {
+        const attributes = {};
+        for (const [, name, value] of attributesText.matchAll(/([a-z-]+)(?:="([^"]*)")?/g)) {
+          attributes[name] = value ?? "";
+        }
+        const element = {
+          attributes,
+          dataset: Object.fromEntries(Object.entries(attributes)
+            .filter(([name]) => name.startsWith("data-"))
+            .map(([name, value]) => [name.slice(5).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()), value])),
+          hidden: Object.hasOwn(attributes, "hidden"),
+          closest(selector) { return attributeMatches(element, selector) ? element : null; },
+          focus() { node.activeElement = element; }
+        };
+        return element;
+      });
+    },
+    get innerHTML() { return node.html; }
+  };
+  return node;
+};
+
+const mountLibraryList = ({ publications = [{ id: "pub-1", title: "Picnic", url: "/i/pub-1", expiresAt: null }] } = {}) => {
+  const removed = [];
+  const statuses = [];
+  const node = makePublicationListNode();
+  InvitationPublishing.mountPublicationList({
+    node,
+    client: {
+      list: () => publications,
+      async remove(id) {
+        removed.push(id);
+        publications = publications.filter((item) => item.id !== id);
+      }
+    },
+    clipboard: { async writeText() {} },
+    setStatus: (message) => statuses.push(message)
+  });
+  return { node, removed, statuses };
+};
+
+const clickAction = (harness, action, id = "pub-1") => harness.node.dispatch("click", {
+  target: harness.node.querySelector(`[data-publish-action="${action}"][data-publication-id="${id}"]`)
+});
+
+test("a library card asks before it takes a live link down", async () => {
+  const harness = mountLibraryList();
+  const confirmRow = () => harness.node.querySelector('[data-revoke-confirm="pub-1"]');
+
+  assert.equal(confirmRow().hidden, true, "the question is asked, not pre-asked");
+  await clickAction(harness, "revoke");
+
+  assert.deepEqual(harness.removed, [], "the first click revoked without asking");
+  assert.equal(confirmRow().hidden, false, "the question never appeared");
+  // Focus lands on the half that changes nothing, which is also what Escape does.
+  assert.equal(harness.node.activeElement, harness.node.querySelector('[data-publish-action="revoke-cancel"]'));
+  assert.ok(harness.node.innerHTML.includes(publishCopy("confirmRevoke", { title: "Picnic" })));
+  assert.ok(harness.node.innerHTML.includes(publishCopy("confirmRevokeKeep")));
+  // The destructive half says what it does: the card's trigger reads 취소,
+  // which on its own could be read as cancelling the question itself.
+  assert.ok(harness.node.innerHTML.includes(publishCopy("confirmRevokeAccept")));
+});
+
+test("keeping the link, by button or by Escape, leaves it live and gives the trigger its focus back", async () => {
+  for (const dismiss of ["button", "escape"]) {
+    const harness = mountLibraryList();
+    await clickAction(harness, "revoke");
+
+    if (dismiss === "button") await clickAction(harness, "revoke-cancel");
+    else await harness.node.dispatch("keydown", { key: "Escape", preventDefault() {} });
+
+    assert.deepEqual(harness.removed, [], `${dismiss}: the link was taken down anyway`);
+    assert.equal(harness.node.querySelector('[data-revoke-confirm="pub-1"]').hidden, true, `${dismiss}: the question stayed open`);
+    assert.equal(
+      harness.node.activeElement,
+      harness.node.querySelector('[data-publish-action="revoke"][data-publication-id="pub-1"]'),
+      `${dismiss}: focus was left nowhere`
+    );
+  }
+});
+
+test("answering the question takes the link down and says so where the list can be heard", async () => {
+  const harness = mountLibraryList();
+
+  await clickAction(harness, "revoke");
+  await clickAction(harness, "revoke-confirm");
+
+  assert.deepEqual(harness.removed, ["pub-1"]);
+  assert.ok(harness.statuses.includes(publishCopy("deleted")), "the result was never announced");
+  assert.ok(harness.node.innerHTML.includes(publishCopy("listEmpty")));
+});
+
+test("copying a link from the library says so too, rather than into a no-op", async () => {
+  const harness = mountLibraryList();
+
+  await harness.node.dispatch("click", {
+    target: harness.node.querySelector('[data-publish-action="copy"]')
+  });
+
+  assert.ok(harness.statuses.includes(publishCopy("copied")));
+});
+
+test("the library list never reaches for window.confirm", () => {
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "../assets/publishing/publishing.js"), "utf8");
+  assert.doesNotMatch(source, /(?:^|[^\w.])confirm\s*\(/);
+});

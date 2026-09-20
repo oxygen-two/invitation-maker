@@ -27,7 +27,7 @@
         termsTitle: "Terms of Service · Invitation Studio",
         termsDescription: "The conditions for using this no-sign-up invitation maker, your responsibility for what you publish, and how long a public link lives."
       },
-      header: { tagline: "Make the small days special.", guide: "How it works", cta: "Make an invitation", skip: "Skip to content", langLabel: "Language", langDescription: "Display language", navLabel: "Site" },
+      header: { tagline: "Make the small days special.", guide: "How it works", cta: "Make an invitation", skip: "Skip to content", langDescription: "Display language", navLabel: "Site" },
       footer: { brand: "INVITATION STUDIO", about: "About", guide: "How it works", data: "Your data", privacy: "Privacy", terms: "Terms", note: "Small invitations, lasting moments.", navLabel: "Footer links" },
       landing: {
         hero: {
