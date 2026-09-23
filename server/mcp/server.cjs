@@ -10,7 +10,11 @@ const SERVER_INFO = Object.freeze({ name: "invitation-maker", version: "1.0.0" }
 const LANGUAGE_PROPERTY = { type: "string", enum: ["ko", "en"], description: "ko or en. Omit to follow the request text." };
 
 const messageFor = (code) => PUBLISHING_ERROR_MESSAGES[code] || ASSISTANT_ERROR_MESSAGES[code];
-const knownCode = (code) => (messageFor(code) ? code : "REPOSITORY_UNAVAILABLE");
+// An unrecognized code (including undefined, from a genuine programming
+// error) falls back to ASSISTANT_UNAVAILABLE, not REPOSITORY_UNAVAILABLE:
+// the latter would misdirect the operator and the host LLM into believing
+// the database is down when the real cause is something else entirely.
+const knownCode = (code) => (messageFor(code) ? code : "ASSISTANT_UNAVAILABLE");
 
 const ok = (result) => ({ content: [{ type: "text", text: JSON.stringify(result) }] });
 const failed = (error) => {
