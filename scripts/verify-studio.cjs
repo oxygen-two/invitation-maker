@@ -87,6 +87,10 @@ const applySelectedDesign = async (page, width) => {
       await page.locator('#open-download-dialog-button').click();
       const download = page.waitForEvent('download');
       await page.locator('#download-button').click();
+      // The reply-contact check this export trips is an in-page <dialog> now,
+      // not window.confirm, so the handler above no longer answers it and the
+      // download never starts. Answering it is part of the flow under test.
+      await page.locator('#confirm-dialog[open] #confirm-dialog-accept').click();
       assert.match((await download).suggestedFilename(), /\.html$/);
       await page.locator('#download-dialog .studio-dialog-close').click();
       await page.locator('#save-button').click();

@@ -133,6 +133,23 @@ const assertNoConsentBanner = async (page, where) => {
   }
 };
 
+/* The studio's one confirmation (#confirm-dialog in studio.html). The
+   reply-contact check that Download runs was window.confirm until it moved
+   in-page, so a Playwright dialog handler no longer answers it and whatever
+   waits on the action waits forever. Guarded by a short wait rather than
+   assumed: a preset that does carry a reply contact is never asked, and this
+   has to keep working for that one too. */
+const acceptInPageConfirm = async (page) => {
+  const accept = page.locator("#confirm-dialog[open] #confirm-dialog-accept");
+  try {
+    await accept.waitFor({ state: "visible", timeout: 5000 });
+  } catch {
+    return false; // Nothing was asked.
+  }
+  await accept.click();
+  return true;
+};
+
 // Applying a design has two different UIs depending on viewport width. Above
 // 900px the gallery renders every design live at card size and one apply
 // button, "#apply-template-button", sits under the grid. At or below 900px the
@@ -181,9 +198,8 @@ const captureLanguage = async (browser, language) => {
   for (const design of DESIGNS) {
     const phoneContext = await newStudioContext(browser, { width: phoneWidth, height: 844 }, language);
     const phone = await phoneContext.newPage();
-    // bloom-portrait's default RSVP item has no phone/email in it, which
-    // makes the download flow below raise a native confirm() asking the
-    // author to double check; auto-accept it like verify-studio.cjs does.
+    // Kept for any dialog the browser still raises on its own; the studio's
+    // own question is answered in the page now (see the download below).
     phone.on("dialog", (dialog) => dialog.accept());
     await phone.goto(studioUrl(language));
     await assertNoConsentBanner(phone, `${language.id}/design-${design.id}`);
@@ -211,6 +227,12 @@ const captureLanguage = async (browser, language) => {
       await phone.locator("#open-download-dialog-button").click();
       const downloadPromise = phone.waitForEvent("download");
       await phone.locator("#download-button").click();
+      // bloom-portrait's default RSVP item carries no phone or email, so the
+      // studio asks the author to double check before exporting. That question
+      // used to be window.confirm, which the dialog handler above answered; it
+      // is an in-page <dialog> now, and nothing else releases the download —
+      // this is exactly where the run hung when main moved it.
+      await acceptInPageConfirm(phone);
       const download = await downloadPromise;
       const exportedHtml = fs.readFileSync(await download.path(), "utf8");
       const sample = exportedHtml.replace(/<head>/i, '<head>\n<meta name="robots" content="noindex">');

@@ -14,13 +14,13 @@ const baseUrl = process.env.INVITATION_BASE_URL || "http://localhost:4173";
 // Korean-count check must exclude the language <select> (its "한국어" option
 // labels are legitimate UI, not leftover copy) and any script/style/template
 // text a clone might otherwise carry into innerText.
-// Force every <img> to load — the gallery and guide pictures are lazy and sit
-// below the fold, so "networkidle" alone never starts them — then report the
-// ones that failed. Shared by the per-width loop and the English pass below,
-// which needs it because the English pictures are a different set of files
-// reached only through the language swap in assets/site/site.js: a typo in a
-// data-src-en, or a file that was never rendered, is invisible to a check that
-// only ever looks at the Korean page.
+// Force every <img> to load — every picture here is lazy, so nothing starts
+// them on its own — then report the ones that failed. This, and not any load
+// state, is the readiness signal the checks below depend on. Shared by the
+// per-width loop and the English pass, which needs it because the English
+// pictures are a different set of files reached only through the language
+// swap in assets/site/site.js: a typo in a data-src-en, or a file that was
+// never rendered, is invisible to a check that only looks at the Korean page.
 const loadEveryImage = () => Promise.all([...document.images].map((img) => {
   if (img.complete) return undefined;
   img.loading = "eager";
@@ -50,18 +50,23 @@ const countKoreanOutsideLanguageSwitcher = () => {
         const errors = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.goto(`${baseUrl}${route}`);
-        await page.waitForLoadState("networkidle");
+        // "load", not "networkidle". Every picture on these pages is
+        // loading="lazy" now, so the network deliberately never goes quiet on
+        // its own — the deferred images are waiting for a visibility check
+        // that only happens once something scrolls, and waiting for idle was
+        // timing out at 768 roughly half the time. It also measured nothing
+        // this script needs: readiness here is "every image has been forced
+        // and settled", which loadEveryImage below does explicitly.
+        await page.waitForLoadState("load");
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${route}@${width}: horizontal overflow`);
         // The header CTA is hidden on phones (see site.css); the hero CTA is
         // the one guaranteed to sit in the first viewport there, so check
         // whichever .site-cta is actually visible, not just the first match.
         assert.ok(await page.locator(".site-cta:visible").first().evaluate((el) => el.getBoundingClientRect().top < innerHeight), `${route}@${width}: CTA not in first viewport`);
-        // The gallery images carry loading="lazy" and sit below the fold, so
-        // "networkidle" alone doesn't make them start fetching — force every
-        // <img> to load eagerly and await its outcome before checking, or
-        // this would flag legitimately-deferred off-screen images as broken
-        // (or worse, pass/fail depending on how far Chromium's lazy-load
-        // distance threshold happened to reach that run).
+        // Force every <img> to load eagerly and await its outcome before
+        // checking, or this would flag legitimately-deferred off-screen
+        // images as broken (or worse, pass/fail depending on how far
+        // Chromium's lazy-load distance threshold happened to reach).
         await page.evaluate(loadEveryImage);
         assert.deepEqual(await page.evaluate(brokenImages), [], `${route}@${width}: broken images`);
         assert.deepEqual(errors, [], `${route}@${width}: page errors`);
