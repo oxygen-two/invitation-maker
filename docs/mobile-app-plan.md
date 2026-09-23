@@ -148,7 +148,7 @@ Capacitor의 로컬 웹 origin은 운영 웹 origin과 같지 않으므로 현�
 
 - Create: `capacitor.config.json`
 - Create: `assets/platform/capacitor-runtime.js`
-- Create: `scripts/build-mobile.cjs`
+- Create: `scripts/build-mobile.cjs` (Phase 4 계획 산출물 — 저장소에 아직 없음)
 - Create: `ios/`
 - Create: `android/`
 - Modify: `package.json`, `package-lock.json`
@@ -157,7 +157,7 @@ Capacitor의 로컬 웹 origin은 운영 웹 origin과 같지 않으므로 현�
 - Create: `tests/capacitor-contract.test.js`
 
 - [ ] 실행 시점에 고정한 동일 major의 Capacitor core/CLI/iOS/Android와 공식 `filesystem`, `share`, `app` 플러그인만 추가한다.
-- [ ] `scripts/build-mobile.cjs`가 `index.html`, `viewer.html`, `invitation-data.json`과 두 화면이 참조하는 `assets/`만 `mobile/www/`에 복사하게 하고, Capacitor `webDir`을 이 산출물로 지정한다. 앱 빌드 명령은 `build:mobile` 후 `npx cap sync`를 실행한다.
+- [ ] (계획) `scripts/build-mobile.cjs`가 `index.html`, `viewer.html`, `invitation-data.json`과 두 화면이 참조하는 `assets/`만 `mobile/www/`에 복사하게 하고, Capacitor `webDir`을 이 산출물로 지정한다. 앱 빌드 명령은 `build:mobile` 후 `npx cap sync`를 실행한다. 이 스크립트는 Phase 4 파일럿에서 새로 만들 산출물이며, 현재 `scripts/`에는 존재하지 않는다.
 - [ ] 앱 번들 allowlist 테스트가 `admin/`, `server/`, `api/`, `scripts/`, `tests/`, `.env*`, 문서, 공개 수신자용 `shared.html`, 루트 오류 페이지를 거부한다.
 - [ ] `CapacitorRuntime.saveHtml`은 UTF-8 HTML을 앱 Documents 영역에 영구 저장한다. Android Share는 기본적으로 cache 폴더 파일만 허용하므로 공유할 때 세션별 임시 cache 복사본을 만든다. 공유 시트가 닫힌 직후에는 수신 앱이 파일을 비동기로 읽을 수 있어 삭제하지 않고, 다음 정상 기동에서 이전 세션 폴더만 정리한다. 실제 KakaoTalk·메일·Files 공유에서 지연 읽기를 검증하며 `file_paths.xml` 범위를 Documents 전체로 넓히지 않는다.
 - [ ] URL 공유는 공개 링크만 전달하고 관리 토큰을 공유 payload에 넣지 않는다.
