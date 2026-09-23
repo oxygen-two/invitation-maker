@@ -1043,10 +1043,19 @@ const openItemConfirm = (card, index) => {
    focus trap and the return of focus to whatever raised it are showModal's. */
 let confirmSettle = null;
 let confirmAnswer = false;
+let confirmReturnFocus = null;
 const settleConfirm = () => {
   const settle = confirmSettle;
+  const returnTo = confirmReturnFocus;
   confirmSettle = null;
+  confirmReturnFocus = null;
   settle?.(confirmAnswer);
+  /* Back to the control that raised the question — the library card's Delete,
+     or the Download button — the way bindDialog returns focus to its trigger.
+     Not left to the browser: the answer often moves focus itself (a declined
+     reply-contact check sends it to the field to fix), and that has to be able
+     to win, which it does by running after this. */
+  returnTo?.focus?.();
 };
 const askInPage = ({ question, acceptLabel }) => new Promise((resolve) => {
   // A page with no dialog to ask with is not permission to go ahead.
@@ -1056,6 +1065,7 @@ const askInPage = ({ question, acceptLabel }) => new Promise((resolve) => {
   }
   confirmAnswer = false;
   settleConfirm();
+  confirmReturnFocus = document.activeElement;
   confirmSettle = resolve;
   dom.confirmMessage.textContent = question;
   dom.confirmAccept.textContent = acceptLabel;

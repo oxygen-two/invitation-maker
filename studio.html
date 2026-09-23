@@ -367,26 +367,6 @@
           <section id="publishing-panel" class="publishing-panel" data-i18n-attr="aria-label:finish.shareDialogPanelLabel" aria-label="공개 링크 발행"></section>
         </div>
       </dialog>
-
-      <!-- The studio's one confirmation (B-6). window.confirm is the only
-           dialog here that cannot be translated, styled or dismissed the way
-           the others are, and on a phone it covers the very thing being
-           decided about. The question and the accept label are written by
-           whoever asks; everything else — Escape, the focus trap, returning
-           focus to what raised it — comes from showModal. -->
-      <dialog id="confirm-dialog" class="studio-dialog studio-confirm" aria-labelledby="confirm-dialog-title">
-        <div class="studio-dialog-header">
-          <h2 id="confirm-dialog-title" data-i18n="content.confirmTitle">확인해 주세요</h2>
-          <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
-        </div>
-        <div class="studio-dialog-body">
-          <p id="confirm-dialog-message" class="studio-confirm-message"></p>
-          <div class="studio-confirm-actions">
-            <button type="button" class="secondary-button" data-dialog-close data-i18n="content.cancel">취소</button>
-            <button id="confirm-dialog-accept" class="primary-button studio-dialog-primary" type="button"></button>
-          </div>
-        </div>
-      </dialog>
     </section>
 
     <section class="preview-panel">
@@ -432,6 +412,34 @@
     </section>
     </div>
   </main>
+  <!-- The studio's one confirmation (B-6). window.confirm is the only dialog
+       here that cannot be translated, styled or dismissed the way the others
+       are, and on a phone it covers the very thing being decided about. The
+       question and the accept label are written by whoever asks; Escape, the
+       focus trap and inertness come from showModal.
+
+       It lives out here beside the sheet, and not in .maker-panel with the
+       download and share dialogs, because it is the one dialog raised from
+       every stage: a library card's delete asks with it, and .maker-panel is
+       display:none on that stage. A dialog inside a display:none ancestor
+       generates no box even in the top layer, so showModal() left the page
+       inert behind a question nobody could see. -->
+  <dialog id="confirm-dialog" class="studio-dialog studio-confirm" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message">
+    <div class="studio-dialog-header">
+      <h2 id="confirm-dialog-title" data-i18n="content.confirmTitle">확인해 주세요</h2>
+      <button type="button" class="studio-dialog-close" data-dialog-close data-i18n-attr="aria-label:finish.close" aria-label="닫기">✕</button>
+    </div>
+    <div class="studio-dialog-body">
+      <p id="confirm-dialog-message" class="studio-confirm-message"></p>
+      <div class="studio-confirm-actions">
+        <!-- autofocus, so the question opens on the answer that changes
+             nothing. Cancel is also what Escape and the ✕ do. -->
+        <button type="button" class="secondary-button" data-dialog-close autofocus data-i18n="content.cancel">취소</button>
+        <button id="confirm-dialog-accept" class="primary-button studio-dialog-primary" type="button"></button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- B-3. A phone shows the gallery two cards to a row, each thumbnail barely
        160px across, and asks the author to commit to a design from that. The
        sheet is the answer: tapping a card opens the design as the real

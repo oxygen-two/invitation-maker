@@ -379,6 +379,16 @@
 
     /* Taking a link down is the one irreversible thing on this card, and it
        reaches a network, so it says what it is doing before it starts. */
+    /* One revoke for both mounts, settled on what the dialog's did:
+
+       - it says "taking it down…" first. Revoking reaches a network, and the
+         only other feedback is the card vanishing, so a slow server otherwise
+         looks like a button that did nothing.
+       - it re-renders only when something changed. A refused revoke leaves the
+         store exactly as it was, and repainting the list under the author's
+         cursor says "something happened" when nothing did.
+       - onRevoked fires only on success: the dialog uses it to put its result
+         panel away, and a link that is still live must keep its panel. */
     const revoke = async (id) => {
       // Where the card sat, so focus can go to whatever takes its place.
       const position = revokeButtons().findIndex((button) => button.dataset?.publicationId === id);
@@ -387,16 +397,17 @@
       try {
         await client.remove(id);
         setStatus(t("deleted"));
+        render();
         onRevoked?.(id);
       } catch (error) {
         reportFault("publish_revoke", error, { status: statusCodeFromError(error) });
         setStatus(t("deleteFailed"));
       }
-      render();
-      /* render() replaces the markup, so the button that was just pressed no
-         longer exists and focus would fall out of the list entirely. It goes
+      /* A successful revoke replaced the markup, so the button that was just
+         pressed no longer exists and focus would fall out of the list. It goes
          to the card that moved up into the gap — or to the last one, when the
-         gap was at the end — and to the list itself when nothing is left. */
+         gap was at the end — and to the list itself when nothing is left. A
+         refused one re-focuses the card that stayed, which is the same line. */
       const remaining = revokeButtons();
       const next = remaining[Math.min(Math.max(position, 0), remaining.length - 1)];
       (next || node)?.focus?.();

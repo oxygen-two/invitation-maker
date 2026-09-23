@@ -1239,6 +1239,7 @@ const loadLibraryHarness = ({
 
   return {
     api: context.__libraryTest,
+    document,
     node,
     repositoryRecords,
     savedList,
@@ -1344,6 +1345,10 @@ test("every renderer escapes through the one shared helper", () => {
     assert.doesNotMatch(source, /replace\(\/\[&<>"'\]\/g/, `${file} still carries its own escape table`);
     assert.match(source, /InvitationText/, `${file} does not reach for the shared escape`);
   }
+  // The studio's copy was called escapeAttribute. A merge that brings the name
+  // back brings the second implementation with it.
+  assert.doesNotMatch(read("assets/studio/app.js"), /escapeAttribute/);
+  assert.doesNotMatch(read("assets/site/site.js"), /escapeAttribute/);
   // Every page that loads one of those must load the helper first.
   const scriptAt = (html, file) => Math.max(html.indexOf(`src="${file}"`), html.indexOf(`src="/${file}"`));
   for (const page of ["studio.html", "viewer.html", "shared.html", "index.html", "guide.html", "privacy.html", "terms.html"]) {
@@ -3527,6 +3532,51 @@ test("nothing in the studio asks a question through window.confirm", () => {
   assert.match(read("studio.html"), /<dialog id="confirm-dialog"[^>]*aria-labelledby="confirm-dialog-title"/);
 });
 
+/* A <dialog> inside a display:none ancestor generates no box, top layer or
+   not. .maker-panel is display:none on the library stage and in the phone's
+   library view, so a confirmation rendered inside it left the page inert
+   behind a question nobody could see — and the one question raised from that
+   stage is a card's delete. It lives outside every stage panel now. */
+test("the confirmation dialog is outside the panels that stages hide", () => {
+  const html = read("studio.html");
+  const sectionSpan = (className) => {
+    const open = html.indexOf(`<section class="${className}"`);
+    assert.ok(open > 0, `studio.html has no .${className}`);
+    let depth = 0;
+    let cursor = open;
+    while (cursor < html.length) {
+      const nextOpen = html.indexOf("<section", cursor + 1);
+      const nextClose = html.indexOf("</section>", cursor + 1);
+      assert.notEqual(nextClose, -1, `.${className} is never closed`);
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth += 1;
+        cursor = nextOpen;
+        continue;
+      }
+      if (depth === 0) return [open, nextClose];
+      depth -= 1;
+      cursor = nextClose;
+    }
+    throw new Error(`.${className} is never closed`);
+  };
+
+  const dialogAt = html.indexOf('<dialog id="confirm-dialog"');
+  assert.ok(dialogAt > 0);
+  for (const panel of ["maker-panel", "preview-panel", "library-panel"]) {
+    const [open, close] = sectionSpan(panel);
+    assert.ok(dialogAt < open || dialogAt > close, `#confirm-dialog is inside .${panel}, which some stage hides`);
+  }
+  // Out beside the sample sheet, which is outside <main> for the same reason.
+  assert.ok(dialogAt > html.indexOf("</main>"));
+
+  // The question is the dialog's description, and the answer that changes
+  // nothing is where focus lands.
+  assert.match(html, /<dialog id="confirm-dialog"[^>]*aria-describedby="confirm-dialog-message"/);
+  const cancelAt = html.indexOf('data-dialog-close autofocus data-i18n="content.cancel"');
+  assert.ok(cancelAt > dialogAt, "Cancel carries autofocus, so showModal does not open on the ✕");
+  assert.ok(cancelAt < html.indexOf('id="confirm-dialog-accept"'), "Cancel comes before the destructive answer");
+});
+
 test("deleting a library card asks in the page, and cancelling keeps the invitation", async () => {
   const existing = {
     id: "ask-first",
@@ -3538,12 +3588,15 @@ test("deleting a library card asks in the page, and cancelling keeps the invitat
   const removed = [];
   const harness = loadLibraryHarness({ records: [existing], remove: async (id) => { removed.push(id); } });
   await harness.api.refreshSaved();
+  const focused = [];
   const button = {
     dataset: { action: "delete", id: existing.id },
     disabled: false,
+    focus() { focused.push("delete"); },
     closest(selector) { return selector === "[data-action]" ? this : null; }
   };
   const dialog = harness.node("#confirm-dialog");
+  harness.document.activeElement = button;
 
   const cancelled = harness.api.handleSavedAction({ target: button });
   assert.equal(dialog.open, true, "the question is asked before anything is deleted");
@@ -3557,6 +3610,9 @@ test("deleting a library card asks in the page, and cancelling keeps the invitat
   assert.deepEqual(removed, []);
   assert.equal(harness.api.state.saved.length, 1);
   assert.equal(button.disabled, false);
+  // Focus goes back to the control that raised the question, not to the top
+  // of a library the author has just been reading.
+  assert.deepEqual(focused, ["delete"]);
 
   const confirmed = harness.api.handleSavedAction({ target: button });
   assert.equal(dialog.open, true);

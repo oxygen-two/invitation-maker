@@ -328,7 +328,10 @@ test("revoking a card removes it, re-renders, and tells the library which id wen
   assert.deepEqual(changed, ["bbb"], "the library card list has to drop the same publication");
   assert.equal(harness.node.renders, 2, "the list re-renders off the store, not off the DOM");
   assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"]);
-  // A network round trip the author has just committed to says it is underway.
+  /* A network round trip the author has just committed to says it is underway.
+     Both mounts are one implementation now, and this is the sentence they
+     share: the only other feedback is the card vanishing, so a slow server
+     would otherwise look like a button that did nothing. */
   assert.deepEqual(harness.statusMessages, [publishCopy("deleting"), publishCopy("deleted")]);
 });
 
@@ -345,6 +348,9 @@ test("a revoke the server refuses leaves the card in place and says what happene
 
   assert.deepEqual(harness.statusMessages, [publishCopy("deleting"), publishCopy("deleteFailed")]);
   assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"], "the link is still live, so its card stays");
+  // A refused revoke changed nothing in the store, so the list is not
+  // repainted under the author's cursor to say that nothing happened.
+  assert.equal(harness.node.renders, 1);
 });
 
 test("a click on the card but on neither button does nothing at all", async () => {
