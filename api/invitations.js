@@ -2,7 +2,9 @@ const path = require("node:path");
 const { readDatabaseConfigFromEnv } = require("../server/config/database.cjs");
 const { readHttpConfigFromEnv } = require("../server/config/http.cjs");
 const { readPublishingConfigFromEnv } = require("../server/config/publishing.cjs");
+const { readAssistantConfigFromEnv } = require("../server/config/assistant.cjs");
 const { createHandler } = require("../server/http.cjs");
+const { createAssistantFromConfig } = require("../server/assistant/bootstrap.cjs");
 const { createMongoPublicationsRepository } = require("../server/storage/mongo-publications.cjs");
 
 let cached;
@@ -13,6 +15,7 @@ const getHandler = () => {
     ...readDatabaseConfigFromEnv(),
     ...readHttpConfigFromEnv(),
     ...readPublishingConfigFromEnv(),
+    ...readAssistantConfigFromEnv(),
     staticRoot: path.resolve(__dirname, "..")
   };
   const repository = config.mongoUri
@@ -24,7 +27,8 @@ const getHandler = () => {
       lifetimeLimit: config.lifetimeLimit
     })
     : null;
-  cached = createHandler({ repository, config });
+  const assistant = createAssistantFromConfig({ config, repository });
+  cached = createHandler({ repository, config, assistant });
   return cached;
 };
 

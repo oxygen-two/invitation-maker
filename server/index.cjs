@@ -3,14 +3,17 @@ const path = require("node:path");
 const { readDatabaseConfigFromEnv } = require("./config/database.cjs");
 const { readHttpConfigFromEnv } = require("./config/http.cjs");
 const { readPublishingConfigFromEnv } = require("./config/publishing.cjs");
+const { readAssistantConfigFromEnv } = require("./config/assistant.cjs");
 const { logConnectionTarget } = require("./config/connection-info.cjs");
 const { createHandler } = require("./http.cjs");
+const { createAssistantFromConfig } = require("./assistant/bootstrap.cjs");
 const { createMongoPublicationsRepository } = require("./storage/mongo-publications.cjs");
 
 const config = {
   ...readDatabaseConfigFromEnv(),
   ...readHttpConfigFromEnv(),
   ...readPublishingConfigFromEnv(),
+  ...readAssistantConfigFromEnv(),
   staticRoot: path.resolve(__dirname, "..")
 };
 
@@ -24,7 +27,8 @@ const repository = config.mongoUri
   })
   : null;
 
-const server = http.createServer(createHandler({ repository, config }));
+const assistant = createAssistantFromConfig({ config, repository });
+const server = http.createServer(createHandler({ repository, config, assistant }));
 
 server.listen(config.port, config.host, () => {
   console.log(`Invitation maker listening at http://${config.host}:${config.port}`);

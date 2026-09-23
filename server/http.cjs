@@ -4,6 +4,7 @@ const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
 const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
 const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
 const { clientIpFrom, getRequestOrigin } = require("./http/request-info.cjs");
+const { createMcpHandler } = require("./mcp/handler.cjs");
 const { mapRepositoryError, publishInvitation, refreshPublicationExpiry } = require("./publishing/use-case.cjs");
 const {
   DEFAULT_PUBLISHED_LANGUAGE,
@@ -175,7 +176,7 @@ const handleDelete = async (req, res, repository, id) => {
   }
 };
 
-const createHandler = ({ repository, config = {} } = {}) => {
+const createHandler = ({ repository, config = {}, assistant = null } = {}) => {
   const report = createReporter(config.logSink);
   const mergedConfig = {
     ...DEFAULT_PUBLISHING_CONFIG,
@@ -183,9 +184,13 @@ const createHandler = ({ repository, config = {} } = {}) => {
     ...config,
     reportServerEvent: report
   };
+  const mcpHandler = assistant ? createMcpHandler({ assistant, config: mergedConfig }) : null;
 
   return observeHttp(async (req, res) => {
     const parsed = new URL(req.url || "/", "http://localhost");
+    if (mcpHandler && (parsed.pathname === "/mcp" || parsed.pathname === "/api/mcp.js")) {
+      return mcpHandler(req, res);
+    }
     const invitationId = req.query?.id || parsed.searchParams.get("id");
     if (parsed.pathname === "/api/invitations" || parsed.pathname === "/api/invitations.js") {
       if (invitationId) {

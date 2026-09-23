@@ -4,6 +4,7 @@
   "routes": [
     { "src": "/api/invitations", "dest": "/api/invitations.js" },
     { "src": "/api/invitations/([0-9A-Za-z]{22})", "dest": "/api/invitations/[id].js?id=$1" },
+    { "src": "/mcp", "dest": "/api/mcp.js" },
     { "src": "/i/([0-9A-Za-z]{22})", "dest": "/shared.html" },
     { "src": "/studio", "dest": "/studio.html" },
     { "src": "/welcome", "dest": "/index.html" },
@@ -17,6 +18,7 @@
   ],
   "functions": {
     "api/**/*.js": {
+      "maxDuration": 60,
       "excludeFiles": "{docs/**,tests/**,public/**,.env,.env.*,output/**,.git/**}"
     }
   }
