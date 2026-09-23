@@ -182,7 +182,7 @@ const createPublicationListHarness = ({
   const cardsFrom = (markup) => [...String(markup).matchAll(/<article class="publication-card" data-publication-id="([^"]*)">([\s\S]*?)<\/article>/g)]
     .map(([, id, body]) => {
       const card = { id, actions: new Map(), title: body.match(/<strong>([^<]*)<\/strong>/)?.[1] || "", expiry: body.match(/<span>([^<]*)<\/span>/)?.[1] || "" };
-      for (const [, tag, action] of body.matchAll(/<(?:a|button)\b([^>]*data-publish-action="([a-z]+)"[^>]*)>/g)) {
+      for (const [, tag, action] of body.matchAll(/<(?:a|button)\b([^>]*data-publish-action="([a-z-]+)"[^>]*)>/g)) {
         const attrs = Object.fromEntries([...tag.matchAll(/([a-z-]+)="([^"]*)"/g)].map(([, name, value]) => [name, value]));
         const node = {
           attrs,
@@ -316,13 +316,20 @@ test("revoking a card removes it, re-renders, and tells the library which id wen
     onChange: (id) => changed.push(id)
   });
 
+  // Revoking is irreversible and the address is already in other people's
+  // hands, so the button asks first and the answer is what does the work.
   await harness.click("bbb", "revoke");
+  assert.deepEqual(removed, [], "asking the question must not answer it");
+  assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa", "bbb"]);
+
+  await harness.click("bbb", "revoke-confirm");
 
   assert.deepEqual(removed, ["bbb"]);
   assert.deepEqual(changed, ["bbb"], "the library card list has to drop the same publication");
   assert.equal(harness.node.renders, 2, "the list re-renders off the store, not off the DOM");
   assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"]);
-  assert.deepEqual(harness.statusMessages, [publishCopy("deleted")]);
+  // A network round trip the author has just committed to says it is underway.
+  assert.deepEqual(harness.statusMessages, [publishCopy("deleting"), publishCopy("deleted")]);
 });
 
 test("a revoke the server refuses leaves the card in place and says what happened", async () => {
@@ -334,8 +341,9 @@ test("a revoke the server refuses leaves the card in place and says what happene
   });
 
   await harness.click("aaa", "revoke");
+  await harness.click("aaa", "revoke-confirm");
 
-  assert.deepEqual(harness.statusMessages, [publishCopy("deleteFailed")]);
+  assert.deepEqual(harness.statusMessages, [publishCopy("deleting"), publishCopy("deleteFailed")]);
   assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"], "the link is still live, so its card stays");
 });
 
@@ -1139,8 +1147,8 @@ test("a library card asks before it takes a live link down", async () => {
   assert.equal(harness.node.activeElement, harness.node.querySelector('[data-publish-action="revoke-cancel"]'));
   assert.ok(harness.node.innerHTML.includes(publishCopy("confirmRevoke", { title: "Picnic" })));
   assert.ok(harness.node.innerHTML.includes(publishCopy("confirmRevokeKeep")));
-  // The destructive half says what it does: the card's trigger reads 취소,
-  // which on its own could be read as cancelling the question itself.
+  // The destructive half names the link, not just the verb, so the answer to
+  // "take this link down?" cannot be read as dismissing the question.
   assert.ok(harness.node.innerHTML.includes(publishCopy("confirmRevokeAccept")));
 });
 

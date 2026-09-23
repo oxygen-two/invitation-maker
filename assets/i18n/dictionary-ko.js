@@ -57,7 +57,6 @@
       regionLabel: "쿠키 및 분석 동의",
       message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않아요.",
       skipLink: "쿠키 설정으로 건너뛰기",
-      message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않습니다.",
       privacyLink: "개인정보처리방침 보기",
       accept: "분석 허용",
       deny: "필수만 사용"
@@ -421,8 +420,7 @@
       cardOpen: "열기",
       cardCopy: "복사",
       cardRevoke: "내리기",
-      cardRevoke: "취소",
-      confirmRevoke: "‘{title}’ 링크를 내릴까요? 이미 보낸 주소로는 더 이상 열리지 않고, 되돌릴 수 없습니다.",
+      confirmRevoke: "‘{title}’ 링크를 내릴까요? 이미 보낸 주소로는 더 이상 열리지 않고, 되돌릴 수 없어요.",
       confirmRevokeKeep: "링크 유지",
       confirmRevokeAccept: "링크 내리기",
       defaultTitle: "공개 초대장",
@@ -650,9 +648,8 @@
 
     status: {
       draftKept: "이 기기에 초안을 보관해요",
-      stageChanged: "{stage} 화면으로 이동했습니다",
+      stageChanged: "{stage} 화면으로 이동했어요",
 
-      draftKept: "이 기기에 초안을 보관합니다",
       draftSaving: "초안 저장 중…",
       draftSaved: "이 기기에 초안 저장됨",
       draftFailed: "자동 저장 실패 · HTML로 다운로드해 주세요",

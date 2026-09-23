@@ -892,3 +892,35 @@ test("a guest's page chrome and the invitation they were sent are separate langu
     }
   }
 });
+
+/* A union merge keeps both sides of a conflicting line, and in an object
+   literal that is silent: the file parses, the later key wins, and the copy
+   that shipped is whichever branch happened to sort second. Three keys came
+   through a rebase that way — consent.message, publish.cardRevoke and
+   status.draftKept — and only one of them was inline in any HTML, so the copy
+   tests saw one of three. This reads the source rather than the parsed module,
+   because by the time it is an object the duplicate is already gone. */
+test("no dictionary declares the same key twice in one object", () => {
+  const files = [
+    "assets/i18n/dictionary-ko.js", "assets/i18n/dictionary-en.js",
+    "assets/i18n/dictionary-site-ko.js", "assets/i18n/dictionary-site-en.js"
+  ];
+  const duplicates = [];
+  for (const file of files) {
+    const scopes = [new Map()];
+    read(file).split("\n").forEach((line, index) => {
+      const declaration = line.match(/^\s*([A-Za-z_$][\w$]*)\s*:/);
+      if (declaration) {
+        const scope = scopes[scopes.length - 1];
+        const [, key] = declaration;
+        if (scope.has(key)) duplicates.push(`${file}:${index + 1} redeclares ${key} (first at line ${scope.get(key)})`);
+        else scope.set(key, index + 1);
+      }
+      // Strings and comments first: a "{count}" placeholder is not a nest.
+      const structure = line.replace(/"(?:[^"\\]|\\.)*"/g, "").replace(/\/\*.*?\*\//g, "").replace(/\/\/.*$/, "");
+      for (let open = (structure.match(/\{/g) || []).length; open > 0; open -= 1) scopes.push(new Map());
+      for (let close = (structure.match(/\}/g) || []).length; close > 0 && scopes.length > 1; close -= 1) scopes.pop();
+    });
+  }
+  assert.deepEqual(duplicates, [], `duplicate dictionary keys:\n${duplicates.join("\n")}`);
+});
