@@ -3456,8 +3456,10 @@ test("reorder motion respects reduced-motion preferences", () => {
 test("ordered editor controls and thumbnails stay bounded on narrow screens", () => {
   const css = read("assets/studio/style.css");
 
-  assert.match(css, /\.item-icon-button\s*\{[^}]*width:\s*44px[^}]*height:\s*44px/s);
-  // Reordering is the ↑ ↓ buttons only: pointer drag was the one mechanism
+  // The ↑ ↓ ✕ icon buttons were folded into the one ⋯ menu by B-6, whose 44px
+  // target is pinned in studio.css below; style.css keeps no rule for them.
+  assert.doesNotMatch(css, /\.item-icon-button/);
+  // Reordering is the ⋯ menu and Alt+↑/↓: pointer drag was the one mechanism
   // with no keyboard equivalent, and `touch-action: none` on a 44px handle
   // stole vertical scroll from the thumb on exactly the screens that matter.
   assert.doesNotMatch(css, /\.item-drag-handle/);
@@ -3470,8 +3472,11 @@ test("ordered editor controls and thumbnails stay bounded on narrow screens", ()
 });
 
 /* B-6, B-7. Both fixes are overrides in studio.css rather than edits to
-   style.css, because style.css is copied verbatim into every exported
-   invitation and none of this chrome exists there. */
+   style.css: style.css paints the live invitation inside the preview frame
+   from the invitation palette, which is right there and wrong for the editor
+   around it, so the chrome's own palette stays in one file. (An export shares
+   neither sheet — buildStandaloneHtml in assets/invitation/core.js writes its
+   CSS inline.) */
 test("the item header keeps one row and the add buttons keep one shape", () => {
   const studio = read("assets/studio/studio.css");
 
