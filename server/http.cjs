@@ -3,6 +3,7 @@ const { createReporter, observeHttp } = require("./observability.cjs");
 const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
 const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
 const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
+const { clientIpFrom, getRequestOrigin } = require("./http/request-info.cjs");
 const { mapRepositoryError, publishInvitation, refreshPublicationExpiry } = require("./publishing/use-case.cjs");
 const {
   DEFAULT_PUBLISHED_LANGUAGE,
@@ -77,27 +78,10 @@ const readBody = (req, maxPayloadBytes) => new Promise((resolve, reject) => {
   req.on("error", reject);
 });
 
-const getRequestOrigin = (req) => {
-  const host = req.headers.host;
-  if (!host) return "";
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const proto = typeof forwardedProto === "string" && forwardedProto.split(",")[0].trim() === "https"
-    ? "https"
-    : req.socket.encrypted ? "https" : "http";
-  return `${proto}://${host}`;
-};
-
 const isAllowedOrigin = (req, config) => {
   const origin = req.headers.origin;
   if (!origin) return true;
   return origin === (config.allowedOrigin || getRequestOrigin(req));
-};
-
-const clientIpFrom = (req, config) => {
-  if (config.trustProxy && typeof req.headers["x-forwarded-for"] === "string") {
-    return req.headers["x-forwarded-for"].split(",")[0].trim() || "unknown";
-  }
-  return req.socket.remoteAddress || "unknown";
 };
 
 const isExpired = (expiresAt, now = new Date()) => expiresAt && new Date(expiresAt).getTime() <= now.getTime();
