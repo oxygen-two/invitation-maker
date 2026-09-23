@@ -90,6 +90,13 @@ const applySelectedDesign = async (page, width) => {
       assert.match((await download).suggestedFilename(), /\.html$/);
       await page.locator('#download-dialog .studio-dialog-close').click();
       await page.locator('#save-button').click();
+      // Saving is async and every stage button ignores a click while an editor
+      // operation is pending, so navigating straight after the click races the
+      // write and is silently dropped — which is exactly what happened at 1440,
+      // where the larger export takes longest to build. #save-status is the
+      // studio's own "this finished" signal, so wait for that rather than a
+      // timeout.
+      await page.locator('#save-status').filter({ hasText: /저장/ }).waitFor();
       await page.locator('.studio-steps [data-studio-stage="library"]').click();
       await page.locator('.saved-item').waitFor();
       for (const stage of ['gallery', 'edit', 'finish', 'library']) {

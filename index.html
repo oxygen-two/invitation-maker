@@ -87,7 +87,7 @@
   <!-- Pictures are per-language, and the preload scanner fetches an eager
        <img src> long before any deferred script runs: measured against the
        previous commit, an English visitor downloaded all six Korean design
-       images (452 KB) and then replaced them. The fix is a pair. Every
+       images (449 KB) and then replaced them. The fix is a pair. Every
        picture is loading="lazy", which the scanner leaves alone, and this
        runs here — before <body> is parsed — correcting each src in the
        microtask after the parser inserts the element, which is before the
