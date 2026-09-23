@@ -3622,7 +3622,7 @@ test("deleting a library card asks in the page, and cancelling keeps the invitat
   assert.deepEqual(removed, [existing.id]);
   assert.equal(harness.api.state.saved.length, 0);
   assert.equal(dialog.open, false, "answering closes the question");
-  assert.match(harness.node("#upload-status").textContent, /삭제했습니다/);
+  assert.equal(harness.node("#upload-status").textContent, ko("status.removed"));
 });
 
 test("the reply-contact check asks in the page and sends a no back to the editor", async () => {

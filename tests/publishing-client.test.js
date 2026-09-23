@@ -121,6 +121,10 @@ const createPublishingMountHarness = ({
       return { fillStyle: "", fillRect(...args) { fills.push(args); } };
     }
   });
+  /* The dialog mounts the same publication list the library does — same
+     renderer, same inline confirm row — so its stand-in is the same node the
+     library tests drive, and a click here can be aimed at a real card. */
+  const listNode = Object.assign(makePublicationListNode(), { selector: "#published-list" });
   const root = {
     dataset: {},
     get innerHTML() {
@@ -138,7 +142,7 @@ const createPublishingMountHarness = ({
       children.push({ selector: "#publication-qr", hidden: true });
       children.push(makeCanvas("#publication-qr-canvas"));
       children.push(makeStatus("#publish-status"));
-      children.push({ selector: "#published-list", innerHTML: "", addEventListener(type, listener) { events.set("#published-list:click", listener); } });
+      children.push(listNode);
     },
     querySelector(selector) {
       return children.find((child) => child.selector === selector) || null;
@@ -161,6 +165,7 @@ const createPublishingMountHarness = ({
     children,
     click: (selector) => events.get(`${selector}:click`)(),
     clickPublish: () => events.get("#publish-button:click")(),
+    list: listNode,
     root,
     status: root.querySelector("#publish-status")
   };
@@ -398,10 +403,14 @@ test("the library list and the dialog list are one list", async () => {
   const library = createPublicationListHarness({ client });
   const dialog = createPublishingMountHarness({ client, statusMessages: dialogStatuses });
 
-  assert.equal(library.node.innerHTML, dialog.root.querySelector("#published-list").innerHTML,
+  assert.equal(library.node.innerHTML, dialog.list.innerHTML,
     "both mounts render the same markup from the same records");
 
+  // Asking is not answering — the inline question is part of the one renderer,
+  // so the library's cards and the dialog's cards both carry it.
   await library.click("bbb", "revoke");
+  assert.deepEqual(records.map((entry) => entry.id), ["aaa", "bbb"], "the question alone takes nothing down");
+  await library.click("bbb", "revoke-confirm");
   assert.deepEqual(library.statusMessages, [publishCopy("deleting"), publishCopy("deleted")]);
 
   // The same words, in the same order, from the dialog's own revoke button.
@@ -413,6 +422,46 @@ test("the library list and the dialog list are one list", async () => {
   assert.deepEqual(dialogStatuses, [publishCopy("deleting"), publishCopy("deleted")]);
   assert.equal(dialog.root.querySelector("#publish-result-link").hidden, true,
     "the panel stops showing a link it has just taken down");
+});
+
+/* The inline question used to live in the library's mount only. It is part of
+   the one renderer now, so the copy of the list inside the share dialog — the
+   one an author reaches straight after publishing — asks it too. */
+test("the share dialog's own list asks before it takes a link down", async () => {
+  const records = [publication("aaa"), publication("bbb")];
+  const removed = [];
+  const statuses = [];
+  const dialog = createPublishingMountHarness({
+    client: {
+      list: () => records,
+      remove: async (id) => {
+        removed.push(id);
+        records.splice(records.findIndex((entry) => entry.id === id), 1);
+      }
+    },
+    statusMessages: statuses
+  });
+  const control = (action, id = "aaa") =>
+    dialog.list.querySelector(`[data-publish-action="${action}"][data-publication-id="${id}"]`);
+  const confirmRow = (id = "aaa") => dialog.list.querySelector(`[data-revoke-confirm="${id}"]`);
+
+  assert.equal(confirmRow().hidden, true, "the question is asked, not pre-asked");
+
+  await dialog.list.dispatch("click", { target: control("revoke") });
+
+  assert.deepEqual(removed, [], "asking the question must not answer it");
+  assert.equal(confirmRow().hidden, false);
+  assert.equal(control("revoke").attributes["aria-controls"], "revoke-confirm-aaa",
+    "the trigger names the row it opens");
+  assert.equal(dialog.list.activeElement, control("revoke-cancel"), "focus lands on the half that changes nothing");
+
+  await dialog.list.dispatch("click", { target: control("revoke-confirm") });
+
+  assert.deepEqual(removed, ["aaa"]);
+  assert.deepEqual(statuses.slice(-2), [publishCopy("deleting"), publishCopy("deleted")]);
+  assert.equal(confirmRow("aaa"), null, "the card and its question are gone together");
+  assert.equal(dialog.list.activeElement, control("revoke", "bbb"),
+    "focus goes to the card that moved up into the gap");
 });
 
 test("a copy the clipboard refuses is reported, not only shown", async () => {
