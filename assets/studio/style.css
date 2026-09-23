@@ -423,14 +423,14 @@ textarea {
   text-transform: uppercase;
 }
 
-.maker-header h1,
+.maker-header h2,
 .panel-title h2 {
   margin: 0;
   font-family: "Gowun Batang", serif;
   line-height: 1.25;
 }
 
-.maker-header h1 {
+.maker-header h2 {
   color: var(--rose-100);
   font-size: 28px;
 }

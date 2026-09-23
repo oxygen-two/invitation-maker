@@ -68,6 +68,31 @@ body::before, body::after { display: none; }
 .studio-steps { display: flex; justify-content: center; gap: 8px; padding: 12px 20px; border-block: 1px solid var(--studio-line); background: var(--studio-surface); }
 .studio-steps button { border: 0; border-radius: 999px; min-height: 44px; padding: 10px 24px; background: transparent; color: var(--studio-ink-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .studio-steps button[aria-pressed="true"] { color: var(--studio-surface); background: var(--studio-accent); }
+/* Getting past the chrome, and knowing where you are ----------------------
+   The studio parks two rows of navigation — .studio-steps and, on a phone,
+   .mobile-view-tabs — between the top of the document and the work, and was
+   the one page of six shipping no way past them. Same control, same #main
+   target and same behaviour as assets/site/site.css's .skip, painted from
+   the studio's own tokens rather than the site's. */
+.skip { position: absolute; left: 20px; top: -80px; z-index: 60; padding: 10px 14px; border: 1px solid var(--studio-control-line); border-radius: 10px; background: var(--studio-surface); color: var(--studio-ink); font: inherit; font-size: 14px; text-decoration: none; }
+.skip:focus { top: 10px; }
+
+/* The stage banner is the one heading no stage rule can hide, and it sits
+   outside .app-shell so the grid inside is exactly what it always was. It is
+   deliberately quiet — 01 and 02 still lead with the display line inside
+   .maker-header, which is now the h2 beneath this — but it is real text in
+   the real reading order, and on 03 and the library it is the only thing on
+   the page that says which stage you are looking at.
+   The status line beside it is heard, not seen: what it says is what the
+   heading above it already shows, so showing it twice would only be noise. */
+.studio-stage-banner { width: min(1256px, calc(100% - 64px)); margin: 28px auto 0; }
+body[data-studio-stage="library"] .studio-stage-banner { max-width: 820px; }
+.studio-stage-heading { margin: 0; color: var(--studio-ink-soft); font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+.studio-stage-heading:focus-visible { outline: 3px solid var(--studio-focus); outline-offset: 6px; }
+/* Never display:none — a live region has to be in the accessibility tree
+   before the text changes or the change is never announced. */
+.studio-stage-status { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; white-space: nowrap; clip-path: inset(50%); }
+.studio-stage-banner + .app-shell { margin-top: 14px; }
 .app-shell { width: min(1256px, calc(100% - 64px)); margin: 32px auto; gap: 32px; grid-template-columns: minmax(320px, 440px) minmax(0, 1fr); }
 /* The preview column only ever shows a phone-width invitation (480px), so on a
    desktop it was holding 300px of empty sunken panel beside it while the form
@@ -82,8 +107,8 @@ body::before, body::after { display: none; }
 }
 .maker-panel, .library-panel { background: var(--studio-surface); border: 1px solid var(--studio-line); box-shadow: none; border-radius: 20px; }
 .maker-header { background: none; color: var(--studio-ink); padding: 32px; border-bottom: 1px solid var(--studio-line); }
-.maker-header h1 { font-family: inherit; font-size: clamp(24px, 3vw, 34px); line-height: 1.35; letter-spacing: -1.2px; }
-.maker-header h1 { color: var(--studio-ink); }
+.maker-header h2 { font-family: inherit; font-size: clamp(24px, 3vw, 34px); line-height: 1.35; letter-spacing: -1.2px; }
+.maker-header h2 { color: var(--studio-ink); }
 /* The one load-bearing !important in this file. style.css paints the header's
    closing sentence as `.maker-header p:last-child` — specificity (0,2,1),
    which outranks this rule's (0,1,1) whatever the load order is, so ordering
@@ -182,6 +207,14 @@ body[data-studio-stage="library"] .preview-panel { display: none; }
 body[data-studio-stage="library"] .app-shell { display: block; max-width: 820px; }
 .mobile-view-tabs { display: none; }
 :focus-visible { outline: 3px solid var(--studio-focus); outline-offset: 4px; }
+/* <main> holds focus only to catch the skip link, and the rule above is bare,
+   so taking the shortcut drew a 3px ring around the entire page. assets/site/
+   site.css never had the problem because it scopes its ring to a/button/select
+   — the five site pages land on their own <main id="main"> with no outline at
+   all, and this keeps the studio's skip link behaving the same way. The next
+   Tab lands on a real control, which is rung normally. */
+#main:focus,
+#main:focus-visible { outline: none; }
 /* Everything the phone breakpoint changes lives in the single
    `@media (max-width: 900px)` block at the foot of this file. */
 
@@ -210,6 +243,21 @@ body[data-studio-stage="library"] .app-shell { display: block; max-width: 820px;
 .publication-card strong { color: var(--studio-accent-deep); font-size: 14px; }
 .publication-card span { color: var(--studio-ink-soft); font-size: 12px; }
 .publication-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Empty it has no line box and so no height, which is what lets it stay in
+   the document — and in the accessibility tree — between messages. */
+.publication-status { margin: 0; color: var(--studio-ink-muted); font-size: 13px; line-height: 1.6; }
+.publication-status:not(:empty) { margin-top: 10px; }
+/* Taking a link down is the one irreversible thing the library does, and the
+   address is already in other people's hands. The question is asked inside
+   the card it is about — the same shape the item cards use — so the answer
+   never covers the thing being decided. */
+.publication-confirm { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--studio-warn-line); border-radius: 8px; background: var(--studio-warn-bg); }
+.publication-confirm[hidden] { display: none; }
+.publication-confirm-text { margin: 0; color: var(--studio-warn-ink); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.publication-confirm-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.publication-confirm-actions button { min-height: 44px; padding: 0 12px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.publication-confirm-keep { color: var(--studio-accent); border: 1px solid var(--studio-control-line); background: var(--studio-surface); }
+.publication-confirm-revoke { color: var(--studio-accent-ink); border: 1px solid var(--studio-danger); background: var(--studio-danger); }
 /* The publishing panel now also lives inside a studio-dialog; keep its
    buttons on the chrome palette instead of the selected template's colors. */
 .publishing-panel .primary-button { background: var(--studio-accent); color: var(--studio-surface); border-color: var(--studio-accent); }
@@ -799,10 +847,12 @@ body { padding-bottom: calc(40px + var(--consent-height, 0px)); }
   .studio-steps { gap: 2px; padding: 8px; position: sticky; top: 0; z-index: 30; }
   .studio-steps button { padding: 10px 12px; font-size: 12px; }
   .app-shell { width: calc(100% - 32px); margin: 24px auto; display: block; }
+  .studio-stage-banner { width: calc(100% - 32px); margin-top: 20px; }
+  .studio-stage-banner + .app-shell { margin-top: 10px; }
   body[data-studio-stage="edit"] .app-shell { margin-block: 12px; }
   .maker-header { padding: 24px; }
   body[data-studio-stage="edit"] .maker-header { padding: 16px 20px; }
-  body[data-studio-stage="edit"] .maker-header h1 { font-size: 21px; margin: 0; }
+  body[data-studio-stage="edit"] .maker-header h2 { font-size: 21px; margin: 0; }
   /* 12px 16px then a later `margin-block: 8px`: one margin, stated once. */
   body[data-studio-stage="edit"] .mobile-view-tabs { display: flex; position: static; margin: 8px 16px; }
   .mobile-view-tabs button[data-mobile-view="library"] { display: none; }

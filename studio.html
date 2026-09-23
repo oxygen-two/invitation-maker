@@ -88,6 +88,10 @@
   </script>
 </head>
 <body data-mobile-view="editor" data-studio-stage="gallery">
+  <!-- The studio is the one page with two rows of navigation between the top
+       of the document and the work, and it was the one page with no way past
+       them. Same markup, same target id and same .skip rule as the site pages. -->
+  <a class="skip" href="#main" data-i18n="nav.skipToContent">본문으로 건너뛰기</a>
   <header class="studio-bar">
     <a href="/studio">Invitation Studio<span data-i18n="header.tagline">작은 날도, 특별하게.</span></a>
     <div class="studio-bar-meta">
@@ -105,7 +109,7 @@
            language registry, so a new language needs no markup change. -->
       <div class="studio-language">
         <label for="language-select" data-i18n="lang.switcherDescription">스튜디오 표시 언어</label>
-        <select id="language-select" data-i18n-attr="aria-label:lang.switcherLabel" aria-label="언어 선택"></select>
+        <select id="language-select"></select>
       </div>
     </div>
   </header>
@@ -120,21 +124,34 @@
     <button type="button" data-mobile-view="preview" aria-pressed="false" data-i18n="nav.viewPreview">미리보기</button>
     <button type="button" data-mobile-view="library" aria-pressed="false" data-i18n="nav.viewLibrary">보관함</button>
   </nav>
-  <main class="app-shell">
+  <main id="main" tabindex="-1">
+    <!-- The only h1 used to live in .maker-header, which the finish stage
+         hides and the library stage hides along with the whole panel — so two
+         of the four stages rendered with no heading, and a phone's finish
+         stage with none of any level. It lives out here instead, a sibling of
+         .app-shell that no stage rule can reach, quiet enough not to compete
+         with the display line below it and real enough to be the page's
+         heading, to take focus on a stage change, and to say where you are.
+         The status line beside it outlives the stage for the same reason. -->
+    <div class="studio-stage-banner">
+      <h1 id="studio-heading" class="studio-stage-heading" tabindex="-1" data-i18n="nav.gallery">01 디자인</h1>
+      <p id="studio-stage-status" class="studio-stage-status" role="status" aria-live="polite"></p>
+    </div>
+    <div class="app-shell">
     <section class="maker-panel">
       <div class="maker-header">
         <p class="eyebrow" data-i18n="maker.eyebrow">Make it personal</p>
-        <h1 id="studio-heading" data-i18n="maker.headingGallery">어떤 날을 초대할까요?</h1>
+        <h2 id="maker-display-heading" data-i18n="maker.headingGallery">어떤 날을 초대할까요?</h2>
         <p data-i18n="maker.intro">마음에 드는 디자인에 나만의 이야기를 담아보세요.</p>
       </div>
 
       <section class="template-picker" data-i18n-attr="aria-label:gallery.pickerLabel" aria-label="초대장 템플릿 선택">
         <span class="picker-label" data-i18n="gallery.occasionQuestion">어떤 날인가요?</span>
         <div class="occasion-list-row">
-          <div id="occasion-list" class="occasion-list" data-i18n-attr="aria-label:gallery.occasionListLabel" aria-label="행사 유형"></div>
+          <div id="occasion-list" class="occasion-list" role="group" data-i18n-attr="aria-label:gallery.occasionListLabel" aria-label="행사 유형"></div>
         </div>
         <div class="template-picker-heading"><h2 class="picker-label" data-i18n="gallery.designLabel">디자인 선택</h2><button id="toggle-templates-button" type="button" aria-controls="template-list" aria-expanded="false" data-i18n="gallery.showAll">전체 보기</button></div>
-        <div id="template-list" class="template-list" data-i18n-attr="aria-label:gallery.designListLabel" aria-label="템플릿 디자인"></div>
+        <div id="template-list" class="template-list" role="group" data-i18n-attr="aria-label:gallery.designListLabel" aria-label="템플릿 디자인"></div>
         <div class="template-apply-row">
           <p id="template-summary" aria-live="polite"></p>
           <button id="apply-template-button" type="button" data-i18n="gallery.apply">이 디자인으로 만들기</button>
@@ -242,7 +259,11 @@
           <summary><span data-i18n="editor.heroTitle">첫 화면 배경</span><small data-i18n="editor.heroHint">사진 · 위치 · 확대</small></summary>
           <div class="editor-group-body">
             <section id="hero-image-editor" class="full hero-image-editor" data-layout-family="romantic-story">
-              <div id="hero-image-frame" class="hero-image-frame" tabindex="0" role="img" data-i18n-attr="aria-label:hero.frameLabel" aria-label="첫 화면 배경 사진 위치 조정">
+              <!-- role="img" hid the descendants of a surface you drag and arrow-key,
+                   and announced nothing when it moved. A group keeps the label, keeps
+                   the children, and the role description says what kind of thing it
+                   is; #hero-image-status below carries where it went. -->
+              <div id="hero-image-frame" class="hero-image-frame" tabindex="0" role="group" aria-describedby="hero-image-status" data-i18n-attr="aria-label:hero.frameLabel;aria-roledescription:hero.frameRole" aria-label="첫 화면 배경 사진 위치 조정" aria-roledescription="사진 위치 조정 영역">
                 <img id="hero-image-preview" alt="" draggable="false" hidden>
                 <span id="hero-image-empty" class="hero-image-empty" data-i18n="hero.empty">템플릿 기본 배경</span>
               </div>
@@ -385,8 +406,10 @@
         <h3 data-i18n="library.publishedTitle">발행한 링크</h3>
         <p class="library-published-body" data-i18n="library.publishedBody">이 브라우저에서 만든 공개 링크예요. 링크를 내릴 수 있는 것도 이 브라우저뿐이에요.</p>
         <div id="library-publications" class="publication-list"></div>
+        <p id="library-publication-status" class="publication-status" role="status" aria-live="polite"></p>
       </section>
     </section>
+    </div>
   </main>
   <!-- B-3. A phone shows the gallery two cards to a row, each thumbnail barely
        160px across, and asks the author to commit to a design from that. The

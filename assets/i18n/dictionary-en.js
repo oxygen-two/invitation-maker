@@ -33,7 +33,6 @@
     },
 
     lang: {
-      switcherLabel: "Choose language",
       switcherDescription: "Studio language"
     },
 
@@ -54,6 +53,7 @@
        legal pages load. */
     consent: {
       regionLabel: "Cookie and analytics choice",
+      skipLink: "Skip to the cookie choice",
       message: "May we turn on visit analytics? What you write in an invitation is never sent to them.",
       privacyLink: "Read the privacy policy",
       accept: "Accept analytics",
@@ -61,6 +61,7 @@
     },
 
     nav: {
+      skipToContent: "Skip to content",
       stepsLabel: "Steps",
       gallery: "01 Design",
       edit: "02 Content",
@@ -207,6 +208,8 @@
 
     hero: {
       frameLabel: "Reposition the cover background photo",
+      frameRole: "photo positioning area",
+      movedTo: "Background photo position: {x}% across, {y}% down",
       empty: "Template background",
       add: "Add a photo",
       change: "Change photo",
@@ -410,6 +413,9 @@
       cardOpen: "Open",
       cardCopy: "Copy",
       cardRevoke: "Revoke",
+      confirmRevoke: "Take the link to \u201c{title}\u201d down? The address you already sent stops opening, and this cannot be undone.",
+      confirmRevokeKeep: "Keep the link",
+      confirmRevokeAccept: "Take it down",
       defaultTitle: "Shared invitation",
 
       noExpiry: "No automatic expiry",
@@ -620,6 +626,8 @@
     },
 
     status: {
+      stageChanged: "Moved to {stage}",
+
       draftKept: "Your draft is kept on this device",
       draftSaving: "Saving draft…",
       draftSaved: "Draft saved on this device",

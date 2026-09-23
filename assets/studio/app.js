@@ -217,12 +217,45 @@ const saveDraft = () => {
   });
 };
 
-const syncStudioHeading = (stage = document.body.dataset.studioStage) => {
-  document.querySelector('#studio-heading').textContent =
-    t(stage === 'gallery' ? 'maker.headingGallery' : 'maker.headingEdit');
+/* A stage change swaps the whole page. The heading that named it used to live
+   inside .maker-header, which two of the four stages hide, so finish and
+   library rendered headingless; and nothing moved focus, so a screen reader
+   went on reading a page that was no longer there while focus sat on the nav
+   button that had been pressed.
+
+   #studio-heading is now the one h1, a sibling of .app-shell that no stage
+   rule can hide. It names the stage from the same keys the stage nav uses,
+   takes focus when a person asked for the stage (tabindex="-1", so only
+   programmatically), and #studio-stage-status says the same thing politely
+   for the readers that announce a live region sooner than they announce a
+   focus move. The warm display line in .maker-header is still there as the
+   section heading under it, and still follows gallery/edit as it always did.
+
+   moveFocus is what separates "the author pressed 02" from "the studio
+   changed stage on its own": restoring a draft at boot lands on the editor
+   before anyone has touched anything, and the two export guards change stage
+   only so they can put focus on the field that is wrong. Taking focus in
+   either case is theft, so those three ask for the stage without the focus
+   and the announcement still tells a reader where the page went. */
+const STAGE_HEADING_KEYS = {
+  gallery: 'nav.gallery',
+  edit: 'nav.edit',
+  finish: 'nav.finish',
+  library: 'nav.library'
 };
 
-const setStudioStage = (stage) => {
+const stageHeadingText = (stage) => t(STAGE_HEADING_KEYS[stage] || STAGE_HEADING_KEYS.gallery);
+
+const syncStudioHeading = (stage = document.body.dataset.studioStage) => {
+  const heading = document.querySelector('#studio-heading');
+  if (heading) heading.textContent = stageHeadingText(stage);
+  const display = document.querySelector('#maker-display-heading');
+  if (display) {
+    display.textContent = t(stage === 'gallery' ? 'maker.headingGallery' : 'maker.headingEdit');
+  }
+};
+
+const setStudioStage = (stage, { moveFocus = true } = {}) => {
   if (hasPendingEditorOperation()) return;
   document.body.dataset.studioStage = stage;
   closeStageOverlays(stage);
@@ -235,6 +268,12 @@ const setStudioStage = (stage) => {
   }
   setMobileView(stage === 'finish' ? 'preview' : stage === 'library' ? 'library' : 'editor');
   window.scrollTo(0, 0);
+  // preventScroll: the scroll above has just put the nav rows on screen, and
+  // focusing the heading is not a reason to take them back off it.
+  const heading = document.querySelector('#studio-heading');
+  if (moveFocus) heading?.focus?.({ preventScroll: true });
+  const stageStatus = document.querySelector('#studio-stage-status');
+  if (stageStatus) stageStatus.textContent = t('status.stageChanged', { stage: stageHeadingText(stage) });
   if (stage === 'gallery') requestAnimationFrame(syncTemplateThumbnailScales);
   if (stage === 'library') {
     renderLibraryPublications();
@@ -527,20 +566,31 @@ const getItemsData = () => [...dom.contentEditor.querySelectorAll("[data-item-ca
    with the item's type and summary, so they wrapped onto a second line and
    doubled the height of every card. They live behind one ⋯ button now: the
    header is a fixed three-column grid — grip, summary, menu — that cannot
-   wrap at any width, and the menu is a plain hidden <div role="menu"> the
-   button shows, because a popover here needs no library and no dependency.
+   wrap at any width, and the panel is a plain hidden <div> the button shows,
+   because a popover here needs no library and no dependency.
    The actions keep their data-item-action names, so the click handler, the
-   focus restore after a move, and Alt+↑/↓ all address them unchanged. */
+   focus restore after a move, and Alt+↑/↓ all address them unchanged.
+
+   It carried the menu and menuitem roles and none of what those roles
+   promise: arrow-key roving between items, Home/End, a single tab stop for
+   the whole list. Rather than build that machinery for three buttons, the
+   roles are gone. What is left is the disclosure this always was — a button
+   with aria-expanded and aria-controls over a named group — and its keyboard
+   contract is already complete and already implemented: Tab walks the three
+   actions in order, Escape closes the panel and gives the ⋯ button its focus
+   back, a click anywhere outside dismisses it, and a reorder made from inside
+   restores focus to the action that made it. A menu role would have taken the
+   three actions out of the Tab order to gain nothing a reader can use. */
 const renderItemMenu = (item, index, itemCount, menuId) => {
   const type = itemTypeLabel(item.type);
   const menuLabel = escapeAttribute(t("content.menuLabel", { type }));
   return `
     <div class="content-item-menu" data-item-menu>
-      <button class="content-item-menu-button" type="button" data-item-menu-button aria-haspopup="true" aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeAttribute(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
-      <div class="content-item-menu-list" id="${menuId}" role="menu" aria-label="${menuLabel}" data-item-menu-list hidden>
-        <button class="content-item-menu-item" type="button" role="menuitem" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeAttribute(t("content.moveUpTitle"))}</button>
-        <button class="content-item-menu-item" type="button" role="menuitem" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeAttribute(t("content.moveDownTitle"))}</button>
-        <button class="content-item-menu-item remove-item-button" type="button" role="menuitem" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeAttribute(t("content.removeItemTitle"))}</button>
+      <button class="content-item-menu-button" type="button" data-item-menu-button aria-expanded="false" aria-controls="${menuId}" aria-label="${menuLabel}" title="${escapeAttribute(t("content.menu"))}"><span aria-hidden="true">⋯</span></button>
+      <div class="content-item-menu-list" id="${menuId}" role="group" aria-label="${menuLabel}" data-item-menu-list hidden>
+        <button class="content-item-menu-item" type="button" data-item-action="up" aria-disabled="${index === 0}" aria-label="${escapeAttribute(t("content.moveUp", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↑</span>${escapeAttribute(t("content.moveUpTitle"))}</button>
+        <button class="content-item-menu-item" type="button" data-item-action="down" aria-disabled="${index === itemCount - 1}" aria-label="${escapeAttribute(t("content.moveDown", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">↓</span>${escapeAttribute(t("content.moveDownTitle"))}</button>
+        <button class="content-item-menu-item remove-item-button" type="button" data-item-action="delete" aria-label="${escapeAttribute(t("content.removeItem", { type }))}"><span class="content-item-menu-icon" aria-hidden="true">✕</span>${escapeAttribute(t("content.removeItemTitle"))}</button>
       </div>
     </div>
   `;
@@ -723,8 +773,13 @@ let libraryPublicationList;
 const renderLibraryPublications = () => {
   if (!dom.libraryPublications) return;
   if (!libraryPublicationList) {
+    /* Mounted without a setStatus, copy and revoke reported into the default
+       no-op: the author pressed Copy and nothing said anything, on screen or
+       to a reader. The list writes into the polite line rendered beside it. */
+    const status = document.querySelector('#library-publication-status');
     libraryPublicationList = globalThis.InvitationPublishing?.mountPublicationList?.({
-      node: dom.libraryPublications
+      node: dom.libraryPublications,
+      setStatus: (message) => { if (status) status.textContent = String(message ?? ''); }
     });
   }
   libraryPublicationList?.render?.();
@@ -2177,7 +2232,7 @@ const validateForExport = () => {
   syncMapSettingsVisibility();
   const invalidField = dom.form.querySelector(":invalid");
   if (!invalidField) return true;
-  setStudioStage('edit');
+  setStudioStage('edit', { moveFocus: false });
 
   const card = invalidField.closest("[data-item-card]");
   if (card) setItemExpanded(card, true);
@@ -2198,7 +2253,7 @@ const confirmReplyContact = () => {
     && !entry.url && !/(?:\b0[1-9]\d?[ -]?\d{3,4}[ -]?\d{4}\b|\+[1-9][\d ()-]{7,}\d\b|[^\s@]+@[^\s@]+\.[^\s@]+)/.test(entry.value));
   if (!item) return true;
   if (window.confirm(t('finish.confirmReplyContact'))) return true;
-  setStudioStage('edit');
+  setStudioStage('edit', { moveFocus: false });
   const card = findItemCard(item.id);
   if (card) {
     const group = card.closest('details');
@@ -2662,6 +2717,19 @@ const moveHeroImageDrag = (event) => {
   renderPreview();
 };
 
+/* #hero-image-frame is aria-describedby #hero-image-status, so that line has
+   to still be true after the photo moves — by arrow key or by drag. A drag
+   fires pointermove dozens of times a second and a live region read at that
+   rate is unusable, so a drag says where it landed once, when it ends. */
+const announceHeroImagePosition = () => {
+  if (!state.heroImage) return;
+  const crop = HeroImage.normalizeCrop(state.heroImage);
+  dom.heroImageStatus.textContent = t("hero.movedTo", {
+    x: Math.round(crop.positionX),
+    y: Math.round(crop.positionY)
+  });
+};
+
 const moveHeroImageByKeyboard = (event) => {
   if (!state.heroImage || heroImageSelectionPending) return;
   const directions = {
@@ -2681,6 +2749,7 @@ const moveHeroImageByKeyboard = (event) => {
     frameHeight: bounds.height
   });
   state.heroImage = { src: state.heroImage.src, ...crop };
+  announceHeroImagePosition();
   markAnalyticsEdit();
   syncHeroImageEditor();
   renderPreview();
@@ -2691,6 +2760,7 @@ const finishHeroImageDrag = (event) => {
   const { pointerId } = heroImageDragState;
   heroImageDragState = null;
   dom.heroImageFrame.classList.remove("is-dragging");
+  announceHeroImagePosition();
   try {
     if (dom.heroImageFrame.hasPointerCapture(pointerId)) dom.heroImageFrame.releasePointerCapture(pointerId);
   } catch {
@@ -2899,7 +2969,7 @@ const init = async () => {
     mountPublishing();
     renderPreview();
     draftReady = true;
-    if (personalDraft) setStudioStage('edit');
+    if (personalDraft) setStudioStage('edit', { moveFocus: false });
     renderSaved();
 
     let database;

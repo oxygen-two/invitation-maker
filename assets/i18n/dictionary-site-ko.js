@@ -32,7 +32,6 @@
         guide: "사용법",
         cta: "초대장 만들기",
         skip: "본문으로 건너뛰기",
-        langLabel: "언어 선택",
         langDescription: "표시 언어",
         navLabel: "사이트"
       },

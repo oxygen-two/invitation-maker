@@ -37,6 +37,7 @@
 
   const listeners = new Set();
   let banner = null;
+  let shortcut = null;
 
   const documentRef = () => root.document || null;
 
@@ -189,6 +190,26 @@
     return true;
   };
 
+  /* The banner stays in visual order, and a second .skip link is what gets a
+     keyboard to it: the site's own control, in the site's own class, added
+     beside the page's existing skip link for exactly as long as the banner is
+     up. Conditional on that link because it is the only honest place to put
+     one — a page with no skip-link pattern (the guest invitation, the local
+     viewer) has nowhere to hang a second one, and a static link in the markup
+     would dangle on every visit after the first, when the banner is answered
+     and never built. Two Tabs to the choice; the first Tab is still the
+     content, which is what a visitor who has already decided wants. */
+  const addShortcut = (doc) => {
+    if (shortcut?.isConnected) return;
+    const skipLink = doc.body?.querySelector?.(".skip");
+    if (!skipLink?.after) return;
+    shortcut = doc.createElement("a");
+    shortcut.className = "skip";
+    shortcut.href = `#${BANNER_ID}`;
+    bind(shortcut, "consent.skipLink", "Skip to the cookie choice");
+    skipLink.after(shortcut);
+  };
+
   const bind = (node, key, fallback) => {
     node.setAttribute("data-i18n", key);
     node.textContent = translate(key, fallback);
@@ -201,6 +222,8 @@
     region.setAttribute("role", "region");
     region.setAttribute("tabindex", "-1");
     region.setAttribute("data-i18n-attr", "aria-label:consent.regionLabel");
+    // The banner arrives after the page has been read, so it has to say so.
+    region.setAttribute("aria-live", "polite");
     region.setAttribute("aria-label", translate("consent.regionLabel", "Cookie and analytics choice"));
 
     const text = doc.createElement("p");
@@ -264,6 +287,10 @@
   const hide = () => {
     if (!banner) return;
     banner.hidden = true;
+    // A skip link to a banner that is no longer there is a stop that goes
+    // nowhere, so the shortcut lives exactly as long as the thing it points at.
+    shortcut?.remove?.();
+    shortcut = null;
     reserveSpace(false);
   };
 
@@ -276,8 +303,16 @@
     if (!banner || !banner.isConnected) {
       if (!injectStyle(doc)) return false;
       banner = build(doc);
+      /* The banner is painted fixed to the foot of the viewport, so this is
+         where it belongs in the document too: moving the element itself to
+         the top would only invert the mismatch — read first, drawn last —
+         and put a decision the visitor did not ask for in front of the page
+         they came to read. What was actually wrong is that reaching it meant
+         walking the whole document, and the site already has the control for
+         that. See addShortcut. */
       doc.body.append(banner);
     }
+    addShortcut(doc);
     banner.hidden = false;
     reserveSpace(true);
     if (focus) {

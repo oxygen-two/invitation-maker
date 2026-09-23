@@ -241,9 +241,51 @@ test("studio.html serves the default language and lets the engine correct it", (
   assert.ok(i18nAt > 0 && i18nAt < koAt && koAt < enAt && enAt < initAt && initAt < bodyAt);
 
   // The switcher is reachable by keyboard, labelled, and out of the stage nav.
-  assert.match(index, /<select id="language-select"[^>]*data-i18n-attr="aria-label:lang\.switcherLabel"/);
+  // Its name comes from the <label> bound to it and from nothing else: an
+  // aria-label overrides that label, so the control announced one name while
+  // the words tied to it said another (label-in-name). The label is the name.
   assert.match(index, /<label for="language-select" data-i18n="lang\.switcherDescription">/);
+  assert.doesNotMatch(index, /<select id="language-select"[^>]*aria-label/);
   assert.ok(index.indexOf('id="language-select"') < index.indexOf('class="studio-steps"'));
+});
+
+/* Every page that ships the switcher ships the same pair, and none of them may
+   re-introduce the aria-label that outranks the visible binding. */
+test("no language switcher names itself twice", () => {
+  for (const page of ["index.html", "studio.html", "guide.html", "privacy.html", "terms.html"]) {
+    const markup = read(page);
+    assert.match(markup, /<label for="language-select" data-i18n="(?:lang\.switcherDescription|site\.header\.langDescription)">/, page);
+    assert.doesNotMatch(markup, /<select id="language-select"[^>]*aria-label/, `${page}: the switcher overrides its own label`);
+  }
+});
+
+/* The studio's own chrome — the skip link, the heading that survives a stage
+   change, the hero frame's role description — is copy like any other, so it is
+   bound to keys both dictionaries answer rather than frozen into the markup. */
+test("the studio chrome added for keyboard users is bound to keys, not literals", () => {
+  const studio = read("studio.html");
+
+  assert.match(studio, /<a class="skip" href="#main" data-i18n="nav\.skipToContent">/);
+  assert.match(studio, /<main id="main" tabindex="-1">/);
+  assert.match(studio, /<h1 id="studio-heading"[^>]*tabindex="-1"[^>]*data-i18n="nav\.gallery"/);
+  assert.match(
+    studio,
+    /id="hero-image-frame"[^>]*data-i18n-attr="aria-label:hero\.frameLabel;aria-roledescription:hero\.frameRole"/
+  );
+
+  for (const key of [
+    "nav.skipToContent", "nav.gallery", "nav.edit", "nav.finish", "nav.library",
+    "status.stageChanged", "hero.frameRole", "hero.movedTo",
+    "publish.confirmRevoke", "publish.confirmRevokeKeep", "publish.confirmRevokeAccept"
+  ]) {
+    for (const language of ["ko", "en"]) {
+      assert.notEqual(InvitationI18n.t(key, undefined, language), key, `${key} is missing from ${language}`);
+    }
+  }
+  // The placeholders the studio fills are the ones both dictionaries expect.
+  assert.match(InvitationI18n.t("status.stageChanged", { stage: "Library" }, "en"), /Library/);
+  assert.match(InvitationI18n.t("hero.movedTo", { x: 40, y: 60 }, "en"), /40[\s\S]*60/);
+  assert.match(InvitationI18n.t("publish.confirmRevoke", { title: "Picnic" }, "en"), /Picnic/);
 });
 
 test("setLanguage updates the document language and every bound node", () => {
@@ -849,4 +891,36 @@ test("a guest's page chrome and the invitation they were sent are separate langu
       }
     }
   }
+});
+
+/* A union merge keeps both sides of a conflicting line, and in an object
+   literal that is silent: the file parses, the later key wins, and the copy
+   that shipped is whichever branch happened to sort second. Three keys came
+   through a rebase that way — consent.message, publish.cardRevoke and
+   status.draftKept — and only one of them was inline in any HTML, so the copy
+   tests saw one of three. This reads the source rather than the parsed module,
+   because by the time it is an object the duplicate is already gone. */
+test("no dictionary declares the same key twice in one object", () => {
+  const files = [
+    "assets/i18n/dictionary-ko.js", "assets/i18n/dictionary-en.js",
+    "assets/i18n/dictionary-site-ko.js", "assets/i18n/dictionary-site-en.js"
+  ];
+  const duplicates = [];
+  for (const file of files) {
+    const scopes = [new Map()];
+    read(file).split("\n").forEach((line, index) => {
+      const declaration = line.match(/^\s*([A-Za-z_$][\w$]*)\s*:/);
+      if (declaration) {
+        const scope = scopes[scopes.length - 1];
+        const [, key] = declaration;
+        if (scope.has(key)) duplicates.push(`${file}:${index + 1} redeclares ${key} (first at line ${scope.get(key)})`);
+        else scope.set(key, index + 1);
+      }
+      // Strings and comments first: a "{count}" placeholder is not a nest.
+      const structure = line.replace(/"(?:[^"\\]|\\.)*"/g, "").replace(/\/\*.*?\*\//g, "").replace(/\/\/.*$/, "");
+      for (let open = (structure.match(/\{/g) || []).length; open > 0; open -= 1) scopes.push(new Map());
+      for (let close = (structure.match(/\}/g) || []).length; close > 0 && scopes.length > 1; close -= 1) scopes.pop();
+    });
+  }
+  assert.deepEqual(duplicates, [], `duplicate dictionary keys:\n${duplicates.join("\n")}`);
 });

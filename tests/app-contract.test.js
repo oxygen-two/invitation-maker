@@ -3187,11 +3187,13 @@ test("mixed editor cards preserve identity and expose type-specific fields", () 
 test("item card actions collapse into one overflow menu", () => {
   const app = read("assets/studio/app.js");
 
-  assert.match(app, /data-item-menu-button[^>]+aria-haspopup="true"[^>]+aria-expanded="false"[^>]+aria-controls="\$\{menuId\}"/);
-  assert.match(app, /<div class="content-item-menu-list" id="\$\{menuId\}" role="menu"[^>]*data-item-menu-list hidden>/);
-  assert.equal((app.match(/role="menuitem"/g) || []).length, 3);
+  /* A disclosure, not a menu: aria-expanded and aria-controls are the whole
+     contract, and Tab walks the three buttons it reveals. See the button-group
+     test below for why role="menu" was dropped rather than implemented. */
+  assert.match(app, /data-item-menu-button aria-expanded="false" aria-controls="\$\{menuId\}"/);
+  assert.match(app, /<div class="content-item-menu-list" id="\$\{menuId\}" role="group"[^>]*data-item-menu-list hidden>/);
   for (const action of ["up", "down", "delete"]) {
-    assert.match(app, new RegExp(`role="menuitem" data-item-action="${action}"`));
+    assert.match(app, new RegExp(`class="content-item-menu-item[^"]*" type="button" data-item-action="${action}"`));
   }
   // The header is a fixed three-column grid, so nothing in it can wrap.
   assert.match(app, /content-item-handle[\s\S]*?content-item-grip[\s\S]*?content-item-position/);
@@ -4137,7 +4139,7 @@ test("the sheet's apply button is the dock's apply button, label and all", async
   // editor the apply lands in rather than snapped back to the card.
   assert.equal(phone.api.state.activeTemplate, "modern-vow");
   assert.equal(sheet.open, false);
-  assert.equal(phone.document.activeElement, null);
+  assert.equal(phone.document.activeElement, phone.node("#studio-heading"));
 
   // Tapping the card that is already applied now offers the next step, exactly
   // as the dock does — no button asking to re-apply what is already on.
@@ -4176,7 +4178,9 @@ test("applying a design dismisses the sheet, whichever button applied it", async
     // The sample document goes with it, and focus is left for the editor
     // rather than snapped back to a card on a stage the author has left.
     assert.equal(phone.node("#sample-sheet-frame").srcdoc, "");
-    assert.equal(phone.document.activeElement, null, `${control} sent focus back to the gallery card`);
+    // Focus goes where the stage went — the editor's heading — never back to a
+    // card on a stage the author has left.
+    assert.equal(phone.document.activeElement, phone.node("#studio-heading"), `${control} sent focus back to the gallery card`);
   }
 });
 
@@ -4192,7 +4196,7 @@ test("the sheet cannot survive a stage change onto the editor, finish screen or 
 
     assert.equal(sheet.open, false, `the sheet outlived the ${stage} stage`);
     assert.equal(phone.node("#sample-sheet-frame").srcdoc, "");
-    assert.equal(phone.document.activeElement, null);
+    assert.equal(phone.document.activeElement, phone.node("#studio-heading"));
   }
 });
 
@@ -4376,4 +4380,181 @@ test("a library card shows the invitation it holds, and the library lists publis
   assert.match(app, /mountPublicationList\?\.\(\{\s*node: dom\.libraryPublications/);
   assert.match(read("assets/publishing/publishing.js"), /const mountPublicationList = \(\{/);
   assert.match(read("assets/publishing/publishing.js"), /mountPublicationList,/);
+});
+
+/* Batch 5 — the studio as a keyboard walks it.
+
+   The one <h1> lived inside .maker-header, which the finish stage hides and
+   the library stage hides twice over, so two of the four stages rendered with
+   no heading at all — on a phone the finish stage rendered with none of any
+   level. A stage change swapped the entire page and only scrolled: focus
+   stayed on the nav button that was pressed and nothing was announced. And
+   <main> had no id, so the one page with two rows of navigation above the
+   content was the one page with no way past them. */
+test("one h1 survives every stage, outside the panels any stage can hide", () => {
+  const studio = read("studio.html");
+
+  const markup = studio.replace(/<!--[\s\S]*?-->/g, "");
+  assert.equal((markup.match(/<h1\b/g) || []).length, 1, "the studio must ship exactly one h1");
+  assert.match(markup, /<main id="main" tabindex="-1">\s*<div class="studio-stage-banner">\s*<h1 id="studio-heading" class="studio-stage-heading" tabindex="-1"/);
+  // The heading is a sibling of .app-shell, not a descendant of a panel: every
+  // display:none a stage applies lands on .maker-panel, .maker-header or
+  // .preview-panel, and none of them contains it.
+  assert.ok(studio.indexOf('id="studio-heading"') < studio.indexOf('class="app-shell"'));
+  assert.match(studio, /<div class="app-shell">/);
+  // The warm display line in .maker-header is still there — it is now the
+  // section heading under the page heading rather than a second competing h1.
+  assert.match(studio, /<h2 id="maker-display-heading" data-i18n="maker\.headingGallery">/);
+  // The stage announces itself into a region that outlives the stage too.
+  assert.match(studio, /<p id="studio-stage-status" class="studio-stage-status" role="status" aria-live="polite"><\/p>/);
+  // The skip link the other five pages ship, pointing at the same target.
+  assert.match(markup, /<body[^>]*>\s*<a class="skip" href="#main"/);
+});
+
+test("a stage change moves focus to the heading and says which stage it is", async () => {
+  for (const mobile of [false, true]) {
+    const harness = await loadGalleryHarness({ mobile });
+    const heading = harness.node("#studio-heading");
+    const status = harness.node("#studio-stage-status");
+
+    for (const stage of ["edit", "finish", "library", "gallery"]) {
+      harness.document.activeElement = null;
+      harness.api.setStudioStage(stage);
+
+      assert.equal(heading.textContent, ko(`nav.${stage}`), `${stage} (mobile=${mobile}): heading text`);
+      assert.equal(harness.document.activeElement, heading, `${stage} (mobile=${mobile}): focus never moved`);
+      assert.equal(status.textContent, ko("status.stageChanged", { stage: ko(`nav.${stage}`) }));
+    }
+  }
+});
+
+test("the heading is programmatically focusable and reads the stage in either language", () => {
+  const app = read("assets/studio/app.js");
+
+  const stage = app.slice(app.indexOf("const setStudioStage = (stage,"));
+  const body = stage.slice(0, stage.indexOf("\n};"));
+  assert.match(app, /const STAGE_HEADING_KEYS = \{/);
+  assert.match(body, /document\.querySelector\('#studio-heading'\);\n\s*if \(moveFocus\) heading\?\.focus\?\.\(\{ preventScroll: true \}\);/);
+  assert.match(body, /t\('status\.stageChanged', \{ stage: stageHeadingText\(stage\) \}\)/);
+  for (const stage of ["gallery", "edit", "finish", "library"]) {
+    for (const translate of [ko, en]) {
+      assert.ok(translate(`nav.${stage}`).length > 0);
+      assert.match(translate("status.stageChanged", { stage: translate(`nav.${stage}`) }), new RegExp(escapeRegExp(translate(`nav.${stage}`))));
+    }
+  }
+});
+
+test("the library's published links report copy and revoke into a region beside them", () => {
+  const app = read("assets/studio/app.js");
+  const studio = read("studio.html");
+
+  assert.match(studio, /<div id="library-publications" class="publication-list"><\/div>\s*<p id="library-publication-status" class="publication-status" role="status" aria-live="polite"><\/p>/);
+  assert.match(app, /const status = document\.querySelector\('#library-publication-status'\)/);
+  assert.match(app, /mountPublicationList\?\.\(\{\s*node: dom\.libraryPublications,\s*setStatus:/);
+});
+
+test("the hero frame is a group that says where it moved, not an image that says nothing", () => {
+  const studio = read("studio.html");
+  const app = read("assets/studio/app.js");
+
+  assert.match(studio, /id="hero-image-frame"[^>]*role="group"/);
+  assert.doesNotMatch(studio, /id="hero-image-frame"[^>]*role="img"/);
+  assert.match(studio, /id="hero-image-frame"[^>]*aria-roledescription=/);
+  // Arrow keys move the photo, so the move has to reach the status line the
+  // rest of the hero editor already speaks through.
+  const pan = app.slice(app.indexOf("const moveHeroImageByKeyboard"));
+  assert.match(pan.slice(0, pan.indexOf("\n};")), /announceHeroImagePosition\(\)/);
+  const announce = app.slice(app.indexOf("const announceHeroImagePosition"));
+  assert.match(announce.slice(0, announce.indexOf("\n};")), /dom\.heroImageStatus\.textContent = t\("hero\.movedTo"/);
+});
+
+test("the item card's overflow is a button group, not a menu without a menu's keyboard", () => {
+  const app = read("assets/studio/app.js");
+
+  // role="menu" is a promise of arrow-key roving, Home/End, and a list that is
+  // out of the Tab order. None of that was here, and three buttons do not need
+  // it: the disclosure already opens, Escape closes it and gives the trigger
+  // its focus back, and Tab walks the three actions in order.
+  assert.doesNotMatch(app, /role="menu"/);
+  assert.doesNotMatch(app, /role="menuitem"/);
+  assert.doesNotMatch(app, /aria-haspopup/);
+  assert.match(app, /<div class="content-item-menu-list" id="\$\{menuId\}" role="group"[^>]*data-item-menu-list hidden>/);
+  assert.match(app, /data-item-menu-button aria-expanded="false" aria-controls="\$\{menuId\}"/);
+});
+
+test("the scrolling chip and design rows carry a role with the name they were given", () => {
+  const studio = read("studio.html");
+
+  for (const id of ["occasion-list", "template-list"]) {
+    const tag = studio.match(new RegExp(`<div id="${id}"[^>]*>`))?.[0] || "";
+    assert.ok(tag, `${id} is missing`);
+    assert.match(tag, /aria-label=/, `${id} lost its name`);
+    assert.match(tag, /role="group"/, `${id} is a bare <div> with a name and no role`);
+  }
+});
+
+/* Review follow-up. Moving focus to the heading is right when a person asked
+   for the stage; it is theft when the studio changed stage on its own. Boot
+   with a restored draft lands on the editor before the author has touched
+   anything, and the two export guards change stage only so they can put focus
+   on the field that is wrong — in all three the heading must stay quiet. */
+test("a stage the studio chose for itself does not take focus away", async () => {
+  const harness = await loadGalleryHarness({ mobile: false });
+  const heading = harness.node("#studio-heading");
+  const elsewhere = harness.node("#apply-template-button");
+
+  elsewhere.focus();
+  harness.api.setStudioStage("edit", { moveFocus: false });
+  assert.equal(harness.document.activeElement, elsewhere, "a programmatic stage change moved focus");
+  // It is still a stage change in every other respect.
+  assert.equal(harness.document.body.dataset.studioStage, "edit");
+  assert.equal(heading.textContent, ko("nav.edit"));
+  assert.equal(harness.node("#studio-stage-status").textContent, ko("status.stageChanged", { stage: ko("nav.edit") }));
+
+  // And a stage the author asked for still lands on the heading.
+  harness.api.setStudioStage("library");
+  assert.equal(harness.document.activeElement, heading);
+});
+
+test("the three stage changes nobody asked for pass moveFocus: false", () => {
+  const app = read("assets/studio/app.js");
+
+  assert.match(app, /const setStudioStage = \(stage, \{ moveFocus = true \} = \{\}\) => \{/);
+  // Boot: a restored draft opens the editor before the author has touched
+  // anything, so focus belongs wherever the browser left it.
+  assert.match(app, /if \(personalDraft\) setStudioStage\('edit', \{ moveFocus: false \}\);/);
+  // Both export guards move to the editor only to put focus on the field that
+  // is wrong; the heading would take it straight back off them.
+  for (const guard of ["validateForExport", "confirmReplyContact"]) {
+    const body = app.slice(app.indexOf(`const ${guard} = `));
+    assert.match(body.slice(0, body.indexOf("\n};")), /setStudioStage\('edit', \{ moveFocus: false \}\)/, guard);
+  }
+  // window.scrollTo(0, 0) has already put the nav rows on screen; focusing the
+  // heading must not scroll them back off it.
+  assert.match(app, /heading\?\.focus\?\.\(\{ preventScroll: true \}\)/);
+});
+
+test("the skip link's landing pad does not draw a ring around the whole page", () => {
+  const css = read("assets/studio/studio.css");
+
+  // studio.css carries a bare `:focus-visible` rule, so <main tabindex="-1">
+  // — which exists only to catch the skip link — was outlined end to end.
+  // assets/site/site.css scopes its ring to a/button/select and so never did.
+  assert.match(css, /#main:focus,\s*#main:focus-visible \{ outline: none; \}/);
+  assert.match(css, /:focus-visible \{ outline: 3px solid var\(--studio-focus\)/);
+});
+
+test("a pointer drag describes where it left the photo, once, at the end", () => {
+  const app = read("assets/studio/app.js");
+
+  // #hero-image-frame is aria-describedby #hero-image-status, so the line has
+  // to still be true after a drag — but announcing every pointermove would
+  // make the live region unreadable.
+  assert.match(app, /const announceHeroImagePosition = \(\) => \{/);
+  const drag = app.slice(app.indexOf("const finishHeroImageDrag = (event) => {"));
+  assert.match(drag.slice(0, drag.indexOf("\n};")), /announceHeroImagePosition\(\)/);
+  const move = app.slice(app.indexOf("const moveHeroImageDrag = "));
+  assert.doesNotMatch(move.slice(0, move.indexOf("\n};")), /announceHeroImagePosition|hero\.movedTo/);
+  const keyboard = app.slice(app.indexOf("const moveHeroImageByKeyboard = "));
+  assert.match(keyboard.slice(0, keyboard.indexOf("\n};")), /announceHeroImagePosition\(\)/);
 });
