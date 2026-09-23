@@ -110,7 +110,7 @@ ASSISTANT_TOTAL_DAILY_LIMIT=300
 PUBLIC_BASE_URL=https://<your-domain>
 ```
 
-Without `ANTHROPIC_API_KEY` the `draft_invitation` tool answers `ASSISTANT_UNAVAILABLE`; the other tools keep working. Without `MONGODB_URI` every tool answers `REPOSITORY_UNAVAILABLE`, exactly like the publishing API. `npm run smoke:assistant -- "<request>"` runs one real draft against the model (costs money, never publishes). Design: `docs/superpowers/specs/2026-09-23-invitation-assistant-mcp-design.md`.
+Without `ANTHROPIC_API_KEY` the `draft_invitation` tool answers `ASSISTANT_UNAVAILABLE`; the other tools keep working. Without `MONGODB_URI` `draft_invitation`, `publish_invitation` and `revoke_invitation` answer `REPOSITORY_UNAVAILABLE`, exactly like the publishing API; `list_occasions` reads the static catalog and keeps working. `npm run smoke:assistant -- "<request>"` runs one real draft against the model (costs money, never publishes). Design: `docs/superpowers/specs/2026-09-23-invitation-assistant-mcp-design.md`.
 
 ## Local administration
 

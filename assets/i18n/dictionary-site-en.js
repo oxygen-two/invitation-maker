@@ -106,7 +106,7 @@
           title: "Make one with an AI assistant",
           lead: "Add this address as a connector in any MCP-capable app — Claude, ChatGPT, Cursor — and make an invitation link by talking.",
           url: "https://invitation-maker-one.vercel.app/mcp",
-          one: "One line is enough, like \"dinner at Dongria near Seolleung on the 23rd at 5 pm\". The assistant asks for anything missing.",
+          one: "One line is enough, like \"an invitation for Dongria near Seolleung on the 23rd at 5 pm\". The assistant asks for anything missing.",
           two: "The link is created only after you confirm the summary. Nothing is published before that.",
           three: "Keep the management token you get with the link. It is the only way to take the link down, and the server keeps just a hash of it.",
           four: "Links expire by the same rules as links made in the studio. Photos are not supported yet.",
