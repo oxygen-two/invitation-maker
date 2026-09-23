@@ -1,6 +1,7 @@
 // The MCP SDK speaks web-standard Request/Response. Node 22 ships both
 // globals, so a few lines bridge them without pulling in an HTTP framework.
 const { Readable } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 
 // Hop-by-hop and framing headers describe the Node connection, not the
 // message; the web Request computes its own.
@@ -22,14 +23,18 @@ const toWebRequest = (req, { body, baseUrl }) => {
 const sendWebResponse = async (res, response) => {
   const headers = {};
   response.headers.forEach((value, name) => { headers[name] = value; });
-  res.writeHead(response.status, { "cache-control": "no-store", "x-robots-tag": "noindex", ...headers });
+  // The SDK's own headers go first, our security headers after, so ours win
+  // if the SDK ever sets its own cache-control or x-robots-tag.
+  res.writeHead(response.status, { ...headers, "cache-control": "no-store", "x-robots-tag": "noindex" });
   if (!response.body) {
     res.end();
     return;
   }
-  await new Promise((resolve, reject) => {
-    Readable.fromWeb(response.body).on("error", reject).on("end", resolve).pipe(res);
-  });
+  // stream.promises.pipeline settles (resolves or rejects) whichever side
+  // fails first - including the destination (res) erroring mid-write, e.g.
+  // a client aborting the response - unlike a bare .pipe()/"end" listener,
+  // which can leave this promise hanging and pin the request open.
+  await pipeline(Readable.fromWeb(response.body), res);
 };
 
 module.exports = { sendWebResponse, toWebRequest };
