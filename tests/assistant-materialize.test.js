@@ -67,3 +67,8 @@ test("googleMapsSearchUrl encodes the location and is empty without one", () => 
   assert.equal(googleMapsSearchUrl("Main St & 5th"), "https://www.google.com/maps/search/?api=1&query=Main%20St%20%26%205th");
   assert.equal(googleMapsSearchUrl(null), "");
 });
+
+test("materializeInvitation throws BAD_REQUEST instead of an opaque SyntaxError when the catalog has no template at all", () => {
+  const emptyCatalog = createAssistantCatalog({ data: { occasions: [], templates: [] } });
+  assert.throws(() => materializeInvitation(draft, { catalog: emptyCatalog }), (e) => e.code === "BAD_REQUEST");
+});

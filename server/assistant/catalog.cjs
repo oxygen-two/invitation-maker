@@ -35,7 +35,11 @@ const createAssistantCatalog = ({
     if (exact) return clone(exact);
     const byOccasion = templates.find((template) => template.occasionId === occasion);
     if (byOccasion) return clone(byOccasion);
-    return clone(templates.find((template) => template.occasionId === "event") || templates[0]);
+    const fallback = templates.find((template) => template.occasionId === "event") || templates[0];
+    // A corrupt data file with zero templates has no fallback to hand back;
+    // return null rather than clone(undefined), which is JSON.parse(undefined)
+    // and throws an opaque SyntaxError deep inside a tool call.
+    return fallback ? clone(fallback) : null;
   };
 
   return Object.freeze({

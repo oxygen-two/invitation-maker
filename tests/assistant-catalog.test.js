@@ -40,3 +40,8 @@ test("resolveTemplate returns a copy the caller may mutate", () => {
   first.defaults.title = "changed";
   assert.notEqual(catalog.resolveTemplate("botanical", "date").defaults.title, "changed");
 });
+
+test("resolveTemplate returns null instead of throwing when the data file has no templates at all", () => {
+  const empty = createAssistantCatalog({ data: { occasions: [], templates: [] } });
+  assert.equal(empty.resolveTemplate("anything", "event"), null);
+});
