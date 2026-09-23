@@ -292,12 +292,34 @@ test("every site image on the landing and the guide names a render per language"
    object, so a hand-built document is enough to exercise it — the same trick
    the studio's contract tests use — and that keeps this a test of what the
    function does instead of how it is currently written. */
+/* The inline <head> block that owns the swap, lifted out of the page so it can
+   be run rather than read. The two pages must carry the same one — the block
+   is duplicated because it has to be inline (see the comment above it in
+   index.html), and duplication is only safe while something checks it. */
+const headMediaScript = (page) => {
+  const html = read(page);
+  const open = html.indexOf("<script>\n    window.InvitationSiteMedia");
+  assert.ok(open >= 0, `${page}: the inline media block is missing`);
+  const start = html.indexOf(">", open) + 1;
+  const end = html.indexOf("</script>", start);
+  return html.slice(start, end);
+};
+
+test("both pages carry the same inline media block, byte for byte", () => {
+  assert.equal(headMediaScript("guide.html"), headMediaScript("index.html"));
+});
+
 const fakeMediaNode = (attributes) => {
   const node = {
+    // Element, so the observer's node filter accepts it the way a parsed
+    // <img> would.
+    nodeType: 1,
     attributes: { ...attributes },
     dataset: {},
     getAttribute: (name) => (name in node.attributes ? node.attributes[name] : null),
-    setAttribute: (name, value) => { node.attributes[name] = value; }
+    setAttribute: (name, value) => { node.attributes[name] = value; },
+    matches: (selector) => selector === "[data-site-media]" && "data-site-media" in node.attributes,
+    querySelectorAll: () => []
   };
   for (const [name, value] of Object.entries(attributes)) {
     const data = /^data-(.+)$/.exec(name);
@@ -306,7 +328,7 @@ const fakeMediaNode = (attributes) => {
   return node;
 };
 
-const runSiteScript = (nodes, language = "ko") => {
+const runSiteScript = (nodes, language = "ko", extraGlobals = {}) => {
   const subscribers = [];
   // readyState "loading" keeps init() waiting on DOMContentLoaded, which this
   // document never fires: the swap is what is under test, not the boot.
@@ -315,19 +337,34 @@ const runSiteScript = (nodes, language = "ko") => {
     body: { dataset: {} },
     addEventListener: () => {},
     querySelector: () => null,
-    querySelectorAll: (selector) => (selector === "[data-site-media]" ? nodes : [])
+    querySelectorAll: (selector) => (selector === "[data-site-media]" ? nodes : []),
+    createElement: (tag) => ({ tag }),
+    head: { appended: [], append(node) { this.appended.push(node); } },
+    documentElement: {}
   };
   const context = {
+    ...extraGlobals,
     document: documentStub,
     InvitationI18n: {
       applyDom: () => {},
+      // The shipped block ends by calling init() then start(), so the stub
+      // has to answer both: the test runs the bootstrap the page runs.
+      init: () => {},
       getLanguage: () => language,
       subscribe: (listener) => subscribers.push(listener)
     }
   };
   context.window = context;
-  require("node:vm").runInNewContext(read("assets/site/site.js"), context);
-  return { site: context.InvitationSite, subscribers };
+  const vm = require("node:vm");
+  // Same order the pages load them in: site.js takes its escaping helpers
+  // from assets/shared/text.js, which <head> pulls in first.
+  vm.runInNewContext(read("assets/shared/text.js"), context);
+  // The swap is defined by the inline <head> block, so the block index.html
+  // actually ships is what runs here — a copy in this file could drift from
+  // the shipped one and still pass.
+  vm.runInNewContext(headMediaScript("index.html"), context);
+  vm.runInNewContext(read("assets/site/site.js"), context);
+  return { site: context.InvitationSite, media: context.InvitationSiteMedia, document: documentStub, subscribers };
 };
 
 test("the language swap moves an image to the render for the resolved language and back", () => {
@@ -386,6 +423,96 @@ test("the swap is subscribed to the language engine, so a switch with no reload 
   assert.equal(subscribers.length, 1, "site.js must subscribe to language changes");
   subscribers[0]("en");
   assert.equal(image.getAttribute("src"), "/assets/media/site/design-wedding-2x-en.jpg");
+});
+
+/* Timing, not just correctness. The preload scanner fetches an eager <img src>
+   before any deferred script runs, so a swap that waits for site.js has already
+   lost: measured against the previous commit, an English visitor downloaded all
+   six Korean design images (442 KB) and then replaced them. The fix is a pair —
+   every picture is loading="lazy" so the scanner leaves it alone, and
+   site-media.js is loaded blocking in <head> so its observer corrects each src
+   in the microtask after the parser inserts it, which is before the rendering
+   step that would trigger the lazy fetch. Both halves are asserted here because
+   either one alone silently restores the old behaviour. */
+test("both pages settle image language from <head>, before the parser reaches the pictures", () => {
+  for (const page of ["index.html", "guide.html"]) {
+    const html = read(page);
+
+    const defined = html.indexOf("window.InvitationSiteMedia");
+    const armed = html.indexOf("InvitationSiteMedia.start();");
+    const headEnd = html.indexOf("</head>");
+    const firstPicture = html.search(/<img[^>]*\bdata-site-media\b/);
+
+    assert.ok(defined >= 0, `${page}: the inline media block is missing`);
+    assert.ok(armed > defined, `${page}: start() must be called after the block defines it`);
+    assert.ok(armed < headEnd, `${page}: the swap must be armed inside <head>`);
+    assert.ok(firstPicture > headEnd, `${page}: pictures are expected in the body`);
+    // The point of the whole arrangement: the swap is armed before the parser
+    // can reach — and the preload scanner can read — any picture.
+    assert.ok(armed < firstPicture, `${page}: the swap must be armed before the first picture`);
+
+    // Inline on purpose: a <script src> here would run before the deferred
+    // error reporter could watch it, and would cost a blocking round trip.
+    assert.doesNotMatch(html, /<script[^>]+src="[^"]*site-media\.js"/, `${page}: the media swap must stay inline`);
+  }
+});
+
+test("every site picture is lazy, so the preload scanner never fetches the markup's Korean src", () => {
+  for (const page of ["index.html", "guide.html"]) {
+    for (const [tag] of [...read(page).matchAll(/<img[^>]*\bdata-site-media\b[^>]*>/gi)].map((m) => [m[0]])) {
+      assert.match(tag, /\bloading="lazy"/, `${page}: ${tag} is eager, so its Korean src is fetched before any script runs`);
+    }
+  }
+});
+
+test("the head swap corrects an element the moment it is parsed, not when the document finishes", () => {
+  const image = fakeMediaNode({
+    src: "/assets/media/site/design-bloom-portrait-2x.jpg",
+    "data-site-media": "",
+    "data-src-ko": "/assets/media/site/design-bloom-portrait-2x.jpg",
+    "data-src-en": "/assets/media/site/design-bloom-portrait-2x-en.jpg"
+  });
+  // The document is empty when start() runs from <head>; the element arrives
+  // afterwards, the way the parser delivers it, and the observer is what has
+  // to catch it.
+  const observers = [];
+  // No start() call here on purpose: the shipped block arms itself as it is
+  // parsed, which is the behaviour under test.
+  const { document: documentStub } = runSiteScript([], "en", {
+    MutationObserver: class {
+      constructor(callback) { this.callback = callback; observers.push(this); }
+      observe(target, options) { this.target = target; this.options = options; }
+      disconnect() {}
+    }
+  });
+  assert.equal(observers.length, 1, "the inline block must arm an observer as it runs");
+  // Constructing one and never pointing it at the document would leave the
+  // swap dead while every assertion about its callback still passed.
+  assert.equal(observers[0].target, documentStub.documentElement, "the observer must watch the document as it is parsed");
+  // Field by field: the options object is made inside the vm realm, so a
+  // deep-strict compare would fail on its prototype rather than its contents.
+  assert.equal(observers[0].options?.childList, true, "the observer must watch for inserted nodes");
+  assert.equal(observers[0].options?.subtree, true, "pictures are nested, so the whole subtree has to be watched");
+
+  observers[0].callback([{ addedNodes: [image] }]);
+  assert.equal(image.getAttribute("src"), "/assets/media/site/design-bloom-portrait-2x-en.jpg");
+});
+
+/* A <link rel="preload" as="image"> for the hero was measured and removed: it
+   did not reliably collapse with the image's own load, so a Korean visitor
+   fetched the hero twice (206,940 B for a 103,470 B image). The head start it
+   bought is worth less than a duplicate download of the whole picture; this
+   keeps it from being quietly reintroduced without a fresh measurement. */
+test("neither page preloads a site image, because the preload did not collapse with the image's own load", () => {
+  for (const page of ["index.html", "guide.html"]) {
+    for (const [tag] of [...read(page).matchAll(/<link\b[^>]*>/gi)].map((match) => [match[0]])) {
+      const attributes = parseTagAttributes(tag);
+      assert.ok(
+        !(attributes.rel === "preload" && attributes.as === "image"),
+        `${page}: ${tag} double-downloads the image it preloads`
+      );
+    }
+  }
 });
 
 test("the sitemap lists the landing, the guide, and the studio but not the sample", () => {
