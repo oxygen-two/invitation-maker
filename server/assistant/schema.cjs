@@ -72,10 +72,12 @@ const buildModelOutputSchema = (catalog) => {
 };
 
 const optionalText = (value, name, limit) => {
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined || value === null) return null;
   if (typeof value !== "string") throw badRequest(`${name} must be a string`);
-  if (value.length > limit) throw badRequest(`${name} must be at most ${limit} characters`);
-  return value.trim();
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > limit) throw badRequest(`${name} must be at most ${limit} characters`);
+  return trimmed;
 };
 
 const validateDraft = (input, catalog) => {

@@ -82,6 +82,16 @@ test("coerceModelDraft rejects output that is not a draft object", () => {
   assert.throws(() => coerceModelDraft({ summary: "x" }, catalog), (error) => error.code === "ASSISTANT_BAD_OUTPUT");
 });
 
+test("validateDraft treats whitespace-only optional fields as null and title as required", () => {
+  const draft = validateDraft({ ...ready, host: "   ", subtitle: "  \t", dateTime: "\n", location: "  ", message: "   " }, catalog);
+  assert.equal(draft.host, null);
+  assert.equal(draft.subtitle, null);
+  assert.equal(draft.dateTime, null);
+  assert.equal(draft.location, null);
+  assert.equal(draft.message, null);
+  assert.throws(() => validateDraft({ ...ready, title: "   " }, catalog), (error) => error.code === "BAD_REQUEST" && /title/.test(error.message));
+});
+
 test("schemas are plain JSON Schema with enums from the catalog", () => {
   const draftSchema = buildDraftSchema(catalog);
   assert.equal(draftSchema.type, "object");
