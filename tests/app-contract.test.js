@@ -1409,7 +1409,7 @@ test("uploaded HTML waits for durable storage and restores its disabled control"
   assert.equal(upload.disabled, false);
   assert.equal(upload.value, "");
   assert.equal(harness.api.state.saved.length, 1);
-  assert.match(harness.node("#upload-status").textContent, /초대장을 등록했습니다/);
+  assert.match(harness.node("#upload-status").textContent, /초대장을 보관함에 담았어요/);
 });
 
 test("active intro survives download import storage and viewer rebuild", async () => {
@@ -1520,7 +1520,7 @@ test("successful generation emits only aggregate analytics and transport failure
   assert.equal(events[0].options.dedupKey, "completed");
   assert.equal(Object.hasOwn(events[0].props, "title"), false);
   assert.equal(Object.hasOwn(events[0].props, "items"), false);
-  assert.match(harness.node("#save-status").textContent, /목록에 등록했습니다/);
+  assert.match(harness.node("#save-status").textContent, /보관함에 저장했어요/);
 });
 
 test("autosave failures keep the localized status and report a draft-save fault", async () => {
@@ -1583,7 +1583,7 @@ test("generated save waits for durability and restores the save button", async (
   assert.equal(saveButton.disabled, false);
   assert.equal(harness.api.state.saved.length, 1);
   assert.equal(harness.api.state.saved[0].source, "generated");
-  assert.match(harness.node("#save-status").textContent, /목록에 등록했습니다/);
+  assert.match(harness.node("#save-status").textContent, /보관함에 저장했어요/);
 });
 
 test("saved deletion waits for durability and restores the clicked button", async () => {
@@ -1613,7 +1613,7 @@ test("saved deletion waits for durability and restores the clicked button", asyn
 
   assert.equal(button.disabled, false);
   assert.equal(harness.api.state.saved.length, 0);
-  assert.match(harness.node("#upload-status").textContent, /삭제했습니다/);
+  assert.match(harness.node("#upload-status").textContent, /보관함에서 초대장을 지웠어요/);
 });
 
 test("repository failures are reported as storage errors, not invalid uploads", async () => {
@@ -1621,8 +1621,8 @@ test("repository failures are reported as storage errors, not invalid uploads", 
 
   await harness.api.registerUploadedHtml({ size: 1024, text: async () => validInvitationHtml("Valid upload") });
 
-  assert.match(harness.node("#upload-status").textContent, /저장 공간에 기록하지 못해 등록에 실패했습니다/);
-  assert.doesNotMatch(harness.node("#upload-status").textContent, /이 제작기에서 다운로드한 HTML만/);
+  assert.match(harness.node("#upload-status").textContent, /저장 공간에 기록하지 못해 저장하지 못했어요/);
+  assert.doesNotMatch(harness.node("#upload-status").textContent, /이 스튜디오에서 다운로드한 HTML만/);
   assert.equal(harness.node("#html-upload").disabled, false);
 });
 
@@ -1636,9 +1636,9 @@ test("durable generated save remains successful when cleanup listing fails", asy
   assert.equal(harness.repositoryRecords.length, 1);
   assert.equal(harness.api.state.saved.length, 1);
   assert.equal(harness.api.state.saved[0].source, "generated");
-  assert.match(harness.node("#save-status").textContent, /등록은 완료/);
-  assert.match(harness.node("#save-status").textContent, /정리|동기화/);
-  assert.doesNotMatch(harness.node("#save-status").textContent, /등록에 실패/);
+  assert.match(harness.node("#save-status").textContent, /저장은 됐지만/);
+  assert.match(harness.node("#save-status").textContent, /보관함 정리를 마치지 못했어요/);
+  assert.doesNotMatch(harness.node("#save-status").textContent, /저장하지 못했어요/);
 });
 
 test("durable uploaded save remains successful when cleanup listing fails", async () => {
@@ -1651,9 +1651,9 @@ test("durable uploaded save remains successful when cleanup listing fails", asyn
   assert.equal(harness.repositoryRecords.length, 1);
   assert.equal(harness.api.state.saved.length, 1);
   assert.equal(harness.api.state.saved[0].source, "upload");
-  assert.match(harness.node("#upload-status").textContent, /등록은 완료/);
-  assert.match(harness.node("#upload-status").textContent, /정리|동기화/);
-  assert.doesNotMatch(harness.node("#upload-status").textContent, /등록에 실패/);
+  assert.match(harness.node("#upload-status").textContent, /불러오기는 됐지만/);
+  assert.match(harness.node("#upload-status").textContent, /보관함 정리를 마치지 못했어요/);
+  assert.doesNotMatch(harness.node("#upload-status").textContent, /저장하지 못했어요/);
 });
 
 test("durable deletion updates local state when repository refresh fails", async () => {
@@ -1679,9 +1679,9 @@ test("durable deletion updates local state when repository refresh fails", async
 
   assert.equal(harness.repositoryRecords.length, 0);
   assert.equal(harness.api.state.saved.length, 0);
-  assert.match(harness.node("#upload-status").textContent, /삭제는 완료/);
-  assert.match(harness.node("#upload-status").textContent, /새로고침|동기화/);
-  assert.doesNotMatch(harness.node("#upload-status").textContent, /변경하지 못/);
+  assert.match(harness.node("#upload-status").textContent, /삭제는 됐지만/);
+  assert.match(harness.node("#upload-status").textContent, /보관함 새로고침을 마치지 못했어요/);
+  assert.doesNotMatch(harness.node("#upload-status").textContent, /바꾸지 못했어요/);
   assert.equal(button.disabled, false);
 });
 
@@ -1768,7 +1768,7 @@ test("app rejects imported HTML containing duplicate invitation payloads", async
 
   assert.equal(harness.repositoryRecords.length, 0);
   assert.equal(harness.api.state.saved.length, 0);
-  assert.match(harness.node("#upload-status").textContent, /이 제작기에서 다운로드한 HTML만/);
+  assert.match(harness.node("#upload-status").textContent, /이 스튜디오에서 다운로드한 HTML만/);
 });
 
 test("viewer rejects stored HTML containing duplicate invitation payloads", async () => {
@@ -1801,7 +1801,7 @@ test("viewer rejects stored HTML containing duplicate invitation payloads", asyn
   // be edited in one place while this still pins the exact rendered sentence.
   assert.ok(main.innerHTML.includes(ko("viewer.errorBody")), main.innerHTML);
   assert.ok(main.innerHTML.includes(ko("viewer.errorTitle")), main.innerHTML);
-  assert.match(ko("viewer.errorBody"), /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+  assert.match(ko("viewer.errorBody"), /보관함에 아직 있는지 확인한 뒤 다시 시도해 주세요/);
 });
 
 test("viewer preserves the missing invitation message for invalid stored HTML", async () => {
@@ -1834,7 +1834,7 @@ test("viewer preserves the missing invitation message for invalid stored HTML", 
   assert.equal(written.length, 0);
   assert.ok(main.innerHTML.includes(ko("viewer.errorBody")), main.innerHTML);
   assert.ok(main.innerHTML.includes(ko("viewer.errorTitle")), main.innerHTML);
-  assert.match(ko("viewer.errorBody"), /등록 목록에서 초대장을 확인한 뒤 다시 시도해 주세요/);
+  assert.match(ko("viewer.errorBody"), /보관함에 아직 있는지 확인한 뒤 다시 시도해 주세요/);
 });
 
 test("gallery has one apply CTA, not a second button in the preview notice", () => {
@@ -2716,7 +2716,7 @@ test("template prepare errors preserve draft state and report failure status", a
   assert.equal(harness.node("#invitation-form").elements.title.value, "보존할 초안");
   assert.equal(harness.contentEditor.innerHTML, previousMarkup);
   assert.equal(JSON.stringify(harness.api.state), previousState);
-  assert.match(harness.node("#save-status").textContent, /템플릿을 적용하지 못했습니다/);
+  assert.match(harness.node("#save-status").textContent, /템플릿을 적용하지 못했어요/);
 });
 
 test("mobile view switching restores the previous scroll position for each workspace", () => {
@@ -2811,7 +2811,7 @@ test("saved invitation cards render friendly dates and source labels", async () 
   await harness.api.refreshSaved();
   const markup = harness.node("#saved-list").innerHTML;
   assert.match(markup, /<time datetime="2026-09-05T03:52:31\.704Z">/);
-  assert.match(markup, /HTML 등록/);
+  assert.match(markup, /가져옴/);
   assert.doesNotMatch(markup, />2026-09-05T03:52:31\.704Z</);
 });
 
@@ -2946,7 +2946,7 @@ test("hero upload failure preserves the previous image and reset and remove are 
   await api.handleHeroImageSelection();
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), previous);
-  assert.match(node("#hero-image-status").textContent, /이미지를 처리할 수 없습니다/);
+  assert.match(node("#hero-image-status").textContent, /이미지를 다듬지 못했어요/);
   api.resetHeroImage();
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), {
     src: previous.src,
@@ -3420,8 +3420,8 @@ test("photo selection uses successful compressions to fill the remaining capacit
   assert.deepEqual(attempts, ["broken.png", "working.png"]);
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.type), ["course", "photo"]);
   assert.equal(api.getItemsData()[1].src, "data:image/webp;base64,U1VDQ0VTUw==");
-  assert.match(node("#save-status").textContent, /broken\.png: 이미지를 처리할 수 없습니다/);
-  assert.match(node("#save-status").textContent, /working\.png: 사진을 추가했습니다/);
+  assert.match(node("#save-status").textContent, /broken\.png: 이미지를 다듬지 못했어요/);
+  assert.match(node("#save-status").textContent, /working\.png: 사진을 넣었어요/);
 });
 
 test("photo processing locks export actions and includes the photo after completion", async () => {
@@ -3540,9 +3540,9 @@ test("photo upload commits against fresh edited and reordered items", async () =
   assert.equal(contentEditor.querySelector(".content-item-card.is-open").dataset.itemId, "course-b");
   assert.equal(document.activeElement.closest("[data-item-card]").dataset.itemId, "course-a");
   assert.equal(document.activeElement.dataset.courseField, "place");
-  assert.match(node("#save-status").textContent, /one\.png: 사진을 추가했습니다/);
-  assert.match(node("#save-status").textContent, /two\.png: 사진 처리를 완료했지만 초대장 항목 제한으로 추가하지 않았습니다/);
-  assert.match(node("#save-status").textContent, /three\.png: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다/);
+  assert.match(node("#save-status").textContent, /one\.png: 사진을 넣었어요/);
+  assert.match(node("#save-status").textContent, /two\.png: 다듬기는 끝났지만 초대장 항목 개수가 꽉 차서 넣지 못했어요/);
+  assert.match(node("#save-status").textContent, /three\.png: 고를 때 남아 있던 자리를 넘어서 건너뛰었어요/);
   assert.equal(node("#photo-input").value, "");
 });
 
@@ -3566,8 +3566,8 @@ test("photo upload skips files beyond initial capacity without compression", asy
   assert.equal(compressions, 0);
   assert.equal(contentEditor.renderCount, renderStart);
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["photo-a", "photo-b"]);
-  assert.match(node("#save-status").textContent, /full\.png: 선택 시점의 추가 가능 수를 초과해 처리하지 않았습니다/);
-  assert.doesNotMatch(node("#save-status").textContent, /사진을 추가했습니다/);
+  assert.match(node("#save-status").textContent, /full\.png: 고를 때 남아 있던 자리를 넘어서 건너뛰었어요/);
+  assert.doesNotMatch(node("#save-status").textContent, /사진을 넣었어요/);
 });
 
 test("all photo compression failures preserve the live editor state", async () => {
@@ -3605,8 +3605,8 @@ test("all photo compression failures preserve the live editor state", async () =
   assert.equal(contentEditor.querySelector(".content-item-card.is-open").dataset.itemId, "course-b");
   assert.equal(document.activeElement, focusedField);
   assert.equal(node("#photo-input").value, "");
-  assert.match(node("#save-status").textContent, /broken-a\.png: 이미지를 처리할 수 없습니다/);
-  assert.match(node("#save-status").textContent, /broken-b\.png: 이미지를 처리할 수 없습니다/);
+  assert.match(node("#save-status").textContent, /broken-a\.png: 이미지를 다듬지 못했어요/);
+  assert.match(node("#save-status").textContent, /broken-b\.png: 이미지를 다듬지 못했어요/);
 });
 
 test("editor renders and re-collects every optional information card", () => {

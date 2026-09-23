@@ -43,16 +43,21 @@
   <meta name="twitter:description" data-i18n-attr="content:site.meta.landingDescription" content="회원가입 없이 디자인을 고르고 내용을 채워, 파일이나 링크로 보내는 무료 모바일 초대장.">
   <meta name="twitter:image" content="https://invitation-maker-one.vercel.app/assets/media/social-preview-v1.png">
   <meta name="twitter:image:alt" data-i18n-attr="content:meta.twitterImageAlt" content="봉투 로고와 Invitation Studio — 작은 초대, 소중한 순간">
-  <!-- Structured data stays in the served default language on purpose: a
-       crawler sees this document before any script runs, so describing it as
-       anything other than what was served would be a lie to the indexer. -->
-  <script type="application/ld+json">
+  <!-- Served in the default language, then corrected. A crawler that runs no
+       script reads exactly what was served, so the baked Korean is never a
+       lie. One that does run scripts gets <html lang> rewritten by the engine
+       to the language it actually asked for, and the block below would then
+       be the one thing on the page still claiming Korean — so the same
+       resolution that moves <html lang> moves description and inLanguage with
+       it, from meta.schemaDescription. Structured data and the document it
+       describes never disagree. -->
+  <script type="application/ld+json" id="page-schema">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "Invitation Studio",
     "url": "https://invitation-maker-one.vercel.app/",
-    "description": "생일, 결혼, 모임 등 소중한 날을 위한 모바일 초대장을 무료로 만드는 웹 앱입니다. 회원가입 없이 디자인을 고르고 내용을 채워 사진이 담긴 HTML 파일로 내려받거나, 원하면 링크로도 공유할 수 있습니다.",
+    "description": "생일, 결혼, 모임처럼 소중한 날의 모바일 초대장을 무료로 만드는 웹 앱이에요. 회원가입 없이 디자인을 고르고 내용을 채워, 사진이 담긴 HTML 파일로 내려받거나 링크로 공유할 수 있어요.",
     "inLanguage": "ko",
     "applicationCategory": "DesignApplication",
     "operatingSystem": "Any (web browser)",
@@ -77,6 +82,26 @@
   <script src="/assets/i18n/dictionary-site-ko.js"></script>
   <script src="/assets/i18n/dictionary-site-en.js"></script>
   <script>InvitationI18n.init();</script>
+  <script>
+    /* Keep the JSON-LD block in step with the language the engine settled on.
+       It is a whole-document rewrite rather than a patch because JSON-LD has
+       no per-field binding, and it runs as text through JSON.parse/stringify,
+       so nothing here can inject markup. init() does not notify subscribers,
+       hence the explicit first call. */
+    (() => {
+      const node = document.getElementById("page-schema");
+      if (!node) return;
+      let schema;
+      try { schema = JSON.parse(node.textContent); } catch { return; }
+      const sync = (language) => {
+        schema.inLanguage = language;
+        schema.description = InvitationI18n.t("meta.schemaDescription", undefined, language);
+        node.textContent = JSON.stringify(schema, null, 2);
+      };
+      sync(InvitationI18n.getLanguage());
+      InvitationI18n.subscribe(sync);
+    })();
+  </script>
 </head>
 <body data-site-page="landing">
   <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
@@ -109,17 +134,17 @@
     </section>
     <section aria-labelledby="steps-title">
       <p class="eyebrow" data-i18n="site.landing.steps.eyebrow">HOW IT WORKS</p>
-      <h2 id="steps-title" data-i18n="site.landing.steps.title">세 단계면 됩니다</h2>
+      <h2 id="steps-title" data-i18n="site.landing.steps.title">세 단계면 돼요</h2>
       <div class="steps">
-        <article class="step"><span class="step-number" aria-hidden="true">01</span><h3 data-i18n="site.landing.steps.one.title">디자인 고르기</h3><p data-i18n="site.landing.steps.one.text">생일, 결혼, 돌잔치, 모임. 행사에 맞는 디자인을 고르면 샘플이 바로 보입니다.</p></article>
-        <article class="step"><span class="step-number" aria-hidden="true">02</span><h3 data-i18n="site.landing.steps.two.title">내용 채우기</h3><p data-i18n="site.landing.steps.two.text">제목, 일정, 장소, 메시지를 적고 사진을 더하세요. 미리보기는 하객이 받는 화면 그대로입니다.</p></article>
+        <article class="step"><span class="step-number" aria-hidden="true">01</span><h3 data-i18n="site.landing.steps.one.title">디자인 고르기</h3><p data-i18n="site.landing.steps.one.text">생일, 결혼, 돌잔치, 모임. 어떤 날인지 고르면 그에 맞는 디자인 샘플이 바로 보여요.</p></article>
+        <article class="step"><span class="step-number" aria-hidden="true">02</span><h3 data-i18n="site.landing.steps.two.title">내용 채우기</h3><p data-i18n="site.landing.steps.two.text">제목, 일정, 장소, 메시지를 적고 사진을 더하세요. 미리보기는 손님이 받는 화면 그대로예요.</p></article>
         <article class="step"><span class="step-number" aria-hidden="true">03</span><h3 data-i18n="site.landing.steps.three.title">보관 · 파일 · 링크</h3><p data-i18n="site.landing.steps.three.text">이 브라우저에 보관하거나, 파일 하나로 내려받거나, 공개 링크로 보내세요.</p></article>
       </div>
     </section>
     <section aria-labelledby="designs-title">
       <p class="eyebrow" data-i18n="site.landing.gallery.eyebrow">DESIGNS</p>
       <h2 id="designs-title" data-i18n="site.landing.gallery.title">디자인</h2>
-      <p class="lead" data-i18n="site.landing.gallery.lead">취향으로 고르세요. 행사 유형마다 여러 디자인이 있습니다.</p>
+      <p class="lead" data-i18n="site.landing.gallery.lead">취향대로 고르세요. 어떤 날이든 어울리는 디자인이 여럿 있어요.</p>
       <div class="designs-wrap">
         <div class="designs" tabindex="0" role="region" aria-label="디자인 목록" data-i18n-attr="aria-label:site.landing.gallery.stripLabel">
           <figure class="design"><img loading="lazy" src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 생일" data-i18n-attr="alt:site.landing.designs.alt.bloomPortrait"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
@@ -136,9 +161,9 @@
       <p class="eyebrow" data-i18n="site.landing.trust.eyebrow">PEACE OF MIND</p>
       <h2 id="trust-title" data-i18n="site.landing.trust.title">안심하고 쓰세요</h2>
       <div class="trust">
-        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg></span><h3 data-i18n="site.landing.trust.one.title">회원가입도 앱 설치도 없습니다</h3><p data-i18n="site.landing.trust.one.text">브라우저에서 열어 바로 만듭니다. 이메일도 전화번호도 묻지 않습니다.</p></article>
-        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></span><h3 data-i18n="site.landing.trust.two.title">초안은 내 브라우저에만 남습니다</h3><p data-i18n="site.landing.trust.two.text">쓰는 동안 자동으로 저장되지만, 서버로 보내지 않습니다.</p></article>
-        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12l2 2 4-5"/></svg></span><h3 data-i18n="site.landing.trust.three.title">파일은 영원히, 링크는 내가 정합니다</h3><p data-i18n="site.landing.trust.three.text">파일로 받으면 계속 내 것입니다. 공개 링크는 시간이 지나면 만료되고, 원할 때 취소할 수 있습니다.</p></article>
+        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg></span><h3 data-i18n="site.landing.trust.one.title">회원가입도 앱 설치도 없어요</h3><p data-i18n="site.landing.trust.one.text">브라우저에서 열어 바로 만들어요. 이메일도 전화번호도 묻지 않아요.</p></article>
+        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></span><h3 data-i18n="site.landing.trust.two.title">초안은 내 브라우저에만 남아요</h3><p data-i18n="site.landing.trust.two.text">쓰는 동안 자동으로 저장되지만, 서버로 보내지 않아요.</p></article>
+        <article><span class="trust-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12l2 2 4-5"/></svg></span><h3 data-i18n="site.landing.trust.three.title">파일은 영원히, 링크는 내가 정해요</h3><p data-i18n="site.landing.trust.three.text">파일로 받으면 계속 내 것이에요. 공개 링크는 시간이 지나면 만료되고, 원할 때 내릴 수 있어요.</p></article>
       </div>
       <a class="text-link" href="/guide#data" data-i18n="site.landing.trust.link">내 데이터는 어디에 저장되나요</a>
     </section>

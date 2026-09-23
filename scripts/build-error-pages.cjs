@@ -39,7 +39,11 @@ const documentTitle = (code, title) => `${code} · ${title} | Invitation Studio`
 /* One record per language: everything on the page that is a sentence rather
    than a brand mark or a number. The <noscript> reload hint is deliberately
    absent — a visitor without JavaScript necessarily stays on the served Korean
-   page, so that line can only ever be read in one language. */
+   page, so that line can only ever be read in one language.
+
+   `offline` is the one entry with no counterpart in the markup: the notice is
+   served as an empty live region and this record is where the boot script
+   reads the sentence from when the connection actually drops. */
 const copyFor = ({ code, retry }) => Object.fromEntries(Object.entries(dictionaries).map(([language, dictionary]) => {
   const { common } = dictionary.errorPages;
   const page = dictionary.errorPages[code];
@@ -134,9 +138,22 @@ const boot = `
     const value = copy[node.dataset.errorLabel];
     if (value) node.setAttribute('aria-label', value);
   }
+  // The notice is rendered empty and stays in the tree: a role="status" region
+  // only announces what appears INSIDE it after it is being observed, so a
+  // pre-filled node revealed by flipping the hidden attribute changes nothing a
+  // screen reader is listening for, and is silent exactly when it matters.
+  // Writing the sentence in — and clearing it again — is the change that gets
+  // announced. .offline:empty keeps the empty region out of the visual layout.
+  //
+  // The first pass waits a frame. A write that happens while the document is
+  // still parsing is indistinguishable from markup to a screen reader, which
+  // would leave the one case that matters most — arriving here already offline
+  // — as silent as the pre-filled version was. Every later pass is synchronous:
+  // by then the region is established and an event is what triggered it.
   const offline = document.querySelector('[data-offline]');
-  const update = () => { offline.hidden = navigator.onLine !== false; };
-  addEventListener('online', update); addEventListener('offline', update); update();
+  const update = () => { offline.textContent = navigator.onLine === false ? copy.offline : ''; };
+  addEventListener('online', update); addEventListener('offline', update);
+  requestAnimationFrame(update);
   const retry = document.querySelector('[data-retry]');
   if (retry) {
     retry.hidden = false;
@@ -171,7 +188,7 @@ function renderPage(page) {
 <header><a class="brand" href="/" data-error-label="brandHome" aria-label="${text('brandHome')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg>Invitation Studio</a><span class="header-note" data-error-text="headerNote">${text('headerNote')}</span></header>
 <main id="main" tabindex="-1"><div class="art" aria-hidden="true"><div class="halo"></div><div class="envelope">${envelope}</div><span class="seal">✳</span></div>
 <section class="content" aria-labelledby="error-title"><p class="eyebrow" data-error-text="eyebrow">${text('eyebrow')}</p><p class="code" data-error-code>${code}</p><h1 id="error-title" data-error-text="title">${text('title')}</h1><p class="description" data-error-text="description">${text('description')}</p>
-<p class="offline" data-offline data-error-text="offline" role="status" hidden>${text('offline')}</p>
+<p class="offline" data-offline role="status"></p>
 <div class="actions"><a class="primary" href="/"><span data-error-text="action">${text('action')}</span><span aria-hidden="true">&nbsp;↗</span></a>${retry ? `<button type="button" data-retry data-error-text="reload" hidden>${text('reload')}</button>` : ''}</div>
 <p class="hint" data-error-text="hint">${text('hint')}</p>${retry ? `<noscript><p class="hint">${escapeHtml(dictionaries.ko.errorPages.common.reloadHint)}</p></noscript>` : ''}</section></main>
 <footer><span>INVITATION STUDIO</span><span class="footer-note" data-error-text="footerNote">${text('footerNote')}</span></footer>

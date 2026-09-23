@@ -449,7 +449,6 @@
     library: {
       eyebrow: "Saved",
       heading: "My invitations",
-      uploadLabel: "Add a downloaded HTML file",
       emptyTitle: "No invitations yet",
       emptyBody: "Finish a design here, or drop in an HTML file you downloaded, and it will show up in this list.",
       startNew: "Start a new invitation",

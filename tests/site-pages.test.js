@@ -77,16 +77,29 @@ test("site dictionaries merge onto the main dictionary instead of replacing it",
   assert.match(source, /register\("ko"/);
 });
 
+/* The legal and guide pages quote the retention policy in words. The numbers
+   they quote are the shipped defaults, so they are read out of the config
+   rather than written here: changing eventGraceDays, maxLifetimeDays or
+   maxEventLeadDays must fail this suite until the prose is updated too, which
+   a literal 7 or 30 could never do. */
+const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
+const days = (value) => new RegExp(`\\b${value}\\b`);
+/* eventGraceDays and idleWindowDays both ship as 7, so a bare number proves
+   nothing about the grace rule: the idle window's own 7 already satisfies it,
+   and changing only eventGraceDays would leave the prose stale and the suite
+   green. Match the number inside the phrase that can only be the event rule. */
+const graceAfterEvent = {
+  ko: (value) => new RegExp(`그날로부터 ${value}일`),
+  en: (value) => new RegExp(`\\b${value} days after that date\\b`)
+};
+
 test("guide policy numbers match the shipped defaults", () => {
-  const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
   const publishing = read("assets/publishing/publishing.js");
   const maxBytes = Number(publishing.match(/MAX_PUBLISH_BYTES = (\d+)/)[1]);
   const ko = require("../assets/i18n/dictionary-site-ko.js");
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.idleWindowDays, 7);
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays, 30);
   assert.equal(maxBytes, 2_000_000);
-  assert.match(ko.site.guide.data.two, /7일/);
-  assert.match(ko.site.guide.data.two, /30일/);
+  assert.match(ko.site.guide.data.two, days(DEFAULT_PUBLISHING_CONFIG.idleWindowDays));
+  assert.match(ko.site.guide.data.two, days(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays));
   assert.match(ko.site.guide.faq.a1, /2MB/);
 });
 
@@ -129,6 +142,36 @@ test("the landing page owns the root's search metadata", () => {
   assert.match(landing, /<link rel="canonical" href="https:\/\/invitation-maker-one\.vercel\.app\/">/);
   assert.match(landing, /"@type": "WebApplication"/);
   assert.match(landing, /og:image" content="https:\/\/invitation-maker-one\.vercel\.app\/assets\/media\/social-preview-v1\.png"/);
+});
+
+test("the structured data is served in Korean and follows the language the engine picks", () => {
+  const I18n = loadI18n();
+  for (const page of ["index.html", "studio.html"]) {
+    const html = read(page);
+    const block = html.match(/<script type="application\/ld\+json" id="page-schema">([\s\S]*?)<\/script>/);
+    assert.ok(block, `${page}: the JSON-LD block is missing or unnamed`);
+
+    // Served Korean, matching what <html lang="ko"> promises a crawler that
+    // runs no script — and matching the dictionary, so there is one home for
+    // the sentence rather than a copy baked into two documents.
+    const schema = JSON.parse(block[1]);
+    assert.equal(schema.inLanguage, "ko", `${page}: the served structured data must be Korean`);
+    assert.equal(schema.description, I18n.t("meta.schemaDescription", undefined, "ko"),
+      `${page}: the baked description has drifted from meta.schemaDescription`);
+
+    // And rewritten for a reader whose language the engine resolved to
+    // something else, because <html lang> is rewritten for them too and the
+    // two must never disagree.
+    assert.match(html, /getElementById\("page-schema"\)/, `${page}: nothing reads the JSON-LD block`);
+    assert.match(html, /schema\.inLanguage = language/, `${page}: inLanguage never follows the switch`);
+    assert.match(html, /InvitationI18n\.t\("meta\.schemaDescription", undefined, language\)/,
+      `${page}: the description never follows the switch`);
+    assert.match(html, /InvitationI18n\.subscribe\(sync\)/, `${page}: a later language change is ignored`);
+    // init() resolves without notifying subscribers, so the first pass is explicit.
+    assert.match(html, /sync\(InvitationI18n\.getLanguage\(\)\)/, `${page}: the first pass never runs`);
+    assert.ok(html.indexOf("InvitationI18n.init()") < html.indexOf("getElementById(\"page-schema\")"),
+      `${page}: the schema sync must run after the language is resolved`);
+  }
 });
 
 test("the landing page sends returning studio users straight to /studio, but never from /welcome", () => {
@@ -360,22 +403,33 @@ test("the legal pages carry the same head discipline as the guide", () => {
   }
 });
 
-test("the privacy page states the shipped retention defaults and calls them defaults", () => {
-  const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
+test("the privacy page and the terms state every shipped retention default", () => {
   const ko = require("../assets/i18n/dictionary-site-ko.js");
   const en = require("../assets/i18n/dictionary-site-en.js");
+  const { eventGraceDays, idleWindowDays, maxEventLeadDays, maxLifetimeDays } = DEFAULT_PUBLISHING_CONFIG;
 
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.idleWindowDays, 7);
-  assert.equal(DEFAULT_PUBLISHING_CONFIG.maxLifetimeDays, 30);
   for (const [name, dictionary] of [["ko", ko], ["en", en]]) {
     const retention = dictionary.site.privacy.retention;
-    assert.match(retention.one, /\b7\b/, `${name}: the idle window is missing`);
-    assert.match(retention.two, /\b7\b/, `${name}: the sliding rule is missing`);
-    assert.match(retention.three, /\b30\b/, `${name}: the max lifetime is missing`);
-    assert.match(retention.note, /\b7\b[\s\S]*\b30\b/, `${name}: the note should name both numbers`);
+    assert.match(retention.one, days(idleWindowDays), `${name}: the idle window is missing`);
+    assert.match(retention.two, days(idleWindowDays), `${name}: the sliding rule is missing`);
+    assert.match(retention.three, days(maxLifetimeDays), `${name}: the max lifetime is missing`);
+    assert.match(retention.three, graceAfterEvent[name](eventGraceDays), `${name}: the event grace is missing`);
+    // The lead bound is the half of the event rule a reader can actually be
+    // caught out by: a date far enough ahead extends nothing at all.
+    assert.match(retention.three, days(maxEventLeadDays), `${name}: the event lead bound is missing`);
+    assert.match(
+      retention.note,
+      new RegExp(`\\b${idleWindowDays}\\b[\\s\\S]*\\b${maxLifetimeDays}\\b`),
+      `${name}: the note should name both numbers`
+    );
+
+    // The terms make the same promises and so must carry the same bounds —
+    // including the lead bound, which they used to omit while privacy stated it.
     const expiry = dictionary.site.terms.expiry;
-    assert.match(expiry.one, /\b7\b/);
-    assert.match(expiry.two, /\b30\b/);
+    assert.match(expiry.one, days(idleWindowDays), `${name}: terms omit the idle window`);
+    assert.match(expiry.two, days(maxLifetimeDays), `${name}: terms omit the max lifetime`);
+    assert.match(expiry.two, graceAfterEvent[name](eventGraceDays), `${name}: terms omit the event grace`);
+    assert.match(expiry.two, days(maxEventLeadDays), `${name}: terms omit the event lead bound`);
   }
   assert.match(ko.site.privacy.retention.note, /기본값/, "ko must say these are defaults");
   assert.match(en.site.privacy.retention.note, /defaults/, "en must say these are defaults");

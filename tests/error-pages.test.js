@@ -159,6 +159,38 @@ test("only the temporary failures offer a reload, in whichever language won", ()
   }
 });
 
+test("the offline notice is an empty live region the boot script writes into", () => {
+  for (const code of STATUSES) {
+    const html = documents.get(code);
+    const notice = html.match(/<p class="offline"[^>]*>([\s\S]*?)<\/p>/);
+    assert.ok(notice, `${code}: the offline notice is missing`);
+
+    // A role="status" region only announces content that appears in it while
+    // it is being observed. Shipping the sentence in the markup and revealing
+    // it by clearing `hidden` changes nothing the screen reader is watching,
+    // so the notice must arrive empty and be written to.
+    assert.equal(notice[1], "", `${code}: the offline notice ships pre-filled`);
+    assert.match(notice[0], /role="status"/, `${code}: the offline notice is not a live region`);
+    assert.doesNotMatch(notice[0], /\bhidden\b/, `${code}: the offline notice is hidden rather than empty`);
+    assert.doesNotMatch(notice[0], /data-error-text/, `${code}: the boot copy pass would pre-fill the notice`);
+
+    // Empty is invisible without `hidden`, and both languages' sentences still
+    // travel in the copy block for the boot script to choose from.
+    assert.match(html, /\.offline:empty\{display:none\}/, `${code}: an empty notice would leave a gap`);
+    assert.match(html, /offline\.textContent = navigator\.onLine === false \? copy\.offline : ''/,
+      `${code}: going offline must write the sentence in`);
+
+    // Arriving here already offline is the case that matters most, and a write
+    // that lands while the document is still parsing is indistinguishable from
+    // markup — so the first pass waits a frame rather than running inline.
+    assert.match(html, /requestAnimationFrame\(update\)/, `${code}: an offline load never announces`);
+    assert.doesNotMatch(html, /addEventListener\('offline', update\); update\(\)/,
+      `${code}: the first pass still runs during parse`);
+    assert.ok(html.includes(dictionaryKo.errorPages.common.offline), `${code}: Korean offline sentence`);
+    assert.ok(html.includes(dictionaryEn.errorPages.common.offline), `${code}: English offline sentence`);
+  }
+});
+
 test("the pages keep their illustration, palette, 48px actions and safe-area footer", () => {
   for (const code of STATUSES) {
     const html = documents.get(code);
