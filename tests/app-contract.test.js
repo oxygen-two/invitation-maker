@@ -109,6 +109,31 @@ const photo = (id, caption = id) => ({
   caption
 });
 
+/* The real FileReader is an event-driven object with a `result` that only
+   exists once it has fired. Driving both of its outcomes is the whole point:
+   the failure path is a silent one — the document simply keeps the URL — so
+   nothing about it is visible unless the reader is made to fail on purpose. */
+const makeFileReaderStub = ({ result = "data:image/webp;base64,UklGRg==", fails = false } = {}, reads = []) =>
+  class FileReaderStub {
+    constructor() {
+      this.result = undefined;
+      this.onload = null;
+      this.onerror = null;
+    }
+
+    readAsDataURL(blob) {
+      reads.push(blob);
+      queueMicrotask(() => {
+        if (fails) {
+          this.onerror?.(new Error("unreadable"));
+          return;
+        }
+        this.result = result;
+        this.onload?.();
+      });
+    }
+  };
+
 const loadEditorHarness = ({
   maxItems = 4,
   maxPhotos = 8,
@@ -121,11 +146,21 @@ const loadEditorHarness = ({
   putDraft,
   previewFrame = false,
   reducedMotion = false,
-  mobile = false
+  mobile = false,
+  /* A downloaded invitation has to open with no network, so the one picture
+     its design uses is fetched and inlined the moment before the file is
+     written. The studio itself only carries the art index (file names), which
+     is what makes this a network round trip at all. These three stand in for
+     the three steps of it: the index, the fetch, and the reader. */
+  templateArtUrls = null,
+  artFetch = null,
+  fileReader = null
 } = {}) => {
   const documentEvents = makeEventTarget();
   const windowEvents = makeEventTarget();
   const matchMediaCalls = [];
+  const artFetchCalls = [];
+  const fileReaderReads = [];
   const scrollCalls = [];
   const scrollIntoViewCalls = [];
   const animationFrames = [];
@@ -143,8 +178,17 @@ const loadEditorHarness = ({
     elementFromPoint: () => document.hitTarget,
     querySelectorAll: () => []
   };
+  const artUrlCalls = [];
   const window = {
     ...windowEvents,
+    ...(templateArtUrls ? {
+      TemplateArtIndex: {
+        getUrl(templateId) {
+          artUrlCalls.push(templateId);
+          return templateArtUrls[templateId] || "";
+        }
+      }
+    } : {}),
     confirm,
     matchMedia(query) {
       matchMediaCalls.push(query);
@@ -597,6 +641,8 @@ const loadEditorHarness = ({
     mountPreviewFrame,
     openSampleSheet,
     closeSampleSheet,
+    portableArtFor,
+    portableOptions,
     setStudioStage,
     renderContentEditor,
     renderTemplates,
@@ -653,10 +699,16 @@ const loadEditorHarness = ({
       async remove() {}
     },
     URL,
+    ...(fileReader ? { FileReader: makeFileReaderStub(fileReader, fileReaderReads) } : {}),
     /* Served off disk by path, so a language switch reads the real content
        overlay instead of the Korean base data a second time. */
-    fetch: async (resource) => {
+    fetch: async (resource, init) => {
       const file = String(resource).split("?")[0];
+      if (artFetch) {
+        artFetchCalls.push(file);
+        const response = await artFetch(file, init);
+        if (response !== undefined) return response;
+      }
       const served = file === "invitation-data.json" || /^assets\/i18n\/content-[a-z-]+\.json$/.test(file);
       return { ok: served && fs.existsSync(path.join(root, file)), json: async () => JSON.parse(read(file)) };
     },
@@ -678,8 +730,11 @@ const loadEditorHarness = ({
 
   return {
     api: context.__editorTest,
+    artFetchCalls,
+    artUrlCalls,
     contentEditor,
     document,
+    fileReaderReads,
     matchMediaCalls,
     node,
     runAnimationFrames() {
@@ -902,7 +957,19 @@ const invitationParser = class DOMParser {
   }
 };
 
-const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setItem } = {}) => {
+const loadLibraryHarness = ({
+  records = [],
+  list,
+  put,
+  randomUUID,
+  remove,
+  setItem,
+  // The numbers the scale formula divides by; named so a test can say what
+  // shape of card it is measuring rather than hiding them in the stub.
+  heroHeight = 860,
+  viewportHeight = 215,
+  viewportWidth = 172
+} = {}) => {
   const values = new Map();
   const writes = [];
   const storage = {
@@ -955,11 +1022,61 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
     textContent: "",
     value: ""
   });
+  /* The library's thumbnail pass reads real nodes back out of #saved-list:
+     it asks the list for every [data-saved-thumbnail], writes markup into each
+     one, then measures the hero it just received to pick a scale. A stub that
+     answers querySelectorAll with [] makes every one of those steps a no-op,
+     which is why the whole pipeline had only ever been string-matched. These
+     stand-ins carry the four things it actually touches — dataset, innerHTML,
+     a box to measure against, and a style property bag. */
+  const makeThumbnailViewport = (id) => {
+    const styles = new Map();
+    const hero = { scrollHeight: heroHeight, offsetHeight: 0 };
+    const thumbnail = {
+      styles,
+      style: { setProperty: (name, value) => styles.set(name, value) },
+      querySelector: (selector) => (selector === ".invite-hero" ? hero : null)
+    };
+    return {
+      clientHeight: viewportHeight,
+      dataset: { id, savedThumbnail: "" },
+      hero,
+      scaleCalls: 0,
+      thumbnail: null,
+      getBoundingClientRect: () => ({ width: viewportWidth }),
+      querySelector(selector) {
+        return selector === "[data-template-thumbnail]" ? this.thumbnail : null;
+      },
+      get innerHTML() { return this.html || ""; },
+      set innerHTML(markup) {
+        this.html = markup;
+        this.thumbnail = markup.includes("data-template-thumbnail") ? thumbnail : null;
+      },
+      get styles() { return styles; }
+    };
+  };
+  const savedList = {
+    ...genericNode(),
+    viewports: [],
+    renders: 0,
+    querySelectorAll(selector) {
+      return selector === "[data-saved-thumbnail]" ? this.viewports : [];
+    },
+    get innerHTML() { return this.html || ""; },
+    set innerHTML(markup) {
+      this.html = markup;
+      this.renders += 1;
+      this.viewports = [...String(markup).matchAll(/data-saved-thumbnail data-id="([^"]*)"/g)]
+        .map(([, id]) => makeThumbnailViewport(id));
+    }
+  };
+
   const nodes = new Map();
   const node = (selector) => {
     if (!nodes.has(selector)) nodes.set(selector, genericNode());
     return nodes.get(selector);
   };
+  nodes.set("#saved-list", savedList);
   const formElements = {
     mapEnabled: { checked: false },
     mapLatitude: { validity: { valid: true }, value: "" },
@@ -998,13 +1115,20 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
   let source = read("assets/studio/app.js").replace(/\ninit\(\);\s*$/, "");
   source += `\n;globalThis.__libraryTest = {
     enforceSavedLimit,
+    fillSavedThumbnail,
+    fillSavedThumbnails,
     handleSavedAction,
+    heroThumbnailMarkup,
     makeSavedItem,
     migrateLegacySaved,
     refreshSaved,
     registerUploadedHtml,
+    renderSaved,
+    savedThumbnailFor,
+    savedThumbnailMarkup,
     saveCurrent,
     saveRecord,
+    scaleThumbnail,
     state
   };`;
   let uuid = 0;
@@ -1050,6 +1174,7 @@ const loadLibraryHarness = ({ records = [], list, put, randomUUID, remove, setIt
     api: context.__libraryTest,
     node,
     repositoryRecords,
+    savedList,
     storage,
     values,
     writes
@@ -2664,6 +2789,97 @@ test("maker and viewer load TemplateCatalog and TemplateRenderers before Invitat
   assert.match(browser.InvitationCore.renderInvitationBody({ layoutFamily: "wedding-editorial" }), /data-layout-family="wedding-editorial"/);
 });
 
+/* The inlining pipeline — fetch, blob, FileReader — had only ever been
+   string-matched, including its "fail silently and keep the URL" fallback,
+   which is exactly the branch a regex cannot tell apart from a missing one.
+   loadEditorHarness now carries an art index, an art fetch, and a FileReader,
+   so both outcomes can be driven. */
+const ART_URL = "/assets/invitation/template-art/romantic-story-cover.webp";
+const ART_DATA_URL = "data:image/webp;base64,UklGRhYAAABXRUJQ";
+const artHarness = (overrides = {}) => loadEditorHarness({
+  templateArtUrls: { botanical: ART_URL },
+  artFetch: async () => ({ ok: true, blob: async () => ({ type: "image/webp", size: 74_100 }) }),
+  fileReader: { result: ART_DATA_URL },
+  ...overrides
+});
+
+test("a portable file inlines the one picture its design uses", async () => {
+  const harness = artHarness();
+
+  const artSrc = await harness.api.portableArtFor({ templateId: "botanical" });
+
+  assert.equal(artSrc, ART_DATA_URL);
+  assert.deepEqual(harness.artUrlCalls, ["botanical"], "the file name comes from the index, never from the inlined module");
+  assert.deepEqual(harness.artFetchCalls, [ART_URL]);
+  assert.equal(harness.fileReaderReads.length, 1);
+  assert.equal(harness.fileReaderReads[0].type, "image/webp", "the blob goes to the reader, not the response");
+});
+
+test("the inlined picture is folded into the options the exporter is handed", async () => {
+  const harness = artHarness();
+
+  const options = await harness.api.portableOptions({ templateId: "botanical" }, { language: "ko" });
+
+  // Built inside the studio's realm, so compare fields rather than shapes.
+  assert.deepEqual(Object.keys(options).sort(), ["artSrc", "language"]);
+  assert.equal(options.artSrc, ART_DATA_URL);
+  assert.equal(options.language, "ko", "the caller's own options survive the merge");
+});
+
+test("a design with no artwork of its own is exported without a fetch", async () => {
+  const harness = artHarness();
+  const options = { language: "ko" };
+
+  assert.equal(await harness.api.portableArtFor({ templateId: "midnight-cinema" }), null);
+  // Unchanged object, not a copy carrying an empty artSrc.
+  assert.equal(await harness.api.portableOptions({ templateId: "midnight-cinema" }, options), options);
+  assert.deepEqual(harness.artFetchCalls, [], "an absent file name must not become a request");
+  assert.equal(harness.fileReaderReads.length, 0);
+});
+
+test("an author's own photo wins over the design's artwork and skips the round trip", async () => {
+  const harness = artHarness();
+
+  const artSrc = await harness.api.portableArtFor({
+    templateId: "botanical",
+    heroImage: { src: "data:image/png;base64,QQ==" }
+  });
+
+  assert.equal(artSrc, null);
+  assert.deepEqual(harness.artFetchCalls, []);
+});
+
+test("a picture that cannot be fetched leaves the document naming it by URL", async () => {
+  for (const [label, artFetch] of [
+    ["a 404", async () => ({ ok: false, blob: async () => ({}) })],
+    ["a dropped connection", async () => { throw new TypeError("Failed to fetch"); }]
+  ]) {
+    const harness = artHarness({ artFetch });
+    const options = { language: "ko" };
+
+    assert.equal(await harness.api.portableArtFor({ templateId: "botanical" }), null, label);
+    // The failure is not fatal: the file still renders anywhere with a network,
+    // which is where it was about to be read anyway.
+    assert.equal(await harness.api.portableOptions({ templateId: "botanical" }, options), options, label);
+    assert.equal(harness.fileReaderReads.length, 0, `${label} must not reach the reader`);
+  }
+});
+
+test("a reader that fails resolves rather than hanging the download", async () => {
+  const harness = artHarness({ fileReader: { fails: true } });
+
+  const artSrc = await harness.api.portableArtFor({ templateId: "botanical" });
+
+  assert.equal(artSrc, null);
+  assert.equal(harness.fileReaderReads.length, 1, "the failure has to come from the reader, not from an earlier step");
+});
+
+test("a reader that hands back something other than a string is refused", async () => {
+  const harness = artHarness({ fileReader: { result: new ArrayBuffer(8) } });
+
+  assert.equal(await harness.api.portableArtFor({ templateId: "botanical" }), null);
+});
+
 test("mixed editor cards preserve identity and expose type-specific fields", () => {
   const app = read("assets/studio/app.js");
 
@@ -3732,6 +3948,134 @@ test("the phone preview frame is as wide as the phone", () => {
   // .app-shell keeps a 16px gutter on phones; the preview steps back out of it
   // so a 390px phone previews at 390px rather than 358px.
   assert.match(mobile, /margin-inline:\s*-16px/s);
+});
+
+/* The assertions above are source text, which is the right shape for the
+   "no IntersectionObserver" rule but proves nothing about what the pipeline
+   does. These run it. The harness's #saved-list hands back real viewport
+   nodes, so a fill can be measured instead of grepped. */
+const savedRecord = (id, title = `Saved ${id}`) => ({
+  id,
+  title,
+  createdAt: `2026-09-${String(10 + Number(id.slice(-1))).padStart(2, "0")}T10:00:00.000Z`,
+  source: "generated",
+  html: validInvitationHtml(title)
+});
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test("a library card is filled with the scaled hero of the invitation it holds", async () => {
+  const harness = loadLibraryHarness({ records: [savedRecord("card-1"), savedRecord("card-2")] });
+
+  await harness.api.refreshSaved();
+  await tick();
+
+  const [first, second] = harness.savedList.viewports;
+  assert.equal(harness.savedList.viewports.length, 2);
+  for (const viewport of [first, second]) {
+    assert.equal(viewport.dataset.filled, "true");
+    assert.match(viewport.innerHTML, /data-template-thumbnail/);
+    assert.match(viewport.innerHTML, /aria-hidden="true"/);
+    assert.match(viewport.innerHTML, /\binert\b/, "a card's hero must not be reachable by keyboard");
+    assert.match(viewport.innerHTML, /class="[^"]*invite-hero/);
+  }
+  assert.notEqual(first.innerHTML, second.innerHTML, "each card renders its own invitation");
+
+  // scale = min(width / 430, clientHeight / heroHeight) = min(0.4, 0.25),
+  // and the thumbnail is centred on what is left of the 430px design width.
+  assert.equal(first.thumbnail.styles.get("--template-thumbnail-scale"), "0.25");
+  assert.equal(first.thumbnail.styles.get("--template-thumbnail-left"), "32.25px");
+});
+
+test("a wide short card is bounded by its width rather than its height", async () => {
+  const harness = loadLibraryHarness({
+    records: [savedRecord("card-1")],
+    heroHeight: 400,
+    viewportHeight: 300,
+    viewportWidth: 86
+  });
+
+  await harness.api.refreshSaved();
+  await tick();
+
+  // min(86 / 430, 300 / 400) = min(0.2, 0.75).
+  assert.equal(harness.savedList.viewports[0].thumbnail.styles.get("--template-thumbnail-scale"), "0.2");
+});
+
+test("library thumbnails are filled three at a time rather than all in one frame", async () => {
+  const records = Array.from({ length: 7 }, (_, index) => savedRecord(`card-${index}`));
+  const harness = loadLibraryHarness({ records });
+  const filled = () => harness.savedList.viewports.filter((viewport) => viewport.dataset.filled === "true").length;
+
+  await harness.api.refreshSaved();
+
+  assert.equal(harness.savedList.viewports.length, 7);
+  assert.equal(filled(), 3, "the first slice is synchronous with the render");
+
+  await tick();
+  assert.equal(filled(), 6);
+
+  await tick();
+  assert.equal(filled(), 7);
+
+  // And the chain stops rather than rescheduling forever on an empty slice.
+  const renders = harness.savedList.renders;
+  await tick();
+  await tick();
+  assert.equal(filled(), 7);
+  assert.equal(harness.savedList.renders, renders);
+});
+
+test("a stored file is parsed once per id however often its card is filled", async () => {
+  const harness = loadLibraryHarness({ records: [savedRecord("card-1")] });
+
+  await harness.api.refreshSaved();
+  await tick();
+
+  assert.equal(harness.api.savedThumbnailMarkup.size, 1);
+  const cached = harness.api.savedThumbnailMarkup.get("card-1");
+  assert.ok(cached);
+  // Same string back, not a re-parse of the stored document.
+  assert.equal(harness.api.savedThumbnailFor(harness.api.state.saved[0]), cached);
+
+  // A second pass over a card already filled writes nothing: dataset.filled is
+  // what stops a re-render from re-parsing everything the library holds.
+  const viewport = harness.savedList.viewports[0];
+  const before = viewport.innerHTML;
+  viewport.innerHTML = "SENTINEL";
+  harness.api.fillSavedThumbnail(viewport);
+  assert.equal(viewport.innerHTML, "SENTINEL");
+  assert.ok(before.includes("data-template-thumbnail"));
+});
+
+test("a stored file that cannot be parsed leaves its card empty instead of throwing", async () => {
+  const harness = loadLibraryHarness({
+    records: [
+      { id: "broken", title: "Broken", createdAt: "2026-09-11T10:00:00.000Z", source: "upload", html: "<html><body>not an invitation</body></html>" },
+      savedRecord("card-1")
+    ]
+  });
+
+  await harness.api.refreshSaved();
+  await tick();
+
+  const broken = harness.savedList.viewports.find((viewport) => viewport.dataset.id === "broken");
+  assert.equal(broken.dataset.filled, "true", "a card that cannot be drawn must not be retried forever");
+  assert.equal(broken.innerHTML, "", "no markup, and no exception out of the fill loop");
+  assert.equal(broken.thumbnail, null);
+  // The other card in the same slice still drew.
+  const good = harness.savedList.viewports.find((viewport) => viewport.dataset.id === "card-1");
+  assert.match(good.innerHTML, /data-template-thumbnail/);
+});
+
+test("a viewport with no measurable box is left alone rather than scaled to zero", async () => {
+  const harness = loadLibraryHarness({ records: [savedRecord("card-1")], viewportWidth: 0 });
+
+  await harness.api.refreshSaved();
+  await tick();
+
+  const viewport = harness.savedList.viewports[0];
+  assert.match(viewport.innerHTML, /data-template-thumbnail/, "the markup still lands");
+  assert.equal(viewport.thumbnail.styles.size, 0, "an unmeasured card must not be pinned to a bogus scale");
 });
 
 test("a library card shows the invitation it holds, and the library lists published links", () => {

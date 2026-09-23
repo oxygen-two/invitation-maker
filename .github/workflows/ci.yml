@@ -13,6 +13,16 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # The suite does all its date work in UTC internally, but nothing enforced
+    # that until now: a runner in another zone would have been the first place
+    # a leaked local-time assumption surfaced. UTC is the pinned baseline and
+    # the second leg exists to fail when the suite stops being zone-independent.
+    strategy:
+      fail-fast: false
+      matrix:
+        timezone: [UTC, America/Los_Angeles]
+    env:
+      TZ: ${{ matrix.timezone }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +40,16 @@ jobs:
       - run: npm test
 
       - run: npm run build:public
+
+      # Generators whose output is committed. Both are pure node:fs — no
+      # browser — so they can regenerate in memory and compare here rather
+      # than letting a stale artifact ship. build-error-pages writes the 11
+      # standalone error pages; build-template-art writes the two art modules.
+      - name: Check the generated error pages are in sync
+        run: node scripts/build-error-pages.cjs --check
+
+      - name: Check the generated template art is in sync
+        run: node scripts/build-template-art.js --check
 
       # build:public writes into the ignored public/ directory. If it ever
       # touches a tracked file instead, fail here rather than in a deploy.
@@ -69,3 +89,13 @@ jobs:
       - run: npm run verify:publishing-mongo
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017
+
+      # Three tests in publishing-server.test.js skip themselves unless
+      # MONGODB_URI is set, and the verify job never sets it. Running the
+      # suite again here is the only place they execute: this is where Mongo
+      # exists. verify:publishing-mongo above is a standalone assert script,
+      # not a `node --test` run, so it cannot stand in for them.
+      - run: npm test
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017
+          TZ: UTC

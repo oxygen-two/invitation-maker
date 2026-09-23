@@ -156,7 +156,7 @@ npm run verify:publishing-mongo
 
 초대장 제목 검증은 Chrome을 준비한 뒤 `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/verify-hero-wrap.cjs`로 실행합니다. 단독 문서를 메모리에서 직접 만들기 때문에 로컬 서버는 필요 없습니다. 제목의 단어가 단어 중간에서 잘렸거나 상자 밖으로 넘컬는지를 레이아웃 엔진에 직접 묻으며, 제목이 나타나는 두 곳 — 카드의 히어로와 인트로 오버레이 — 모두를 모든 디자인·모든 샘플 제목·한국어와 영어 문서·320–1440px의 열두 화면 폭에서 측정합니다. 제목과 문서 언어를 서로 교차해 검사하는 것은 의도적입니다. 내보낸 문서는 제목이 무엇으로 쓰였든 `lang="ko"`이므로, 한국어 문서 속 라틴 제목이 오히려 일반적인 경우이기 때문입니다. `HERO_WRAP_MATRIX=1`을 붙이면 디자인별 크기와 상자 폭 표가 출력됩니다.
 
-`.github/workflows/ci.yml`이 `main` 브랜치로의 push와 모든 PR마다 실행됩니다: `verify` 잡은 Node 22에서 `npm test`와 `npm run build:public`을 실행하고 빌드가 추적 파일을 건드리지 않았는지 확인하며, `publishing-mongo` 잡은 실제 `mongo:7` 서비스 컨테이너에 대해 `npm run verify:publishing-mongo`를 실행합니다. 이전에는 CI가 전혀 없었습니다.
+`.github/workflows/ci.yml`이 `main` 브랜치로의 push와 모든 PR마다 실행됩니다: `verify` 잡은 Node 22에서 `npm test`와 `npm run build:public`을 실행하고, 커밋된 생성물 두 가지를 다시 확인한 뒤(`node scripts/build-error-pages.cjs --check`, `node scripts/build-template-art.js --check` — 둘 다 `node:fs`만 쓰므로 브라우저가 필요 없습니다) 빌드가 추적 파일을 건드리지 않았는지 확인합니다. 이 잡은 `TZ=UTC`와 `TZ=America/Los_Angeles`로 두 번 돌아갑니다. 테스트는 날짜를 모두 UTC로 다루는데, 그 전제가 깨지는 순간을 잡아내는 것이 두 번째 레그입니다. `publishing-mongo` 잡은 실제 `mongo:7` 서비스 컨테이너에 대해 `npm run verify:publishing-mongo`를 실행한 다음 `MONGODB_URI`를 켜고 `npm test`를 한 번 더 실행합니다. `tests/publishing-server.test.js`의 실제 Mongo 통합 테스트 세 개가 실행되는 유일한 자리입니다. 이전에는 CI가 전혀 없었습니다.
 
 ## 문서 안내
 

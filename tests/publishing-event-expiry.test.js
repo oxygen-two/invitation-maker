@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 const { DAY_MS, eventFloorAt, expiryTargetAt, nextExpiresAt } = require("../server/publishing/expiry.cjs");
 const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
-const { calculateExpiresAt } = require("../server/publishing/use-case.cjs");
+const { calculateExpiresAt, refreshPublicationExpiry } = require("../server/publishing/use-case.cjs");
 
 const config = DEFAULT_PUBLISHING_CONFIG;
 const publishedAt = new Date("2026-03-01T00:00:00.000Z");
@@ -88,4 +88,78 @@ test("the event grace and lead limits are configurable through the environment",
   const read = readPublishingConfigFromEnv({ PUBLISH_EVENT_GRACE_DAYS: "3", PUBLISH_MAX_EVENT_LEAD_DAYS: "90" });
   assert.equal(read.eventGraceDays, 3);
   assert.equal(read.maxEventLeadDays, 90);
+});
+
+/* The event floor had a narrower parser than the rest of the codebase:
+   expiry.cjs required YYYY-MM-DDTHH:MM exactly, while normalizeDateTime at
+   assets/invitation/core.js:374 accepts optional seconds and canonicalizes
+   them away — and every dateTime in invitation-data.json carries them.
+   A publish was safe because validation.cjs normalizes before storing. A read
+   was not: refreshPublicationExpiry takes record.invitation.dateTime straight
+   from storage, so any document predating that normalization, or written by
+   the backfill script, silently lost its floor and could not get it back. */
+test("a stored dateTime that still carries seconds keeps its event floor", () => {
+  const withSeconds = calculateExpiresAt(config, publishedAt, { dateTime: "2026-05-01T14:00:00" });
+  const withoutSeconds = calculateExpiresAt(config, publishedAt, { dateTime: "2026-05-01T14:00" });
+
+  assert.equal(withSeconds, withoutSeconds);
+  assert.equal(isoDay(withSeconds), "2026-05-08");
+
+  // A date with no time at all still names no instant, and a UTC instant is
+  // not what this field holds — both stay refused.
+  for (const dateTime of ["2026-05-01", "2026-05-01T14:00:00.000Z", "2026-05-01T14:00:00Z"]) {
+    assert.equal(
+      eventFloorAt({ createdAt: publishedAt, dateTime, eventGraceDays: config.eventGraceDays, maxEventLeadDays: config.maxEventLeadDays }),
+      null,
+      dateTime
+    );
+  }
+});
+
+test("a public read of a seconds-form record pushes its expiry past the event", async () => {
+  const quietDay = daysAfter(publishedAt, 20);
+  const stored = {
+    id: "AbCdEfGhIjKlMnOpQrStUv",
+    createdAt: publishedAt,
+    // Seven days out from the publish, which is where the sliding window alone
+    // would have left it; the event is six weeks later.
+    expiresAt: daysAfter(publishedAt, 7).toISOString(),
+    invitation: { title: "\uc800\ub141 \uc2dd\uc0ac", dateTime: "2026-05-01T14:00:00" }
+  };
+  const writes = [];
+  const repository = {
+    async refreshExpiry({ id, expiresAt }) {
+      writes.push({ id, expiresAt });
+      return true;
+    }
+  };
+
+  const applied = await refreshPublicationExpiry({ record: stored, repository, config, now: quietDay });
+
+  assert.equal(writes.length, 1, "the read wrote nothing, so the floor was lost");
+  assert.equal(writes[0].id, stored.id);
+  assert.equal(isoDay(applied), "2026-05-08");
+  assert.equal(applied, writes[0].expiresAt);
+  assert.ok(new Date(applied) > new Date(stored.expiresAt));
+});
+
+test("a record with no event date is still left on the sliding window by a read", async () => {
+  const quietDay = daysAfter(publishedAt, 20);
+  const writes = [];
+  const applied = await refreshPublicationExpiry({
+    record: {
+      id: "AbCdEfGhIjKlMnOpQrStUv",
+      createdAt: publishedAt,
+      expiresAt: daysAfter(publishedAt, 7).toISOString(),
+      invitation: { title: "No date" }
+    },
+    repository: { async refreshExpiry({ expiresAt }) { writes.push(expiresAt); return true; } },
+    config,
+    now: quietDay
+  });
+
+  // now + idleWindowDays (27 days out), still under the 30-day ceiling.
+  assert.equal(isoDay(applied), isoDay(daysAfter(quietDay, config.idleWindowDays)));
+  assert.ok(new Date(applied) < daysAfter(publishedAt, config.maxLifetimeDays));
+  assert.deepEqual(writes, [applied]);
 });

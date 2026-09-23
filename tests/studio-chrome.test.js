@@ -177,3 +177,49 @@ test("the sample sheet and the phone header rules sit at the top level, not insi
   assert.equal(depthAt("@media (max-width: 900px) {"), 0, "the phone breakpoint is nested inside another block");
   assert.equal(depthAt(".draft-status-short { display: none; }"), 0, "the header status rules are nested inside another block");
 });
+
+/* PR #48 gave the desktop editor column its width back, and shipped with no
+   test of any kind: `git show --stat e57fca4` touches studio.css and one doc.
+   verify-studio.cjs probes 320/390/768/1440px, so it never crosses either of
+   these breakpoints — 1440 sits between them and sees only the 1240px block.
+   A stylesheet is where a source-text assertion is legitimate, and the three
+   numbers are the whole of the fix: the editor column grows at each step
+   while the preview column does not, because the invitation inside it is a
+   fixed 480px phone either way. */
+test("the desktop breakpoints widen the editor column and not the preview", () => {
+  // Walk to the at-rule's own closing brace rather than the first one, which
+  // belongs to the rule inside it.
+  const block = (query) => {
+    const at = studio.indexOf(`@media (min-width: ${query}) {`);
+    assert.notEqual(at, -1, `no ${query} breakpoint in studio.css`);
+    const open = studio.indexOf("{", at);
+    let depth = 0;
+    for (let index = open; index < studio.length; index += 1) {
+      if (studio[index] === "{") depth += 1;
+      else if (studio[index] === "}" && (depth -= 1) === 0) return studio.slice(open + 1, index);
+    }
+    return assert.fail(`the ${query} block is unterminated`);
+  };
+
+  // Base: the shell before either breakpoint applies.
+  assert.match(studio, /\.app-shell \{ width: min\(1256px, calc\(100% - 64px\)\);[^}]*grid-template-columns: minmax\(320px, 440px\) minmax\(0, 1fr\); \}/);
+
+  const wide = block("1240px");
+  assert.match(wide, /\.app-shell \{ grid-template-columns: minmax\(320px, 560px\) minmax\(0, 1fr\); \}/);
+  assert.doesNotMatch(wide, /width:/, "1240px changes the split, not the shell width");
+
+  const desktop = block("1600px");
+  assert.match(desktop, /\.app-shell \{ width: min\(1360px, calc\(100% - 64px\)\); grid-template-columns: minmax\(320px, 620px\) minmax\(0, 1fr\); \}/);
+
+  // The editor column only ever grows, and the preview column is `minmax(0,
+  // 1fr)` at every width: it takes what is left rather than being sized.
+  const maxima = [440, 560, 620];
+  assert.deepEqual([...maxima].sort((left, right) => left - right), maxima, "the editor column must not narrow as the screen widens");
+  for (const source of [studio.slice(studio.indexOf(".app-shell {")), wide, desktop]) {
+    assert.match(source, /minmax\(0, 1fr\)/, "the preview column is no longer the flexible one");
+  }
+});
+
+/* Not covered here, on purpose: verify-studio.cjs still probes only
+   320/390/768/1440px, so no browser ever renders either block above. Widening
+   that list belongs to the branch that is repairing those Playwright scripts. */

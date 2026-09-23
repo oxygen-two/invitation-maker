@@ -1,8 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const TemplateArt = require("../assets/invitation/template-art.js");
+const buildTemplateArt = require("../scripts/build-template-art.js");
 
 const decorated = [
   "silver-afterglow",
@@ -114,4 +116,41 @@ test("source WebP decorations are the expected 1200 by 900 canvas", () => {
       height: 900
     }, file);
   }
+});
+
+/* The error pages are the one generated artifact in this repository that has
+   never gone stale, and the reason is this shape of test: regenerate in
+   memory, compare against what is committed. template-art.js and
+   template-art-index.js are generated from the .webp files beside them and
+   had no such guard, so swapping a decoration without re-running the
+   generator shipped a module that disagreed with its own sources. */
+test("the committed template art modules are exactly what the generator produces", () => {
+  for (const [target, contents] of buildTemplateArt.render()) {
+    assert.equal(fs.readFileSync(target, "utf8"), contents, `${path.basename(target)} is stale`);
+  }
+
+  // CI runs this same flag, so a failure here is that failure arriving earlier.
+  const output = execFileSync(
+    process.execPath,
+    [path.resolve(__dirname, "../scripts/build-template-art.js"), "--check"],
+    { encoding: "utf8" }
+  );
+  assert.match(output, /Verified 2 template art modules/);
+});
+
+test("--check fails loudly on a module the generator would no longer produce", () => {
+  const target = buildTemplateArt.INDEX_FILE;
+  const original = fs.readFileSync(target, "utf8");
+  try {
+    fs.writeFileSync(target, original.replace("const BASE =", "const BASE_DRIFTED ="));
+    assert.throws(
+      () => buildTemplateArt.main(["--check"]),
+      /Outdated generated file: assets\/invitation\/template-art-index\.js/
+    );
+  } finally {
+    fs.writeFileSync(target, original);
+  }
+  // And the restore really restored: nothing this test did can leak into the
+  // `git diff --exit-code` step that follows it in CI.
+  assert.equal(fs.readFileSync(target, "utf8"), original);
 });

@@ -166,6 +166,208 @@ const createPublishingMountHarness = ({
   };
 };
 
+/* mountPublicationList renders the same list as the panel above, but into the
+   library. Its only test was a source-regex over app.js asserting the literal
+   spelling of the call site, so the rendering, the copy handler and the revoke
+   handler had never been run. This is the sibling of the harness above: a node
+   that parses what was written into it, so a click can be aimed at a real card
+   rather than at a string. */
+const createPublicationListHarness = ({
+  client,
+  clipboard,
+  onChange,
+  statusMessages = []
+} = {}) => {
+  let listener = () => {};
+  const cardsFrom = (markup) => [...String(markup).matchAll(/<article class="publication-card" data-publication-id="([^"]*)">([\s\S]*?)<\/article>/g)]
+    .map(([, id, body]) => {
+      const card = { id, actions: new Map(), title: body.match(/<strong>([^<]*)<\/strong>/)?.[1] || "", expiry: body.match(/<span>([^<]*)<\/span>/)?.[1] || "" };
+      for (const [, tag, action] of body.matchAll(/<(?:a|button)\b([^>]*data-publish-action="([a-z]+)"[^>]*)>/g)) {
+        const attrs = Object.fromEntries([...tag.matchAll(/([a-z-]+)="([^"]*)"/g)].map(([, name, value]) => [name, value]));
+        const node = {
+          attrs,
+          dataset: {
+            publicationId: attrs["data-publication-id"],
+            publicationUrl: attrs["data-publication-url"]
+          },
+          closest(selector) {
+            return selector === `[data-publish-action="${action}"]` ? this : null;
+          }
+        };
+        card.actions.set(action, node);
+      }
+      return card;
+    });
+
+  const node = {
+    renders: 0,
+    addEventListener(type, handler) {
+      if (type === "click") listener = handler;
+    },
+    get innerHTML() { return this.html || ""; },
+    set innerHTML(markup) {
+      this.html = markup;
+      this.renders += 1;
+      this.cards = cardsFrom(markup);
+    }
+  };
+
+  const mounted = InvitationPublishing.mountPublicationList({
+    node,
+    client,
+    clipboard,
+    onChange,
+    setStatus: (message) => statusMessages.push(message)
+  });
+
+  return {
+    node,
+    mounted,
+    statusMessages,
+    card: (id) => node.cards.find((entry) => entry.id === id),
+    // The listener is delegated on the list, so a click arrives as an event
+    // whose target is inside a card, exactly as the browser delivers it.
+    click: (id, action) => {
+      const target = node.cards.find((entry) => entry.id === id)?.actions.get(action);
+      assert.ok(target, `no ${action} control on ${id}`);
+      return listener({ target });
+    }
+  };
+};
+
+const publication = (id, overrides = {}) => ({
+  id,
+  title: `Invitation ${id}`,
+  url: `/i/${id}`,
+  expiresAt: "2026-10-01T09:00:00.000Z",
+  ...overrides
+});
+
+test("the library list renders a card per publication with open, copy and revoke", () => {
+  const harness = createPublicationListHarness({
+    client: { list: () => [publication("aaa"), publication("bbb", { expiresAt: null })] }
+  });
+
+  assert.equal(harness.node.renders, 1, "mounting renders once");
+  assert.equal(harness.node.cards.length, 2);
+  assert.equal(harness.card("aaa").title, "Invitation aaa");
+  assert.equal(harness.card("aaa").actions.get("open").attrs.href, "/i/aaa");
+  assert.equal(harness.card("aaa").actions.get("open").attrs.rel, "noopener noreferrer");
+  assert.equal(harness.card("aaa").actions.get("copy").dataset.publicationUrl, "/i/aaa");
+  assert.equal(harness.card("bbb").actions.get("revoke").dataset.publicationId, "bbb");
+  // A publication with no expiry says so rather than rendering an empty slot.
+  assert.equal(harness.card("bbb").expiry, publishCopy("noExpiry"));
+});
+
+test("an empty library list says so instead of rendering nothing", () => {
+  const harness = createPublicationListHarness({ client: { list: () => [] } });
+
+  assert.match(harness.node.innerHTML, /<p class="publication-empty">/);
+  assert.ok(harness.node.innerHTML.includes(publishCopy("listEmpty")));
+  assert.doesNotMatch(harness.node.innerHTML, /publication-card/);
+});
+
+test("a title carrying markup is escaped into the card, not interpreted", () => {
+  const harness = createPublicationListHarness({
+    client: { list: () => [publication("xss", { title: '<img src=x onerror="alert(1)">' })] }
+  });
+
+  assert.doesNotMatch(harness.node.innerHTML, /<img/);
+  assert.match(harness.node.innerHTML, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
+});
+
+test("copying a card's link writes the absolute URL and says so", async () => {
+  const written = [];
+  const harness = createPublicationListHarness({
+    client: { list: () => [publication("aaa")] },
+    clipboard: { writeText: async (value) => { written.push(value); } }
+  });
+
+  await harness.click("aaa", "copy");
+
+  assert.deepEqual(written, ["https://invitation-maker-one.vercel.app/i/aaa"],
+    "a guest is handed a path; a clipboard has to carry the whole link");
+  assert.deepEqual(harness.statusMessages, [publishCopy("copied")]);
+});
+
+test("a clipboard that refuses is reported to the author rather than swallowed", async () => {
+  const harness = createPublicationListHarness({
+    client: { list: () => [publication("aaa")] },
+    clipboard: { writeText: async () => { throw new Error("denied"); } }
+  });
+
+  await harness.click("aaa", "copy");
+
+  assert.deepEqual(harness.statusMessages, [publishCopy("copyFailed")]);
+});
+
+test("revoking a card removes it, re-renders, and tells the library which id went", async () => {
+  const records = [publication("aaa"), publication("bbb")];
+  const removed = [];
+  const changed = [];
+  const harness = createPublicationListHarness({
+    client: {
+      list: () => records,
+      remove: async (id) => {
+        removed.push(id);
+        records.splice(records.findIndex((entry) => entry.id === id), 1);
+      }
+    },
+    onChange: (id) => changed.push(id)
+  });
+
+  await harness.click("bbb", "revoke");
+
+  assert.deepEqual(removed, ["bbb"]);
+  assert.deepEqual(changed, ["bbb"], "the library card list has to drop the same publication");
+  assert.equal(harness.node.renders, 2, "the list re-renders off the store, not off the DOM");
+  assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"]);
+  assert.deepEqual(harness.statusMessages, [publishCopy("deleted")]);
+});
+
+test("a revoke the server refuses leaves the card in place and says what happened", async () => {
+  const harness = createPublicationListHarness({
+    client: {
+      list: () => [publication("aaa")],
+      remove: async () => { throw Object.assign(new Error("nope"), { status: 503 }); }
+    }
+  });
+
+  await harness.click("aaa", "revoke");
+
+  assert.deepEqual(harness.statusMessages, [publishCopy("deleteFailed")]);
+  assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"], "the link is still live, so its card stays");
+});
+
+test("a click on the card but on neither button does nothing at all", async () => {
+  const removed = [];
+  const harness = createPublicationListHarness({
+    client: { list: () => [publication("aaa")], remove: async (id) => removed.push(id) }
+  });
+
+  await harness.click("aaa", "open");
+
+  assert.deepEqual(removed, []);
+  assert.deepEqual(harness.statusMessages, []);
+  assert.equal(harness.node.renders, 1);
+});
+
+test("a store that cannot be read reports itself instead of rendering a blank list", () => {
+  const harness = createPublicationListHarness({
+    client: { list: () => { throw new Error("quota exceeded"); } }
+  });
+
+  assert.deepEqual(harness.statusMessages, ["quota exceeded"]);
+  assert.ok(harness.node.innerHTML.includes(publishCopy("listEmpty")));
+});
+
+test("mounting against no node is a no-op with a render that cannot throw", () => {
+  const mounted = InvitationPublishing.mountPublicationList({ node: null });
+
+  assert.equal(typeof mounted.render, "function");
+  assert.equal(mounted.render(), undefined);
+});
+
 /* B-9: the dialog used to say "Share a link", then "SHARE", then "Public link",
    and only promised the expiry date AFTER the author had already published. */
 

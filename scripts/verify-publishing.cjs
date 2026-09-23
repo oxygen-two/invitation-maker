@@ -12,7 +12,7 @@ async function createInvitation(page, width, title) {
   await page.locator('[data-occasion-id="birthday"]').click();
   await page.locator('[data-template-id="bloom-portrait"]').click();
   if (width <= 900) await page.locator('#gallery-create').click();
-  else await page.locator('#preview-apply-button').click();
+  else await page.locator('#apply-template-button').click();
   await page.locator('[name="title"]').fill(title);
   // The free-text date lives behind the "write it my own way" drawer now.
   await page.locator('[data-date-custom] > summary').click();
