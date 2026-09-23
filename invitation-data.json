@@ -47,7 +47,7 @@
         "koreanFont": "gowun-batang",
         "items": [
           { "id": "course-1", "type": "course", "time": "14:00", "label": "MEET", "place": "성수역 3번 출구", "note": "가볍게 만나 오늘의 동선을 함께 시작해요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
-          { "id": "course-2", "type": "course", "time": "14:30", "label": "CAFE", "place": "카페 이름을 입력하세요", "note": "창가 자리에서 커피와 디저트를 나누어요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-2", "type": "course", "time": "14:30", "label": "CAFE", "place": "코너 카페", "note": "창가 자리에서 커피와 디저트를 나누어요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
           { "id": "course-3", "type": "course", "time": "16:30", "label": "WALK", "place": "서울숲 산책로", "note": "계절의 색을 보며 천천히 걷는 시간입니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 }
         ]
       }
@@ -78,7 +78,7 @@
         "englishFont": "dm-serif-display",
         "koreanFont": "nanum-gothic",
         "items": [
-          { "id": "course-1", "type": "course", "time": "19:30", "label": "MOVIE", "place": "상영관을 입력하세요", "note": "예매 정보와 좌석을 적어두면 좋아요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
+          { "id": "course-1", "type": "course", "time": "19:30", "label": "MOVIE", "place": "4관", "note": "예매 정보와 좌석을 적어두면 좋아요.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
           { "id": "course-2", "type": "course", "time": "22:00", "label": "DINNER", "place": "늦은 저녁 장소", "note": "영화가 끝난 뒤 들를 식당입니다.", "mapUrl": "", "mapEnabled": false, "mapLatitude": null, "mapLongitude": null, "mapZoom": 16 },
           { "id": "notice-1", "type": "notice", "heading": "예매 안내", "body": "티켓은 미리 준비해 둘게요. 편한 신발로 와 주세요." }
         ]

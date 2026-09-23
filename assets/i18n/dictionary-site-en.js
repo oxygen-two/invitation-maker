@@ -58,6 +58,16 @@
           botanical: "Date",
           midnightCinema: "Event"
         },
+        designs: {
+          alt: {
+            bloomPortrait: "Sample invitation design · Birthday",
+            wedding: "Sample invitation design · Wedding",
+            firstChapter: "Sample invitation design · First birthday",
+            goldenYears: "Sample invitation design · 60th birthday",
+            botanical: "Sample invitation design · Date",
+            midnightCinema: "Sample invitation design · Event"
+          }
+        },
         trust: {
           eyebrow: "PEACE OF MIND",
           title: "Use it with confidence",

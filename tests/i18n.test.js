@@ -453,6 +453,77 @@ test("the content overlay translates every Korean leaf without touching structur
   assert.deepEqual(leaked, [], "structural fields must never appear in a translation overlay");
 });
 
+/* The general rule: sample/default content must read as a finished, if
+   generic, invitation — never as an instruction telling the author to fill
+   in the very field they are looking at. Korean instructional verbs take the
+   imperative/polite-request endings 입력하세요/적어 주세요/넣어 주세요/작성하세요
+   and friends; English instructions open a sentence with an imperative verb
+   (Add/Enter/Say/Write/Put/Type) or leave a bare "___ here" fill-in-the-blank
+   with no closing punctuation ("Your name here", "Name here"). A sentence
+   that merely contains "here" mid-thought ("the reason we are all here.")
+   is real prose, not a placeholder, so only a trailing bare "here" counts. */
+const KOREAN_INSTRUCTION = /(입력|적어|넣어|작성)(하세요|해 주세요|주세요)/;
+const ENGLISH_SENTENCE_START = /^(Add|Enter|Say|Write|Put|Type)\b/i;
+const ENGLISH_BARE_HERE = /(^|\s)here$/i;
+const ENGLISH_NAME_HERE = /Your name here/i;
+
+const readsAsInstruction = (value) => {
+  if (typeof value !== "string") return false;
+  if (KOREAN_INSTRUCTION.test(value)) return true;
+  if (ENGLISH_NAME_HERE.test(value)) return true;
+  if (ENGLISH_BARE_HERE.test(value.trim())) return true;
+  return value.split(/(?<=[.!?])\s+/).some((sentence) => ENGLISH_SENTENCE_START.test(sentence.trim()));
+};
+
+test("no template default or overlay leaf ships an imperative placeholder as sample content", () => {
+  /* Sample content is what a guest sees if the author never touches a field.
+     "Add the cafe name" or "카페 이름을 입력하세요" read as an instruction left
+     on the page, not an invitation. Every template default and its English
+     overlay must instead read like a finished, if generic, invitation. This
+     is scoped to invitation-data.json/content-en.json's sample content, not
+     to real UI placeholders such as content.summary*, map.empty, or any
+     *Placeholder key, which are legitimate empty-state hints, not content. */
+  const base = readJson("invitation-data.json");
+  const overlay = readJson("assets/i18n/content-en.json");
+
+  const violations = [];
+  const walk = (node, where) => {
+    if (typeof node === "string") {
+      if (readsAsInstruction(node)) violations.push(`${where}: "${node}"`);
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => walk(item, `${where}[${index}]`));
+    } else if (node && typeof node === "object") {
+      for (const [key, value] of Object.entries(node)) walk(value, `${where}.${key}`);
+    }
+  };
+
+  for (const template of base.templates) walk(template.defaults, `invitation-data.json:templates.${template.id}.defaults`);
+  walk(base.defaultInvitation, "invitation-data.json:defaultInvitation");
+  for (const [id, translated] of Object.entries(overlay.templates || {})) {
+    walk(translated.defaults, `content-en.json:templates.${id}.defaults`);
+  }
+  walk(overlay.defaultInvitation, "content-en.json:defaultInvitation");
+
+  assert.deepEqual(violations, [], "sample content reads as an instruction to fill in the field, not as content");
+});
+
+test("every invitation.default* key in both dictionaries reads as a sample, not an instruction", () => {
+  // These ship as real `title`/`location`/course `place`/`note` text on a
+  // brand-new invitation (see createDefaultInvitation in
+  // assets/invitation/core.js), so none of them may read as an instruction —
+  // this covers defaultLocation as well as the four defaultCourse*Note hints
+  // that used to tell the author what to type ("Say where to meet first.").
+  for (const [name, dictionary] of [["dictionary-ko.js", dictionaryKo], ["dictionary-en.js", dictionaryEn]]) {
+    const defaults = Object.entries(dictionary.invitation || {}).filter(([key]) => key.startsWith("default"));
+    assert.ok(defaults.length > 0, `${name}: expected invitation.default* keys to check`);
+    for (const [key, value] of defaults) {
+      assert.ok(!readsAsInstruction(value), `${name}: invitation.${key} reads as an instruction: "${value}"`);
+    }
+  }
+});
+
 test("the English samples and defaults name no Korean-only place or phone format", () => {
   /* A-3: the English studio used to open on Hongdae, Cheongdam and
      010-0000-0000, which tells a reader outside Korea that the product is

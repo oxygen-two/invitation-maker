@@ -258,7 +258,6 @@
   const renderShell = (rootNode, { canShare } = {}) => {
     rootNode.innerHTML = `
       <p class="publishing-consent" ${bind("consent")}>${copy("consent")}</p>
-      <p class="publishing-consent publishing-expiry" ${bind("expiryPolicy")}>${copy("expiryPolicy")}</p>
       <p class="publishing-limit" ${bind("limitHint")}>${copy("limitHint")}</p>
       <div class="publishing-actions">
         <button id="publish-button" class="primary-button" type="button" autofocus ${bind("publishButton")}>${copy("publishButton")}</button>
