@@ -179,6 +179,13 @@ test("the offline notice is an empty live region the boot script writes into", (
     assert.match(html, /\.offline:empty\{display:none\}/, `${code}: an empty notice would leave a gap`);
     assert.match(html, /offline\.textContent = navigator\.onLine === false \? copy\.offline : ''/,
       `${code}: going offline must write the sentence in`);
+
+    // Arriving here already offline is the case that matters most, and a write
+    // that lands while the document is still parsing is indistinguishable from
+    // markup — so the first pass waits a frame rather than running inline.
+    assert.match(html, /requestAnimationFrame\(update\)/, `${code}: an offline load never announces`);
+    assert.doesNotMatch(html, /addEventListener\('offline', update\); update\(\)/,
+      `${code}: the first pass still runs during parse`);
     assert.ok(html.includes(dictionaryKo.errorPages.common.offline), `${code}: Korean offline sentence`);
     assert.ok(html.includes(dictionaryEn.errorPages.common.offline), `${code}: English offline sentence`);
   }

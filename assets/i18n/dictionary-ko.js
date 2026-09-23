@@ -281,7 +281,7 @@
       photoProcessing: "{file}: 사진을 다듬고 있어요.",
       photoAdded: "{file}: 사진을 넣었어요.",
       photoFailed: "{file}: {reason}",
-      photoOverCapacity: "{file}: 고를 때 남아 있던 자리보다 많아서 건너뛰었어요.",
+      photoOverCapacity: "{file}: 고를 때 남아 있던 자리를 넘어서 건너뛰었어요.",
       photoSkipped: "{file}: 다듬기는 끝났지만 {limit} 개수가 꽉 차서 넣지 못했어요.",
       limitItems: "초대장 항목",
       limitPhotos: "사진",
@@ -307,7 +307,7 @@
         sourceSize: "원본 이미지는 15 MiB까지만 올릴 수 있어요.",
         decode: "이미지를 읽지 못했어요.",
         encodedSize: "이미지를 600 KiB 아래로 줄이지 못했어요.",
-        generic: "이미지를 다루지 못했어요."
+        generic: "이미지를 다듬지 못했어요."
       }
     },
 
@@ -386,8 +386,8 @@
       downloadDialogTail: "이에요 — 브라우저 보관함과 달리 기기를 바꾸거나 저장 공간을 지워도 파일만 있으면 언제든 다시 열 수 있어요.",
       downloadButton: "HTML 다운로드",
       shareDialogLead: "공개 링크는 서버에 보관되어 이 브라우저를 지워도 계속 열려요. 다만",
-      shareDialogStrong: "링크를 내릴 수 있는 권한은 이 브라우저에만",
-      shareDialogTail: "저장되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.",
+      shareDialogStrong: "링크를 내릴 수 있는 권한은 이 브라우저에만 저장",
+      shareDialogTail: "되니, 나중에 링크를 내리려면 지금 이 브라우저로 다시 들어와야 해요.",
       shareDialogPanelLabel: "공개 링크 발행",
       shareDialogPrivacy: "일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열려요. 일시가 없으면 마지막으로 열린 뒤 7일, 길어도 30일까지 열려요. 그보다 먼저 내리는 건 이 브라우저에서만 할 수 있어요.",
       privacyLink: "개인정보처리방침 보기",
@@ -440,7 +440,7 @@
 
       storageUnavailable: "브라우저 저장 공간을 쓸 수 없어요.",
       noStorage: "브라우저 저장 공간에 기록하지 못해 발행하지 못했어요.",
-      storeUnreadable: "이 브라우저의 발행 정보를 읽지 못했어요. 이미 만든 링크를 내릴 열쇠까지 잃지 않도록 새 발행은 멈췄어요.",
+      storeUnreadable: "이 브라우저의 발행 정보를 읽지 못했어요. 이미 만든 링크를 내릴 권한까지 잃지 않도록 새 발행은 멈췄어요.",
       tooLarge: "2MB 이하 초대장만 공개 링크로 발행할 수 있어요.",
       tokenFailed: "보안 토큰을 만들지 못했어요.",
       requestKeyFailed: "요청 키를 만들지 못했어요.",
@@ -460,8 +460,8 @@
       emptyBody: "여기서 완성한 초대장이나 다운로드한 HTML 파일을 끌어다 놓으면 보관함에 모여요.",
       startNew: "새 초대장 만들기",
       dropzone: "HTML 파일을 여기로 끌어다 놓거나 골라 주세요",
-      sourceUpload: "불러옴",
-      sourceGenerated: "여기서 만듦",
+      sourceUpload: "가져옴",
+      sourceGenerated: "직접 만듦",
       open: "열기",
       download: "다운로드",
       remove: "삭제",
@@ -673,7 +673,7 @@
       syncFailed: "보관함 동기화에 실패했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
 
       bootFailedTitle: "초기 데이터를 불러오지 못했어요.",
-      bootFailedBody: "별도의 JSON 파일을 읽어야 해서, 로컬 서버나 배포된 주소에서 열어 주세요."
+      bootFailedBody: "별도의 JSON 파일을 읽어야 하니, 로컬 서버나 배포된 주소에서 열어 주세요."
     }
   };
 });

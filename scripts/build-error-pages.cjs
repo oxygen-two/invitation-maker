@@ -142,12 +142,18 @@ const boot = `
   // only announces what appears INSIDE it after it is being observed, so a
   // pre-filled node revealed by flipping the hidden attribute changes nothing a
   // screen reader is listening for, and is silent exactly when it matters.
-  // Writing the
-  // sentence in — and clearing it again — is the change that gets announced.
-  // .offline:empty keeps the empty region out of the visual layout.
+  // Writing the sentence in — and clearing it again — is the change that gets
+  // announced. .offline:empty keeps the empty region out of the visual layout.
+  //
+  // The first pass waits a frame. A write that happens while the document is
+  // still parsing is indistinguishable from markup to a screen reader, which
+  // would leave the one case that matters most — arriving here already offline
+  // — as silent as the pre-filled version was. Every later pass is synchronous:
+  // by then the region is established and an event is what triggered it.
   const offline = document.querySelector('[data-offline]');
   const update = () => { offline.textContent = navigator.onLine === false ? copy.offline : ''; };
-  addEventListener('online', update); addEventListener('offline', update); update();
+  addEventListener('online', update); addEventListener('offline', update);
+  requestAnimationFrame(update);
   const retry = document.querySelector('[data-retry]');
   if (retry) {
     retry.hidden = false;

@@ -2811,7 +2811,7 @@ test("saved invitation cards render friendly dates and source labels", async () 
   await harness.api.refreshSaved();
   const markup = harness.node("#saved-list").innerHTML;
   assert.match(markup, /<time datetime="2026-09-05T03:52:31\.704Z">/);
-  assert.match(markup, /불러옴/);
+  assert.match(markup, /가져옴/);
   assert.doesNotMatch(markup, />2026-09-05T03:52:31\.704Z</);
 });
 
@@ -2946,7 +2946,7 @@ test("hero upload failure preserves the previous image and reset and remove are 
   await api.handleHeroImageSelection();
 
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), previous);
-  assert.match(node("#hero-image-status").textContent, /이미지를 다루지 못했어요/);
+  assert.match(node("#hero-image-status").textContent, /이미지를 다듬지 못했어요/);
   api.resetHeroImage();
   assert.deepEqual(JSON.parse(JSON.stringify(api.state.heroImage)), {
     src: previous.src,
@@ -3420,7 +3420,7 @@ test("photo selection uses successful compressions to fill the remaining capacit
   assert.deepEqual(attempts, ["broken.png", "working.png"]);
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.type), ["course", "photo"]);
   assert.equal(api.getItemsData()[1].src, "data:image/webp;base64,U1VDQ0VTUw==");
-  assert.match(node("#save-status").textContent, /broken\.png: 이미지를 다루지 못했어요/);
+  assert.match(node("#save-status").textContent, /broken\.png: 이미지를 다듬지 못했어요/);
   assert.match(node("#save-status").textContent, /working\.png: 사진을 넣었어요/);
 });
 
@@ -3542,7 +3542,7 @@ test("photo upload commits against fresh edited and reordered items", async () =
   assert.equal(document.activeElement.dataset.courseField, "place");
   assert.match(node("#save-status").textContent, /one\.png: 사진을 넣었어요/);
   assert.match(node("#save-status").textContent, /two\.png: 다듬기는 끝났지만 초대장 항목 개수가 꽉 차서 넣지 못했어요/);
-  assert.match(node("#save-status").textContent, /three\.png: 고를 때 남아 있던 자리보다 많아서 건너뛰었어요/);
+  assert.match(node("#save-status").textContent, /three\.png: 고를 때 남아 있던 자리를 넘어서 건너뛰었어요/);
   assert.equal(node("#photo-input").value, "");
 });
 
@@ -3566,7 +3566,7 @@ test("photo upload skips files beyond initial capacity without compression", asy
   assert.equal(compressions, 0);
   assert.equal(contentEditor.renderCount, renderStart);
   assert.deepEqual(Array.from(api.getItemsData(), (item) => item.id), ["photo-a", "photo-b"]);
-  assert.match(node("#save-status").textContent, /full\.png: 고를 때 남아 있던 자리보다 많아서 건너뛰었어요/);
+  assert.match(node("#save-status").textContent, /full\.png: 고를 때 남아 있던 자리를 넘어서 건너뛰었어요/);
   assert.doesNotMatch(node("#save-status").textContent, /사진을 넣었어요/);
 });
 
@@ -3605,8 +3605,8 @@ test("all photo compression failures preserve the live editor state", async () =
   assert.equal(contentEditor.querySelector(".content-item-card.is-open").dataset.itemId, "course-b");
   assert.equal(document.activeElement, focusedField);
   assert.equal(node("#photo-input").value, "");
-  assert.match(node("#save-status").textContent, /broken-a\.png: 이미지를 다루지 못했어요/);
-  assert.match(node("#save-status").textContent, /broken-b\.png: 이미지를 다루지 못했어요/);
+  assert.match(node("#save-status").textContent, /broken-a\.png: 이미지를 다듬지 못했어요/);
+  assert.match(node("#save-status").textContent, /broken-b\.png: 이미지를 다듬지 못했어요/);
 });
 
 test("editor renders and re-collects every optional information card", () => {

@@ -84,6 +84,14 @@ test("site dictionaries merge onto the main dictionary instead of replacing it",
    a literal 7 or 30 could never do. */
 const { DEFAULT_PUBLISHING_CONFIG } = require("../server/config/publishing.cjs");
 const days = (value) => new RegExp(`\\b${value}\\b`);
+/* eventGraceDays and idleWindowDays both ship as 7, so a bare number proves
+   nothing about the grace rule: the idle window's own 7 already satisfies it,
+   and changing only eventGraceDays would leave the prose stale and the suite
+   green. Match the number inside the phrase that can only be the event rule. */
+const graceAfterEvent = {
+  ko: (value) => new RegExp(`그날로부터 ${value}일`),
+  en: (value) => new RegExp(`\\b${value} days after that date\\b`)
+};
 
 test("guide policy numbers match the shipped defaults", () => {
   const publishing = read("assets/publishing/publishing.js");
@@ -405,7 +413,7 @@ test("the privacy page and the terms state every shipped retention default", () 
     assert.match(retention.one, days(idleWindowDays), `${name}: the idle window is missing`);
     assert.match(retention.two, days(idleWindowDays), `${name}: the sliding rule is missing`);
     assert.match(retention.three, days(maxLifetimeDays), `${name}: the max lifetime is missing`);
-    assert.match(retention.three, days(eventGraceDays), `${name}: the event grace is missing`);
+    assert.match(retention.three, graceAfterEvent[name](eventGraceDays), `${name}: the event grace is missing`);
     // The lead bound is the half of the event rule a reader can actually be
     // caught out by: a date far enough ahead extends nothing at all.
     assert.match(retention.three, days(maxEventLeadDays), `${name}: the event lead bound is missing`);
@@ -420,7 +428,7 @@ test("the privacy page and the terms state every shipped retention default", () 
     const expiry = dictionary.site.terms.expiry;
     assert.match(expiry.one, days(idleWindowDays), `${name}: terms omit the idle window`);
     assert.match(expiry.two, days(maxLifetimeDays), `${name}: terms omit the max lifetime`);
-    assert.match(expiry.two, days(eventGraceDays), `${name}: terms omit the event grace`);
+    assert.match(expiry.two, graceAfterEvent[name](eventGraceDays), `${name}: terms omit the event grace`);
     assert.match(expiry.two, days(maxEventLeadDays), `${name}: terms omit the event lead bound`);
   }
   assert.match(ko.site.privacy.retention.note, /기본값/, "ko must say these are defaults");
