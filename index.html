@@ -75,14 +75,73 @@
   <link rel="stylesheet" href="/assets/site/site.css">
   <!-- The engine sets <html lang> and the title in <head>. Body copy is
        translated by site.js as soon as the document is parsed, so an
-       English visitor may briefly see Korean body text if the network is slow. -->
+       English visitor may briefly see Korean body text if the network is slow.
+       The PICTURES cannot wait that long — the browser has chosen what to
+       download by then — which is what the inline block below is for. -->
   <script src="/assets/shared/text.js"></script>
   <script src="/assets/i18n/i18n.js"></script>
   <script src="/assets/i18n/dictionary-ko.js"></script>
   <script src="/assets/i18n/dictionary-en.js"></script>
   <script src="/assets/i18n/dictionary-site-ko.js"></script>
   <script src="/assets/i18n/dictionary-site-en.js"></script>
-  <script>InvitationI18n.init();</script>
+  <!-- Pictures are per-language, and the preload scanner fetches an eager
+       <img src> long before any deferred script runs: measured against the
+       previous commit, an English visitor downloaded all six Korean design
+       images (449 KB) and then replaced them. The fix is a pair. Every
+       picture is loading="lazy", which the scanner leaves alone, and this
+       runs here — before <body> is parsed — correcting each src in the
+       microtask after the parser inserts the element, which is before the
+       rendering step that triggers the lazy fetch. Either half alone restores
+       the old behaviour. With scripting off, lazy loading is off too, so the
+       Korean src in the markup stays the no-JS default.
+
+       Inline, and not a file, because a <script src> in <head> would run
+       before assets/analytics/error-reporting.js could watch it — the
+       reporter is deferred and cannot be installed earlier without blocking
+       the page on three more requests. Inline code has nothing to watch and
+       costs no round trip.
+
+       No <link rel="preload"> for the hero: measured, it did not collapse
+       with the image's own load and fetched it twice. See
+       docs/landing-and-guide.md 4-1. Kept byte-identical with the same block
+       in guide.html; tests/site-pages.test.js checks that. -->
+  <script>
+    window.InvitationSiteMedia = (() => {
+      const SELECTOR = "[data-site-media]";
+      // srcset moves with src so a candidate list swaps as one unit.
+      const key = (attribute, language) => attribute + language.charAt(0).toUpperCase() + language.slice(1);
+      // A language that names no file is left alone: a picture in the wrong
+      // language beats an empty frame.
+      const applyTo = (node, language) => {
+        for (const attribute of ["src", "srcset"]) {
+          const value = node.dataset[key(attribute, language)];
+          if (value && node.getAttribute(attribute) !== value) node.setAttribute(attribute, value);
+        }
+      };
+      const apply = (language = window.InvitationI18n?.getLanguage?.()) => {
+        if (!language) return;
+        for (const node of document.querySelectorAll(SELECTOR)) applyTo(node, language);
+      };
+      const start = () => {
+        const language = window.InvitationI18n?.getLanguage?.();
+        if (!language || typeof MutationObserver !== "function") return;
+        const observer = new MutationObserver((records) => {
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (node.nodeType !== 1) continue;
+              if (node.matches?.(SELECTOR)) applyTo(node, language);
+              for (const inner of node.querySelectorAll?.(SELECTOR) || []) applyTo(inner, language);
+            }
+          }
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        document.addEventListener("DOMContentLoaded", () => observer.disconnect(), { once: true });
+      };
+      return { apply, start };
+    })();
+    InvitationI18n.init();
+    InvitationSiteMedia.start();
+  </script>
   <script>
     /* Keep the JSON-LD block in step with the language the engine settled on.
        It is a whole-document rewrite rather than a patch because JSON-LD has
@@ -129,7 +188,7 @@
         </div>
       </div>
       <div class="hero-media">
-        <div class="phone"><img src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="휴대폰 화면에 열린 완성 초대장 예시" data-i18n-attr="alt:site.landing.hero.imageAlt"></div>
+        <div class="phone"><img loading="lazy" data-site-media src="/assets/media/site/design-bloom-portrait-2x.jpg" data-src-ko="/assets/media/site/design-bloom-portrait-2x.jpg" data-src-en="/assets/media/site/design-bloom-portrait-2x-en.jpg" width="780" height="1374" alt="휴대폰 화면에 열린 완성 초대장 예시" data-i18n-attr="alt:site.landing.hero.imageAlt"></div>
         <span class="seal" aria-hidden="true">✳</span>
       </div>
     </section>
@@ -146,14 +205,18 @@
       <p class="eyebrow" data-i18n="site.landing.gallery.eyebrow">DESIGNS</p>
       <h2 id="designs-title" data-i18n="site.landing.gallery.title">디자인</h2>
       <p class="lead" data-i18n="site.landing.gallery.lead">취향대로 고르세요. 어떤 날이든 어울리는 디자인이 여럿 있어요.</p>
+      <!-- Each figure names both renders of its design and the reader's
+           language picks one; the alt binding above describes whichever
+           one is showing. `src` is the Korean file, which is what a reader
+           with no JavaScript is served and what the swap starts from. -->
       <div class="designs-wrap">
         <div class="designs" tabindex="0" role="region" aria-label="디자인 목록" data-i18n-attr="aria-label:site.landing.gallery.stripLabel">
-          <figure class="design"><img loading="lazy" src="/assets/media/site/design-bloom-portrait-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 생일" data-i18n-attr="alt:site.landing.designs.alt.bloomPortrait"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
-          <figure class="design"><img loading="lazy" src="/assets/media/site/design-wedding-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 결혼" data-i18n-attr="alt:site.landing.designs.alt.wedding"><figcaption data-i18n="site.landing.gallery.wedding">결혼</figcaption></figure>
-          <figure class="design"><img loading="lazy" src="/assets/media/site/design-first-chapter-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 돌잔치" data-i18n-attr="alt:site.landing.designs.alt.firstChapter"><figcaption data-i18n="site.landing.gallery.firstChapter">돌잔치</figcaption></figure>
-          <figure class="design"><img loading="lazy" src="/assets/media/site/design-golden-years-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 환갑" data-i18n-attr="alt:site.landing.designs.alt.goldenYears"><figcaption data-i18n="site.landing.gallery.goldenYears">환갑</figcaption></figure>
-          <figure class="design"><img loading="lazy" src="/assets/media/site/design-botanical-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 데이트" data-i18n-attr="alt:site.landing.designs.alt.botanical"><figcaption data-i18n="site.landing.gallery.botanical">데이트</figcaption></figure>
-          <figure class="design"><img loading="lazy" src="/assets/media/site/design-midnight-cinema-2x.jpg" width="668" height="1374" alt="초대장 디자인 예시 · 행사" data-i18n-attr="alt:site.landing.designs.alt.midnightCinema"><figcaption data-i18n="site.landing.gallery.midnightCinema">행사</figcaption></figure>
+          <figure class="design"><img loading="lazy" data-site-media src="/assets/media/site/design-bloom-portrait-2x.jpg" data-src-ko="/assets/media/site/design-bloom-portrait-2x.jpg" data-src-en="/assets/media/site/design-bloom-portrait-2x-en.jpg" width="780" height="1374" alt="초대장 디자인 예시 · 생일" data-i18n-attr="alt:site.landing.designs.alt.bloomPortrait"><figcaption data-i18n="site.landing.gallery.bloomPortrait">생일</figcaption></figure>
+          <figure class="design"><img loading="lazy" data-site-media src="/assets/media/site/design-wedding-2x.jpg" data-src-ko="/assets/media/site/design-wedding-2x.jpg" data-src-en="/assets/media/site/design-wedding-2x-en.jpg" width="780" height="1374" alt="초대장 디자인 예시 · 결혼" data-i18n-attr="alt:site.landing.designs.alt.wedding"><figcaption data-i18n="site.landing.gallery.wedding">결혼</figcaption></figure>
+          <figure class="design"><img loading="lazy" data-site-media src="/assets/media/site/design-first-chapter-2x.jpg" data-src-ko="/assets/media/site/design-first-chapter-2x.jpg" data-src-en="/assets/media/site/design-first-chapter-2x-en.jpg" width="780" height="1374" alt="초대장 디자인 예시 · 돌잔치" data-i18n-attr="alt:site.landing.designs.alt.firstChapter"><figcaption data-i18n="site.landing.gallery.firstChapter">돌잔치</figcaption></figure>
+          <figure class="design"><img loading="lazy" data-site-media src="/assets/media/site/design-golden-years-2x.jpg" data-src-ko="/assets/media/site/design-golden-years-2x.jpg" data-src-en="/assets/media/site/design-golden-years-2x-en.jpg" width="780" height="1374" alt="초대장 디자인 예시 · 환갑" data-i18n-attr="alt:site.landing.designs.alt.goldenYears"><figcaption data-i18n="site.landing.gallery.goldenYears">환갑</figcaption></figure>
+          <figure class="design"><img loading="lazy" data-site-media src="/assets/media/site/design-botanical-2x.jpg" data-src-ko="/assets/media/site/design-botanical-2x.jpg" data-src-en="/assets/media/site/design-botanical-2x-en.jpg" width="780" height="1374" alt="초대장 디자인 예시 · 데이트" data-i18n-attr="alt:site.landing.designs.alt.botanical"><figcaption data-i18n="site.landing.gallery.botanical">데이트</figcaption></figure>
+          <figure class="design"><img loading="lazy" data-site-media src="/assets/media/site/design-midnight-cinema-2x.jpg" data-src-ko="/assets/media/site/design-midnight-cinema-2x.jpg" data-src-en="/assets/media/site/design-midnight-cinema-2x-en.jpg" width="780" height="1374" alt="초대장 디자인 예시 · 행사" data-i18n-attr="alt:site.landing.designs.alt.midnightCinema"><figcaption data-i18n="site.landing.gallery.midnightCinema">행사</figcaption></figure>
         </div>
       </div>
       <div class="actions"><a class="site-cta secondary" href="/studio" data-site-event="landing_cta_clicked" data-site-placement="gallery" data-i18n="site.landing.gallery.cta">디자인 전체 보기</a></div>

@@ -36,7 +36,64 @@
   <script src="/assets/i18n/dictionary-en.js"></script>
   <script src="/assets/i18n/dictionary-site-ko.js"></script>
   <script src="/assets/i18n/dictionary-site-en.js"></script>
-  <script>InvitationI18n.init();</script>
+  <!-- Pictures are per-language, and the preload scanner fetches an eager
+       <img src> long before any deferred script runs: measured against the
+       previous commit, an English visitor downloaded all six Korean design
+       images (449 KB) and then replaced them. The fix is a pair. Every
+       picture is loading="lazy", which the scanner leaves alone, and this
+       runs here — before <body> is parsed — correcting each src in the
+       microtask after the parser inserts the element, which is before the
+       rendering step that triggers the lazy fetch. Either half alone restores
+       the old behaviour. With scripting off, lazy loading is off too, so the
+       Korean src in the markup stays the no-JS default.
+
+       Inline, and not a file, because a <script src> in <head> would run
+       before assets/analytics/error-reporting.js could watch it — the
+       reporter is deferred and cannot be installed earlier without blocking
+       the page on three more requests. Inline code has nothing to watch and
+       costs no round trip.
+
+       No <link rel="preload"> for the hero: measured, it did not collapse
+       with the image's own load and fetched it twice. See
+       docs/landing-and-guide.md 4-1. Kept byte-identical with the same block
+       in guide.html; tests/site-pages.test.js checks that. -->
+  <script>
+    window.InvitationSiteMedia = (() => {
+      const SELECTOR = "[data-site-media]";
+      // srcset moves with src so a candidate list swaps as one unit.
+      const key = (attribute, language) => attribute + language.charAt(0).toUpperCase() + language.slice(1);
+      // A language that names no file is left alone: a picture in the wrong
+      // language beats an empty frame.
+      const applyTo = (node, language) => {
+        for (const attribute of ["src", "srcset"]) {
+          const value = node.dataset[key(attribute, language)];
+          if (value && node.getAttribute(attribute) !== value) node.setAttribute(attribute, value);
+        }
+      };
+      const apply = (language = window.InvitationI18n?.getLanguage?.()) => {
+        if (!language) return;
+        for (const node of document.querySelectorAll(SELECTOR)) applyTo(node, language);
+      };
+      const start = () => {
+        const language = window.InvitationI18n?.getLanguage?.();
+        if (!language || typeof MutationObserver !== "function") return;
+        const observer = new MutationObserver((records) => {
+          for (const record of records) {
+            for (const node of record.addedNodes) {
+              if (node.nodeType !== 1) continue;
+              if (node.matches?.(SELECTOR)) applyTo(node, language);
+              for (const inner of node.querySelectorAll?.(SELECTOR) || []) applyTo(inner, language);
+            }
+          }
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        document.addEventListener("DOMContentLoaded", () => observer.disconnect(), { once: true });
+      };
+      return { apply, start };
+    })();
+    InvitationI18n.init();
+    InvitationSiteMedia.start();
+  </script>
 </head>
 <body data-site-page="guide">
   <a class="skip" href="#main" data-i18n="site.header.skip">본문으로 건너뛰기</a>
@@ -67,15 +124,15 @@
       <h2 id="steps-title" data-i18n="site.guide.steps.title">세 단계</h2>
       <article class="guide-step">
         <div><span class="step-number" aria-hidden="true">01</span><h3 data-i18n="site.guide.steps.one.title">디자인</h3><p data-i18n="site.guide.steps.one.text">먼저 어떤 날인지 고르고, 마음에 드는 디자인 카드를 누르면 샘플이 크게 보여요. 마음에 들면 '이 디자인으로 만들기'를 누르세요. 나중에 디자인을 바꿔도 이미 쓴 내용은 그대로 남아요.</p></div>
-        <img loading="lazy" src="/assets/media/site/guide-step-01-2x.jpg" width="2880" height="1800" alt="스튜디오의 디자인 선택 화면" data-i18n-attr="alt:site.guide.steps.one.alt">
+        <img loading="lazy" data-site-media src="/assets/media/site/guide-step-01-2x.jpg" data-src-ko="/assets/media/site/guide-step-01-2x.jpg" data-src-en="/assets/media/site/guide-step-01-2x-en.jpg" width="2880" height="1800" alt="스튜디오의 디자인 선택 화면" data-i18n-attr="alt:site.guide.steps.one.alt">
       </article>
       <article class="guide-step">
         <div><span class="step-number" aria-hidden="true">02</span><h3 data-i18n="site.guide.steps.two.title">내용 편집</h3><p data-i18n="site.guide.steps.two.text">제목, 일정, 메시지 같은 기본 정보를 먼저 채우세요. 장소와 지도 링크는 그 아래에 있고, 사진과 효과는 접혀 있는 항목을 열면 나와요. 오른쪽 미리보기는 손님이 받는 문서와 똑같아요.</p></div>
-        <img loading="lazy" src="/assets/media/site/guide-step-02-2x.jpg" width="2880" height="1800" alt="스튜디오의 내용 편집 화면" data-i18n-attr="alt:site.guide.steps.two.alt">
+        <img loading="lazy" data-site-media src="/assets/media/site/guide-step-02-2x.jpg" data-src-ko="/assets/media/site/guide-step-02-2x.jpg" data-src-en="/assets/media/site/guide-step-02-2x-en.jpg" width="2880" height="1800" alt="스튜디오의 내용 편집 화면" data-i18n-attr="alt:site.guide.steps.two.alt">
       </article>
       <article class="guide-step">
         <div><span class="step-number" aria-hidden="true">03</span><h3 data-i18n="site.guide.steps.three.title">완성</h3><p data-i18n="site.guide.steps.three.text">세 가지 방식 중 하나를 고르세요. 초안은 쓰는 동안 이 브라우저에 자동 저장되니, 완성 화면에 오기 전에 닫아도 이어서 만들 수 있어요.</p></div>
-        <img loading="lazy" src="/assets/media/site/guide-step-03-2x.jpg" width="2880" height="1800" alt="스튜디오의 완성 화면" data-i18n-attr="alt:site.guide.steps.three.alt">
+        <img loading="lazy" data-site-media src="/assets/media/site/guide-step-03-2x.jpg" data-src-ko="/assets/media/site/guide-step-03-2x.jpg" data-src-en="/assets/media/site/guide-step-03-2x-en.jpg" width="2880" height="1800" alt="스튜디오의 완성 화면" data-i18n-attr="alt:site.guide.steps.three.alt">
       </article>
     </section>
     <section id="finish" aria-labelledby="finish-title">
