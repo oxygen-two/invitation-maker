@@ -84,6 +84,21 @@ const state = {
      draft. Null whenever there is nothing to undo, or when the snapshot is
      the author's writing and must come back exactly as they left it. */
   undoSampleLanguage: null,
+  // What Undo would be putting the content language back to, for the same
+  // reason it has to remember the rest of the pre-apply draft.
+  undoContentLanguage: null,
+  /* The language the words ON THE PAGE are written in — which is not the
+     language of the chrome around them, and stops being it the moment the
+     author writes something the studio will not retranslate.
+
+     It moves only when words move: when the studio writes a sample (boot,
+     a design applied over an untouched one, a relocalization), and when the
+     author types, which they are doing in whatever language the studio is in
+     at the time. It never moves because the switcher moved. This is what the
+     draft records, because a record stamped with the switcher would relabel
+     an untranslated draft as translated and send the next boot to compare it
+     against a sample it was never written from. */
+  contentLanguage: null,
   naverMapClientId: "",
   googleMapsApiKey: "",
   heroImage: null,
@@ -126,6 +141,11 @@ const reportFault = (context, error, options) => {
   try {
     window.InvitationErrorReporting?.reportError?.(error, context, options);
   } catch { /* Diagnostics must not interrupt authoring either. */ }
+};
+// The words on the page have just been written in the language the studio is
+// speaking — either by us, or by the author typing into it.
+const markContentLanguage = () => {
+  state.contentLanguage = I18n?.getLanguage?.() ?? state.contentLanguage;
 };
 const markAnalyticsEdit = () => {
   analyticsEditRevision += 1;
@@ -178,8 +198,13 @@ const saveDraft = () => {
      authorship, not about the card. It is the only thing that lets the next
      boot ask whether a restored sample is still ours to rewrite, which is the
      same question a live language switch asks and could not otherwise be put
-     to a draft that came back from storage. */
-  const language = I18n?.getLanguage?.();
+     to a draft that came back from storage.
+
+     Deliberately state.contentLanguage and not the switcher: this runs from
+     every preview render, and a language switch ends with one, so reading the
+     switcher here would relabel a draft the switch had just decided NOT to
+     retranslate. */
+  const language = state.contentLanguage;
   const revision = ++draftRevision;
   const edited = analyticsEditRevision > 0;
   setDraftStatus('status.draftSaving');
@@ -1886,6 +1911,7 @@ const relocalizeSample = () => {
   }
   fillForm(state.invitation);
   captureAppliedBaseline();
+  markContentLanguage();
   return true;
 };
 
@@ -1896,28 +1922,34 @@ const applyPendingTemplate = () => {
 
   const current = getFormData();
   const untouchedSample = showsUntouchedSample();
+  /* Deliberately more cautious than showsUntouchedSample(): losing what the
+     author wrote is the one unrecoverable outcome here, so content is carried
+     into the new design unless BOTH signals agree nothing has been touched.
+     Keeping a sample one design too long costs nothing. */
+  const preserveContent = personalDraft || PresetApplication.isDirty(current, state.appliedBaseline);
 
   try {
     const { previous, next } = PresetApplication.prepare({
       current,
       preset,
-      /* Deliberately more cautious than showsUntouchedSample(): losing what
-         the author wrote is the one unrecoverable outcome here, so content is
-         carried into the new design unless BOTH signals agree nothing has
-         been touched. Keeping a sample one design too long costs nothing. */
-      preserveContent: personalDraft || PresetApplication.isDirty(current, state.appliedBaseline),
+      preserveContent,
       naverMapClientId: state.naverMapClientId, googleMapsApiKey: state.googleMapsApiKey
     });
     state.undoSnapshot = previous;
     // Undo has to know what it would be putting back, and it cannot ask
     // later: by then the baseline belongs to the design just applied.
     state.undoSampleLanguage = untouchedSample ? I18n?.getLanguage?.() ?? null : null;
+    state.undoContentLanguage = state.contentLanguage;
     state.invitation = next;
     state.activeTemplate = next.templateId;
     state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, next.templateId);
     state.pendingTemplateId = next.templateId;
     fillForm(next);
     captureAppliedBaseline();
+    /* Only when the words changed. A preserved content apply carries the
+       author's document into a new design untouched, and a design is not a
+       language. */
+    if (!preserveContent) markContentLanguage();
     renderTemplates();
     renderPreview();
     personalDraft = true;
@@ -1952,6 +1984,11 @@ const undoTemplateApplication = () => {
     : previous;
   state.undoSnapshot = null;
   state.undoSampleLanguage = null;
+  // Whatever undo put back, it is those words the content language describes:
+  // a rebuilt sample speaks the studio's language, the author's document the
+  // language it was theirs in before the apply.
+  state.contentLanguage = preset ? I18n?.getLanguage?.() ?? state.contentLanguage : state.undoContentLanguage;
+  state.undoContentLanguage = null;
   state.invitation = restored;
   state.activeTemplate = restored.templateId;
   state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, restored.templateId);
@@ -2770,6 +2807,10 @@ const loadInitialData = async () => {
   state.pendingTemplateId = state.activeTemplate;
   state.undoSnapshot = null;
   state.undoSampleLanguage = null;
+  state.undoContentLanguage = null;
+  // The starting sample is our writing, in the language the studio opened in.
+  // A restored draft overrides this with the language it was written in.
+  markContentLanguage();
   // The baseline is not set here: it is read back off the form by
   // captureAppliedBaseline once init() has filled it, which is the only
   // reading an untouched sample compares equal to.
@@ -2789,6 +2830,10 @@ const restoreDraft = async () => {
     state.pendingTemplateId = state.activeTemplate;
     state.activeOccasion = TemplateCatalog.getOccasionForTemplate(state.catalog, state.activeTemplate);
     personalDraft = true;
+    // The repository guarantees this is filled in, Korean for a draft written
+    // before it was recorded. Nothing here re-reads the switcher: the whole
+    // point is that these words predate this studio session.
+    state.contentLanguage = draft.language;
     setDraftStatus('status.draftRestored');
     return draft.language || null;
   } catch (error) {
@@ -2895,6 +2940,11 @@ const init = async () => {
 
 dom.form.addEventListener("input", (event) => {
   personalDraft = true;
+  /* An edit made while the studio is in X means the author is writing in X.
+     It is the only reading available — nobody declares what language they are
+     typing in — and it is the one that keeps the record honest: from here the
+     draft is theirs, never retranslated, and it says so in their language. */
+  markContentLanguage();
   if (event.target.type !== "file") markAnalyticsEdit();
   if (event.target === dom.heroImageScale) {
     updateHeroImageScale(event.target.value);

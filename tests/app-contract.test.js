@@ -615,7 +615,13 @@ const loadEditorHarness = ({
   source = source.replace(/const renderSamplePreview = \([^)]*\) => \{[\s\S]*?\n\};/, 'const renderSamplePreview = () => {};');
   const previewStart = source.indexOf("const renderPreview = () => {");
   const previewEnd = source.indexOf("\nconst renderSaved =", previewStart);
-  source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; };\nconst playPreviewIntro = () => {};${source.slice(previewEnd)}`;
+  /* The painting is dropped — there is no frame to paint into here — but the
+     two lines the draft contract hangs on are not. Every render reads the form
+     back into state.invitation and autosaves it, and that is the ONLY route by
+     which an edit, an apply or a language switch reaches storage. Stubbing
+     those away too would have left what gets persisted after a language
+     switch untested, which is exactly where the record learned to lie. */
+  source = `${source.slice(0, previewStart)}const renderPreview = () => { globalThis.__previewRenders += 1; state.invitation = getFormData(); saveDraft(); };\nconst playPreviewIntro = () => {};${source.slice(previewEnd)}`;
   source = source.replace(
     /const validateForExport = \(\) => \{[\s\S]*?\n\};/,
     "const validateForExport = () => true;"
@@ -2405,19 +2411,21 @@ const draftSavedIn = async (language, prepareDraft = () => {}) => {
   const harness = await startedEditor({
     putDraft: async (invitation, saved) => { writes.push({ invitation, language: saved }); }
   });
+  let saved;
   try {
     await switchLanguage(language);
     prepareDraft(harness);
-    // renderPreview is stubbed in this harness, so the read of the form it
-    // does before every autosave is done here instead.
-    harness.api.state.invitation = harness.api.getFormData();
     harness.api.setDraftReady(true);
     harness.api.saveDraft();
     await harness.api.waitForDraftWrite();
+    saved = writes.at(-1);
+    // Handing Korean back re-renders, and a render autosaves: the record has
+    // to be read before that lands on top of it.
+    harness.api.setDraftReady(false);
   } finally {
     await switchLanguage("ko");
   }
-  return { id: "current", updatedAt: "2026-09-19T00:00:00.000Z", ...writes.at(-1) };
+  return { id: "current", updatedAt: "2026-09-19T00:00:00.000Z", ...saved };
 };
 
 /* A cold start with that draft in storage, in a studio speaking `language`. */
@@ -2495,6 +2503,135 @@ test("a draft saved before the studio recorded its language is read as Korean", 
   } finally {
     await switchLanguage("ko");
   }
+});
+
+/* What the record SAYS the words are and what they are have to be the same
+   fact. Autosave runs from every preview render, and a language switch ends
+   with one — so a record stamped with the switcher would relabel an
+   untranslated draft as translated the moment the author changed the chrome
+   around it, and the next boot would then measure it against the wrong
+   sample and leave our own writing standing in the wrong language.
+
+   The rule these hold: the draft's language is the language the words on the
+   page were written in. It moves only when words move — when the studio
+   writes a sample, and when the author types, which they are doing in
+   whatever language the studio is in at the time. It never moves because the
+   chrome changed language. */
+
+test("an untouched sample autosaved after a switch records the language it now speaks", async () => {
+  const writes = [];
+  const harness = await startedEditor({
+    putDraft: async (invitation, language) => { writes.push({ invitation, language }); }
+  });
+  applyDesign(harness, "birthday", "modern");
+  harness.api.setDraftReady(true);
+
+  try {
+    await switchLanguage("en");
+    await harness.api.waitForDraftWrite();
+
+    // The switch rewrote our sample, so the record follows it.
+    assert.equal(harness.node("#invitation-form").elements.title.value, englishSample("modern").title);
+    assert.equal(writes.at(-1).invitation.title, englishSample("modern").title);
+    assert.equal(writes.at(-1).language, "en");
+  } finally {
+    harness.api.setDraftReady(false);
+    await switchLanguage("ko");
+  }
+});
+
+test("a draft the author wrote in keeps its language when the studio changes", async () => {
+  const writes = [];
+  const harness = await startedEditor({
+    putDraft: async (invitation, language) => { writes.push({ invitation, language }); }
+  });
+  applyDesign(harness, "birthday", "modern");
+  typeInto(harness, "title", "민아의 서른 번째 생일");
+  harness.api.setDraftReady(true);
+
+  try {
+    await switchLanguage("en");
+    await harness.api.waitForDraftWrite();
+
+    // Their words were not retranslated, so the record must not claim they
+    // were: it is still a Korean document under English chrome.
+    assert.equal(harness.node("#invitation-form").elements.title.value, "민아의 서른 번째 생일");
+    assert.equal(writes.at(-1).invitation.title, "민아의 서른 번째 생일");
+    assert.equal(writes.at(-1).language, "ko");
+  } finally {
+    harness.api.setDraftReady(false);
+    await switchLanguage("ko");
+  }
+});
+
+test("an edit is written in whatever language the author is typing in", async () => {
+  const writes = [];
+  const harness = await startedEditor({
+    putDraft: async (invitation, language) => { writes.push(language); }
+  });
+  typeInto(harness, "title", "지민과 하준의 결혼식");
+  harness.api.setDraftReady(true);
+
+  try {
+    await switchLanguage("en");
+    await harness.api.waitForDraftWrite();
+    assert.equal(writes.at(-1), "ko");
+
+    // ...until they write again, and they are writing in English now.
+    typeInto(harness, "title", "Jimin and Hajun are getting married");
+    await harness.api.waitForDraftWrite();
+    assert.equal(writes.at(-1), "en");
+  } finally {
+    harness.api.setDraftReady(false);
+    await switchLanguage("ko");
+  }
+});
+
+test("a restored draft is not restamped with the studio it was reopened in", async () => {
+  const draft = await draftSavedIn("en", (harness) => {
+    applyDesign(harness, "birthday", "modern");
+    typeInto(harness, "title", "Mina's thirtieth birthday");
+  });
+  const writes = [];
+  const harness = await bootedEditor(draft, {
+    putDraft: async (invitation, language) => { writes.push(language); }
+  });
+
+  harness.api.setDraftReady(true);
+  harness.api.saveDraft();
+  await harness.api.waitForDraftWrite();
+
+  // Boot left their English words alone, so boot may not relabel them Korean.
+  assert.equal(harness.node("#invitation-form").elements.title.value, "Mina's thirtieth birthday");
+  assert.equal(writes.at(-1), "en");
+});
+
+test("a draft boot rewrote into this studio's language is recorded as this language", async () => {
+  const draft = await draftSavedIn("en", (harness) => applyDesign(harness, "birthday", "modern"));
+  const writes = [];
+  const harness = await bootedEditor(draft, {
+    putDraft: async (invitation, language) => { writes.push(language); }
+  });
+
+  harness.api.setDraftReady(true);
+  harness.api.saveDraft();
+  await harness.api.waitForDraftWrite();
+
+  assert.equal(harness.node("#invitation-form").elements.title.value, koreanSample("modern").title);
+  assert.equal(writes.at(-1), "ko");
+});
+
+/* The regression this whole rule exists to prevent is one line long: reading
+   the switcher inside the autosave. It looks harmless there — the studio IS
+   in that language — and it is wrong for every draft the studio has just
+   decided not to retranslate. Held structurally, because the behavioural
+   tests above can only catch it through the paths they happen to drive. */
+test("the draft's language comes from the tracked content language, never the switcher", () => {
+  const source = read("assets/studio/app.js");
+  const body = functionBody(source, "saveDraft");
+
+  assert.ok(body.includes("const language = state.contentLanguage;"), body);
+  assert.doesNotMatch(body, /getLanguage/, body);
 });
 
 test("a library save made from a relocalized draft is built in the studio's language", async () => {
