@@ -169,7 +169,7 @@ createAssistantEngine({ createMessage, model = "claude-opus-5", catalog, now = (
 
 - 도구 실패는 MCP 도구 결과 `isError: true`에 `{ code, message }` JSON 텍스트로 돌려준다. 프로토콜 오류(잘못된 JSON-RPC, 지원하지 않는 메서드)는 SDK가 JSON-RPC 에러로 처리한다.
 - 코드: 기존 `PUBLISHING_ERROR_MESSAGES` 전부 + `ASSISTANT_RATE_LIMIT`, `ASSISTANT_DAILY_LIMIT`, `ASSISTANT_UNAVAILABLE`(키 없음·모델 오류·타임아웃), `ASSISTANT_BAD_OUTPUT`(재검증 실패 후에도 복구 불가). 메시지는 영어 한 줄(호스트가 번역).
-- Mongo 미설정(`repository == null`) → 모든 도구가 `REPOSITORY_UNAVAILABLE`(발행 API와 동일). 한도 없이 외부에 LLM을 열지 않는다.
+- Mongo 미설정(`repository == null`) → `draft_invitation`·`publish_invitation`·`revoke_invitation`이 `REPOSITORY_UNAVAILABLE`(발행 API와 동일). 한도 없이 외부에 LLM을 열지 않는다. `list_occasions`는 정적 카탈로그만 읽으므로 그대로 동작한다.
 - `ANTHROPIC_API_KEY` 미설정 → `draft_invitation`만 `ASSISTANT_UNAVAILABLE`, 나머지 도구는 동작.
 - 모델 오류(`APIError`, 타임아웃)는 로그에 요청 ID만 남기고 사용자 텍스트는 남기지 않는다.
 - 요청 본문 상한 64KB(`draft` + 텍스트면 충분). 초과 시 413.
