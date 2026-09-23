@@ -1,11 +1,10 @@
 // Drafting quota: one slot per client per hour, one per service per day.
 // Keys carry the `assist:` prefix so they never collide with the publishing
 // counters that share the collection.
+const { hourBucket, dayBucket } = require("../storage/counter-buckets.cjs");
+
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-
-const hourBucket = (date) => date.toISOString().slice(0, 13);
-const dayBucket = (date) => date.toISOString().slice(0, 10);
 
 const createAssistantQuota = ({ repository, rateLimitPerHour = 20, totalDailyLimit = 300 }) => {
   const reserve = async ({ clientKeyHash, now = new Date() }) => {

@@ -4,6 +4,7 @@ const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
 const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
 const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
 const { clientIpFrom, getRequestOrigin } = require("./http/request-info.cjs");
+const { readBody } = require("./http/read-body.cjs");
 const { createMcpHandler } = require("./mcp/handler.cjs");
 const { mapRepositoryError, publishInvitation, refreshPublicationExpiry } = require("./publishing/use-case.cjs");
 const {
@@ -43,41 +44,6 @@ const errorBody = (code) => ({
 });
 
 const sendError = (res, status, code) => json(res, status, errorBody(code));
-
-const readBody = (req, maxPayloadBytes) => new Promise((resolve, reject) => {
-  if (req.body !== undefined) {
-    const raw = Buffer.isBuffer(req.body)
-      ? req.body.toString("utf8")
-      : typeof req.body === "string"
-        ? req.body
-        : JSON.stringify(req.body);
-    if (Buffer.byteLength(raw, "utf8") > maxPayloadBytes) {
-      const error = new Error("body too large");
-      error.code = "BODY_TOO_LARGE";
-      reject(error);
-      return;
-    }
-    resolve(raw);
-    return;
-  }
-  let size = 0;
-  let tooLarge = false;
-  const chunks = [];
-  req.on("data", (chunk) => {
-    if (tooLarge) return;
-    size += chunk.length;
-    if (size > maxPayloadBytes) {
-      tooLarge = true;
-      const error = new Error("body too large");
-      error.code = "BODY_TOO_LARGE";
-      reject(error);
-      return;
-    }
-    chunks.push(chunk);
-  });
-  req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-  req.on("error", reject);
-});
 
 const isAllowedOrigin = (req, config) => {
   const origin = req.headers.origin;

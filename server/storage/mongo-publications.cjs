@@ -1,4 +1,5 @@
 const { MongoClient } = require("mongodb");
+const { hourBucket, dayBucket } = require("./counter-buckets.cjs");
 
 const errorWithCode = (code) => Object.assign(new Error(code), { code });
 
@@ -18,8 +19,6 @@ const liveExpiryFilter = (now) => ({
   ]
 });
 
-const hourBucket = (date) => date.toISOString().slice(0, 13);
-const dayBucket = (date) => date.toISOString().slice(0, 10);
 const counterExpiry = (key, now) => {
   if (key.startsWith("hour:")) return new Date(now.getTime() + 2 * 60 * 60 * 1000);
   if (key.startsWith("day:")) return new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
