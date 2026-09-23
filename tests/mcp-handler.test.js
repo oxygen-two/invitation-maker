@@ -54,6 +54,49 @@ const withServer = async (handler, run) => {
 const call = (id, name, args) => ({ jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } });
 const toolJson = (rpcBody) => JSON.parse(rpcBody.result.content[0].text);
 
+// fetch() always sends the real connection authority and silently ignores a
+// caller-supplied "host" header (with or without a space), so it cannot be
+// used to test Host-header spoofing. node:http.request lets a client set an
+// arbitrary Host header, which is what a real attacker in front of the
+// deployed server could also send.
+const rawPost = ({ port, headers = {}, body }) => new Promise((resolve, reject) => {
+  const payload = typeof body === "string" ? body : JSON.stringify(body);
+  const req = http.request({
+    host: "127.0.0.1",
+    port,
+    path: "/mcp",
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "content-length": Buffer.byteLength(payload),
+      ...headers
+    }
+  }, (response) => {
+    const chunks = [];
+    response.on("data", (chunk) => chunks.push(chunk));
+    response.on("end", () => {
+      const text = Buffer.concat(chunks).toString("utf8");
+      resolve({ status: response.statusCode, headers: response.headers, body: text ? JSON.parse(text) : null });
+    });
+  });
+  req.on("error", reject);
+  req.end(payload);
+});
+
+const withRawServer = async (handler, run) => {
+  const server = http.createServer(handler);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address();
+  try {
+    await run(port);
+  } finally {
+    server.close();
+    await once(server, "close");
+  }
+};
+
 test("initialize and tools/list answer statelessly with JSON", async () => {
   const { handler } = buildHandler();
   await withServer(handler, async (rpc) => {
@@ -155,5 +198,73 @@ test("non-POST methods are 405, oversized bodies are 413, bad JSON is a JSON-RPC
     assert.equal(bad.status, 400);
     assert.equal(bad.body.jsonrpc, "2.0");
     assert.ok(bad.body.error);
+  });
+});
+
+test("a spoofed Host header never becomes the base of a published link", async () => {
+  const { handler } = buildHandler();
+  await withRawServer(handler, async (port) => {
+    const response = await rawPost({
+      port,
+      headers: { host: "evil.example" },
+      body: call(1, "publish_invitation", { draft: readyDraft, confirmed: true })
+    });
+    assert.equal(response.status, 200);
+    assert.match(toolJson(response.body).url, /^\/i\/[0-9A-Za-z]{22}$/,
+      "no publicBaseUrl or allowedOrigin configured, and the request Host is not loopback: url falls back to a relative path instead of trusting the Host header");
+  });
+});
+
+test("a malformed Host header (with a space) does not crash the process", async () => {
+  const { handler } = buildHandler();
+  await withRawServer(handler, async (port) => {
+    // Node's HTTP client and server both accept a header value with a
+    // space; what used to crash the process was building the request's base
+    // URL from it. resolvePublicBaseUrl now validates that origin with
+    // new URL(...) itself, catches the failure, and falls back to "" before
+    // the adapter ever sees it - so this answers normally instead of
+    // throwing.
+    const response = await rawPost({
+      port,
+      headers: { host: "evil host" },
+      body: call(1, "publish_invitation", { draft: readyDraft, confirmed: true })
+    });
+    assert.equal(response.status, 200);
+    assert.match(toolJson(response.body).url, /^\/i\//);
+
+    // The process is still alive and the server keeps answering.
+    const followUp = await rawPost({ port, body: { jsonrpc: "2.0", id: 2, method: "tools/list" } });
+    assert.equal(followUp.status, 200);
+    assert.ok(Array.isArray(followUp.body.result.tools));
+  });
+});
+
+test("PUBLISH_ALLOWED_ORIGIN is trusted as the base when PUBLIC_BASE_URL is unset", async () => {
+  const { handler } = buildHandler({ config: { allowedOrigin: "https://invites.example" } });
+  await withServer(handler, async (rpc) => {
+    const published = toolJson((await rpc(call(1, "publish_invitation", { draft: readyDraft, confirmed: true }))).body);
+    assert.match(published.url, /^https:\/\/invites\.example\/i\//);
+  });
+});
+
+test("an invalid configured base url answers a plain error instead of crashing the process", async () => {
+  // allowedOrigin is operator-configured, not attacker-controlled, so it is
+  // trusted without re-validating it against the Host header allowlist -
+  // but a bad value must still fail safely rather than take the process
+  // down, and must never leak the raw value or a stack trace to the caller.
+  const { handler } = buildHandler({ config: { allowedOrigin: "not a url at all" } });
+  await withServer(handler, async (rpc) => {
+    const response = await rpc(call(1, "publish_invitation", { draft: readyDraft, confirmed: true }));
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error.code, "BAD_REQUEST");
+    assert.doesNotMatch(JSON.stringify(response.body), /not a url at all/);
+
+    // A misconfigured allowedOrigin makes every request fail the same way
+    // (the base URL is resolved before any tool runs) - the point is that
+    // the process survives and keeps answering cleanly, not that this one
+    // request recovers.
+    const followUp = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+    assert.equal(followUp.status, 400);
+    assert.equal(followUp.body.error.code, "BAD_REQUEST");
   });
 });
