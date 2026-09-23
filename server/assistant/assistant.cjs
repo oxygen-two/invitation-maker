@@ -26,7 +26,10 @@ const createAssistant = ({ engine = null, quota, catalog, repository = null, con
     try {
       return await engine.draft(input);
     } catch (error) {
-      await release();
+      // A refusal or an unusable answer (ASSISTANT_BAD_OUTPUT) was still a
+      // billed call: it keeps its slot. Only a call that never reached the
+      // model (ASSISTANT_UNAVAILABLE) refunds the reservation.
+      if (error?.code === "ASSISTANT_UNAVAILABLE") await release();
       throw error;
     }
   };

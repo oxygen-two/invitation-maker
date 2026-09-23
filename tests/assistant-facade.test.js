@@ -34,6 +34,14 @@ test("listOccasions returns the catalog in the requested language", () => {
   assert.equal(result.templates.length, 30);
 });
 
+test("listOccasions works without a repository", () => {
+  const quota = createAssistantQuota({ repository: null, rateLimitPerHour: 2, totalDailyLimit: 10 });
+  const assistant = createAssistant({ engine: null, quota, catalog, repository: null, config: DEFAULT_ASSISTANT_CONFIG });
+  const result = assistant.listOccasions({ language: "ko" });
+  assert.equal(result.occasions.length, 12);
+  assert.equal(result.templates.length, 30);
+});
+
 test("draft reserves quota, calls the engine, and keeps the slot on success", async () => {
   const { assistant, repository } = build({ createMessage: okModel });
   const result = await assistant.draft({ request: "23일 17시 선릉 돈그리아 초대장", clientKeyHash: "k", now: NOW });
@@ -50,6 +58,12 @@ test("draft releases quota when the model fails, and enforces the hourly cap", a
   await capped.assistant.draft({ request: "x", clientKeyHash: "k", now: NOW });
   await capped.assistant.draft({ request: "x", clientKeyHash: "k", now: NOW });
   await assert.rejects(capped.assistant.draft({ request: "x", clientKeyHash: "k", now: NOW }), (e) => e.code === "ASSISTANT_RATE_LIMIT");
+});
+
+test("draft keeps the quota slot when the model answers but the output is unusable", async () => {
+  const { assistant, repository } = build({ createMessage: async () => ({ stop_reason: "refusal", content: [] }) });
+  await assert.rejects(assistant.draft({ request: "x", clientKeyHash: "k", now: NOW }), (e) => e.code === "ASSISTANT_BAD_OUTPUT");
+  assert.equal(repository.counters.get("assist:hour:k:2026-09-23T03"), 1, "a billed call keeps its slot");
 });
 
 test("draft validates input before touching quota", async () => {
