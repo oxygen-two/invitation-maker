@@ -81,7 +81,7 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 | `GET` | `/api/invitations/:id` | 공개 초대장 조회 |
 | `DELETE` | `/api/invitations/:id` | 제작자 토큰으로 발행 취소 |
 
-발행 페이로드에는 선택적으로 `language`(발행 버튼을 누른 시점의 제작기 언어, `ko` 또는 `en`, 생략 시 `ko`)를 담을 수 있으며, 조회 응답은 항상 초대장과 함께 이 값을 돌려줍니다 — 자세한 내용은 [i18n 문서](docs/i18n.md#published-shared-link-invitations-chrome-and-content-follow-different-people)를 참고하세요. 발행 성공 시 `/i/{base62-id}` 링크를 반환합니다. 시간당/IP별 제한, 일일 제한, 누적 제한이 적용됩니다. 만료는 슬라이딩 방식입니다. 마지막 조회로부터 `PUBLISH_IDLE_WINDOW_DAYS`(기본 7일) 동안 유지되며, 발행 시점으로부터 `PUBLISH_MAX_LIFETIME_DAYS`(기본 30일)를 넘지 않습니다. 데이터베이스는 더 이상 자동으로 삭제하지 않습니다. 만료 시각은 표시일 뿐이며 조회 경로가 이를 강제하므로, 만료된 링크는 `404`를 반환하지만 레코드 자체는 관리자나 별도 일괄 삭제 작업을 위해 그대로 남아 있습니다.
+발행 페이로드에는 선택적으로 `language`(발행 버튼을 누른 시점의 제작기 언어, `ko` 또는 `en`, 생략 시 `ko`)를 담을 수 있으며, 조회 응답은 항상 초대장과 함께 이 값을 돌려줍니다 — 자세한 내용은 [i18n 문서](docs/i18n.md#published-shared-link-invitations-chrome-and-content-follow-different-people)를 참고하세요. 발행 성공 시 `/i/{base62-id}` 링크를 반환합니다. 시간당/IP별 제한, 일일 제한, 누적 제한이 적용됩니다. 만료는 슬라이딩 방식입니다 — 마지막 조회로부터 `PUBLISH_IDLE_WINDOW_DAYS`(기본 7일) 동안 유지되고 `PUBLISH_MAX_LIFETIME_DAYS`(기본 30일)에서 상한이 걸리지만, 초대장에 `dateTime`이 있으면 그 날짜로부터 `PUBLISH_EVENT_GRACE_DAYS`(기본 7일)가 지날 때까지도 열려 있으며 **이 이벤트 하한이 슬라이딩 창과 30일 상한을 모두 앞섭니다** — 두 달 전에 발행한 청첩장이 결혼식 전에 만료되지 않는다는 뜻입니다. 행사 일시는 발행 시점으로부터 `PUBLISH_MAX_EVENT_LEAD_DAYS`(기본 400일) 이내일 때만 인정됩니다. 데이터베이스는 더 이상 자동으로 삭제하지 않습니다. 만료 시각은 표시일 뿐이며 조회 경로가 이를 강제하므로, 만료된 링크는 `404`를 반환하지만 레코드 자체는 관리자나 별도 일괄 삭제 작업을 위해 그대로 남아 있습니다.
 
 상세 운영 규칙은 [`docs/publishing.md`](docs/publishing.md)에 있습니다.
 
@@ -124,7 +124,7 @@ GA4는 `assets/analytics/config.js`의 유효한 Measurement ID와 활성 설정
 
 > `privacy.html`과 `terms.html`에는 실제 운영자(오재성)와 연락처(rojae@kakao.com)가 명시되어 있습니다. 문구는 `assets/i18n/dictionary-site-ko.js`, `assets/i18n/dictionary-site-en.js`의 `site.privacy.*`, `site.terms.*` 네임스페이스와 두 HTML 파일의 인라인 한국어 문구에 있으니, 운영자나 연락처가 바뀔 때는 **이 네 곳 모두**를 함께 갱신해 `tests/site-pages.test.js`가 계속 통과하도록 하세요.
 
-개인정보처리방침이 안내하는 보관 기간(마지막 열람 후 7일, 발행 후 최대 30일)은 `server/config/publishing.cjs`의 배포 기본값을 그대로 옮긴 것이며 "기본값"임을 문서에 명시합니다. 테스트가 문구와 설정값의 일치를 강제합니다.
+개인정보처리방침과 이용약관이 안내하는 보관 기간 — 마지막 열람 후 7일, 발행 후 최대 30일, 그리고 일시가 있는 초대장을 그 행사일 이후 7일까지(최대 400일 앞선 행사일까지) 열어 두는 이벤트 하한 — 은 `server/config/publishing.cjs`의 배포 기본값을 그대로 옮긴 것이며 "기본값"임을 문서에 명시합니다. `tests/site-pages.test.js`가 문구와 설정값의 일치를 강제합니다.
 
 ## 운영 관측
 
@@ -134,7 +134,7 @@ GA4는 `assets/analytics/config.js`의 유효한 Measurement ID와 활성 설정
 
 ## 검색 노출(SEO)
 
-랜딩 페이지만 검색에 노출되도록 설계되어 있습니다. `robots.txt`는 `/`를 허용하고 `/i/`, `/api/`를 차단하며, `sitemap.xml`은 랜딩 페이지 하나만 나열합니다. 발행된 개별 초대장(`/i/{id}`)은 `shared.html`의 메타 태그와 API의 `x-robots-tag` 헤더를 통해 항상 `noindex`로 유지됩니다 — 이름, 날짜, 장소, 전화번호처럼 초대한 사람들에게만 공유하려던 정보가 검색엔진에 노출되지 않게 하기 위한 의도적 결정입니다. 이 결정이 실수로 되돌려지지 않도록 테스트가 `noindex` 태그의 존재를 강제합니다. 랜딩 페이지에는 Google Search Console과 네이버 서치어드바이저 소유 확인 태그가 포함되어 있고, 사이트맵은 Google에 제출되었습니다. 자세한 근거와 배포 시 `robots.txt`/`sitemap.xml`을 함께 복사하는 빌드 단계는 [SEO 문서](docs/seo.md)를 참고하세요.
+사이트 크롬만 검색에 노출되도록 설계되어 있습니다. `robots.txt`는 `/`를 허용하고 `/i/`, `/api/`를 차단하며, `sitemap.xml`은 검색에 노출되는 다섯 페이지 — 랜딩, 가이드, 스튜디오, 개인정보처리방침, 이용약관 — 을 나열합니다. 발행된 개별 초대장(`/i/{id}`)은 `shared.html`의 메타 태그와 API의 `x-robots-tag` 헤더를 통해 항상 `noindex`로 유지됩니다 — 이름, 날짜, 장소, 전화번호처럼 초대한 사람들에게만 공유하려던 정보가 검색엔진에 노출되지 않게 하기 위한 의도적 결정입니다. 이 결정이 실수로 되돌려지지 않도록 테스트가 `noindex` 태그의 존재를 강제합니다. 랜딩 페이지에는 Google Search Console과 네이버 서치어드바이저 소유 확인 태그가 포함되어 있고, 사이트맵은 Google에 제출되었습니다. 자세한 근거와 배포 시 `robots.txt`/`sitemap.xml`을 함께 복사하는 빌드 단계는 [SEO 문서](docs/seo.md)를 참고하세요.
 
 ## 테스트와 빌드
 
@@ -155,6 +155,8 @@ npm run verify:publishing-mongo
 모바일 편집기 회귀 검증은 로컬 서버와 Chrome을 준비한 뒤 `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/verify-mobile-editor.cjs`로 실행합니다. 한국어·영어, 320–1440px의 여섯 화면 폭에서 카드·버튼·입력의 실제 경계를 검사하여 상위 요소에 가려진 잘림도 탐지합니다. Playwright는 외부 QA 도구로 사용하며 서비스 의존성에는 추가하지 않습니다.
 
 초대장 제목 검증은 Chrome을 준비한 뒤 `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/verify-hero-wrap.cjs`로 실행합니다. 단독 문서를 메모리에서 직접 만들기 때문에 로컬 서버는 필요 없습니다. 제목의 단어가 단어 중간에서 잘렸거나 상자 밖으로 넘컬는지를 레이아웃 엔진에 직접 묻으며, 제목이 나타나는 두 곳 — 카드의 히어로와 인트로 오버레이 — 모두를 모든 디자인·모든 샘플 제목·한국어와 영어 문서·320–1440px의 열두 화면 폭에서 측정합니다. 제목과 문서 언어를 서로 교차해 검사하는 것은 의도적입니다. 내보낸 문서는 제목이 무엇으로 쓰였든 `lang="ko"`이므로, 한국어 문서 속 라틴 제목이 오히려 일반적인 경우이기 때문입니다. `HERO_WRAP_MATRIX=1`을 붙이면 디자인별 크기와 상자 폭 표가 출력됩니다.
+
+랜딩·가이드 스크린샷은 직접 캡처한 것이 아니라 생성물입니다: `PLAYWRIGHT_MODULE=/설치된/playwright/절대경로 node scripts/build-site-media.cjs`가 Chrome으로 실제 `/studio`를 구동해 [`docs/landing-and-guide.md`](docs/landing-and-guide.md)가 설명하는 이미지를 씁니다. `--check`는 각 파일이 존재하고 용량이 그럴듯한지만 확인할 뿐 스튜디오 크롬이 달라졌는지는 감지하지 못하므로, 스튜디오 크롬이 바뀔 때마다 `--check`만이 아니라 전체 명령을 다시 실행해야 합니다.
 
 `.github/workflows/ci.yml`이 `main` 브랜치로의 push와 모든 PR마다 실행됩니다: `verify` 잡은 Node 22에서 `npm test`와 `npm run build:public`을 실행하고, 커밋된 생성물 두 가지를 다시 확인한 뒤(`node scripts/build-error-pages.cjs --check`, `node scripts/build-template-art.js --check` — 둘 다 `node:fs`만 쓰므로 브라우저가 필요 없습니다) 빌드가 추적 파일을 건드리지 않았는지 확인합니다. 이 잡은 `TZ=UTC`와 `TZ=America/Los_Angeles`로 두 번 돌아갑니다. 테스트는 날짜를 모두 UTC로 다루는데, 그 전제가 깨지는 순간을 잡아내는 것이 두 번째 레그입니다. `publishing-mongo` 잡은 실제 `mongo:7` 서비스 컨테이너에 대해 `npm run verify:publishing-mongo`를 실행한 다음 `MONGODB_URI`를 켜고 `npm test`를 한 번 더 실행합니다. `tests/publishing-server.test.js`의 실제 Mongo 통합 테스트 세 개가 실행되는 유일한 자리입니다. 이전에는 CI가 전혀 없었습니다.
 

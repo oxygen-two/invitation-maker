@@ -32,7 +32,7 @@ A retry must reuse the same content, management token, and idempotency key. Do n
 
 `DELETE /api/invitations/:id` requires the management token and returns HTTP 204 on success. Cancellation removes the remotely stored snapshot; a recipient's already downloaded HTML cannot be recalled.
 
-This is the author-side deletion route the [privacy policy](../privacy.html) points a visitor at (`/privacy#deletion`). It also names `[CONTACT_EMAIL]` as the fallback for a guest who wants a link carrying their own details taken down, or for an author whose publishing browser is gone — there is no account, so no self-service path exists for either. Replace that placeholder, and `[OPERATOR]`, before deploying publicly.
+This is the author-side deletion route the [privacy policy](../privacy.html) points a visitor at (`/privacy#deletion`), for a guest who wants a link carrying their own details taken down, or for an author whose publishing browser is gone — there is no account, so no self-service path exists for either. `privacy.html` and `terms.html` name the real operator (오재성) and contact address (rojae@kakao.com); `tests/site-pages.test.js` asserts both pages carry them and forbids the `[OPERATOR]`/`[CONTACT_EMAIL]` placeholders they used to ship with from coming back.
 
 ## Cost and expiry policy
 
