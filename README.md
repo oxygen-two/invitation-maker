@@ -89,6 +89,29 @@ The publish payload carries an optional `language` (the author's studio language
 
 See [publishing documentation](docs/publishing.md) for authentication headers, limits, retry rules, and deployment configuration.
 
+## AI assistant (MCP server)
+
+`POST /mcp` is a stateless [Model Context Protocol](https://modelcontextprotocol.io) server (Streamable HTTP, JSON responses). Add `https://<your-domain>/mcp` as a custom connector in Claude.ai, Claude Code (`claude mcp add --transport http invitation-maker https://<your-domain>/mcp`), ChatGPT, or Cursor, then ask for an invitation in one line, e.g. "23일 17시 선릉 돈그리아 초대장".
+
+| Tool | What it does |
+| --- | --- |
+| `list_occasions` | Occasions and design templates, named in `ko` or `en` |
+| `draft_invitation` | Asks Claude Opus 5 for a structured draft; returns `ready` or `needs_info` with the questions to ask |
+| `publish_invitation` | Publishes a ready draft (`confirmed: true` required) and returns the link plus a management token |
+| `revoke_invitation` | Takes a link down with that token |
+
+The server keeps no conversation state: the host passes the previous `draft` back with the user's `answers`. Publishing goes through the same use-case, validation, expiry and quotas as the studio. Drafting has its own quota (`ASSISTANT_RATE_LIMIT_PER_HOUR` per client IP, `ASSISTANT_TOTAL_DAILY_LIMIT` service-wide) stored in the same Mongo counters. Hosted clients such as Claude.ai reach the server from shared IPs, so the daily cap is the real cost guard. Production must set `PUBLIC_BASE_URL` (or `PUBLISH_ALLOWED_ORIGIN`) — the MCP server never trusts the request `Host` header for the published link; without either, `publish_invitation` returns a relative `/i/<id>` url. On Vercel (or any proxy) the deployment must also set `PUBLISH_TRUST_PROXY=true` so the hourly draft cap is per client IP; otherwise every caller shares one cap of `ASSISTANT_RATE_LIMIT_PER_HOUR`.
+
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-...
+ASSISTANT_MODEL=claude-opus-5
+ASSISTANT_RATE_LIMIT_PER_HOUR=20
+ASSISTANT_TOTAL_DAILY_LIMIT=300
+PUBLIC_BASE_URL=https://<your-domain>
+```
+
+Without `ANTHROPIC_API_KEY` the `draft_invitation` tool answers `ASSISTANT_UNAVAILABLE`; the other tools keep working. Without `MONGODB_URI` `draft_invitation`, `publish_invitation` and `revoke_invitation` answer `REPOSITORY_UNAVAILABLE`, exactly like the publishing API; `list_occasions` reads the static catalog and keeps working. `npm run smoke:assistant -- "<request>"` runs one real draft against the model (costs money, never publishes). Design: `docs/superpowers/specs/2026-09-23-invitation-assistant-mcp-design.md`.
+
 ## Local administration
 
 The admin service runs separately from the public server and is excluded from the public static build. It also requires `MONGODB_URI` and `MONGODB_DB` for the database you want to manage. `admin/public/` (its HTML/CSS/JS) is committed to Git — `.gitignore`'s `public/` rule used to match at every depth, so this directory was silently untracked and a fresh clone got an admin server with no pages; the rule is now anchored to `/public/` so only the build output at the repository root is ignored.

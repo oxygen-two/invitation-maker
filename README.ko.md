@@ -85,6 +85,29 @@ PUBLISH_ALLOWED_ORIGIN=http://127.0.0.1:4173
 
 상세 운영 규칙은 [`docs/publishing.md`](docs/publishing.md)에 있습니다.
 
+## AI 어시스턴트 (MCP 서버)
+
+`POST /mcp`는 상태를 유지하지 않는 [Model Context Protocol](https://modelcontextprotocol.io) 서버입니다(Streamable HTTP, JSON 응답). Claude.ai, Claude Code(`claude mcp add --transport http invitation-maker https://<your-domain>/mcp`), ChatGPT, Cursor 등에 커스텀 커넥터로 `https://<your-domain>/mcp`를 추가한 뒤 "23일 17시 선릉 돈그리아 초대장"처럼 한 줄로 초대장을 요청하면 됩니다.
+
+| 도구 | 하는 일 |
+| --- | --- |
+| `list_occasions` | 행사 종류와 디자인 템플릿을 `ko` 또는 `en`으로 나열 |
+| `draft_invitation` | Claude Opus 5에게 구조화된 초안을 요청하고, `ready` 또는 `needs_info`(물어볼 질문 포함)를 반환 |
+| `publish_invitation` | 준비된 초안을 발행(`confirmed: true` 필수)하고 링크와 관리 토큰을 반환 |
+| `revoke_invitation` | 그 토큰으로 링크를 취소 |
+
+서버는 대화 상태를 저장하지 않습니다 — 호스트가 이전 `draft`를 사용자의 `answers`와 함께 다시 보냅니다. 발행은 제작기와 동일한 유스케이스, 검증, 만료, 쿼터를 거칩니다. 초안 작성은 같은 Mongo 카운터에 저장되는 별도의 쿼터(`ASSISTANT_RATE_LIMIT_PER_HOUR`는 클라이언트 IP별, `ASSISTANT_TOTAL_DAILY_LIMIT`는 서비스 전체)를 갖습니다. Claude.ai 같은 호스팅 클라이언트는 공유 IP에서 접속하므로 일일 한도가 실질적인 비용 방어선입니다. 운영 환경에서는 반드시 `PUBLIC_BASE_URL`(또는 `PUBLISH_ALLOWED_ORIGIN`)을 설정해야 합니다 — MCP 서버는 발행 링크를 만들 때 요청의 `Host` 헤더를 신뢰하지 않으며, 둘 다 없으면 `publish_invitation`은 상대 경로 `/i/<id>` URL을 반환합니다. Vercel(또는 다른 프록시) 환경에서는 `PUBLISH_TRUST_PROXY=true`도 함께 설정해야 시간당 초안 한도가 클라이언트 IP별로 적용됩니다 — 그렇지 않으면 모든 호출자가 `ASSISTANT_RATE_LIMIT_PER_HOUR` 하나를 공유합니다.
+
+```dotenv
+ANTHROPIC_API_KEY=sk-ant-...
+ASSISTANT_MODEL=claude-opus-5
+ASSISTANT_RATE_LIMIT_PER_HOUR=20
+ASSISTANT_TOTAL_DAILY_LIMIT=300
+PUBLIC_BASE_URL=https://<your-domain>
+```
+
+`ANTHROPIC_API_KEY`가 없으면 `draft_invitation` 도구는 `ASSISTANT_UNAVAILABLE`을 반환하고, 나머지 도구는 정상 동작합니다. `MONGODB_URI`가 없으면 `draft_invitation`, `publish_invitation`, `revoke_invitation`은 공개 발행 API와 마찬가지로 `REPOSITORY_UNAVAILABLE`을 반환합니다 — `list_occasions`는 정적 카탈로그를 읽으므로 계속 동작합니다. `npm run smoke:assistant -- "<request>"`는 실제 모델을 상대로 초안 한 건을 요청합니다(비용이 발생하며 발행은 하지 않습니다). 설계 문서: `docs/superpowers/specs/2026-09-23-invitation-assistant-mcp-design.md`.
+
 ## 로컬 관리자
 
 관리자 서비스는 공개 서버와 별도 프로세스로 실행하며 Vercel 공개 산출물에 포함되지 않습니다. `admin/public/`(HTML/CSS/JS)은 이제 Git에 커밋되어 있습니다 — 예전에는 `.gitignore`의 `public/` 규칙이 모든 깊이에 매칭되어 이 디렉토리가 조용히 추적에서 빠졌고, 그 결과 새로 clone한 저장소의 관리자 서버는 화면 없이 떴습니다. 규칙을 `/public/`로 앵커링해 저장소 루트의 빌드 산출물만 무시하도록 고쳤습니다.

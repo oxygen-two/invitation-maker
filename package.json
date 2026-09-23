@@ -15,9 +15,12 @@
     "verify:publishing-mongo": "node scripts/verify-publishing-mongo.cjs",
     "monitor:synthetic": "node scripts/synthetic-monitor.cjs",
     "monitor:publish-cycle": "node scripts/synthetic-publish-cycle.cjs",
+    "smoke:assistant": "node --env-file-if-exists=.env scripts/smoke-assistant.cjs",
     "build:public": "node scripts/build-public.cjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "mongodb": "7.6.0"
   }
 }

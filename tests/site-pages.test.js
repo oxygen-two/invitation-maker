@@ -804,3 +804,18 @@ test("build-public ships the two legal pages", () => {
   assert.ok(shouldCopyRootFile("privacy.html"));
   assert.ok(shouldCopyRootFile("terms.html"));
 });
+
+test("the guide and privacy pages describe the MCP assistant", () => {
+  const guide = read("guide.html");
+  assert.match(guide, /id="assistant"/);
+  assert.match(guide, /data-i18n="site.guide.assistant.title"/);
+  assert.match(guide, /data-i18n="site.guide.toc.assistant"/);
+  assert.match(guide, /\/mcp/);
+  const privacy = read("privacy.html");
+  assert.match(privacy, /data-i18n="site.privacy.server.seven"/);
+  const ko = require("../assets/i18n/dictionary-site-ko.js");
+  const en = require("../assets/i18n/dictionary-site-en.js");
+  assert.match(ko.site.privacy.server.seven, /Anthropic/);
+  assert.match(en.site.privacy.server.seven, /Anthropic/);
+  assert.match(ko.site.guide.assistant.url, /\/mcp$/);
+});

@@ -3,6 +3,9 @@ const { createReporter, observeHttp } = require("./observability.cjs");
 const { DEFAULT_HTTP_CONFIG } = require("./config/http.cjs");
 const { DEFAULT_PUBLISHING_CONFIG, PUBLISHING_ERROR_MESSAGES } = require("./config/publishing.cjs");
 const { serveErrorPage, serveStatic, staticFileFor } = require("./http/static.cjs");
+const { clientIpFrom, getRequestOrigin } = require("./http/request-info.cjs");
+const { readBody } = require("./http/read-body.cjs");
+const { createMcpHandler } = require("./mcp/handler.cjs");
 const { mapRepositoryError, publishInvitation, refreshPublicationExpiry } = require("./publishing/use-case.cjs");
 const {
   DEFAULT_PUBLISHED_LANGUAGE,
@@ -42,62 +45,10 @@ const errorBody = (code) => ({
 
 const sendError = (res, status, code) => json(res, status, errorBody(code));
 
-const readBody = (req, maxPayloadBytes) => new Promise((resolve, reject) => {
-  if (req.body !== undefined) {
-    const raw = Buffer.isBuffer(req.body)
-      ? req.body.toString("utf8")
-      : typeof req.body === "string"
-        ? req.body
-        : JSON.stringify(req.body);
-    if (Buffer.byteLength(raw, "utf8") > maxPayloadBytes) {
-      const error = new Error("body too large");
-      error.code = "BODY_TOO_LARGE";
-      reject(error);
-      return;
-    }
-    resolve(raw);
-    return;
-  }
-  let size = 0;
-  let tooLarge = false;
-  const chunks = [];
-  req.on("data", (chunk) => {
-    if (tooLarge) return;
-    size += chunk.length;
-    if (size > maxPayloadBytes) {
-      tooLarge = true;
-      const error = new Error("body too large");
-      error.code = "BODY_TOO_LARGE";
-      reject(error);
-      return;
-    }
-    chunks.push(chunk);
-  });
-  req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-  req.on("error", reject);
-});
-
-const getRequestOrigin = (req) => {
-  const host = req.headers.host;
-  if (!host) return "";
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  const proto = typeof forwardedProto === "string" && forwardedProto.split(",")[0].trim() === "https"
-    ? "https"
-    : req.socket.encrypted ? "https" : "http";
-  return `${proto}://${host}`;
-};
-
 const isAllowedOrigin = (req, config) => {
   const origin = req.headers.origin;
   if (!origin) return true;
   return origin === (config.allowedOrigin || getRequestOrigin(req));
-};
-
-const clientIpFrom = (req, config) => {
-  if (config.trustProxy && typeof req.headers["x-forwarded-for"] === "string") {
-    return req.headers["x-forwarded-for"].split(",")[0].trim() || "unknown";
-  }
-  return req.socket.remoteAddress || "unknown";
 };
 
 const isExpired = (expiresAt, now = new Date()) => expiresAt && new Date(expiresAt).getTime() <= now.getTime();
@@ -191,7 +142,7 @@ const handleDelete = async (req, res, repository, id) => {
   }
 };
 
-const createHandler = ({ repository, config = {} } = {}) => {
+const createHandler = ({ repository, config = {}, assistant = null } = {}) => {
   const report = createReporter(config.logSink);
   const mergedConfig = {
     ...DEFAULT_PUBLISHING_CONFIG,
@@ -199,9 +150,13 @@ const createHandler = ({ repository, config = {} } = {}) => {
     ...config,
     reportServerEvent: report
   };
+  const mcpHandler = assistant ? createMcpHandler({ assistant, config: mergedConfig }) : null;
 
   return observeHttp(async (req, res) => {
     const parsed = new URL(req.url || "/", "http://localhost");
+    if (mcpHandler && (parsed.pathname === "/mcp" || parsed.pathname === "/api/mcp.js")) {
+      return mcpHandler(req, res);
+    }
     const invitationId = req.query?.id || parsed.searchParams.get("id");
     if (parsed.pathname === "/api/invitations" || parsed.pathname === "/api/invitations.js") {
       if (invitationId) {

@@ -81,7 +81,7 @@
       guide: {
         title: "How it works",
         lead: "Pick a design, fill it in, and send it the way you prefer.",
-        toc: { steps: "Three steps", finish: "Three ways to finish", data: "Where your data lives", faq: "Questions" },
+        toc: { steps: "Three steps", finish: "Three ways to finish", assistant: "Make one with an AI assistant", data: "Where your data lives", faq: "Questions" },
         steps: {
           eyebrow: "STEP BY STEP",
           title: "Three steps",
@@ -100,6 +100,17 @@
           link: { method: "Share a link", where: "Our server", switch: "The link stays alive; only this browser can revoke it", undo: "Revoke in the studio" },
           fileTitle: "What do I do with the HTML file?",
           fileText: "It is one file with the photos inside, so it opens in any browser. Attach it in a messenger or an email, or import it back into the library later to edit it."
+        },
+        assistant: {
+          eyebrow: "AI ASSISTANT",
+          title: "Make one with an AI assistant",
+          lead: "Add this address as a connector in any MCP-capable app — Claude, ChatGPT, Cursor — and make an invitation link by talking.",
+          url: "https://invitation-maker-one.vercel.app/mcp",
+          one: "One line is enough, like \"an invitation for Dongria near Seolleung on the 23rd at 5 pm\". The assistant asks for anything missing.",
+          two: "The link is created only after you confirm the summary. Nothing is published before that.",
+          three: "Keep the management token you get with the link. It is the only way to take the link down, and the server keeps just a hash of it.",
+          four: "Links expire by the same rules as links made in the studio. Photos are not supported yet.",
+          note: "What you type is sent to the Anthropic API to draft the invitation. See the privacy policy for details."
         },
         data: {
           eyebrow: "YOUR DATA",
@@ -173,6 +184,7 @@
           four: "The place name, the address and the map link",
           five: "Phone numbers or links you put in contact items",
           six: "The photos you added. They are stored inside the document as data URIs, not as separate files.",
+          seven: "What you type when making an invitation through the AI assistant (MCP). It is sent to the Anthropic API to draft the invitation and is not stored on this service's servers.",
           note: "Anyone who has the link can read the invitation. It is not indexed by search engines, but it is not password protected either. Only write what every guest may see."
         },
         retention: {
