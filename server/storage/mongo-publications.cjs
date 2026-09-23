@@ -90,10 +90,13 @@ const createMongoPublicationsRepository = ({
   const collection = async () => (await db()).collection(collectionName);
   const counters = async () => (await db()).collection(countersCollectionName);
 
-  const reserveCounter = async (key, limit, now) => {
+  // One atomic slot on a named counter. `limit <= 0` disables the counter.
+  // Every quota in the service (publishing, assistant drafting) goes through
+  // here so the same TTL-indexed collection and the same upsert race handling
+  // serve both.
+  const reserveQuota = async ({ key, limit, now, expiresAt = null, errorCode }) => {
     if (limit <= 0) return null;
     const countersCollection = await counters();
-    const expiresAt = counterExpiry(key, now);
     const result = await countersCollection.findOneAndUpdate(
       { key, count: { $lt: limit } },
       {
@@ -106,14 +109,18 @@ const createMongoPublicationsRepository = ({
       if (error.code === 11000) return null;
       throw error;
     });
-    if (!result) throw errorWithCode(key.startsWith("hour:") ? "RATE_LIMIT" : key.startsWith("day:") ? "TOTAL_DAILY_LIMIT" : "LIFETIME_LIMIT");
+    if (!result) throw errorWithCode(errorCode);
     return key;
   };
 
-  const releaseCounter = async (key) => {
+  const releaseQuota = async (key) => {
     if (!key) return;
     await (await counters()).updateOne({ key }, { $inc: { count: -1 } });
   };
+
+  const publishingErrorCode = (key) => (key.startsWith("hour:") ? "RATE_LIMIT" : key.startsWith("day:") ? "TOTAL_DAILY_LIMIT" : "LIFETIME_LIMIT");
+  const reserveCounter = (key, limit, now) => reserveQuota({ key, limit, now, expiresAt: counterExpiry(key, now), errorCode: publishingErrorCode(key) });
+  const releaseCounter = releaseQuota;
 
   const publish = async (input) => {
     const invitations = await collection();
@@ -249,6 +256,8 @@ const createMongoPublicationsRepository = ({
     get,
     refreshExpiry,
     remove,
+    reserveQuota,
+    releaseQuota,
     close,
     dropDatabase
   };
