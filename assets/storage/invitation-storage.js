@@ -125,6 +125,21 @@
     return 0;
   };
 
+  /* The one thing a draft knows about itself that its invitation cannot say:
+     the studio language its words were written in. It belongs on the record
+     rather than inside the invitation, because it describes the authorship of
+     the words — whether they are still our sample, ours to replace when the
+     studio changes language — and not anything the invitation renders.
+
+     No store upgrade goes with it. The field is not indexed and nothing reads
+     it out of a key range, so an old record is complete the moment it is read:
+     every draft written before this field existed came from a studio that had
+     only Korean, which is exactly what the fallback says. Normalizing on the
+     way out rather than migrating in place keeps that true for a draft written
+     by a tab still running the old code.  */
+  const DRAFT_LANGUAGE_FALLBACK = "ko";
+  const draftLanguage = (value) => String(value || "").trim() || DRAFT_LANGUAGE_FALLBACK;
+
   const list = async () => {
     const records = await withStore("readonly", (store) => store.getAll());
     return (Array.isArray(records) ? records : []).slice().sort(compareRecords);
@@ -145,7 +160,17 @@
     get,
     put,
     remove,
-    getDraft: () => withStore("readonly", (store) => store.get("current"), "drafts"),
-    putDraft: (invitation) => withStore("readwrite", (store) => store.put({ id: "current", invitation, updatedAt: new Date().toISOString() }), "drafts")
+    DRAFT_LANGUAGE_FALLBACK,
+    getDraft: async () => {
+      const draft = await withStore("readonly", (store) => store.get("current"), "drafts");
+      // No draft is not an empty draft: the caller has to be able to tell.
+      return draft ? { ...draft, language: draftLanguage(draft.language) } : draft;
+    },
+    putDraft: (invitation, language) => withStore("readwrite", (store) => store.put({
+      id: "current",
+      invitation,
+      language: draftLanguage(language),
+      updatedAt: new Date().toISOString()
+    }), "drafts")
   };
 });
