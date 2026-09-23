@@ -253,6 +253,9 @@
       menuLabel: "{type} 항목 작업",
       confirmDelete: "“{name}” 항목을 삭제할까요?",
       cancel: "취소",
+      // The title of the studio's own confirmation dialog (B-6). The question
+      // itself is written by whoever raises it.
+      confirmTitle: "확인해 주세요",
 
       fallbackCourse: "코스 {index}",
       fallbackPhoto: "사진 {index}",
@@ -395,6 +398,7 @@
       shareDialogPrivacy: "일시를 적은 초대장은 그날이 지나고 일주일 뒤까지 열려요. 일시가 없으면 마지막으로 열린 뒤 7일, 길어도 30일까지 열려요. 그보다 먼저 내리는 건 이 브라우저에서만 할 수 있어요.",
       privacyLink: "개인정보처리방침 보기",
       confirmReplyContact: "회신을 받는 항목에 연락처나 링크가 없어요. 연락할 방법 없이 다운로드할까요?\n취소하면 연락처를 적는 곳으로 돌아가요.",
+      confirmReplyContinue: "그대로 진행",
       /* Matched against the label and value the AUTHOR typed, to notice an
          RSVP item with no way to reply. Locale-specific because an English
          author writes "RSVP" or "Reply", not "회신". Source string rather
@@ -665,6 +669,7 @@
       saved: "보관함에 저장했어요.",
       savedUnsynchronized: "저장은 됐지만 보관함 정리를 마치지 못했어요.",
       saveFailed: "브라우저 저장 공간에 기록하지 못해 저장하지 못했어요.",
+      downloadFailed: "초대장 파일을 만들지 못했어요. 잠시 뒤에 다시 시도해 주세요.",
 
       uploaded: "초대장을 보관함에 담았어요.",
       uploadedUnsynchronized: "불러오기는 됐지만 보관함 정리를 마치지 못했어요.",
@@ -677,6 +682,7 @@
 
       storageUnavailable: "보관함 저장소를 열지 못했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
       migrationUnavailable: "예전 보관함을 옮기는 작업을 시작하지 못했어요. 기존 데이터는 그대로 있어요.",
+      migrationIncomplete: "예전 초대장 중 일부를 보관함으로 옮기지 못했어요. 원본은 그대로 있으니 다시 열면 또 시도해요.",
       syncIncomplete: "보관함 동기화를 마치지 못했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
       syncFailed: "보관함 동기화에 실패했어요. 만들기와 다운로드는 계속 쓸 수 있어요.",
 

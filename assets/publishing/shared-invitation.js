@@ -63,13 +63,10 @@
   const ERROR_KINDS = Object.freeze(["notFound", "gone", "failed"]);
 
   // A 404 or 410 is an expected outcome; only service failures are reported.
-  const reportFault = (context, error, options) => {
-    try {
-      root.InvitationErrorReporting?.reportError?.(error, context, options);
-    } catch {
-      // A guest looking at a broken invitation is not helped by a second error.
-    }
-  };
+  // The best-effort part — a diagnostic never interrupting the page it watches —
+  // is the reporter's own, so this is the binding and not a second copy of it.
+  const reportFault = (context, error, options) =>
+    root.InvitationErrorReporting?.reportFault?.(context, error, options);
   const resolveId = (location = root.location) => {
     const match = String(location?.pathname || "").match(/\/i\/([A-Za-z0-9]{1,64})\/?$/);
     return match?.[1] || "";
@@ -143,7 +140,7 @@
       // guest something, not part of the author's document.
       setStatus(data.expiresAt
         ? say("expires", {
-          date: I18n?.formatDateTime(data.expiresAt, { dateStyle: "medium", timeStyle: "short" }, reader)
+          date: I18n?.formatTimestamp(data.expiresAt, reader)
             || data.expiresAt
         })
         : "");

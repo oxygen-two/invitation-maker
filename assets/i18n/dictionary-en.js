@@ -257,6 +257,7 @@
       menuLabel: "Actions for this {type}",
       confirmDelete: "Delete “{name}”?",
       cancel: "Cancel",
+      confirmTitle: "Please confirm",
 
       fallbackCourse: "Course {index}",
       fallbackPhoto: "Photo {index}",
@@ -393,6 +394,7 @@
       shareDialogPrivacy: "An invitation with a date stays open until a week after that date. Without one, it stays open 7 days after it was last opened, and 30 days at the most. Taking it down sooner is something only this browser can do.",
       privacyLink: "Read the privacy policy",
       confirmReplyContact: "This item asks for a reply but has no contact or link. Download it without a way to reply?\nCancel to go back and add one.",
+      confirmReplyContinue: "Continue anyway",
       replyContactPattern: "rsvp|reply|respond|contact|attend"
     },
 
@@ -648,6 +650,7 @@
       saved: "Added to your library.",
       savedUnsynchronized: "Added, but the library could not finish tidying up.",
       saveFailed: "Could not write to browser storage, so it was not added.",
+      downloadFailed: "The invitation file could not be built. Please try again in a moment.",
 
       uploaded: "Invitation added.",
       uploadedUnsynchronized: "Added, but the library could not finish tidying up.",
@@ -660,6 +663,7 @@
 
       storageUnavailable: "The library store could not be opened. Making and downloading still work.",
       migrationUnavailable: "The existing library could not start migrating. Your existing data is untouched.",
+      migrationIncomplete: "Some older invitations could not be moved over. The originals are untouched, and reopening this page tries again.",
       syncIncomplete: "The library could not finish syncing. Making and downloading still work.",
       syncFailed: "The library failed to sync. Making and downloading still work.",
 

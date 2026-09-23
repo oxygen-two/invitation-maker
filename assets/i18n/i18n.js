@@ -255,6 +255,14 @@
     }
   };
 
+  /* One shape for every machine timestamp the product shows a reader: a
+     library card's saved date and a published link's expiry sit on the same
+     screen and used to be formatted two different ways, because each caller
+     spelled its own options out. */
+  const TIMESTAMP_FORMAT = Object.freeze({ dateStyle: "medium", timeStyle: "short" });
+  const formatTimestamp = (value, language = activeLanguage) =>
+    formatDateTime(value, TIMESTAMP_FORMAT, language);
+
   const formatNumber = (value, options = {}, language = activeLanguage) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return String(value ?? "");
@@ -416,6 +424,7 @@
     formatNumber,
     formatPercent,
     formatSampleDate,
+    formatTimestamp,
     getDateLocale,
     getLanguage,
     getLanguageLabel,

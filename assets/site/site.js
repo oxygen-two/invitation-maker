@@ -3,12 +3,12 @@
 (function siteScript(root) {
   const I18n = root.InvitationI18n;
   const analytics = root.InvitationAnalytics;
-  const escapeAttribute = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+  const { escapeHtml } = root.InvitationText;
 
   const populateLanguageSwitcher = (select) => {
     if (!select || !I18n) return;
     select.innerHTML = I18n.getLanguages()
-      .map(({ language, label }) => `<option value="${escapeAttribute(language)}">${escapeAttribute(label)}</option>`)
+      .map(({ language, label }) => `<option value="${escapeHtml(language)}">${escapeHtml(label)}</option>`)
       .join("");
     select.value = I18n.getLanguage();
     select.addEventListener("change", () => { I18n.setLanguage(select.value); });

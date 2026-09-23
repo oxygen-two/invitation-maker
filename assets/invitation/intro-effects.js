@@ -46,14 +46,10 @@
     "photo-focus": Object.freeze({ labelKey: "effects.introPhotoFocus", duration: 3.6, copy: Object.freeze(["title", "subtitle"]) })
   });
 
-  const escapeHtml = (value = "") =>
-    String(value).replace(/[&<>"']/g, (char) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    })[char]);
+  const { escapeHtml } = (() => {
+    if (typeof module !== "undefined" && module.exports) return require("../shared/text.js");
+    return root.InvitationText;
+  })();
 
   /* The same marker the card's hero carries (see titleScript in
      assets/invitation/template-renderers.js): which script the title is

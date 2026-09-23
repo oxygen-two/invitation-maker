@@ -121,6 +121,10 @@ const createPublishingMountHarness = ({
       return { fillStyle: "", fillRect(...args) { fills.push(args); } };
     }
   });
+  /* The dialog mounts the same publication list the library does — same
+     renderer, same inline confirm row — so its stand-in is the same node the
+     library tests drive, and a click here can be aimed at a real card. */
+  const listNode = Object.assign(makePublicationListNode(), { selector: "#published-list" });
   const root = {
     dataset: {},
     get innerHTML() {
@@ -138,7 +142,7 @@ const createPublishingMountHarness = ({
       children.push({ selector: "#publication-qr", hidden: true });
       children.push(makeCanvas("#publication-qr-canvas"));
       children.push(makeStatus("#publish-status"));
-      children.push({ selector: "#published-list", innerHTML: "", addEventListener(type, listener) { events.set("#published-list:click", listener); } });
+      children.push(listNode);
     },
     querySelector(selector) {
       return children.find((child) => child.selector === selector) || null;
@@ -161,6 +165,7 @@ const createPublishingMountHarness = ({
     children,
     click: (selector) => events.get(`${selector}:click`)(),
     clickPublish: () => events.get("#publish-button:click")(),
+    list: listNode,
     root,
     status: root.querySelector("#publish-status")
   };
@@ -328,7 +333,10 @@ test("revoking a card removes it, re-renders, and tells the library which id wen
   assert.deepEqual(changed, ["bbb"], "the library card list has to drop the same publication");
   assert.equal(harness.node.renders, 2, "the list re-renders off the store, not off the DOM");
   assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"]);
-  // A network round trip the author has just committed to says it is underway.
+  /* A network round trip the author has just committed to says it is underway.
+     Both mounts are one implementation now, and this is the sentence they
+     share: the only other feedback is the card vanishing, so a slow server
+     would otherwise look like a button that did nothing. */
   assert.deepEqual(harness.statusMessages, [publishCopy("deleting"), publishCopy("deleted")]);
 });
 
@@ -345,6 +353,9 @@ test("a revoke the server refuses leaves the card in place and says what happene
 
   assert.deepEqual(harness.statusMessages, [publishCopy("deleting"), publishCopy("deleteFailed")]);
   assert.deepEqual(harness.node.cards.map((card) => card.id), ["aaa"], "the link is still live, so its card stays");
+  // A refused revoke changed nothing in the store, so the list is not
+  // repainted under the author's cursor to say that nothing happened.
+  assert.equal(harness.node.renders, 1);
 });
 
 test("a click on the card but on neither button does nothing at all", async () => {
@@ -374,6 +385,102 @@ test("mounting against no node is a no-op with a render that cannot throw", () =
 
   assert.equal(typeof mounted.render, "function");
   assert.equal(mounted.render(), undefined);
+});
+
+/* The library and the share dialog show the author the same live links, and
+   used to do it through two byte-identical renderers with their own copy and
+   revoke handlers beside them. Anything fixed in one silently skipped the
+   other — which is how the library list ended up with no "taking it down…"
+   and the dialog list with no report when a copy failed. */
+test("the library list and the dialog list are one list", async () => {
+  const records = [publication("aaa"), publication("bbb")];
+  const client = {
+    list: () => records,
+    publish: async () => ({ id: "aaa", url: "/i/aaa", expiresAt: null }),
+    remove: async (id) => { records.splice(records.findIndex((entry) => entry.id === id), 1); }
+  };
+  const dialogStatuses = [];
+  const library = createPublicationListHarness({ client });
+  const dialog = createPublishingMountHarness({ client, statusMessages: dialogStatuses });
+
+  assert.equal(library.node.innerHTML, dialog.list.innerHTML,
+    "both mounts render the same markup from the same records");
+
+  // Asking is not answering — the inline question is part of the one renderer,
+  // so the library's cards and the dialog's cards both carry it.
+  await library.click("bbb", "revoke");
+  assert.deepEqual(records.map((entry) => entry.id), ["aaa", "bbb"], "the question alone takes nothing down");
+  await library.click("bbb", "revoke-confirm");
+  assert.deepEqual(library.statusMessages, [publishCopy("deleting"), publishCopy("deleted")]);
+
+  // The same words, in the same order, from the dialog's own revoke button.
+  await dialog.clickPublish();
+  dialogStatuses.length = 0;
+  dialog.click("#revoke-publication-link");
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(dialogStatuses, [publishCopy("deleting"), publishCopy("deleted")]);
+  assert.equal(dialog.root.querySelector("#publish-result-link").hidden, true,
+    "the panel stops showing a link it has just taken down");
+});
+
+/* The inline question used to live in the library's mount only. It is part of
+   the one renderer now, so the copy of the list inside the share dialog — the
+   one an author reaches straight after publishing — asks it too. */
+test("the share dialog's own list asks before it takes a link down", async () => {
+  const records = [publication("aaa"), publication("bbb")];
+  const removed = [];
+  const statuses = [];
+  const dialog = createPublishingMountHarness({
+    client: {
+      list: () => records,
+      remove: async (id) => {
+        removed.push(id);
+        records.splice(records.findIndex((entry) => entry.id === id), 1);
+      }
+    },
+    statusMessages: statuses
+  });
+  const control = (action, id = "aaa") =>
+    dialog.list.querySelector(`[data-publish-action="${action}"][data-publication-id="${id}"]`);
+  const confirmRow = (id = "aaa") => dialog.list.querySelector(`[data-revoke-confirm="${id}"]`);
+
+  assert.equal(confirmRow().hidden, true, "the question is asked, not pre-asked");
+
+  await dialog.list.dispatch("click", { target: control("revoke") });
+
+  assert.deepEqual(removed, [], "asking the question must not answer it");
+  assert.equal(confirmRow().hidden, false);
+  assert.equal(control("revoke").attributes["aria-controls"], "revoke-confirm-aaa",
+    "the trigger names the row it opens");
+  assert.equal(dialog.list.activeElement, control("revoke-cancel"), "focus lands on the half that changes nothing");
+
+  await dialog.list.dispatch("click", { target: control("revoke-confirm") });
+
+  assert.deepEqual(removed, ["aaa"]);
+  assert.deepEqual(statuses.slice(-2), [publishCopy("deleting"), publishCopy("deleted")]);
+  assert.equal(confirmRow("aaa"), null, "the card and its question are gone together");
+  assert.equal(dialog.list.activeElement, control("revoke", "bbb"),
+    "focus goes to the card that moved up into the gap");
+});
+
+test("a copy the clipboard refuses is reported, not only shown", async () => {
+  const reported = [];
+  const restore = globalThis.InvitationErrorReporting;
+  globalThis.InvitationErrorReporting = { reportFault: (context) => reported.push(context) };
+  try {
+    const harness = createPublicationListHarness({
+      client: { list: () => [publication("aaa")] },
+      clipboard: { writeText: async () => { throw new Error("clipboard blocked"); } }
+    });
+
+    await harness.click("aaa", "copy");
+
+    assert.deepEqual(harness.statusMessages, [publishCopy("copyFailed")]);
+    assert.deepEqual(reported, ["publish_copy"], "a clipboard that refuses is a fault worth a diagnostic");
+  } finally {
+    globalThis.InvitationErrorReporting = restore;
+  }
 });
 
 /* B-9: the dialog used to say "Share a link", then "SHARE", then "Public link",
@@ -815,6 +922,39 @@ test("mount renders an independent finish section and forwards validate/getValue
   // pass retranslates the panel on a language change without a remount.
   assert.match(root.innerHTML, /data-i18n="publish\.consent"/);
   assert.match(root.innerHTML, /data-i18n="publish\.publishButton"/);
+});
+
+/* The studio's validate() now ends in a question asked inside the page (the
+   reply-contact check), so it answers with a promise. A publish that read the
+   promise itself would see an object, call it true, and publish regardless of
+   the answer. */
+test("publishing waits for the studio's answer before it sends anything", async () => {
+  const published = [];
+  let answer;
+  const harness = createPublishingMountHarness({
+    client: {
+      list: () => [],
+      publish: async (value) => {
+        published.push(value);
+        return { id: "waited", url: "/i/waited", expiresAt: null };
+      }
+    },
+    validate: () => new Promise((resolve) => { answer = resolve; })
+  });
+
+  const declined = harness.clickPublish();
+  answer(false);
+  await declined;
+
+  assert.deepEqual(published, [], "nothing is sent while the author is still being asked");
+  assert.equal(harness.status.textContent, publishCopy("invalid"));
+  assert.equal(harness.root.querySelector("#publish-button").disabled, false);
+
+  const accepted = harness.clickPublish();
+  answer(true);
+  await accepted;
+
+  assert.equal(published.length, 1);
 });
 
 test("mount surfaces actionable publish failures without injecting raw server text", async () => {
