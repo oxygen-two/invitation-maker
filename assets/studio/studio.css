@@ -212,6 +212,14 @@ body[data-studio-stage="library"] .app-shell { display: block; max-width: 820px;
 /* Everything the phone breakpoint changes lives in the single
    `@media (max-width: 900px)` block at the foot of this file. */
 
+/* <main> holds focus only to catch the skip link, and the rule above is bare,
+   so taking the shortcut drew a 3px ring around the entire page. assets/site/
+   site.css never had the problem because it scopes its ring to a/button/select
+   — the five site pages land on their own <main id="main"> with no outline at
+   all, and this keeps the studio's skip link behaving the same way. The next
+   Tab lands on a real control, which is rung normally. */
+#main:focus,
+#main:focus-visible { outline: none; }
 @media (max-width: 900px) {
   .studio-bar { padding: 16px 20px; }
   .studio-bar a { font-size: 18px; }

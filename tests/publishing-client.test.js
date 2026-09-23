@@ -1056,8 +1056,12 @@ const makePublicationListNode = () => {
   const listeners = new Map();
   const node = {
     activeElement: null,
+    attributes: {},
     elements: [],
     html: "",
+    focus() { node.activeElement = node; },
+    setAttribute(name, value) { node.attributes[name] = String(value); },
+    getAttribute(name) { return Object.hasOwn(node.attributes, name) ? node.attributes[name] : null; },
     addEventListener(type, handler) {
       listeners.set(type, [...(listeners.get(type) || []), handler]);
     },
@@ -1093,6 +1097,11 @@ const makePublicationListNode = () => {
   };
   return node;
 };
+
+const twoPublications = [
+  { id: "pub-1", title: "Picnic", url: "/i/pub-1", expiresAt: null },
+  { id: "pub-2", title: "Housewarming", url: "/i/pub-2", expiresAt: null }
+];
 
 const mountLibraryList = ({ publications = [{ id: "pub-1", title: "Picnic", url: "/i/pub-1", expiresAt: null }] } = {}) => {
   const removed = [];
@@ -1177,4 +1186,34 @@ test("copying a link from the library says so too, rather than into a no-op", as
 test("the library list never reaches for window.confirm", () => {
   const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "../assets/publishing/publishing.js"), "utf8");
   assert.doesNotMatch(source, /(?:^|[^\w.])confirm\s*\(/);
+});
+
+/* render() replaces the whole list, so the button that was just pressed stops
+   existing and focus falls to <body> — the top of the document, on a stage the
+   author was working in. It goes to whatever took the revoked card's place. */
+test("revoking hands focus to the card that took its place", async () => {
+  const harness = mountLibraryList({ publications: [...twoPublications] });
+
+  await clickAction(harness, "revoke", "pub-1");
+  await clickAction(harness, "revoke-confirm", "pub-1");
+
+  assert.deepEqual(harness.removed, ["pub-1"]);
+  assert.equal(
+    harness.node.activeElement,
+    harness.node.querySelector('[data-publish-action="revoke"][data-publication-id="pub-2"]'),
+    "focus was not handed to the remaining card"
+  );
+});
+
+test("revoking the last link leaves focus on the list rather than on nothing", async () => {
+  const harness = mountLibraryList();
+
+  await clickAction(harness, "revoke", "pub-1");
+  await clickAction(harness, "revoke-confirm", "pub-1");
+
+  assert.ok(harness.node.innerHTML.includes(publishCopy("listEmpty")));
+  assert.equal(harness.node.activeElement, harness.node, "focus fell out of the list");
+  // Which is only reachable because the list can hold focus without being a
+  // stop in the Tab order.
+  assert.equal(harness.node.getAttribute("tabindex"), "-1");
 });

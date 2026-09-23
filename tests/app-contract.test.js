@@ -4431,10 +4431,10 @@ test("a stage change moves focus to the heading and says which stage it is", asy
 test("the heading is programmatically focusable and reads the stage in either language", () => {
   const app = read("assets/studio/app.js");
 
-  const stage = app.slice(app.indexOf("const setStudioStage = (stage)"));
+  const stage = app.slice(app.indexOf("const setStudioStage = (stage,"));
   const body = stage.slice(0, stage.indexOf("\n};"));
   assert.match(app, /const STAGE_HEADING_KEYS = \{/);
-  assert.match(body, /document\.querySelector\('#studio-heading'\);\n\s*heading\?\.focus\?\.\(\);/);
+  assert.match(body, /document\.querySelector\('#studio-heading'\);\n\s*if \(moveFocus\) heading\?\.focus\?\.\(\{ preventScroll: true \}\);/);
   assert.match(body, /t\('status\.stageChanged', \{ stage: stageHeadingText\(stage\) \}\)/);
   for (const stage of ["gallery", "edit", "finish", "library"]) {
     for (const translate of [ko, en]) {
@@ -4463,7 +4463,9 @@ test("the hero frame is a group that says where it moved, not an image that says
   // Arrow keys move the photo, so the move has to reach the status line the
   // rest of the hero editor already speaks through.
   const pan = app.slice(app.indexOf("const moveHeroImageByKeyboard"));
-  assert.match(pan.slice(0, pan.indexOf("\n};")), /dom\.heroImageStatus\.textContent = t\("hero\.movedTo"/);
+  assert.match(pan.slice(0, pan.indexOf("\n};")), /announceHeroImagePosition\(\)/);
+  const announce = app.slice(app.indexOf("const announceHeroImagePosition"));
+  assert.match(announce.slice(0, announce.indexOf("\n};")), /dom\.heroImageStatus\.textContent = t\("hero\.movedTo"/);
 });
 
 test("the item card's overflow is a button group, not a menu without a menu's keyboard", () => {
@@ -4489,4 +4491,70 @@ test("the scrolling chip and design rows carry a role with the name they were gi
     assert.match(tag, /aria-label=/, `${id} lost its name`);
     assert.match(tag, /role="group"/, `${id} is a bare <div> with a name and no role`);
   }
+});
+
+/* Review follow-up. Moving focus to the heading is right when a person asked
+   for the stage; it is theft when the studio changed stage on its own. Boot
+   with a restored draft lands on the editor before the author has touched
+   anything, and the two export guards change stage only so they can put focus
+   on the field that is wrong — in all three the heading must stay quiet. */
+test("a stage the studio chose for itself does not take focus away", async () => {
+  const harness = await loadGalleryHarness({ mobile: false });
+  const heading = harness.node("#studio-heading");
+  const elsewhere = harness.node("#apply-template-button");
+
+  elsewhere.focus();
+  harness.api.setStudioStage("edit", { moveFocus: false });
+  assert.equal(harness.document.activeElement, elsewhere, "a programmatic stage change moved focus");
+  // It is still a stage change in every other respect.
+  assert.equal(harness.document.body.dataset.studioStage, "edit");
+  assert.equal(heading.textContent, ko("nav.edit"));
+  assert.equal(harness.node("#studio-stage-status").textContent, ko("status.stageChanged", { stage: ko("nav.edit") }));
+
+  // And a stage the author asked for still lands on the heading.
+  harness.api.setStudioStage("library");
+  assert.equal(harness.document.activeElement, heading);
+});
+
+test("the three stage changes nobody asked for pass moveFocus: false", () => {
+  const app = read("assets/studio/app.js");
+
+  assert.match(app, /const setStudioStage = \(stage, \{ moveFocus = true \} = \{\}\) => \{/);
+  // Boot: a restored draft opens the editor before the author has touched
+  // anything, so focus belongs wherever the browser left it.
+  assert.match(app, /if \(personalDraft\) setStudioStage\('edit', \{ moveFocus: false \}\);/);
+  // Both export guards move to the editor only to put focus on the field that
+  // is wrong; the heading would take it straight back off them.
+  for (const guard of ["validateForExport", "confirmReplyContact"]) {
+    const body = app.slice(app.indexOf(`const ${guard} = `));
+    assert.match(body.slice(0, body.indexOf("\n};")), /setStudioStage\('edit', \{ moveFocus: false \}\)/, guard);
+  }
+  // window.scrollTo(0, 0) has already put the nav rows on screen; focusing the
+  // heading must not scroll them back off it.
+  assert.match(app, /heading\?\.focus\?\.\(\{ preventScroll: true \}\)/);
+});
+
+test("the skip link's landing pad does not draw a ring around the whole page", () => {
+  const css = read("assets/studio/studio.css");
+
+  // studio.css carries a bare `:focus-visible` rule, so <main tabindex="-1">
+  // — which exists only to catch the skip link — was outlined end to end.
+  // assets/site/site.css scopes its ring to a/button/select and so never did.
+  assert.match(css, /#main:focus,\s*#main:focus-visible \{ outline: none; \}/);
+  assert.match(css, /:focus-visible \{ outline: 3px solid var\(--studio-focus\)/);
+});
+
+test("a pointer drag describes where it left the photo, once, at the end", () => {
+  const app = read("assets/studio/app.js");
+
+  // #hero-image-frame is aria-describedby #hero-image-status, so the line has
+  // to still be true after a drag — but announcing every pointermove would
+  // make the live region unreadable.
+  assert.match(app, /const announceHeroImagePosition = \(\) => \{/);
+  const drag = app.slice(app.indexOf("const finishHeroImageDrag = (event) => {"));
+  assert.match(drag.slice(0, drag.indexOf("\n};")), /announceHeroImagePosition\(\)/);
+  const move = app.slice(app.indexOf("const moveHeroImageDrag = "));
+  assert.doesNotMatch(move.slice(0, move.indexOf("\n};")), /announceHeroImagePosition|hero\.movedTo/);
+  const keyboard = app.slice(app.indexOf("const moveHeroImageByKeyboard = "));
+  assert.match(keyboard.slice(0, keyboard.indexOf("\n};")), /announceHeroImagePosition\(\)/);
 });

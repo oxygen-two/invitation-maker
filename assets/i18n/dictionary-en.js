@@ -53,6 +53,7 @@
        legal pages load. */
     consent: {
       regionLabel: "Cookie and analytics choice",
+      skipLink: "Skip to the cookie choice",
       message: "May we turn on visit analytics? What you write in an invitation is never sent to them.",
       privacyLink: "Read the privacy policy",
       accept: "Accept analytics",

@@ -70,15 +70,29 @@ const makeElement = (tagName) => {
     },
     append(...nodes) {
       for (const node of nodes) {
-        if (node && typeof node === "object") node.isConnected = true;
+        if (node && typeof node === "object") {
+          node.isConnected = true;
+          node.parentNode = this;
+        }
         this.children.push(node);
       }
     },
     prepend(...nodes) {
       for (const node of nodes) {
-        if (node && typeof node === "object") node.isConnected = true;
+        if (node && typeof node === "object") {
+          node.isConnected = true;
+          node.parentNode = this;
+        }
         this.children.unshift(node);
       }
+    },
+    remove() {
+      const parent = element.parentNode;
+      if (!parent) return;
+      const index = parent.children.indexOf(element);
+      if (index >= 0) parent.children.splice(index, 1);
+      element.isConnected = false;
+      element.parentNode = null;
     },
     focus() {
       element.focused = true;
@@ -397,11 +411,15 @@ test("every page that loads analytics also loads the consent banner", () => {
 });
 
 /* Batch 5 — the banner was appended last, after every link and control on the
-   page, while being painted over the foot of the viewport. A keyboard visitor
+   page, while being painted over the foot of the viewport: a keyboard visitor
    had to walk the whole document before being offered the choice, and nothing
-   announced that a choice had appeared at all. It is now the first thing in
-   the body and a polite live region, so it is one Tab away and it speaks. */
-test("the consent banner is reachable from the top of the page and announces itself", () => {
+   announced that a choice had appeared at all.
+
+   Moving the banner itself to the top only inverts the mismatch — it would
+   then read first and paint last. So it stays where it is drawn, and a second
+   skip link is what gets you there: the site's own .skip control, added beside
+   the page's existing one for exactly as long as the banner is up. */
+test("the banner stays where it is painted, and says it arrived", () => {
   const { body, documentRef } = makeDocument();
   const other = makeElement("div");
   body.append(other);
@@ -409,29 +427,53 @@ test("the consent banner is reachable from the top of the page and announces its
 
   const banner = documentRef.getElementById("invitation-consent");
   assert.ok(banner, "the banner should be added on a first visit");
-  assert.equal(body.children[0], banner, "the banner is still behind the rest of the page");
+  assert.equal(body.children.at(-1), banner, "the banner must stay last, where it is drawn");
+  assert.equal(banner.getAttribute("role"), "region");
   assert.equal(banner.getAttribute("aria-live"), "polite");
+  assert.equal(banner.getAttribute("tabindex"), "-1", "a skip target has to be able to hold focus");
+  // A page with no skip link of its own (the guest invitation, the viewer)
+  // gets no second one: nothing to pattern it on, and nowhere to put it.
+  assert.equal(body.children.length, 2);
 });
 
-/* Every page but the guest invitation ships a skip link, and it stays the
-   first stop: reaching the content is one Tab, answering the banner is two. */
-test("where there is a skip link the banner falls in behind it, never at the end", () => {
-  const { body, documentRef } = makeDocument();
+const withSkipLink = () => {
+  const made = makeDocument();
   const skip = makeElement("a");
   skip.className = "skip";
-  skip.after = (node) => { body.children.splice(body.children.indexOf(skip) + 1, 0, node); node.isConnected = true; };
-  body.append(skip);
-  body.append(makeElement("main"));
-  loadConsent({ documentRef });
+  skip.after = (node) => {
+    made.body.children.splice(made.body.children.indexOf(skip) + 1, 0, node);
+    node.isConnected = true;
+    node.parentNode = made.body;
+  };
+  made.body.append(skip);
+  made.body.append(makeElement("main"));
+  return { ...made, skip };
+};
+
+test("a page that ships a skip link gets a second one pointing at the banner", () => {
+  const { body, documentRef, skip } = withSkipLink();
+  const { consent } = loadConsent({ documentRef });
 
   const banner = documentRef.getElementById("invitation-consent");
-  assert.equal(body.children[0], skip, "the skip link must stay the first stop");
-  assert.equal(body.children[1], banner, "the banner must follow the skip link");
+  const shortcut = body.children[1];
+  assert.equal(body.children[0], skip, "the page's own skip link stays the first stop");
+  assert.equal(shortcut.tagName, "a");
+  assert.equal(shortcut.className, "skip");
+  assert.equal(shortcut.href, "#invitation-consent");
+  assert.equal(shortcut.getAttribute("data-i18n"), "consent.skipLink");
+  assert.ok(shortcut.textContent.length > 0, "the shortcut needs words");
+  assert.equal(body.children.at(-1), banner, "the banner is still painted where it is drawn");
+
+  // Answering takes the shortcut away with the thing it pointed at: a skip
+  // link to a hidden banner is a stop that goes nowhere.
+  consent.set("granted");
+  assert.equal(banner.hidden, true);
+  assert.equal(body.children.includes(shortcut), false, "the shortcut outlived the banner");
 });
 
-test("consent.js puts the banner at the top rather than appending it last", () => {
+test("consent.js keeps the banner in visual order and reaches it with the site's own pattern", () => {
   const source = fs.readFileSync(path.join(root, "assets/site/consent.js"), "utf8");
-  assert.match(source, /skipLink\?\.after/);
-  assert.match(source, /doc\.body\.prepend\(banner\)/);
-  assert.doesNotMatch(source, /doc\.body\.append\(banner\)/);
+  assert.match(source, /doc\.body\.append\(banner\)/);
+  assert.doesNotMatch(source, /doc\.body\.prepend\(banner\)/);
+  assert.match(source, /querySelector\?\.\(".skip"\)/);
 });

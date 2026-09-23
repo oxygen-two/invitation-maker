@@ -310,8 +310,14 @@
        dismissed like the rest, and that on a phone covers the card you are
        deciding about. */
     let openConfirmId = null;
+    const revokeButtons = () => [...(node.querySelectorAll?.('[data-publish-action="revoke"]') || [])];
     const revokeButtonFor = (id) =>
       node.querySelector?.(`[data-publish-action="revoke"][data-publication-id="${id}"]`);
+    /* The list is not a stop in the Tab order, but it has to be able to hold
+       focus: when the last link goes, there is no button left to hand it to
+       and the alternative is <body> — the top of the document, on a stage the
+       author was in the middle of. */
+    node.setAttribute?.("tabindex", "-1");
     const closeRevokeConfirm = ({ focusTrigger = false } = {}) => {
       const closedId = openConfirmId;
       openConfirmId = null;
@@ -384,6 +390,8 @@
       const answered = event.target.closest?.('[data-publish-action="revoke-confirm"]');
       if (!answered) return;
       const revokedId = answered.dataset.publicationId;
+      // Where the card sat, so focus can go to whatever takes its place.
+      const position = revokeButtons().findIndex((button) => button.dataset?.publicationId === revokedId);
       closeRevokeConfirm();
       setStatus(t("deleting"));
       try {
@@ -394,6 +402,13 @@
         setStatus(t("deleteFailed"));
       }
       render();
+      /* render() replaces the markup, so the button that was just pressed no
+         longer exists and focus would fall out of the list entirely. It goes
+         to the card that moved up into the gap — or to the last one, when the
+         gap was at the end — and to the list itself when nothing is left. */
+      const remaining = revokeButtons();
+      const next = remaining[Math.min(Math.max(position, 0), remaining.length - 1)];
+      (next || node)?.focus?.();
       onChange?.(revokedId);
     });
 

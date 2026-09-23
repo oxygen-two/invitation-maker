@@ -225,11 +225,18 @@ const saveDraft = () => {
 
    #studio-heading is now the one h1, a sibling of .app-shell that no stage
    rule can hide. It names the stage from the same keys the stage nav uses,
-   takes focus on every change (tabindex="-1", so only programmatically), and
-   #studio-stage-status says the same thing politely for the readers that
-   announce a live region sooner than they announce a focus move. The warm
-   display line in .maker-header is still there as the section heading under
-   it, and still follows gallery/edit as it always did. */
+   takes focus when a person asked for the stage (tabindex="-1", so only
+   programmatically), and #studio-stage-status says the same thing politely
+   for the readers that announce a live region sooner than they announce a
+   focus move. The warm display line in .maker-header is still there as the
+   section heading under it, and still follows gallery/edit as it always did.
+
+   moveFocus is what separates "the author pressed 02" from "the studio
+   changed stage on its own": restoring a draft at boot lands on the editor
+   before anyone has touched anything, and the two export guards change stage
+   only so they can put focus on the field that is wrong. Taking focus in
+   either case is theft, so those three ask for the stage without the focus
+   and the announcement still tells a reader where the page went. */
 const STAGE_HEADING_KEYS = {
   gallery: 'nav.gallery',
   edit: 'nav.edit',
@@ -248,7 +255,7 @@ const syncStudioHeading = (stage = document.body.dataset.studioStage) => {
   }
 };
 
-const setStudioStage = (stage) => {
+const setStudioStage = (stage, { moveFocus = true } = {}) => {
   if (hasPendingEditorOperation()) return;
   document.body.dataset.studioStage = stage;
   closeStageOverlays(stage);
@@ -261,8 +268,10 @@ const setStudioStage = (stage) => {
   }
   setMobileView(stage === 'finish' ? 'preview' : stage === 'library' ? 'library' : 'editor');
   window.scrollTo(0, 0);
+  // preventScroll: the scroll above has just put the nav rows on screen, and
+  // focusing the heading is not a reason to take them back off it.
   const heading = document.querySelector('#studio-heading');
-  heading?.focus?.();
+  if (moveFocus) heading?.focus?.({ preventScroll: true });
   const stageStatus = document.querySelector('#studio-stage-status');
   if (stageStatus) stageStatus.textContent = t('status.stageChanged', { stage: stageHeadingText(stage) });
   if (stage === 'gallery') requestAnimationFrame(syncTemplateThumbnailScales);
@@ -2223,7 +2232,7 @@ const validateForExport = () => {
   syncMapSettingsVisibility();
   const invalidField = dom.form.querySelector(":invalid");
   if (!invalidField) return true;
-  setStudioStage('edit');
+  setStudioStage('edit', { moveFocus: false });
 
   const card = invalidField.closest("[data-item-card]");
   if (card) setItemExpanded(card, true);
@@ -2244,7 +2253,7 @@ const confirmReplyContact = () => {
     && !entry.url && !/(?:\b0[1-9]\d?[ -]?\d{3,4}[ -]?\d{4}\b|\+[1-9][\d ()-]{7,}\d\b|[^\s@]+@[^\s@]+\.[^\s@]+)/.test(entry.value));
   if (!item) return true;
   if (window.confirm(t('finish.confirmReplyContact'))) return true;
-  setStudioStage('edit');
+  setStudioStage('edit', { moveFocus: false });
   const card = findItemCard(item.id);
   if (card) {
     const group = card.closest('details');
@@ -2708,6 +2717,19 @@ const moveHeroImageDrag = (event) => {
   renderPreview();
 };
 
+/* #hero-image-frame is aria-describedby #hero-image-status, so that line has
+   to still be true after the photo moves — by arrow key or by drag. A drag
+   fires pointermove dozens of times a second and a live region read at that
+   rate is unusable, so a drag says where it landed once, when it ends. */
+const announceHeroImagePosition = () => {
+  if (!state.heroImage) return;
+  const crop = HeroImage.normalizeCrop(state.heroImage);
+  dom.heroImageStatus.textContent = t("hero.movedTo", {
+    x: Math.round(crop.positionX),
+    y: Math.round(crop.positionY)
+  });
+};
+
 const moveHeroImageByKeyboard = (event) => {
   if (!state.heroImage || heroImageSelectionPending) return;
   const directions = {
@@ -2727,13 +2749,7 @@ const moveHeroImageByKeyboard = (event) => {
     frameHeight: bounds.height
   });
   state.heroImage = { src: state.heroImage.src, ...crop };
-  // A pan with no feedback is a control that answers silently: the frame is a
-  // group now, and where it moved to goes to the line the rest of the hero
-  // editor already speaks through.
-  dom.heroImageStatus.textContent = t("hero.movedTo", {
-    x: Math.round(crop.positionX),
-    y: Math.round(crop.positionY)
-  });
+  announceHeroImagePosition();
   markAnalyticsEdit();
   syncHeroImageEditor();
   renderPreview();
@@ -2744,6 +2760,7 @@ const finishHeroImageDrag = (event) => {
   const { pointerId } = heroImageDragState;
   heroImageDragState = null;
   dom.heroImageFrame.classList.remove("is-dragging");
+  announceHeroImagePosition();
   try {
     if (dom.heroImageFrame.hasPointerCapture(pointerId)) dom.heroImageFrame.releasePointerCapture(pointerId);
   } catch {
@@ -2952,7 +2969,7 @@ const init = async () => {
     mountPublishing();
     renderPreview();
     draftReady = true;
-    if (personalDraft) setStudioStage('edit');
+    if (personalDraft) setStudioStage('edit', { moveFocus: false });
     renderSaved();
 
     let database;

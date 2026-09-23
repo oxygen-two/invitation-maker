@@ -56,6 +56,8 @@
     consent: {
       regionLabel: "쿠키 및 분석 동의",
       message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않아요.",
+      skipLink: "쿠키 설정으로 건너뛰기",
+      message: "방문 통계를 켜도 될까요? 초대장에 쓴 내용은 통계로 보내지 않습니다.",
       privacyLink: "개인정보처리방침 보기",
       accept: "분석 허용",
       deny: "필수만 사용"
