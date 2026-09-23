@@ -6,6 +6,7 @@ const { readPublishingConfigFromEnv } = require("./config/publishing.cjs");
 const { readAssistantConfigFromEnv } = require("./config/assistant.cjs");
 const { logConnectionTarget } = require("./config/connection-info.cjs");
 const { createHandler } = require("./http.cjs");
+const { createReporter } = require("./observability.cjs");
 const { createAssistantFromConfig } = require("./assistant/bootstrap.cjs");
 const { createMongoPublicationsRepository } = require("./storage/mongo-publications.cjs");
 
@@ -27,7 +28,8 @@ const repository = config.mongoUri
   })
   : null;
 
-const assistant = createAssistantFromConfig({ config, repository });
+const report = createReporter(config.logSink);
+const assistant = createAssistantFromConfig({ config, repository, report });
 const server = http.createServer(createHandler({ repository, config, assistant }));
 
 server.listen(config.port, config.host, () => {

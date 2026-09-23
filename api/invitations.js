@@ -4,6 +4,7 @@ const { readHttpConfigFromEnv } = require("../server/config/http.cjs");
 const { readPublishingConfigFromEnv } = require("../server/config/publishing.cjs");
 const { readAssistantConfigFromEnv } = require("../server/config/assistant.cjs");
 const { createHandler } = require("../server/http.cjs");
+const { createReporter } = require("../server/observability.cjs");
 const { createAssistantFromConfig } = require("../server/assistant/bootstrap.cjs");
 const { createMongoPublicationsRepository } = require("../server/storage/mongo-publications.cjs");
 
@@ -27,7 +28,8 @@ const getHandler = () => {
       lifetimeLimit: config.lifetimeLimit
     })
     : null;
-  const assistant = createAssistantFromConfig({ config, repository });
+  const report = createReporter(config.logSink);
+  const assistant = createAssistantFromConfig({ config, repository, report });
   cached = createHandler({ repository, config, assistant });
   return cached;
 };

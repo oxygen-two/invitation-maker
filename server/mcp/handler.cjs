@@ -6,6 +6,7 @@ const { PUBLISHING_ERROR_MESSAGES } = require("../config/publishing.cjs");
 const { ASSISTANT_ERROR_MESSAGES } = require("../config/assistant.cjs");
 const { createAssistantCatalog } = require("../assistant/catalog.cjs");
 const { clientIpFrom, getRequestOrigin } = require("../http/request-info.cjs");
+const { readBody } = require("../http/read-body.cjs");
 const { sha256 } = require("../validation.cjs");
 const { sendWebResponse, toWebRequest } = require("./node-adapter.cjs");
 const { createMcpServer } = require("./server.cjs");
@@ -29,30 +30,6 @@ const jsonError = (res, status, code, extraHeaders = {}) => {
   });
   res.end(JSON.stringify({ error: { code, message: messageFor(code) } }));
 };
-
-const readBody = (req, maxBytes) => new Promise((resolve, reject) => {
-  if (req.body !== undefined) {
-    const raw = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-    if (Buffer.byteLength(raw, "utf8") > maxBytes) reject(Object.assign(new Error("body too large"), { code: "BODY_TOO_LARGE" }));
-    else resolve(raw);
-    return;
-  }
-  const chunks = [];
-  let size = 0;
-  let failed = false;
-  req.on("data", (chunk) => {
-    if (failed) return;
-    size += chunk.length;
-    if (size > maxBytes) {
-      failed = true;
-      reject(Object.assign(new Error("body too large"), { code: "BODY_TOO_LARGE" }));
-      return;
-    }
-    chunks.push(chunk);
-  });
-  req.on("end", () => { if (!failed) resolve(Buffer.concat(chunks).toString("utf8")); });
-  req.on("error", reject);
-});
 
 // The Host header is attacker-controlled, so it never becomes the base of a
 // published link on its own. Only an explicitly configured base (env), the
@@ -103,6 +80,7 @@ const createMcpHandler = ({ assistant, config = {} }) => {
     } catch (error) {
       // Never let a malformed request (or any other transport failure) crash
       // the process: answer a plain, message-free error instead.
+      try { config.reportServerEvent?.({ event: "mcp_transport_failed", name: error?.name || "Error" }); } catch {}
       jsonError(res, isInvalidUrlError(error) ? 400 : 503, isInvalidUrlError(error) ? "BAD_REQUEST" : "ASSISTANT_UNAVAILABLE");
     } finally {
       await transport.close().catch(() => {});

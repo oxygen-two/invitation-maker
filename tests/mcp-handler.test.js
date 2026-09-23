@@ -252,7 +252,8 @@ test("an invalid configured base url answers a plain error instead of crashing t
   // trusted without re-validating it against the Host header allowlist -
   // but a bad value must still fail safely rather than take the process
   // down, and must never leak the raw value or a stack trace to the caller.
-  const { handler } = buildHandler({ config: { allowedOrigin: "not a url at all" } });
+  const reported = [];
+  const { handler } = buildHandler({ config: { allowedOrigin: "not a url at all", reportServerEvent: (event) => reported.push(event) } });
   await withServer(handler, async (rpc) => {
     const response = await rpc(call(1, "publish_invitation", { draft: readyDraft, confirmed: true }));
     assert.equal(response.status, 400);
@@ -266,5 +267,10 @@ test("an invalid configured base url answers a plain error instead of crashing t
     const followUp = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     assert.equal(followUp.status, 400);
     assert.equal(followUp.body.error.code, "BAD_REQUEST");
+
+    // The transport failure is reported (no message, no stack) so an operator
+    // has a trace instead of every request just being a silent 400.
+    assert.equal(reported.length, 2);
+    assert.deepEqual(reported[0], { event: "mcp_transport_failed", name: "TypeError" });
   });
 });
