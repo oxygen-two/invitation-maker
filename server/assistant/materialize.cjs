@@ -2,25 +2,21 @@
 // A ready draft plus its template preset becomes the invitation record the
 // publishing API already accepts. Only the preset's look travels (effects,
 // fonts, particles); its sample courses, photos and profiles never do.
+const I18n = require("../../assets/i18n/i18n.js");
+
 const LOOK_FIELDS = ["introEffect", "particleEffect", "particleScale", "particleAmount", "englishFont", "koreanFont"];
 
 const googleMapsSearchUrl = (location) => (location
   ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
   : "");
 
-// The draft's dateTime is wall time in its zone. Formatting the parts we
-// already have (no instant conversion) keeps the label identical whatever
-// zone the process runs in.
+// The studio derives a dateLabel from the picked dateTime with this same
+// function, so an assistant-made invitation reads exactly like a studio one.
+// It assembles the label from Intl parts and preserves the wall time, so the
+// result is the same in every process zone.
 const formatDateLabel = (dateTime, timeZone, language) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(dateTime || "");
-  if (!match) return "";
-  const [, year, month, day, hour, minute] = match.map(Number);
-  const asUtc = new Date(Date.UTC(year, month - 1, day, hour, minute));
-  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "ko-KR", {
-    timeZone: "UTC",
-    year: "numeric", month: language === "en" ? "short" : "long", day: "numeric", weekday: "short",
-    hour: "numeric", minute: "2-digit"
-  }).format(asUtc);
+  if (!dateTime) return "";
+  return I18n.formatSampleDate(dateTime, language === "en" ? "en" : "ko") || "";
 };
 
 const materializeInvitation = (draft, { catalog }) => {
