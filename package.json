@@ -18,6 +18,8 @@
     "build:public": "node scripts/build-public.cjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "mongodb": "7.6.0"
   }
 }
